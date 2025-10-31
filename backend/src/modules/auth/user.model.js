@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
     {
@@ -9,6 +10,23 @@ const userSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-export const UserModel = mongoose.model("User", userSchema);
+// Hash password trước khi lưu
+userSchema.pre('save', async function (next) {
+    if (!this.isModified('password')) return next();
 
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Method để so sánh password
+userSchema.methods.comparePassword = async function (candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
+};
+
+export const UserModel = mongoose.model("User", userSchema);
 
