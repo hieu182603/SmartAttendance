@@ -19,7 +19,7 @@ const swaggerSpec = swaggerJSDoc({
         openapi: "3.0.0",
         info: { title: "SmartAttendance API", version: "0.1.0" }
     },
-    apis: ["./src/**/*.router.js", "./src/**/*.controller.js"],
+    apis: ["./src/**/*.router.js"],
 });
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
