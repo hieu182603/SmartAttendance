@@ -23,7 +23,7 @@ userSchema.pre('save', async function (next) {
     }
 });
 
-// Method để so sánh password
+
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
 };
