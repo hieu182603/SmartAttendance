@@ -52,8 +52,8 @@ async function start() {
             const docsUrl = `${serverUrl}/api/docs`;
 
             console.log("\n🚀 ========================================");
-            console.log(`✅ Server đang chạy tại: http://localhost:${PORT}`);
-            console.log(`📚 API Documentation: http://localhost:${PORT}/api/docs`);
+            console.log(`✅ Server đang chạy tại: ${serverUrl}`);
+            console.log(`📚 API Documentation: ${docsUrl}`);
             console.log("🚀 ========================================\n");
 
         });
