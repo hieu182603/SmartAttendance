@@ -1,31 +1,25 @@
-import jwt from "jsonwebtoken";
+import { extractTokenFromHeader, verifyToken } from "../utils/jwt.util.js";
 
-/**
- * Middleware xác thực JWT token
- * Thêm thông tin user vào req.user nếu token hợp lệ
- */
 export const authMiddleware = (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
+        const token = extractTokenFromHeader(authHeader);
 
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return res.status(401).json({ message: "Không có token xác thực" });
+        if (!token) {
+            return res.status(401).json({ message: "No authentication token" });
         }
 
-        const token = authHeader.split(" ")[1];
-        const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
-
-        const decoded = jwt.verify(token, JWT_SECRET);
+        const decoded = verifyToken(token);
         req.user = decoded;
 
         next();
     } catch (error) {
         if (error.name === "TokenExpiredError") {
-            return res.status(401).json({ message: "Token đã hết hạn" });
+            return res.status(401).json({ message: "Token expired" });
         }
         if (error.name === "JsonWebTokenError") {
-            return res.status(401).json({ message: "Token không hợp lệ" });
+            return res.status(401).json({ message: "Invalid token" });
         }
-        return res.status(401).json({ message: "Xác thực thất bại" });
+        return res.status(401).json({ message: "Authentication failed" });
     }
 };
