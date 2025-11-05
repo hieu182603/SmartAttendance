@@ -3,14 +3,23 @@ import { z } from "zod";
 
 // Validation schemas
 export const registerSchema = z.object({
-    email: z.string().email("Email không hợp lệ"),
-    password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
-    name: z.string().min(1, "Tên không được để trống")
+    email: z.string().email("Invalid email"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    name: z.string().min(1, "Name is required")
 });
 
 export const loginSchema = z.object({
-    email: z.string().email("Email không hợp lệ"),
-    password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự")
+    email: z.string().email("Invalid email"),
+    password: z.string().min(6, "Password must be at least 6 characters")
+});
+
+export const verifyOTPSchema = z.object({
+    email: z.string().email("Invalid email"),
+    otp: z.string().length(6, "OTP must be 6 digits")
+});
+
+export const resendOTPSchema = z.object({
+    email: z.string().email("Invalid email")
 });
 
 /**
@@ -55,7 +64,7 @@ export class AuthController {
             const parse = registerSchema.safeParse(req.body);
             if (!parse.success) {
                 return res.status(400).json({
-                    message: "Dữ liệu không hợp lệ",
+                    message: "Invalid data",
                     errors: parse.error.flatten()
                 });
             }
@@ -66,10 +75,10 @@ export class AuthController {
             return res.status(201).json(result);
         } catch (error) {
             if (error.message === "Email already registered") {
-                return res.status(409).json({ message: "Email đã được đăng ký" });
+                return res.status(409).json({ message: "Email already registered" });
             }
             console.error("Register error:", error);
-            return res.status(500).json({ message: "Lỗi server" });
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 
@@ -111,7 +120,7 @@ export class AuthController {
             const parse = loginSchema.safeParse(req.body);
             if (!parse.success) {
                 return res.status(400).json({
-                    message: "Dữ liệu không hợp lệ",
+                    message: "Invalid data",
                     errors: parse.error.flatten()
                 });
             }
@@ -122,10 +131,135 @@ export class AuthController {
             return res.status(200).json(result);
         } catch (error) {
             if (error.message === "Invalid credentials") {
-                return res.status(401).json({ message: "Email hoặc mật khẩu không đúng" });
+                return res.status(401).json({ message: "Invalid email or password" });
+            }
+            if (error.message === "Email not verified. Please verify your email first.") {
+                return res.status(403).json({ message: "Email not verified. Please verify your email first." });
             }
             console.error("Login error:", error);
-            return res.status(500).json({ message: "Lỗi server" });
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    /**
+     * @swagger
+     * /api/auth/verify-otp:
+     *   post:
+     *     summary: Verify OTP and activate account
+     *     tags: [Auth]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email, otp]
+     *             properties:
+     *               email:
+     *                 type: string
+     *                 format: email
+     *               otp:
+     *                 type: string
+     *                 minLength: 6
+     *                 maxLength: 6
+     *     responses:
+     *       200:
+     *         description: Email verified successfully
+     *       400:
+     *         description: Invalid data, invalid OTP, expired OTP, or email already verified
+     *       404:
+     *         description: User not found
+     */
+    static async verifyOTP(req, res) {
+        try {
+            // Validate request body
+            const parse = verifyOTPSchema.safeParse(req.body);
+            if (!parse.success) {
+                return res.status(400).json({
+                    message: "Invalid data",
+                    errors: parse.error.flatten()
+                });
+            }
+
+            // Verify OTP
+            const result = await AuthService.verifyOTP(parse.data.email, parse.data.otp);
+
+            return res.status(200).json(result);
+        } catch (error) {
+            if (error.message === "User not found") {
+                return res.status(404).json({ message: "User not found" });
+            }
+            if (error.message === "Email already verified") {
+                return res.status(400).json({ message: "Email already verified" });
+            }
+            if (error.message === "OTP not found. Please request a new OTP.") {
+                return res.status(400).json({ message: "OTP not found. Please request a new OTP." });
+            }
+            if (error.message === "OTP expired. Please request a new OTP.") {
+                return res.status(400).json({ message: "OTP expired. Please request a new OTP." });
+            }
+            if (error.message === "Invalid OTP") {
+                return res.status(400).json({ message: "Invalid OTP" });
+            }
+            console.error("Verify OTP error:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    /**
+     * @swagger
+     * /api/auth/resend-otp:
+     *   post:
+     *     summary: Resend OTP to email
+     *     tags: [Auth]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email]
+     *             properties:
+     *               email:
+     *                 type: string
+     *                 format: email
+     *     responses:
+     *       200:
+     *         description: OTP sent successfully
+     *       400:
+     *         description: Invalid data or email already verified
+     *       404:
+     *         description: User not found
+     *       500:
+     *         description: Failed to send OTP email
+     */
+    static async resendOTP(req, res) {
+        try {
+            // Validate request body
+            const parse = resendOTPSchema.safeParse(req.body);
+            if (!parse.success) {
+                return res.status(400).json({
+                    message: "Invalid data",
+                    errors: parse.error.flatten()
+                });
+            }
+
+            // Resend OTP
+            const result = await AuthService.resendOTP(parse.data.email);
+
+            return res.status(200).json(result);
+        } catch (error) {
+            if (error.message === "User not found") {
+                return res.status(404).json({ message: "User not found" });
+            }
+            if (error.message === "Email already verified") {
+                return res.status(400).json({ message: "Email already verified" });
+            }
+            if (error.message === "Failed to send OTP email") {
+                return res.status(500).json({ message: "Failed to send OTP email. Please try again later." });
+            }
+            console.error("Resend OTP error:", error);
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 
@@ -163,10 +297,10 @@ export class AuthController {
             return res.status(200).json(user);
         } catch (error) {
             if (error.message === "User not found") {
-                return res.status(404).json({ message: "Không tìm thấy người dùng" });
+                return res.status(404).json({ message: "User not found" });
             }
             console.error("Get current user error:", error);
-            return res.status(500).json({ message: "Lỗi server" });
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 }
