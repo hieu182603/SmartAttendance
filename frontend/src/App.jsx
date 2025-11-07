@@ -1,42 +1,43 @@
 import React from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
+import Login from './components/auth/Login'
+import Register from './components/auth/Register'
+import VerifyOtp from './components/auth/VerifyOtp'
+import ProtectedRoute from './components/ProtectedRoute'
+import { useAuth } from './context/AuthContext'
 
-function Home() {
+function Dashboard() {
+  const { user, logout } = useAuth()
   return (
-    <div className="container py-4">
-      <h1 className="mb-3">SmartAttendance</h1>
-      <p className="text-muted">Welcome to the app scaffold.</p>
-    </div>
-  )
-}
-
-function About() {
-  return (
-    <div className="container py-4">
-      <h2>About</h2>
-      <p>React + Vite + Bootstrap</p>
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <header className="border-b border-slate-800">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link to="/" className="font-semibold">SmartAttendance</Link>
+          <div className="flex items-center gap-3 text-sm">
+            <span>{user?.name} · {user?.email}</span>
+            <button onClick={logout} className="rounded-lg bg-slate-800 px-3 py-1 hover:bg-slate-700">Đăng xuất</button>
+          </div>
+        </div>
+      </header>
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-semibold mb-2">Trang chính</h1>
+        <p className="text-slate-400">Bạn đã đăng nhập thành công.</p>
+      </main>
     </div>
   )
 }
 
 export default function App() {
   return (
-    <>
-      <nav className="navbar navbar-expand bg-light">
-        <div className="container">
-          <Link className="navbar-brand" to="/">SmartAttendance</Link>
-          <ul className="navbar-nav">
-            <li className="nav-item"><Link className="nav-link" to="/">Home</Link></li>
-            <li className="nav-item"><Link className="nav-link" to="/about">About</Link></li>
-          </ul>
-        </div>
-      </nav>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-      </Routes>
-    </>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/verify-otp" element={<VerifyOtp />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<Dashboard />} />
+      </Route>
+    </Routes>
   )
 }
-
 
