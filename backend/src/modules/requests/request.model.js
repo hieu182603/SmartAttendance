@@ -1,43 +1,84 @@
 import mongoose from "mongoose";
 
 /**
- * Schema cho Request (Yêu cầu/Đơn xin phép)
+ * Schema cho Request (Yêu cầu / Đơn xin phép / Tăng ca / Làm từ xa)
  */
 const requestSchema = new mongoose.Schema(
-    {
-        // TODO: Thêm các fields cần thiết
-        // Ví dụ:
-        // userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-        // type: { type: String, enum: ["leave", "overtime", "remote", "other"], required: true },
-        // startDate: { type: Date, required: true },
-        // endDate: { type: Date, required: true },
-        // reason: { type: String, required: true },
-        // status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
-        // approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        // approvedAt: { type: Date },
-        // rejectionReason: { type: String }
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    { timestamps: true }
+    type: {
+      type: String,
+      enum: ["leave", "overtime", "remote", "other"],
+      required: true,
+    },
+    startDate: {
+      type: Date,
+      required: true,
+    },
+    endDate: {
+      type: Date,
+      required: true,
+    },
+    reason: {
+      type: String,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    approvedAt: {
+      type: Date,
+    },
+    rejectionReason: {
+      type: String,
+    },
+  },
+  { timestamps: true }
 );
 
-// TODO: Thêm indexes nếu cần
-// requestSchema.index({ userId: 1, createdAt: -1 });
-// requestSchema.index({ status: 1 });
+// Index giúp tối ưu truy vấn
+requestSchema.index({ userId: 1, createdAt: -1 });
+requestSchema.index({ status: 1 });
 
-// TODO: Thêm methods nếu cần
-// requestSchema.methods.approve = function(approvedBy) {
-//     // Logic phê duyệt
-// };
+/**
+ * ✅ Method phê duyệt yêu cầu
+ * @param {ObjectId} managerId - ID của người duyệt
+ */
+requestSchema.methods.approve = function (managerId) {
+  this.status = "approved";
+  this.approvedBy = managerId;
+  this.approvedAt = new Date();
+  this.rejectionReason = undefined;
+};
 
-// requestSchema.methods.reject = function(rejectionReason) {
-//     // Logic từ chối
-// };
+/**
+ * ❌ Method từ chối yêu cầu
+ * @param {String} reason - Lý do từ chối
+ */
+requestSchema.methods.reject = function (reason) {
+  this.status = "rejected";
+  this.rejectionReason = reason;
+  this.approvedAt = new Date();
+};
 
-// TODO: Thêm pre-save/post-save hooks nếu cần
-// requestSchema.pre('save', async function (next) {
-//     // Logic trước khi lưu
-//     next();
-// });
+/**
+ * 🕒 Hook kiểm tra logic ngày tháng trước khi lưu
+ */
+requestSchema.pre("save", function (next) {
+  if (this.startDate > this.endDate) {
+    return next(new Error("Ngày bắt đầu không được lớn hơn ngày kết thúc"));
+  }
+  next();
+});
 
 export const RequestModel = mongoose.model("Request", requestSchema);
-
