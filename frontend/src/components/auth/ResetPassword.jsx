@@ -116,7 +116,7 @@ export default function ResetPassword() {
               className="space-y-2"
             >
               <p className="text-sm text-[var(--text-sub)]">Yêu cầu mật khẩu:</p>
-              <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
                 {[
                   { label: 'Ít nhất 8 ký tự', valid: passwordStrength.hasMinLength },
                   { label: 'Chữ hoa (A-Z)', valid: passwordStrength.hasUpperCase },
@@ -129,7 +129,7 @@ export default function ResetPassword() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-1 rounded-full border border-[var(--border)] px-2 py-1 bg-[var(--surface)]/60"
                   >
                     <CheckCircle2
                       className={`h-4 w-4 transition-colors ${
@@ -137,7 +137,7 @@ export default function ResetPassword() {
                       }`}
                     />
                     <span
-                      className={`text-xs transition-colors ${
+                      className={`text-[11px] transition-colors ${
                         requirement.valid ? 'text-[var(--success)]' : 'text-[var(--text-sub)]'
                       }`}
                     >
