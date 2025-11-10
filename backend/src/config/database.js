@@ -14,8 +14,21 @@ export async function connectDatabase() {
             throw new Error(`Invalid MONGO_URI format. Must start with "mongodb://" or "mongodb+srv://". Current value: "${MONGO_URI}"`);
         }
 
+        // Log connection info (ẩn password)
+        const maskedUri = MONGO_URI.replace(/mongodb(\+srv)?:\/\/([^:]+):([^@]+)@/, (match, srv, user, pass) => {
+            return `mongodb${srv || ''}://${user}:****@`;
+        });
+        console.log(`🔌 Connecting to MongoDB: ${maskedUri}`);
+
         await mongoose.connect(MONGO_URI);
-        console.log("✅ MongoDB connected successfully");
+        
+        // Log database info
+        const dbName = mongoose.connection.db.databaseName;
+        const host = mongoose.connection.host;
+        console.log(`✅ MongoDB connected successfully`);
+        console.log(`   📊 Database: ${dbName}`);
+        console.log(`   🌐 Host: ${host}`);
+        console.log(`   📦 Collections: ${(await mongoose.connection.db.listCollections().toArray()).map(c => c.name).join(', ') || 'None (empty database)'}`);
     } catch (error) {
         console.error("❌ MongoDB connection error:", error);
         throw error;
