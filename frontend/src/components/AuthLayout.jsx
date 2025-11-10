@@ -1,9 +1,32 @@
 import { motion } from 'framer-motion'
-import { QrCode, MapPin, BarChart3 } from 'lucide-react'
+import { Sun, Moon, QrCode, MapPin, BarChart3 } from 'lucide-react'
+import { useTheme } from './ThemeProvider'
+import { Button } from './ui/button'
 
 export function AuthLayout({ children, title, subtitle }) {
+  const { theme, toggleTheme } = useTheme()
+  
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-[var(--background)] relative overflow-hidden">
+    <div className="h-screen grid lg:grid-cols-2 relative overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
+      {/* Theme Toggle Button */}
+      <motion.div
+        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50"
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.5, type: "spring" }}
+      >
+        <Button
+          onClick={toggleTheme}
+          variant="outline"
+          size="icon"
+          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[var(--surface)]/80 backdrop-blur-xl border-[var(--border)] hover:bg-[var(--surface)] hover:border-[var(--accent-cyan)] shadow-lg transition-all group"
+        >
+          <Sun className="h-4 w-4 sm:h-5 sm:w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-[var(--warning)]" />
+          <Moon className="absolute h-4 w-4 sm:h-5 sm:w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-[var(--accent-cyan)]" />
+          <span className="sr-only">Toggle theme</span>
+        </Button>
+      </motion.div>
+
       {/* Animated Background */}
       <div className="absolute inset-0 -z-10 lg:w-1/2">
         <motion.div
@@ -16,7 +39,7 @@ export function AuthLayout({ children, title, subtitle }) {
           transition={{
             duration: 8,
             repeat: Infinity,
-            ease: 'easeInOut',
+            ease: "easeInOut",
           }}
         />
         <motion.div
@@ -29,36 +52,36 @@ export function AuthLayout({ children, title, subtitle }) {
           transition={{
             duration: 10,
             repeat: Infinity,
-            ease: 'easeInOut',
+            ease: "easeInOut",
           }}
         />
       </div>
 
       {/* Left - Form */}
-      <div className="flex items-center justify-center p-8 relative z-10">
+      <div className="flex items-center justify-center p-3 sm:p-4 lg:p-6 relative z-10 overflow-y-auto" style={{ maxHeight: '100vh' }}>
         <motion.div
-          className="w-full max-w-md space-y-6"
+          className="w-full max-w-md space-y-2 sm:space-y-3 lg:space-y-4"
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <div className="space-y-2 text-center">
+          <div className="space-y-0.5 sm:space-y-1 text-center flex-shrink-0">
             <motion.div
-              className="flex items-center justify-center mb-6"
+              className="flex items-center justify-center mb-1.5 sm:mb-2 lg:mb-3"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{
-                type: 'spring',
+                type: "spring",
                 stiffness: 200,
                 delay: 0.2,
               }}
             >
-              <div className="text-4xl font-bold bg-gradient-to-r from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--success)] bg-clip-text text-transparent animate-gradient">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--success)] bg-clip-text text-transparent animate-gradient">
                 Attendance Smart
               </div>
             </motion.div>
             <motion.h1
-              className="text-2xl text-[var(--text-main)]"
+              className="text-base sm:text-lg lg:text-xl text-[var(--text-main)]"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -67,7 +90,7 @@ export function AuthLayout({ children, title, subtitle }) {
             </motion.h1>
             {subtitle && (
               <motion.p
-                className="text-[var(--text-sub)]"
+                className="text-xs text-[var(--text-sub)]"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
@@ -78,7 +101,7 @@ export function AuthLayout({ children, title, subtitle }) {
           </div>
 
           <motion.div
-            className="bg-[var(--surface)] rounded-2xl p-8 border border-[var(--border)] shadow-[0_4px_24px_rgba(0,0,0,0.25)] backdrop-blur-sm"
+            className="bg-[var(--surface)] rounded-2xl p-4 sm:p-5 lg:p-6 border border-[var(--border)] shadow-[0_4px_24px_rgba(0,0,0,0.25)] backdrop-blur-sm flex-shrink-0"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
@@ -89,7 +112,12 @@ export function AuthLayout({ children, title, subtitle }) {
       </div>
 
       {/* Right - Banner */}
-      <div className="hidden lg:flex items-center justify-center bg-gradient-to-br from-[var(--primary)]/90 via-[var(--accent-cyan)]/90 to-[var(--success)]/90 p-16 relative overflow-hidden animate-gradient">
+      <div 
+        className="hidden lg:flex items-center justify-center p-16 relative overflow-hidden animate-gradient backdrop-blur-sm"
+        style={{
+          background: 'linear-gradient(to bottom right, #3ab5b0, #3d99be, #56317a)'
+        }}
+      >
         {/* Animated Grid Pattern Background */}
         <motion.div
           className="absolute inset-0 opacity-20"
@@ -107,7 +135,7 @@ export function AuthLayout({ children, title, subtitle }) {
           }}
         />
 
-        {/* Multiple Floating Orbs */}
+        {/* Multiple Floating Orbs - More Dynamic */}
         <motion.div
           className="absolute top-10 right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"
           animate={{
@@ -118,7 +146,7 @@ export function AuthLayout({ children, title, subtitle }) {
           transition={{
             duration: 6,
             repeat: Infinity,
-            ease: 'easeInOut',
+            ease: "easeInOut",
           }}
         />
         <motion.div
@@ -131,7 +159,7 @@ export function AuthLayout({ children, title, subtitle }) {
           transition={{
             duration: 8,
             repeat: Infinity,
-            ease: 'easeInOut',
+            ease: "easeInOut",
           }}
         />
         <motion.div
@@ -144,7 +172,7 @@ export function AuthLayout({ children, title, subtitle }) {
           transition={{
             duration: 10,
             repeat: Infinity,
-            ease: 'easeInOut',
+            ease: "easeInOut",
           }}
         />
         <motion.div
@@ -157,7 +185,7 @@ export function AuthLayout({ children, title, subtitle }) {
           transition={{
             duration: 12,
             repeat: Infinity,
-            ease: 'easeInOut',
+            ease: "easeInOut",
           }}
         />
 
@@ -178,7 +206,7 @@ export function AuthLayout({ children, title, subtitle }) {
               duration: 2 + Math.random() * 2,
               repeat: Infinity,
               delay: Math.random() * 2,
-              ease: 'easeInOut',
+              ease: "easeInOut",
             }}
           />
         ))}
@@ -192,12 +220,12 @@ export function AuthLayout({ children, title, subtitle }) {
           transition={{
             duration: 3,
             repeat: Infinity,
-            ease: 'easeInOut',
+            ease: "easeInOut",
           }}
         />
 
         <motion.div
-          className="max-w-lg space-y-6 text-white text-center relative z-10"
+          className="max-w-lg space-y-6 text-white dark:text-white text-center relative z-10"
           initial={{ opacity: 0, x: 50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
@@ -208,7 +236,7 @@ export function AuthLayout({ children, title, subtitle }) {
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{
-              type: 'spring',
+              type: "spring",
               stiffness: 200,
               delay: 0.3,
             }}
@@ -221,7 +249,7 @@ export function AuthLayout({ children, title, subtitle }) {
               transition={{
                 duration: 2,
                 repeat: Infinity,
-                ease: 'easeInOut',
+                ease: "easeInOut",
               }}
             >
               Attendance Smart
@@ -246,9 +274,9 @@ export function AuthLayout({ children, title, subtitle }) {
             transition={{ delay: 0.7 }}
           >
             {[
-              { icon: QrCode, label: 'Quét QR', delay: 0.1, color: 'from-cyan-400 to-blue-500' },
-              { icon: MapPin, label: 'GPS Check', delay: 0.2, color: 'from-green-400 to-emerald-500' },
-              { icon: BarChart3, label: 'Báo cáo', delay: 0.3, color: 'from-purple-400 to-pink-500' },
+              { icon: QrCode, label: "Quét QR", delay: 0.1, color: "from-cyan-400 to-blue-500" },
+              { icon: MapPin, label: "GPS Check", delay: 0.2, color: "from-green-400 to-emerald-500" },
+              { icon: BarChart3, label: "Báo cáo", delay: 0.3, color: "from-purple-400 to-pink-500" },
             ].map((item, index) => {
               const IconComponent = item.icon
               return (
@@ -262,10 +290,7 @@ export function AuthLayout({ children, title, subtitle }) {
                 >
                   {/* Glow Effect on Hover */}
                   <motion.div
-                    className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity blur-xl"
-                    style={{
-                      background: `linear-gradient(135deg, ${item.color})`,
-                    }}
+                    className={`absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity blur-xl bg-gradient-to-br ${item.color}`}
                   />
                   
                   <div className="relative z-10">
@@ -277,7 +302,7 @@ export function AuthLayout({ children, title, subtitle }) {
                       transition={{
                         duration: 4,
                         repeat: Infinity,
-                        ease: 'easeInOut',
+                        ease: "easeInOut",
                         delay: index * 0.2,
                       }}
                     >
@@ -311,4 +336,3 @@ export function AuthLayout({ children, title, subtitle }) {
     </div>
   )
 }
-

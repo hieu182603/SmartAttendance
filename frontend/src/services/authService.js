@@ -20,4 +20,16 @@ export const getMe = async () => {
     return (await api.get('/auth/me')).data
 }
 
+export const forgotPassword = async ({ email }) => {
+    return (await api.post('/auth/forgot-password', { email })).data
+}
+
+export const verifyResetOtp = async ({ email, otp }) => {
+    return (await api.post('/auth/verify-reset-otp', { email, otp })).data
+}
+
+export const resetPassword = async ({ email, password }) => {
+    return (await api.post('/auth/reset-password', { email, password })).data
+}
+
 

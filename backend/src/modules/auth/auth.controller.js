@@ -63,9 +63,22 @@ export class AuthController {
             // Validate request body
             const parse = registerSchema.safeParse(req.body);
             if (!parse.success) {
+                const errors = parse.error.flatten();
+                // Tạo message từ field errors
+                const fieldErrors = errors.fieldErrors || {};
+                let errorMessage = "Dữ liệu không hợp lệ";
+
+                if (fieldErrors.email) {
+                    errorMessage = fieldErrors.email[0] || "Email không hợp lệ";
+                } else if (fieldErrors.password) {
+                    errorMessage = fieldErrors.password[0] || "Mật khẩu phải có ít nhất 6 ký tự";
+                } else if (fieldErrors.name) {
+                    errorMessage = fieldErrors.name[0] || "Tên không được để trống";
+                }
+
                 return res.status(400).json({
-                    message: "Invalid data",
-                    errors: parse.error.flatten()
+                    message: errorMessage,
+                    errors: errors
                 });
             }
 
@@ -75,10 +88,12 @@ export class AuthController {
             return res.status(201).json(result);
         } catch (error) {
             if (error.message === "Email already registered") {
-                return res.status(409).json({ message: "Email already registered" });
+                return res.status(409).json({ message: "Email đã được đăng ký" });
             }
             console.error("Register error:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            return res.status(500).json({
+                message: error.message || "Lỗi server. Vui lòng thử lại sau."
+            });
         }
     }
 
@@ -255,11 +270,11 @@ export class AuthController {
             if (error.message === "Email already verified") {
                 return res.status(400).json({ message: "Email already verified" });
             }
-            if (error.message === "Failed to send OTP email") {
-                return res.status(500).json({ message: "Failed to send OTP email. Please try again later." });
-            }
+            // Không throw error nếu email fail - OTP đã được tạo, user có thể xem trong console
             console.error("Resend OTP error:", error);
-            return res.status(500).json({ message: "Internal server error" });
+            return res.status(500).json({
+                message: error.message || "Internal server error"
+            });
         }
     }
 
