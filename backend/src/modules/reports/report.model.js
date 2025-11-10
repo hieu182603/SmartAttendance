@@ -1,45 +1,55 @@
+// src/models/report.model.js
 import mongoose from "mongoose";
 
 /**
- * Schema cho Report (Báo cáo)
+ * Báo cáo chấm công (tổng hợp theo tuần/tháng)
+ * Không lưu dữ liệu thô → chỉ lưu kết quả
  */
 const reportSchema = new mongoose.Schema(
-    {
-        // TODO: Thêm các fields cần thiết
-        // Ví dụ:
-        // userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        // type: { type: String, enum: ["daily", "weekly", "monthly", "custom"], required: true },
-        // startDate: { type: Date, required: true },
-        // endDate: { type: Date, required: true },
-        // totalHours: { type: Number, default: 0 },
-        // totalDays: { type: Number, default: 0 },
-        // presentDays: { type: Number, default: 0 },
-        // absentDays: { type: Number, default: 0 },
-        // lateDays: { type: Number, default: 0 },
-        // data: { type: mongoose.Schema.Types.Mixed }, // Dữ liệu chi tiết của báo cáo
-        // generatedAt: { type: Date, default: Date.now }
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    { timestamps: true }
+    type: {
+      type: String,
+      enum: ["weekly", "monthly"],
+      required: true,
+    },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
+
+    // Thống kê
+    totalDays: { type: Number, default: 0 }, // Tổng ngày làm việc
+    presentDays: { type: Number, default: 0 }, // Có mặt
+    absentDays: { type: Number, default: 0 }, // Vắng
+    lateDays: { type: Number, default: 0 }, // Đi muộn
+    totalHours: { type: Number, default: 0 }, // Tổng giờ làm
+
+    // Chi tiết từng ngày (dễ hiển thị bảng)
+    dailySummary: [
+      {
+        date: { type: Date, required: true },
+        checkIn: { type: Date },
+        checkOut: { type: Date },
+        status: { type: String, enum: ["present", "absent", "late"] },
+        workHours: { type: Number, default: 0 },
+      },
+    ],
+  },
+  { timestamps: true }
 );
 
-// TODO: Thêm indexes nếu cần
-// reportSchema.index({ userId: 1, startDate: -1, endDate: -1 });
-// reportSchema.index({ type: 1, createdAt: -1 });
+// Index để tìm báo cáo nhanh
+reportSchema.index({ userId: 1, type: 1, startDate: -1 });
 
-// TODO: Thêm methods nếu cần
-// reportSchema.methods.generatePDF = function() {
-//     // Logic generate PDF
-// };
-
-// reportSchema.methods.calculateStats = function() {
-//     // Logic tính toán thống kê
-// };
-
-// TODO: Thêm pre-save/post-save hooks nếu cần
-// reportSchema.pre('save', async function (next) {
-//     // Logic trước khi lưu
-//     next();
-// });
+// Kiểm tra ngày hợp lệ
+reportSchema.pre("save", function (next) {
+  if (this.startDate > this.endDate) {
+    return next(new Error("startDate phải nhỏ hơn endDate"));
+  }
+  next();
+});
 
 export const ReportModel = mongoose.model("Report", reportSchema);
-
