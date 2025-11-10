@@ -1,4 +1,5 @@
 import React from 'react'
+import { cn } from './utils'
 
 export const Checkbox = React.forwardRef(({ className = '', checked, onCheckedChange, ...props }, ref) => {
   return (
@@ -7,7 +8,10 @@ export const Checkbox = React.forwardRef(({ className = '', checked, onCheckedCh
       type="checkbox"
       checked={checked}
       onChange={(e) => onCheckedChange?.(e.target.checked)}
-      className={`h-4 w-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-2 focus:ring-cyan-500 ${className}`}
+      className={cn(
+        'h-4 w-4 rounded border-[var(--border)] bg-[var(--input-bg)] text-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)] cursor-pointer',
+        className
+      )}
       {...props}
     />
   )

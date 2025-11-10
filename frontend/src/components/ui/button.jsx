@@ -1,22 +1,26 @@
 import React from 'react'
+import { cn } from './utils'
 
 export const Button = React.forwardRef(({ className = '', variant = 'default', size = 'default', ...props }, ref) => {
-  const baseStyles = 'inline-flex items-center justify-center rounded-xl font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50'
+  const baseStyles = 'inline-flex items-center justify-center rounded-xl font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] disabled:pointer-events-none disabled:opacity-50'
   
   const variants = {
-    default: 'bg-slate-900 text-white hover:bg-slate-800',
-    outline: 'border border-slate-700 bg-transparent hover:bg-slate-900',
+    default: 'bg-[var(--primary)] text-white hover:opacity-90',
+    outline: 'border border-[var(--border)] bg-transparent hover:bg-[var(--surface)] text-[var(--text-main)]',
+    ghost: 'bg-transparent hover:bg-[var(--surface)] text-[var(--text-main)]',
   }
   
   const sizes = {
     default: 'h-10 px-4 py-2',
-    icon: 'h-10 w-10',
+    sm: 'h-8 px-3 py-1.5 text-sm',
+    lg: 'h-12 px-6 py-3 text-lg',
+    icon: 'h-10 w-10 p-0',
   }
   
   return (
     <button
       ref={ref}
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={cn(baseStyles, variants[variant], sizes[size], className)}
       {...props}
     />
   )

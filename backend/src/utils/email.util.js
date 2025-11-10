@@ -12,15 +12,7 @@ const createTransporter = () => {
     };
 
     if (!emailConfig.auth.user || !emailConfig.auth.pass) {
-        console.warn("⚠️ Email config not found. Using test account (emails won't be sent).");
-        return nodemailer.createTransport({
-            host: "smtp.ethereal.email",
-            port: 587,
-            auth: {
-                user: "test@ethereal.email",
-                pass: "test"
-            }
-        });
+        throw new Error("Email credentials (EMAIL_USER and EMAIL_PASS) are required to send emails. Please configure them in your .env file.");
     }
 
     return nodemailer.createTransport(emailConfig);
@@ -34,13 +26,32 @@ const createTransporter = () => {
  * @returns {Promise<Object>} Send result
  */
 export const sendOTPEmail = async (to, otp, name = "User") => {
+    // Check if email credentials are configured
+    const hasEmailConfig = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+
+    // Only use dev mode if explicitly set OR if no email config is available
+    // If email config exists, try to send real email even in development
+    const isDevModeOnly = process.env.EMAIL_DEV_MODE === "true" || !hasEmailConfig;
+
+    if (isDevModeOnly) {
+        console.log("\n" + "=".repeat(60));
+        console.log("📧 [DEV MODE] OTP Email (Not sent - Development mode)");
+        console.log("=".repeat(60));
+        console.log(`To: ${to}`);
+        console.log(`Name: ${name}`);
+        console.log(`OTP Code: ${otp}`);
+        console.log(`Expires in: 10 minutes`);
+        console.log("=".repeat(60) + "\n");
+        return { success: true, messageId: "dev-mode", devMode: true };
+    }
+
     try {
         const transporter = createTransporter();
 
         const mailOptions = {
             from: `"SmartAttendance" <${process.env.EMAIL_USER || "noreply@smartattendance.com"}>`,
             to: to,
-            subject: "Verify Your Email - SmartAttendance",
+            subject: "Verify Your Email - AttendanceSmart",
             html: `
                 <!DOCTYPE html>
                 <html>
@@ -59,7 +70,7 @@ export const sendOTPEmail = async (to, otp, name = "User") => {
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1>SmartAttendance</h1>
+                            <h1>AttendanceSmart</h1>
                         </div>
                         <div class="content">
                             <h2>Hello ${name}!</h2>
@@ -98,8 +109,16 @@ export const sendOTPEmail = async (to, otp, name = "User") => {
         console.log("✅ OTP email sent:", info.messageId);
         return { success: true, messageId: info.messageId };
     } catch (error) {
-        console.error("❌ Error sending OTP email:", error);
-        throw new Error("Failed to send OTP email");
+        // Log error nhưng không throw - OTP đã được tạo, user có thể xem trong console
+        console.error("❌ Error sending OTP email:", error.message);
+        console.log("\n" + "=".repeat(60));
+        console.log("⚠️  Email không gửi được, nhưng OTP đã được tạo:");
+        console.log(`📧 Email: ${to}`);
+        console.log(`🔑 OTP Code: ${otp}`);
+        console.log("=".repeat(60) + "\n");
+
+        // Trả về success để không làm fail registration
+        return { success: false, messageId: null, error: error.message };
     }
 };
 
@@ -109,12 +128,18 @@ export const sendOTPEmail = async (to, otp, name = "User") => {
  */
 export const verifyEmailConnection = async () => {
     try {
+        // Check if email config exists first
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            console.warn("⚠️ Email credentials not configured. Skipping email server verification.");
+            return false;
+        }
+
         const transporter = createTransporter();
         await transporter.verify();
         console.log("✅ Email server is ready");
         return true;
     } catch (error) {
-        console.error("❌ Email server connection failed:", error);
+        console.error("❌ Email server connection failed:", error.message);
         return false;
     }
 };

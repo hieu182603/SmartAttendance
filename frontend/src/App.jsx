@@ -1,8 +1,12 @@
 import React from 'react'
 import { Routes, Route, Link } from 'react-router-dom'
+import { Toaster } from 'sonner'
+import { ThemeProvider } from './components/ThemeProvider'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
 import VerifyOtp from './components/auth/VerifyOtp'
+import ForgotPassword from './components/auth/ForgotPassword'
+import ResetPassword from './components/auth/ResetPassword'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './context/AuthContext'
 
@@ -29,15 +33,20 @@ function Dashboard() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/verify-otp" element={<VerifyOtp />} />
+    <ThemeProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/verify-reset-otp" element={<VerifyOtp />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-      <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<Dashboard />} />
-      </Route>
-    </Routes>
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Dashboard />} />
+        </Route>
+      </Routes>
+      <Toaster position="top-right" richColors />
+    </ThemeProvider>
   )
 }
-
