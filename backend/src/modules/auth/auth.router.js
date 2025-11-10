@@ -17,5 +17,14 @@ authRouter.post("/resend-otp", AuthController.resendOTP);
 // Đăng nhập
 authRouter.post("/login", AuthController.login);
 
+// Quên mật khẩu
+authRouter.post("/forgot-password", AuthController.forgotPassword);
+
+// Xác thực OTP để reset password
+authRouter.post("/verify-reset-otp", AuthController.verifyResetOtp);
+
+// Đặt lại mật khẩu mới
+authRouter.post("/reset-password", AuthController.resetPassword);
+
 // Lấy thông tin người dùng hiện tại (yêu cầu authentication)
 authRouter.get("/me", authMiddleware, AuthController.getCurrentUser);

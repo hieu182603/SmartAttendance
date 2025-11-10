@@ -22,6 +22,20 @@ export const resendOTPSchema = z.object({
     email: z.string().email("Invalid email")
 });
 
+export const forgotPasswordSchema = z.object({
+    email: z.string().email("Invalid email")
+});
+
+export const verifyResetOTPSchema = z.object({
+    email: z.string().email("Invalid email"),
+    otp: z.string().length(6, "OTP must be 6 digits")
+});
+
+export const resetPasswordSchema = z.object({
+    email: z.string().email("Invalid email"),
+    password: z.string().min(6, "Password must be at least 6 characters")
+});
+
 /**
  * Controller xử lý các request liên quan đến Authentication
  */
@@ -316,6 +330,168 @@ export class AuthController {
             }
             console.error("Get current user error:", error);
             return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    /**
+     * @swagger
+     * /api/auth/forgot-password:
+     *   post:
+     *     summary: Gửi OTP để reset password
+     *     tags: [Auth]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email]
+     *             properties:
+     *               email:
+     *                 type: string
+     *                 format: email
+     *     responses:
+     *       200:
+     *         description: OTP sent successfully
+     *       400:
+     *         description: Invalid data or email not verified
+     */
+    static async forgotPassword(req, res) {
+        try {
+            const parse = forgotPasswordSchema.safeParse(req.body);
+            if (!parse.success) {
+                return res.status(400).json({
+                    message: "Invalid data",
+                    errors: parse.error.flatten()
+                });
+            }
+
+            const result = await AuthService.forgotPassword(parse.data.email);
+            return res.status(200).json(result);
+        } catch (error) {
+            if (error.message === "Email not verified. Please verify your email first.") {
+                return res.status(400).json({ message: "Email not verified. Please verify your email first." });
+            }
+            console.error("Forgot password error:", error);
+            return res.status(500).json({ 
+                message: error.message || "Internal server error" 
+            });
+        }
+    }
+
+    /**
+     * @swagger
+     * /api/auth/verify-reset-otp:
+     *   post:
+     *     summary: Xác thực OTP để reset password
+     *     tags: [Auth]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email, otp]
+     *             properties:
+     *               email:
+     *                 type: string
+     *                 format: email
+     *               otp:
+     *                 type: string
+     *                 minLength: 6
+     *                 maxLength: 6
+     *     responses:
+     *       200:
+     *         description: OTP verified successfully
+     *       400:
+     *         description: Invalid data, invalid OTP, or expired OTP
+     *       404:
+     *         description: User not found
+     */
+    static async verifyResetOtp(req, res) {
+        try {
+            const parse = verifyResetOTPSchema.safeParse(req.body);
+            if (!parse.success) {
+                return res.status(400).json({
+                    message: "Invalid data",
+                    errors: parse.error.flatten()
+                });
+            }
+
+            const result = await AuthService.verifyResetOtp(parse.data.email, parse.data.otp);
+            return res.status(200).json(result);
+        } catch (error) {
+            if (error.message === "User not found") {
+                return res.status(404).json({ message: "User not found" });
+            }
+            if (error.message === "OTP not found. Please request a new one.") {
+                return res.status(400).json({ message: "OTP not found. Please request a new one." });
+            }
+            if (error.message === "OTP expired. Please request a new OTP.") {
+                return res.status(400).json({ message: "OTP expired. Please request a new OTP." });
+            }
+            if (error.message === "Invalid OTP") {
+                return res.status(400).json({ message: "Invalid OTP" });
+            }
+            console.error("Verify reset OTP error:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    /**
+     * @swagger
+     * /api/auth/reset-password:
+     *   post:
+     *     summary: Đặt lại mật khẩu mới
+     *     tags: [Auth]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [email, password]
+     *             properties:
+     *               email:
+     *                 type: string
+     *                 format: email
+     *               password:
+     *                 type: string
+     *                 minLength: 6
+     *     responses:
+     *       200:
+     *         description: Password reset successfully
+     *       400:
+     *         description: Invalid data or reset token expired
+     *       404:
+     *         description: User not found
+     */
+    static async resetPassword(req, res) {
+        try {
+            const parse = resetPasswordSchema.safeParse(req.body);
+            if (!parse.success) {
+                return res.status(400).json({
+                    message: "Invalid data",
+                    errors: parse.error.flatten()
+                });
+            }
+
+            const result = await AuthService.resetPassword(parse.data.email, parse.data.password);
+            return res.status(200).json(result);
+        } catch (error) {
+            if (error.message === "User not found") {
+                return res.status(404).json({ message: "User not found" });
+            }
+            if (error.message === "Please verify OTP first before resetting password.") {
+                return res.status(400).json({ message: "Please verify OTP first before resetting password." });
+            }
+            if (error.message === "Reset token expired. Please request a new OTP.") {
+                return res.status(400).json({ message: "Reset token expired. Please request a new OTP." });
+            }
+            console.error("Reset password error:", error);
+            return res.status(500).json({ 
+                message: error.message || "Internal server error" 
+            });
         }
     }
 }

@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
       }
     }
     bootstrap()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [])
 
   useEffect(() => {
