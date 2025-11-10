@@ -1,9 +1,6 @@
 import mongoose from "mongoose";
 
-/**
- * Schema cho Log (Nhật ký hoạt động / Audit Trail)
- * Ghi lại mọi hoạt động trong hệ thống để audit và debug
- */
+
 const logSchema = new mongoose.Schema(
     {
         userId: {
