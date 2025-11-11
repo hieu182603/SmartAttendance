@@ -4,6 +4,7 @@
   --background: #0f172a;
   --surface: #1e293b;
   --border: #334155;
+  --shell: #16213b;
   --text-main: #f1f5f9;
   --text-sub: #94a3b8;
   --input-bg: #0f172a;
@@ -18,6 +19,7 @@
   --background: #0f172a;
   --surface: #1e293b;
   --border: #334155;
+  --shell: #16213b;
   --text-main: #f1f5f9;
   --text-sub: #94a3b8;
   --input-bg: #0f172a;
@@ -32,6 +34,7 @@
   --background: #f8fafc;
   --surface: #ffffff;
   --border: #e2e8f0;
+  --shell: #f1f5f9;
   --text-main: #1e293b;
   --text-sub: #64748b;
   --input-bg: #f8fafc;
@@ -46,8 +49,9 @@ html,
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  background-color: var(--background);
+  color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
@@ -56,8 +60,9 @@ body {
 }
 
 #root {
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Ẩn scrollbar cho tất cả browsers */
@@ -110,6 +115,10 @@ body {
     box-shadow: 0 0 30px rgba(6, 182, 212, 0.5),
       0 0 60px rgba(34, 211, 238, 0.4);
   }
+}
+
+.animate-glow {
+  animation: glow-pulse 4s ease-in-out infinite;
 }
 
 @keyframes float {
