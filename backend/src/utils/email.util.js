@@ -106,7 +106,6 @@ export const sendOTPEmail = async (to, otp, name = "User") => {
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log("✅ OTP email sent:", info.messageId);
         return { success: true, messageId: info.messageId };
     } catch (error) {
         // Log error nhưng không throw - OTP đã được tạo, user có thể xem trong console
