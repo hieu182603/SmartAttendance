@@ -12,7 +12,7 @@ const requestSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["leave", "overtime", "remote", "other"],
+      enum: ["leave", "sick", "unpaid", "compensatory", "maternity", "overtime", "remote", "other"],
       required: true,
     },
     startDate: {
