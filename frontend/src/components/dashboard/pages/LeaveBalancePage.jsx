@@ -377,6 +377,7 @@ const LeaveBalancePage = () => {
                                 />
                               </div>
 
+
                               {type.pending > 0 && (
                                 <div className="flex items-center justify-between p-2 rounded bg-[var(--warning)]/10">
                                   <span className="text-xs sm:text-sm text-[var(--text-sub)]">
@@ -513,3 +514,4 @@ const LeaveBalancePage = () => {
 }
 
 export default LeaveBalancePage
+

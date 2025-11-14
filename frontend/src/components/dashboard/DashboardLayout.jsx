@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   Home,
   QrCode,
   History,
   FileText,
   Clock,
-  Calendar,
   CalendarDays,
   User,
   Menu,
@@ -45,21 +45,34 @@ const employeeMenu = [
   { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile" },
 ];
 
-const NotificationBell = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="relative text-[var(--text-main)] hover:bg-[var(--surface)] p-2 rounded-lg transition"
-  >
-    <Bell className="h-5 w-5" />
-    <span className="absolute top-1 right-1 h-2 w-2 bg-[var(--error)] rounded-full"></span>
-  </button>
-);
+const NotificationBell = ({ onClick }) => {
+  const unreadCount = 3; // TODO: Get from state/context/API
+
+  return (
+    <motion.button
+      onClick={onClick}
+      className="relative p-2 rounded-lg hover:bg-[var(--surface)] transition-colors"
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      <Bell className="h-5 w-5 text-[var(--text-main)]" />
+      {unreadCount > 0 && (
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-gradient-to-r from-[var(--error)] to-[var(--warning)] rounded-full text-xs text-white px-1"
+        >
+          {unreadCount}
+        </motion.div>
+      )}
+    </motion.button>
+  );
+};
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
   const { toggleTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
 
   const getCurrentPage = () => {
@@ -106,7 +119,7 @@ const DashboardLayout = () => {
             </Button>
 
             {/* Notification Bell */}
-            <NotificationBell onClick={() => setIsNotificationOpen(true)} />
+            <NotificationBell onClick={() => navigate("/employee/notifications")} />
 
             <div className="hidden md:block text-right">
               <p className="text-sm text-[var(--text-main)]">
@@ -180,8 +193,16 @@ const DashboardLayout = () => {
         {/* Overlay for mobile */}
         {isSidebarOpen && (
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Đóng menu"
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
             onClick={() => setIsSidebarOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+                setIsSidebarOpen(false);
+              }
+            }}
           />
         )}
 
