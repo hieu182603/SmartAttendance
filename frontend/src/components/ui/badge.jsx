@@ -7,6 +7,7 @@ const Badge = React.forwardRef(({ className, variant = 'default', ...props }, re
     success: 'bg-[var(--success)]/10 text-[var(--success)] border border-[var(--success)]/30',
     warning: 'bg-[var(--warning)]/10 text-[var(--warning)] border border-[var(--warning)]/30',
     error: 'bg-[var(--error)]/10 text-[var(--error)] border border-[var(--error)]/30',
+    outline: 'bg-transparent text-[var(--text-sub)] border border-[var(--border)]',
   }
 
   return (
