@@ -1,24 +1,23 @@
-import React from 'react'
-import clsx from 'clsx'
+import React from "react";
+import { cn } from "./utils";
 
 const Progress = React.forwardRef(({ className, value = 0, ...props }, ref) => {
   return (
     <div
       ref={ref}
-      className={clsx(
-        'relative h-2 w-full overflow-hidden rounded-full bg-[var(--shell)]',
-        className,
+      className={cn(
+        "relative h-2 w-full overflow-hidden rounded-full bg-[var(--primary)]/20",
+        className
       )}
       {...props}
     >
       <div
-        className="h-full bg-[var(--accent-cyan)] transition-all duration-300 ease-in-out"
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+        className="h-full w-full flex-1 bg-[var(--primary)] transition-all duration-300"
+        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
       />
     </div>
-  )
-})
-Progress.displayName = 'Progress'
+  );
+});
+Progress.displayName = "Progress";
 
-export { Progress }
-
+export { Progress };
