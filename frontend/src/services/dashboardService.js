@@ -65,4 +65,26 @@ export const getDashboardData = async (config = {}) => {
   }
 }
 
+export const getLeaveBalance = async (config = {}) => {
+  try {
+    const { data } = await api.get('/leave/balance', config)
+    if (!Array.isArray(data)) return []
+    return data
+  } catch (error) {
+    console.warn('[leave] balance unavailable', error.message)
+    return []
+  }
+}
+
+export const getLeaveHistory = async (config = {}) => {
+  try {
+    const { data } = await api.get('/leave/history', config)
+    if (!Array.isArray(data)) return []
+    return data
+  } catch (error) {
+    console.warn('[leave] history unavailable', error.message)
+    return []
+  }
+}
+
 
