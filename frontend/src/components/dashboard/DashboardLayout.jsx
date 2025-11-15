@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Home,
@@ -19,6 +19,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
 import { Button } from "../ui/button";
+import NotificationCenter from "./NotificationCenter";
 
 const employeeMenu = [
   { id: "home", label: "Trang chủ", icon: Home, path: "/employee" },
@@ -73,6 +74,7 @@ const DashboardLayout = () => {
   const { user, logout } = useAuth();
   const { toggleTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
 
   const getCurrentPage = () => {
@@ -119,7 +121,7 @@ const DashboardLayout = () => {
             </Button>
 
             {/* Notification Bell */}
-            <NotificationBell onClick={() => navigate("/employee/notifications")} />
+            <NotificationBell onClick={() => setIsNotificationOpen(true)} />
 
             <div className="hidden md:block text-right">
               <p className="text-sm text-[var(--text-main)]">
@@ -211,6 +213,10 @@ const DashboardLayout = () => {
           <Outlet />
         </main>
       </div>
+      <NotificationCenter
+        isOpen={isNotificationOpen}
+        onClose={() => setIsNotificationOpen(false)}
+      />
     </div>
   );
 };
