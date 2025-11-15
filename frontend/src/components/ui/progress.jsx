@@ -1,13 +1,14 @@
-import React from 'react'
-import { cn } from './utils'
+import React from "react";
+import { cn } from "./utils";
+
 
 const Progress = React.forwardRef(({ className, value = 0, ...props }, ref) => {
   return (
     <div
       ref={ref}
       className={cn(
-        'relative h-2 w-full overflow-hidden rounded-full bg-[var(--primary)]/20',
-        className,
+        "relative h-2 w-full overflow-hidden rounded-full bg-[var(--primary)]/20",
+        className
       )}
       {...props}
     >
@@ -16,9 +17,8 @@ const Progress = React.forwardRef(({ className, value = 0, ...props }, ref) => {
         style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
       />
     </div>
-  )
-})
-Progress.displayName = 'Progress'
+  );
+});
+Progress.displayName = "Progress";
 
-export { Progress }
-
+export { Progress };

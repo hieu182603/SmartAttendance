@@ -265,7 +265,7 @@ export const DashboardOverview = () => {
       {/* Đóng 6 */}
 
       {/* Today's Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ">
         {infoCards.map((item) => {
           const value =
             item.key === "workingDays"
@@ -281,7 +281,7 @@ export const DashboardOverview = () => {
               whileHover={{ y: -5 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all">
-                <CardContent className="p-6">
+                <CardContent className="p-6 mt-4">
                   <div className="flex items-center space-x-3">
                     <motion.div
                       className={`p-3 rounded-xl bg-[var(--${item.color})]/10`}
