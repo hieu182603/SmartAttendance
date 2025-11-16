@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Camera,
   MapPin,
@@ -7,272 +7,45 @@ import {
   Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { useGeolocation } from "../../../hooks/useGeolocation";
-import attendanceService from "../../../services/attendanceService";
-import { toast } from "sonner";
 
 const ScanPage = () => {
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const canvasRef = useRef(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [locationData, setLocationData] = useState(null);
   const [checkInStatus, setCheckInStatus] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [permissions, setPermissions] = useState({
+    camera: false,
+    location: false,
+  });
 
-  const {
-    location,
-    wifiInfo,
-    loading: locationLoading,
-    error: locationError,
-    permissions,
-    getLocationAndWiFi,
-    checkPermissions,
-  } = useGeolocation();
-
-  // Kiểm tra quyền và bật camera khi component mount
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const perms = await checkPermissions();
-        console.log("Permissions:", perms);
-        // Tự động bật camera nếu có quyền
-        if (perms.camera && perms.location) {
-          // Đợi đảm bảo video element đã được render (tăng thời gian chờ)
-          let retries = 0;
-          const tryStartCamera = () => {
-            if (videoRef.current) {
-              console.log("Video element đã sẵn sàng, bật camera");
-              startCamera();
-            } else if (retries < 10) {
-              retries++;
-              console.log(`Đợi video element... (lần thử ${retries})`);
-              setTimeout(tryStartCamera, 200);
-            } else {
-              console.error("Video element không được tạo sau 2 giây");
-              toast.error(
-                "Không thể tìm thấy video element. Vui lòng refresh trang."
-              );
-            }
-          };
-          tryStartCamera();
-        } else {
-          console.warn("Chưa có đủ quyền:", perms);
-        }
-      } catch (error) {
-        console.error("Lỗi khi init:", error);
-      }
-    };
-    init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Đảm bảo video element được cập nhật khi stream thay đổi
-  useEffect(() => {
-    if (videoRef.current && streamRef.current && isCameraReady) {
-      console.log("Cập nhật video srcObject");
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch((err) => {
-        console.warn("Lỗi khi play video trong useEffect:", err);
-      });
-    }
-  }, [isCameraReady]);
-
-  // Bật camera
-  const startCamera = async () => {
-    try {
-      console.log("Đang bật camera...");
-
-      // Thử camera sau trước, nếu không được thì dùng camera trước
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment", // Camera sau (mobile)
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-        console.log("Camera sau đã bật");
-      } catch (envError) {
-        console.warn("Không thể dùng camera sau, thử camera trước:", envError);
-        // Fallback: thử camera trước
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user", // Camera trước
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-        console.log("Camera trước đã bật");
-      }
-
-      streamRef.current = stream;
-      console.log("Stream đã được gán:", stream);
-
-      // Đợi video element sẵn sàng
-      if (!videoRef.current) {
-        console.error("Video ref chưa sẵn sàng, đợi thêm...");
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-
-      if (videoRef.current) {
-        console.log("Đang gán stream vào video element");
-        videoRef.current.srcObject = stream;
-
-        // Đảm bảo video được play
-        const video = videoRef.current;
-
-        const playVideo = async () => {
-          try {
-            await video.play();
-            console.log("Video đã play thành công");
-            setIsCameraReady(true);
-            toast.success("Camera đã sẵn sàng");
-          } catch (playError) {
-            console.error("Lỗi khi play video:", playError);
-            // Vẫn đánh dấu là ready nếu stream đã có
-            if (streamRef.current) {
-              setIsCameraReady(true);
-            }
-          }
-        };
-
-        // Nếu video đã có metadata thì play ngay
-        if (video.readyState >= 2) {
-          await playVideo();
-        } else {
-          // Đợi metadata load
-          video.onloadedmetadata = playVideo;
-          // Timeout sau 2 giây
-          setTimeout(async () => {
-            if (video.readyState < 2) {
-              console.warn("Video metadata timeout, thử play anyway");
-              await playVideo();
-            }
-          }, 2000);
-        }
-      } else {
-        console.error("Video element không tồn tại!");
-        toast.error("Không tìm thấy video element");
-      }
-
-      // Lấy vị trí ngay khi camera sẵn sàng
-      try {
-        const locData = await getLocationAndWiFi();
-        setLocationData(locData);
-      } catch (locError) {
-        console.warn("Chưa lấy được vị trí:", locError);
-      }
-    } catch (error) {
-      console.error("Lỗi camera:", error);
-      toast.error(
-        "Không thể truy cập camera: " +
-          (error.message || "Vui lòng kiểm tra quyền truy cập")
-      );
-    }
+  // Hàm đơn giản để kiểm tra quyền (chỉ UI)
+  const checkPermissions = () => {
+    setPermissions({
+      camera: false,
+      location: false,
+    });
   };
 
-  // Dừng camera
+  // Hàm đơn giản để bật camera (chỉ UI)
+  const startCamera = () => {
+    setIsCameraReady(true);
+  };
+
+  // Hàm đơn giản để tắt camera (chỉ UI)
   const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
     setIsCameraReady(false);
   };
 
-  // Chụp ảnh từ video
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return null;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    // Vẽ ảnh từ video (không mirror)
-    ctx.save();
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-    ctx.restore();
-
-    return canvas.toDataURL("image/jpeg", 0.8);
-  };
-
-  // Xử lý check-in với ảnh
-  const handleCheckIn = async () => {
-    if (isProcessing) return;
-
-    try {
-      setIsProcessing(true);
-
-      // Chụp ảnh
-      const photoData = capturePhoto();
-
-      // Lấy vị trí nếu chưa có
-      let locData = locationData;
-      if (!locData || !locData.latitude || !locData.longitude) {
-        try {
-          locData = await getLocationAndWiFi();
-          setLocationData(locData);
-        } catch (err) {
-          toast.error("Không thể lấy vị trí: " + err.message);
-          setIsProcessing(false);
-          return;
-        }
-      }
-
-      if (!locData || !locData.latitude || !locData.longitude) {
-        toast.error("Vui lòng đợi hệ thống lấy vị trí");
-        setIsProcessing(false);
-        return;
-      }
-
-      // Chỉ gửi các field có giá trị
-      const checkInData = {
-        latitude: locData.latitude,
-        longitude: locData.longitude,
-      };
-
-      if (locData.accuracy != null) {
-        checkInData.accuracy = locData.accuracy;
-      }
-      if (locData.bssid) {
-        checkInData.bssid = locData.bssid;
-      }
-      if (locData.ssid) {
-        checkInData.ssid = locData.ssid;
-      }
-
-      const result = await attendanceService.checkIn(checkInData);
-
+  // Hàm đơn giản để xử lý check-in (chỉ UI)
+  const handleCheckIn = () => {
+    setIsProcessing(true);
+    setTimeout(() => {
       setCheckInStatus("success");
-      toast.success(result.message || "Check-in thành công!");
-
-      // Dừng camera sau khi check-in thành công
-      setTimeout(() => {
-        stopCamera();
-        setIsProcessing(false);
-      }, 2000);
-    } catch (error) {
-      setCheckInStatus("error");
-      toast.error(error.message || "Check-in thất bại");
       setIsProcessing(false);
-    }
+    }, 1500);
   };
-
-  // Cleanup khi unmount
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -347,20 +120,8 @@ const ScanPage = () => {
               Camera trực tiếp
             </h3>
             <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--shell)]">
-              {/* Luôn render video element để ref có thể được gán */}
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className={`h-full w-full object-cover ${
-                  isCameraReady && streamRef.current ? "block" : "hidden"
-                }`}
-                style={{ transform: "scaleX(-1)" }} // Mirror effect
-              />
-              <canvas ref={canvasRef} className="hidden" />
               {/* Hiển thị placeholder khi camera chưa sẵn sàng */}
-              {!isCameraReady || !streamRef.current ? (
+              {!isCameraReady ? (
                 <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--shell)] text-[var(--text-sub)]">
                   {isProcessing ? (
                     <>
@@ -374,7 +135,12 @@ const ScanPage = () => {
                     </>
                   )}
                 </div>
-              ) : null}
+              ) : (
+                <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--shell)] text-[var(--text-sub)]">
+                  <Camera className="h-12 w-12" />
+                  <p className="text-sm">Camera đã được kích hoạt</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -437,7 +203,7 @@ const ScanPage = () => {
             ) : (
               <div className="flex items-center justify-center gap-2 py-4 text-sm text-[var(--text-sub)]">
                 <MapPin className="h-4 w-4" />
-                Chưa lấy vị trí
+                Đang lấy vị trí...
               </div>
             )}
           </div>
