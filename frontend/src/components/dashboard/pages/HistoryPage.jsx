@@ -1,22 +1,12 @@
 //History
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Calendar, Search, Download, Filter } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
-
-const attendanceData = [
-  { id: 1, date: '27/10/2024', day: 'Thứ 2', checkIn: '08:45', checkOut: '17:30', hours: '8h 45m', status: 'ontime', location: 'Văn phòng HN', notes: '' },
-  { id: 2, date: '26/10/2024', day: 'Thứ 7', checkIn: '09:15', checkOut: '17:35', hours: '8h 20m', status: 'late', location: 'Văn phòng HN', notes: 'Trễ 15 phút' },
-  { id: 3, date: '25/10/2024', day: 'Thứ 6', checkIn: '08:30', checkOut: '17:20', hours: '8h 50m', status: 'ontime', location: 'Văn phòng HN', notes: '' },
-  { id: 4, date: '24/10/2024', day: 'Thứ 5', checkIn: '08:50', checkOut: '17:25', hours: '8h 35m', status: 'ontime', location: 'Văn phòng HN', notes: '' },
-  { id: 5, date: '23/10/2024', day: 'Thứ 4', checkIn: '-', checkOut: '-', hours: '-', status: 'absent', location: '-', notes: 'Nghỉ phép' },
-  { id: 6, date: '22/10/2024', day: 'Thứ 3', checkIn: '08:35', checkOut: '17:15', hours: '8h 40m', status: 'ontime', location: 'Văn phòng HN', notes: '' },
-  { id: 7, date: '21/10/2024', day: 'Thứ 2', checkIn: '08:40', checkOut: '18:30', hours: '9h 50m', status: 'overtime', location: 'Văn phòng HN', notes: 'Tăng ca 1.5h' },
-  { id: 8, date: '20/10/2024', day: 'CN', checkIn: '-', checkOut: '-', hours: '-', status: 'weekend', location: '-', notes: 'Cuối tuần' },
-]
+import { getAttendanceHistory } from '../../../services/attendanceService'
 
 const getStatusBadge = (status) => {
   switch (status) {
@@ -25,7 +15,7 @@ const getStatusBadge = (status) => {
     case 'late':
       return <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">Đi muộn</Badge>
     case 'absent':
-      return <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">Vắng</Badge>
+      return <Badge variant="error">Vắng</Badge>
     case 'overtime':
       return <Badge className="bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/30">Tăng ca</Badge>
     case 'weekend':
@@ -36,9 +26,72 @@ const getStatusBadge = (status) => {
 }
 
 const HistoryPage = () => {
+  const [records, setRecords] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+    const fetchData = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const data = await getAttendanceHistory({
+          from: dateFrom || undefined,
+          to: dateTo || undefined,
+        })
+        if (isMounted) {
+          setRecords(data)
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err.message || 'Không thể tải dữ liệu')
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchData()
+    return () => {
+      isMounted = false
+    }
+  }, [dateFrom, dateTo])
+
+  const filteredData = useMemo(() => {
+    const rawKeyword = searchTerm.trim().toLowerCase()
+    let keyword = rawKeyword
+    const isoMatch = rawKeyword.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (isoMatch) {
+      const [, year, month, day] = isoMatch
+      keyword = `${day}/${month}/${year}`
+    }
+
+    if (!keyword) return records
+
+    return records.filter((record) => {
+      return (
+        record.date.toLowerCase().includes(keyword) ||
+        record.day.toLowerCase().includes(keyword) ||
+        record.location.toLowerCase().includes(keyword) ||
+        record.notes.toLowerCase().includes(keyword) ||
+        record.status.toLowerCase().includes(keyword)
+      )
+    })
+  }, [records, searchTerm])
+
+  const summary = useMemo(() => {
+    const total = records.length
+    const late = records.filter((item) => item.status === 'late').length
+    const absent = records.filter((item) => item.status === 'absent').length
+    const overtime = records.filter((item) => item.status === 'overtime').length
+    return { total, late, absent, overtime }
+  }, [records])
 
   return (
     <div className="space-y-6">
@@ -50,7 +103,7 @@ const HistoryPage = () => {
       {/* Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
             <div className="md:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
@@ -98,26 +151,26 @@ const HistoryPage = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Tổng ngày công</p>
-            <p className="text-2xl text-[var(--text-main)] mt-1">18</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">Tổng ngày công</p>
+            <p className="text-2xl text-[var(--text-main)] mt-1">{summary.total}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Đi muộn</p>
-            <p className="text-2xl text-[var(--warning)] mt-1">2</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">Đi muộn</p>
+            <p className="text-2xl text-[var(--warning)] mt-1">{summary.late}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Vắng mặt</p>
-            <p className="text-2xl text-[var(--error)] mt-1">1</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">Vắng mặt</p>
+            <p className="text-2xl text-[var(--error)] mt-1">{summary.absent}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Tăng ca</p>
-            <p className="text-2xl text-[var(--primary)] mt-1">3</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">Tăng ca</p>
+            <p className="text-2xl text-[var(--primary)] mt-1">{summary.overtime}</p>
           </CardContent>
         </Card>
       </div>
@@ -143,7 +196,28 @@ const HistoryPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {attendanceData.map((record, index) => (
+                {loading && (
+                  <tr>
+                    <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                )}
+                {!loading && error && (
+                  <tr>
+                    <td colSpan={8} className="py-6 text-center text-[var(--error)]">
+                      {error}
+                    </td>
+                  </tr>
+                )}
+                {!loading && !error && filteredData.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
+                      Không có dữ liệu phù hợp
+                    </td>
+                  </tr>
+                )}
+                {!loading && !error && filteredData.map((record, index) => (
                   <tr 
                     key={record.id} 
                     className={`border-b border-[var(--border)] hover:bg-[var(--shell)] transition-colors ${

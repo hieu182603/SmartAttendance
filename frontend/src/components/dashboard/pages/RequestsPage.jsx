@@ -1,33 +1,26 @@
-//Request
 
 import { toast } from 'sonner'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, FileText, Clock, Calendar } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '../../ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../ui/dialog'
 import { Label } from '../../ui/label'
 import { Input } from '../../ui/input'
 import { Textarea } from '../../ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
-
-const initialRequests = [
-  { id: 1, type: 'leave', title: 'Nghỉ phép', date: '23/10/2024', duration: '1 ngày', status: 'approved', reason: 'Việc gia đình', createdAt: '20/10/2024' },
-  { id: 2, type: 'overtime', title: 'Tăng ca', date: '21/10/2024', duration: '1.5 giờ', status: 'approved', reason: 'Hoàn thành dự án', createdAt: '21/10/2024' },
-  { id: 3, type: 'correction', title: 'Sửa công', date: '19/10/2024', duration: '-', status: 'pending', reason: 'Quên chấm công ra', createdAt: '20/10/2024' },
-  { id: 4, type: 'leave', title: 'Nghỉ phép', date: '15/10/2024', duration: '0.5 ngày', status: 'rejected', reason: 'Khám bệnh', createdAt: '14/10/2024' },
-]
+import { getMyRequests, createRequest as createRequestApi } from '../../../services/requestService'
 
 const getStatusBadge = (status) => {
   switch (status) {
     case 'approved':
-      return <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">Đã duyệt</Badge>
+      return <Badge variant="success">Đã duyệt</Badge>
     case 'pending':
-      return <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">Chờ duyệt</Badge>
+      return <Badge variant="warning">Chờ duyệt</Badge>
     case 'rejected':
-      return <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">Từ chối</Badge>
+      return <Badge variant="error">Từ chối</Badge>
     default:
       return null
   }
@@ -50,28 +43,81 @@ const RequestsPage = () => {
   const [activeTab, setActiveTab] = useState('all')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [requestType, setRequestType] = useState('')
-  const [requests, setRequests] = useState(initialRequests)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [reason, setReason] = useState('')
+  const [requests, setRequests] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  const filteredRequests = activeTab === 'all' 
-    ? requests 
-    : requests.filter(r => r.status === activeTab)
+  useEffect(() => {
+    let isMounted = true
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const data = await getMyRequests()
+        if (isMounted) {
+          setRequests(data)
+        }
+      } catch (error) {
+        toast.error(error.message || 'Không thể tải yêu cầu')
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+    fetchData()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
-  const handleCreateRequest = () => {
-    const newRequest = {
-      id: requests.length + 1,
-      type: requestType,
-      title: requestType === 'leave' ? 'Nghỉ phép' : requestType === 'overtime' ? 'Tăng ca' : 'Sửa công',
-      date: '25/10/2024', // Example date
-      duration: requestType === 'leave' ? '1 ngày' : requestType === 'overtime' ? '1.5 giờ' : '-',
-      status: 'pending',
-      reason: 'Lý do chi tiết...', // Example reason
-      createdAt: '25/10/2024', // Example creation date
+  const filteredRequests = useMemo(() => {
+    if (activeTab === 'all') return requests
+    return requests.filter((request) => request.status === activeTab)
+  }, [activeTab, requests])
+
+  const summary = useMemo(() => {
+    return {
+      total: requests.length,
+      pending: requests.filter((r) => r.status === 'pending').length,
+      approved: requests.filter((r) => r.status === 'approved').length,
+      rejected: requests.filter((r) => r.status === 'rejected').length,
+    }
+  }, [requests])
+
+  const resetForm = () => {
+    setRequestType('')
+    setStartDate('')
+    setEndDate('')
+    setReason('')
+  }
+
+  const handleCreateRequest = async () => {
+    if (!requestType || !startDate || !endDate || !reason.trim()) {
+      toast.error('Vui lòng điền đầy đủ thông tin')
+      return
     }
 
-    setRequests([...requests, newRequest])
-    toast.success('Đơn yêu cầu đã được gửi!')
-    setIsDialogOpen(false)
-    setRequestType('')
+    setSubmitting(true)
+    try {
+      const payload = {
+        type: requestType,
+        startDate,
+        endDate,
+        reason: reason.trim(),
+      }
+      const newRequest = await createRequestApi(payload)
+      setRequests((prev) => [newRequest, ...prev])
+      toast.success('Đơn yêu cầu đã được gửi!')
+      setIsDialogOpen(false)
+      resetForm()
+    } catch (error) {
+      toast.error(error.message || 'Không thể gửi yêu cầu')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -114,17 +160,29 @@ const RequestsPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Từ ngày</Label>
-                  <Input type="date" className="bg-[var(--input-bg)] border-[var(--border)]" />
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-[var(--input-bg)] border-[var(--border)]"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Đến ngày</Label>
-                  <Input type="date" className="bg-[var(--input-bg)] border-[var(--border)]" />
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-[var(--input-bg)] border-[var(--border)]"
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Lý do</Label>
                 <Textarea 
                   placeholder="Nhập lý do chi tiết..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
                   className="bg-[var(--input-bg)] border-[var(--border)] min-h-[100px]"
                 />
               </div>
@@ -138,9 +196,10 @@ const RequestsPage = () => {
                 </Button>
                 <Button 
                   onClick={handleCreateRequest}
+                  disabled={submitting}
                   className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
                 >
-                  Gửi yêu cầu
+                  {submitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
                 </Button>
               </div>
             </div>
@@ -152,26 +211,26 @@ const RequestsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Tổng đơn</p>
-            <p className="text-2xl text-[var(--text-main)] mt-1">{requests.length}</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">Tổng đơn</p>
+            <p className="text-2xl text-[var(--text-main)] mt-1">{summary.total}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Chờ duyệt</p>
-            <p className="text-2xl text-[var(--warning)] mt-1">{requests.filter(r => r.status === 'pending').length}</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">Chờ duyệt</p>
+            <p className="text-2xl text-[var(--warning)] mt-1">{summary.pending}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Đã duyệt</p>
-            <p className="text-2xl text-[var(--success)] mt-1">{requests.filter(r => r.status === 'approved').length}</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">Đã duyệt</p>
+            <p className="text-2xl text-[var(--success)] mt-1">{summary.approved}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Từ chối</p>
-            <p className="text-2xl text-[var(--error)] mt-1">{requests.filter(r => r.status === 'rejected').length}</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">Từ chối</p>
+            <p className="text-2xl text-[var(--error)] mt-1">{summary.rejected}</p>
           </CardContent>
         </Card>
       </div>
@@ -198,7 +257,13 @@ const RequestsPage = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {filteredRequests.map((request) => (
+            {loading && (
+              <div className="p-6 text-center text-[var(--text-sub)]">Đang tải yêu cầu...</div>
+            )}
+            {!loading && filteredRequests.length === 0 && (
+              <div className="p-6 text-center text-[var(--text-sub)]">Không có yêu cầu nào</div>
+            )}
+            {!loading && filteredRequests.map((request) => (
               <div 
                 key={request.id}
                 className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] hover:border-[var(--accent-cyan)] transition-colors"
