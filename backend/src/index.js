@@ -5,6 +5,10 @@ import swaggerUi from "swagger-ui-express";
 
 import { connectDatabase } from "./config/database.js";
 import { swaggerSpec } from "./config/swagger.js";
+// Import models để đảm bảo chúng được đăng ký với Mongoose trước khi populate
+import "./modules/locations/location.model.js";
+import "./modules/users/user.model.js";
+import "./modules/attendance/attendance.model.js";
 import { authRouter } from "./modules/auth/auth.router.js";
 import { leaveRouter } from "./modules/leave/leave.router.js";
 import { attendanceRouter } from "./modules/attendance/attendance.router.js";
@@ -16,7 +20,9 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+// Tăng body size limit để nhận ảnh base64 (tối đa 10MB)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Swagger API Documentation
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {

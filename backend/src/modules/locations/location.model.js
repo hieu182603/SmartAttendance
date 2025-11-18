@@ -35,6 +35,21 @@ const locationSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Danh sách BSSID (MAC address) của các WiFi access point hợp lệ tại địa điểm này
+    allowedBSSIDs: [
+      {
+        type: String,
+        trim: true,
+        uppercase: true, // Lưu dạng uppercase để so sánh dễ dàng
+      },
+    ],
+    // SSID của WiFi (tên mạng WiFi)
+    allowedSSIDs: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -66,6 +81,100 @@ locationSchema.methods.isWithinRadius = function (userLat, userLng) {
   const distance = R * c; // Khoảng cách (mét)
 
   return distance <= this.radius; // true nếu trong bán kính cho phép
+};
+
+/**
+ * Kiểm tra xem BSSID có trong danh sách được phép không
+ * @param {String} bssid - BSSID (MAC address) của WiFi
+ * @returns {Boolean}
+ */
+locationSchema.methods.isBSSIDAllowed = function (bssid) {
+  if (!bssid || !this.allowedBSSIDs || this.allowedBSSIDs.length === 0) {
+    return false; // Nếu không có BSSID hoặc không có whitelist, trả về false
+  }
+  const normalizedBSSID = String(bssid)
+    .trim()
+    .toUpperCase()
+    .replace(/[:-]/g, "");
+  return this.allowedBSSIDs.some(
+    (allowed) => allowed.replace(/[:-]/g, "") === normalizedBSSID
+  );
+};
+
+/**
+ * Kiểm tra xem SSID có trong danh sách được phép không
+ * @param {String} ssid - SSID (tên mạng WiFi)
+ * @returns {Boolean}
+ */
+locationSchema.methods.isSSIDAllowed = function (ssid) {
+  if (!ssid || !this.allowedSSIDs || this.allowedSSIDs.length === 0) {
+    return false; // Nếu không có SSID hoặc không có whitelist, trả về false
+  }
+  const normalizedSSID = String(ssid).trim();
+  return this.allowedSSIDs.some((allowed) => allowed.trim() === normalizedSSID);
+};
+
+/**
+ * Kiểm tra vị trí kết hợp GPS và BSSID/SSID
+ * @param {Number} userLat - Vĩ độ người dùng
+ * @param {Number} userLng - Kinh độ người dùng
+ * @param {String} bssid - BSSID (MAC address) của WiFi (optional)
+ * @param {String} ssid - SSID (tên mạng WiFi) (optional)
+ * @returns {Object} { isValid: Boolean, method: String, distance?: Number }
+ */
+locationSchema.methods.validateLocation = function (
+  userLat,
+  userLng,
+  bssid = null,
+  ssid = null
+) {
+  // Ưu tiên kiểm tra BSSID nếu có (chính xác nhất)
+  if (bssid && this.isBSSIDAllowed(bssid)) {
+    return {
+      isValid: true,
+      method: "bssid",
+      message: "Xác thực bằng BSSID thành công",
+    };
+  }
+
+  // Kiểm tra SSID nếu có
+  if (ssid && this.isSSIDAllowed(ssid)) {
+    return {
+      isValid: true,
+      method: "ssid",
+      message: "Xác thực bằng SSID thành công",
+    };
+  }
+
+  // Fallback: kiểm tra GPS
+  const isWithinGPS = this.isWithinRadius(userLat, userLng);
+  if (isWithinGPS) {
+    // Tính khoảng cách
+    const toRad = (value) => (value * Math.PI) / 180;
+    const R = 6371e3;
+    const φ1 = toRad(this.latitude);
+    const φ2 = toRad(userLat);
+    const Δφ = toRad(userLat - this.latitude);
+    const Δλ = toRad(userLng - this.longitude);
+    const a =
+      Math.sin(Δφ / 2) ** 2 +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    return {
+      isValid: true,
+      method: "gps",
+      distance: Math.round(distance),
+      message: "Xác thực bằng GPS thành công",
+    };
+  }
+
+  return {
+    isValid: false,
+    method: "none",
+    message: "Vị trí không hợp lệ",
+  };
 };
 
 // locationSchema.methods.isWithinRadius = function (userLat, userLng) {
