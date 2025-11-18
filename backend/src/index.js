@@ -7,6 +7,8 @@ import { connectDatabase } from "./config/database.js";
 import { swaggerSpec } from "./config/swagger.js";
 import { authRouter } from "./modules/auth/auth.router.js";
 import { leaveRouter } from "./modules/leave/leave.router.js";
+import { attendanceRouter } from "./modules/attendance/attendance.router.js";
+import { requestRouter } from "./modules/requests/request.router.js";
 
 dotenv.config();
 
@@ -25,6 +27,8 @@ app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 
 app.use("/api/auth", authRouter);
 app.use("/api/leave", leaveRouter);
+app.use("/api/attendance", attendanceRouter);
+app.use("/api/requests", requestRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
