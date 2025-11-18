@@ -452,25 +452,25 @@ const RequestsPage = () => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Chờ duyệt</p>
+            <p className="text-sm text-[var(--text-sub)] pt-4">Chờ duyệt</p>
             <p className="mt-1 text-2xl text-[var(--warning)]">{stats.pending}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Đã duyệt</p>
+            <p className="text-sm text-[var(--text-sub)] pt-4">Đã duyệt</p>
             <p className="mt-1 text-2xl text-[var(--success)]">{stats.approved}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Từ chối</p>
+            <p className="text-sm text-[var(--text-sub)] pt-4">Từ chối</p>
             <p className="mt-1 text-2xl text-[var(--error)]">{stats.rejected}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)]">Tổng đơn</p>
+            <p className="text-sm text-[var(--text-sub)] pt-4">Tổng đơn</p>
             <p className="mt-1 text-2xl text-[var(--accent-cyan)]">{stats.total}</p>
           </CardContent>
         </Card>
@@ -478,7 +478,7 @@ const RequestsPage = () => {
 
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="space-y-4 p-6">
-          <div className="flex flex-col gap-4 md:flex-row">
+          <div className="flex flex-col gap-4 md:flex-row pt-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-sub)]" />
