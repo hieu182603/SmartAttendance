@@ -1,6 +1,4 @@
-
-
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   CheckCircle2,
   XCircle,
@@ -12,6 +10,7 @@ import {
   Sun,
   AlertCircle,
   Plus,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -37,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
+import { getMyRequests, createRequest as createRequestApi } from "../../../services/requestService";
 
 const RequestsPage = () => {
   const [requests, setRequests] = useState([]);
@@ -55,21 +55,48 @@ const RequestsPage = () => {
     end: "",
   });
   const [comments, setComments] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const stats = {
-    pending: requests.filter((r) => r.status === "pending").length,
-    approved: requests.filter((r) => r.status === "approved").length,
-    rejected: requests.filter((r) => r.status === "rejected").length,
-    total: requests.length,
-  };
+  useEffect(() => {
+    let isMounted = true;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const data = await getMyRequests();
+        if (isMounted) {
+          setRequests(data);
+        }
+      } catch (error) {
+        toast.error(error.message || "Không thể tải yêu cầu");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    return {
+      pending: requests.filter((r) => r.status === "pending").length,
+      approved: requests.filter((r) => r.status === "approved").length,
+      rejected: requests.filter((r) => r.status === "rejected").length,
+      total: requests.length,
+    };
+  }, [requests]);
 
   const applyFilters = (tabValue) => {
     return requests.filter((req) => {
       if (tabValue !== "all" && req.status !== tabValue) return false;
       if (
         searchQuery &&
-        !req.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !req.title.toLowerCase().includes(searchQuery.toLowerCase())
+        !req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !req.title?.toLowerCase().includes(searchQuery.toLowerCase())
       ) {
         return false;
       }
@@ -81,42 +108,32 @@ const RequestsPage = () => {
     });
   };
 
-  const handleCreateRequest = () => {
+  const handleCreateRequest = async () => {
     if (!requestType || !requestReason || !requestDateRange.start) {
       toast.error("Vui lòng điền đầy đủ thông tin đơn yêu cầu");
       return;
     }
 
-    const newRequest = {
-      id: `REQ${String(requests.length + 1).padStart(3, "0")}`,
-      employeeId: "EMP_CURRENT",
-      employeeName: "Bạn",
-      type: requestType,
-      status: "pending",
-      title:
-        requestType === "leave"
-          ? "Nghỉ phép"
-          : requestType === "overtime"
-          ? "Tăng ca"
-          : requestType === "remote"
-          ? "Làm việc từ xa"
-          : "Sửa công",
-      description: requestReason,
-      startDate: requestDateRange.start,
-      endDate: requestDateRange.end || requestDateRange.start,
-      duration: requestType === "overtime" ? "2 giờ" : "1 ngày",
-      submittedAt: new Date().toLocaleString("vi-VN"),
-      department: "N/A",
-      branch: "N/A",
-      urgency: "medium",
-    };
-
-    setRequests([newRequest, ...requests]);
-    setIsCreateDialogOpen(false);
-    setRequestType("");
-    setRequestReason("");
-    setRequestDateRange({ start: "", end: "" });
-    toast.success("Đơn yêu cầu đã được gửi!");
+    setSubmitting(true);
+    try {
+      const payload = {
+        type: requestType,
+        startDate: requestDateRange.start,
+        endDate: requestDateRange.end || requestDateRange.start,
+        reason: requestReason.trim(),
+      };
+      const newRequest = await createRequestApi(payload);
+      setRequests((prev) => [newRequest, ...prev]);
+      setIsCreateDialogOpen(false);
+      setRequestType("");
+      setRequestReason("");
+      setRequestDateRange({ start: "", end: "" });
+      toast.success("Đơn yêu cầu đã được gửi!");
+    } catch (error) {
+      toast.error(error.message || "Không thể gửi yêu cầu");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleOpenActionDialog = (request, action) => {
@@ -198,6 +215,14 @@ const RequestsPage = () => {
   const renderRequests = (tabValue) => {
     const data = applyFilters(tabValue);
 
+    if (loading) {
+      return (
+        <div className="py-12 text-center">
+          <p className="text-[var(--text-sub)]">Đang tải yêu cầu...</p>
+        </div>
+      );
+    }
+
     if (data.length === 0) {
       return (
         <div className="py-12 text-center">
@@ -221,9 +246,9 @@ const RequestsPage = () => {
                   {request.employeeName?.charAt(0) || "U"}
                 </div>
                 <div>
-                  <h3 className="text-[var(--text-main)]">{request.employeeName}</h3>
+                  <h3 className="text-[var(--text-main)]">{request.employeeName || "N/A"}</h3>
                   <p className="text-xs text-[var(--text-sub)]">
-                    {request.department} • {request.branch}
+                    {request.department || "N/A"} • {request.branch || "N/A"}
                   </p>
                 </div>
               </div>
@@ -233,41 +258,45 @@ const RequestsPage = () => {
                   <span className="mr-1">{icon}</span>
                   {label}
                 </Badge>
-                <Badge className={getUrgencyColor(request.urgency)}>
-                  {request.urgency === "high"
-                    ? "Gấp"
-                    : request.urgency === "medium"
-                    ? "Bình thường"
-                    : "Không gấp"}
-                </Badge>
+                {request.urgency && (
+                  <Badge className={getUrgencyColor(request.urgency)}>
+                    {request.urgency === "high"
+                      ? "Gấp"
+                      : request.urgency === "medium"
+                      ? "Bình thường"
+                      : "Không gấp"}
+                  </Badge>
+                )}
                 <Badge
                   variant="outline"
                   className="border-[var(--border)] text-[var(--text-sub)]"
                 >
                   <Calendar className="mr-1 h-3 w-3" />
-                  {request.startDate}
+                  {request.startDate || request.date}
                   {request.endDate && request.endDate !== request.startDate
                     ? ` → ${request.endDate}`
                     : ""}
                 </Badge>
-                <Badge
-                  variant="outline"
-                  className="border-[var(--border)] text-[var(--text-sub)]"
-                >
-                  <Clock className="mr-1 h-3 w-3" />
-                  {request.duration}
-                </Badge>
+                {request.duration && (
+                  <Badge
+                    variant="outline"
+                    className="border-[var(--border)] text-[var(--text-sub)]"
+                  >
+                    <Clock className="mr-1 h-3 w-3" />
+                    {request.duration}
+                  </Badge>
+                )}
               </div>
 
               <div>
-                <h4 className="text-[var(--text-main)]">{request.title}</h4>
+                <h4 className="text-[var(--text-main)]">{request.title || request.type}</h4>
                 <p className="text-sm text-[var(--text-sub)]">
-                  {request.description}
+                  {request.description || request.reason}
                 </p>
               </div>
 
               <div className="text-xs text-[var(--text-sub)]">
-                Gửi lúc: {request.submittedAt}
+                Gửi lúc: {request.submittedAt || request.createdAt || "N/A"}
               </div>
 
               {request.approver && (
@@ -275,7 +304,7 @@ const RequestsPage = () => {
                   <p className="text-xs text-[var(--text-sub)]">
                     {request.approver} • {request.approvedAt}
                   </p>
-                  <p>{request.comments}</p>
+                  {request.comments && <p>{request.comments}</p>}
                 </div>
               )}
             </div>
@@ -318,128 +347,6 @@ const RequestsPage = () => {
       );
     });
   };
-=======
-import { toast } from 'sonner'
-import { useEffect, useMemo, useState } from 'react'
-import { Plus, FileText, Clock, Calendar } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
-import { Badge } from '../../ui/badge'
-import { Button } from '../../ui/button'
-import { Tabs, TabsList, TabsTrigger } from '../../ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../ui/dialog'
-import { Label } from '../../ui/label'
-import { Input } from '../../ui/input'
-import { Textarea } from '../../ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
-import { getMyRequests, createRequest as createRequestApi } from '../../../services/requestService'
-
-const getStatusBadge = (status) => {
-  switch (status) {
-    case 'approved':
-      return <Badge variant="success">Đã duyệt</Badge>
-    case 'pending':
-      return <Badge variant="warning">Chờ duyệt</Badge>
-    case 'rejected':
-      return <Badge variant="error">Từ chối</Badge>
-    default:
-      return null
-  }
-}
-
-const getTypeIcon = (type) => {
-  switch (type) {
-    case 'leave':
-      return <Calendar className="h-4 w-4" />
-    case 'overtime':
-      return <Clock className="h-4 w-4" />
-    case 'correction':
-      return <FileText className="h-4 w-4" />
-    default:
-      return null
-  }
-}
-
-const RequestsPage = () => {
-  const [activeTab, setActiveTab] = useState('all')
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [requestType, setRequestType] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [reason, setReason] = useState('')
-  const [requests, setRequests] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    let isMounted = true
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const data = await getMyRequests()
-        if (isMounted) {
-          setRequests(data)
-        }
-      } catch (error) {
-        toast.error(error.message || 'Không thể tải yêu cầu')
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
-      }
-    }
-    fetchData()
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  const filteredRequests = useMemo(() => {
-    if (activeTab === 'all') return requests
-    return requests.filter((request) => request.status === activeTab)
-  }, [activeTab, requests])
-
-  const summary = useMemo(() => {
-    return {
-      total: requests.length,
-      pending: requests.filter((r) => r.status === 'pending').length,
-      approved: requests.filter((r) => r.status === 'approved').length,
-      rejected: requests.filter((r) => r.status === 'rejected').length,
-    }
-  }, [requests])
-
-  const resetForm = () => {
-    setRequestType('')
-    setStartDate('')
-    setEndDate('')
-    setReason('')
-  }
-
-  const handleCreateRequest = async () => {
-    if (!requestType || !startDate || !endDate || !reason.trim()) {
-      toast.error('Vui lòng điền đầy đủ thông tin')
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const payload = {
-        type: requestType,
-        startDate,
-        endDate,
-        reason: reason.trim(),
-      }
-      const newRequest = await createRequestApi(payload)
-      setRequests((prev) => [newRequest, ...prev])
-      toast.success('Đơn yêu cầu đã được gửi!')
-      setIsDialogOpen(false)
-      resetForm()
-    } catch (error) {
-      toast.error(error.message || 'Không thể gửi yêu cầu')
-    } finally {
-      setSubmitting(false)
-    }
-  }
- main
 
   return (
     <div className="space-y-6">
@@ -486,7 +393,6 @@ const RequestsPage = () => {
                   <Label>Từ ngày</Label>
                   <Input
                     type="date"
-
                     value={requestDateRange.start}
                     onChange={(e) =>
                       setRequestDateRange((prev) => ({
@@ -495,18 +401,12 @@ const RequestsPage = () => {
                       }))
                     }
                     className="border-[var(--border)] bg-[var(--input-bg)]"
-
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-[var(--input-bg)] border-[var(--border)]"
-
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Đến ngày</Label>
                   <Input
                     type="date"
-
                     value={requestDateRange.end}
                     onChange={(e) =>
                       setRequestDateRange((prev) => ({
@@ -514,11 +414,7 @@ const RequestsPage = () => {
                         end: e.target.value,
                       }))
                     }
-                   className="border-[var(--border)] bg-[var(--input-bg)]"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-[var(--input-bg)] border-[var(--border)]"
-
+                    className="border-[var(--border)] bg-[var(--input-bg)]"
                   />
                 </div>
               </div>
@@ -529,33 +425,9 @@ const RequestsPage = () => {
                   value={requestReason}
                   onChange={(e) => setRequestReason(e.target.value)}
                   placeholder="Nhập lý do chi tiết..."
-
                   className="min-h-[120px] border-[var(--border)] bg-[var(--input-bg)]"
                 />
               </div>
-
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="bg-[var(--input-bg)] border-[var(--border)] min-h-[100px]"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsDialogOpen(false)}
-                  className="border-[var(--border)] text-[var(--text-main)]"
-                >
-                  Hủy
-                </Button>
-                <Button 
-                  onClick={handleCreateRequest}
-                  disabled={submitting}
-                  className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
-                >
-                  {submitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
-                </Button>
-              </div>
-
             </div>
             <DialogFooter className="pt-4">
               <Button
@@ -567,9 +439,10 @@ const RequestsPage = () => {
               </Button>
               <Button
                 onClick={handleCreateRequest}
+                disabled={submitting}
                 className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
               >
-                Gửi yêu cầu
+                {submitting ? "Đang gửi..." : "Gửi yêu cầu"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -579,46 +452,26 @@ const RequestsPage = () => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-
             <p className="text-sm text-[var(--text-sub)]">Chờ duyệt</p>
             <p className="mt-1 text-2xl text-[var(--warning)]">{stats.pending}</p>
-
-            <p className="text-sm text-[var(--text-sub)] mt-2">Tổng đơn</p>
-            <p className="text-2xl text-[var(--text-main)] mt-1">{summary.total}</p>
- main
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-
             <p className="text-sm text-[var(--text-sub)]">Đã duyệt</p>
             <p className="mt-1 text-2xl text-[var(--success)]">{stats.approved}</p>
-
-            <p className="text-sm text-[var(--text-sub)] mt-2">Chờ duyệt</p>
-            <p className="text-2xl text-[var(--warning)] mt-1">{summary.pending}</p>
- main
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-
             <p className="text-sm text-[var(--text-sub)]">Từ chối</p>
             <p className="mt-1 text-2xl text-[var(--error)]">{stats.rejected}</p>
-
-            <p className="text-sm text-[var(--text-sub)] mt-2">Đã duyệt</p>
-            <p className="text-2xl text-[var(--success)] mt-1">{summary.approved}</p>
- main
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-
             <p className="text-sm text-[var(--text-sub)]">Tổng đơn</p>
             <p className="mt-1 text-2xl text-[var(--accent-cyan)]">{stats.total}</p>
-
-            <p className="text-sm text-[var(--text-sub)] mt-2">Từ chối</p>
-            <p className="text-2xl text-[var(--error)] mt-1">{summary.rejected}</p>
- main
           </CardContent>
         </Card>
       </div>
@@ -690,44 +543,6 @@ const RequestsPage = () => {
               {renderRequests("all")}
             </TabsContent>
           </Tabs>
-
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {loading && (
-              <div className="p-6 text-center text-[var(--text-sub)]">Đang tải yêu cầu...</div>
-            )}
-            {!loading && filteredRequests.length === 0 && (
-              <div className="p-6 text-center text-[var(--text-sub)]">Không có yêu cầu nào</div>
-            )}
-            {!loading && filteredRequests.map((request) => (
-              <div 
-                key={request.id}
-                className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] hover:border-[var(--accent-cyan)] transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4 flex-1">
-                    <div className="p-2 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)]">
-                      {getTypeIcon(request.type)}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-[var(--text-main)] mb-1">{request.title}</h3>
-                      <p className="text-sm text-[var(--text-sub)] mb-2">{request.reason}</p>
-                      <div className="flex items-center gap-4 text-sm text-[var(--text-sub)]">
-                        <span>📅 {request.date}</span>
-                        <span>⏱️ {request.duration}</span>
-                        <span>📝 Tạo: {request.createdAt}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    {getStatusBadge(request.status)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
- main
         </CardContent>
       </Card>
 
@@ -741,7 +556,7 @@ const RequestsPage = () => {
               {selectedRequest && (
                 <>
                   <strong>{selectedRequest.employeeName}</strong> •{" "}
-                  {selectedRequest.title}
+                  {selectedRequest.title || selectedRequest.type}
                 </>
               )}
             </DialogDescription>
@@ -785,6 +600,6 @@ const RequestsPage = () => {
       </Dialog>
     </div>
   );
-}
+};
 
-export default RequestsPage
+export default RequestsPage;
