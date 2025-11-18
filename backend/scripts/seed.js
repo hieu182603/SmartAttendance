@@ -156,12 +156,24 @@ async function seed() {
 
         const users = [];
 
-        // Admin, HR, PM
+        // Super Admin, Admin, HR Manager, Manager
+        users.push({
+            email: 'superadmin@smartattendance.com',
+            password: hashedPassword,
+            name: 'Super Admin',
+            role: 'SUPER_ADMIN',
+            phone: '0900000000',
+            department: 'Executive',
+            branch: locations[0]._id,
+            isVerified: true,
+            isActive: true,
+        });
+
         users.push({
             email: 'admin@smartattendance.com',
             password: hashedPassword,
-            name: 'Nguyễn Văn Admin',
-            role: 'admin',
+            name: 'Admin',
+            role: 'ADMIN',
             phone: '0901234567',
             department: 'IT',
             branch: locations[0]._id,
@@ -172,8 +184,8 @@ async function seed() {
         users.push({
             email: 'hr@smartattendance.com',
             password: hashedPassword,
-            name: 'Trần Thị HR',
-            role: 'HR',
+            name: 'HR Manager',
+            role: 'HR_MANAGER',
             phone: '0901234568',
             department: 'HR',
             branch: locations[0]._id,
@@ -182,10 +194,10 @@ async function seed() {
         });
 
         users.push({
-            email: 'pm@smartattendance.com',
+            email: 'manager@smartattendance.com',
             password: hashedPassword,
-            name: 'Lê Văn PM',
-            role: 'PM',
+            name: 'Manager',
+            role: 'MANAGER',
             phone: '0901234569',
             department: 'Product',
             branch: locations[0]._id,
@@ -207,7 +219,7 @@ async function seed() {
                 email: `employee${i}@smartattendance.com`,
                 password: hashedPassword,
                 name: name,
-                role: 'employee',
+                role: 'EMPLOYEE',
                 phone: phone,
                 department: department,
                 branch: branch,
@@ -219,9 +231,9 @@ async function seed() {
         const createdUsers = await UserModel.insertMany(users);
         console.log(`✅ Created ${createdUsers.length} users\n`);
 
-        const adminUser = createdUsers.find((u) => u.role === 'admin');
-        const hrUser = createdUsers.find((u) => u.role === 'HR');
-        const employeeUsers = createdUsers.filter((u) => u.role === 'employee');
+        const adminUser = createdUsers.find((u) => u.role === 'ADMIN');
+        const hrUser = createdUsers.find((u) => u.role === 'HR_MANAGER');
+        const employeeUsers = createdUsers.filter((u) => u.role === 'EMPLOYEE');
 
         // ========== 4. TẠO ATTENDANCES (Chấm công) - 3 tháng ==========
         console.log('⏰ Creating attendances...');
@@ -574,10 +586,11 @@ async function seed() {
         console.log(`   - Logs: ${createdLogs.length}\n`);
 
         console.log('🔑 Test accounts (password: password123):');
-        console.log(`   - admin@smartattendance.com (admin)`);
-        console.log(`   - hr@smartattendance.com (HR)`);
-        console.log(`   - pm@smartattendance.com (PM)`);
-        console.log(`   - employee1@smartattendance.com đến employee27@smartattendance.com (employee)\n`);
+        console.log(`   - superadmin@smartattendance.com (SUPER_ADMIN)`);
+        console.log(`   - admin@smartattendance.com (ADMIN)`);
+        console.log(`   - hr@smartattendance.com (HR_MANAGER)`);
+        console.log(`   - manager@smartattendance.com (MANAGER)`);
+        console.log(`   - employee1@smartattendance.com đến employee27@smartattendance.com (EMPLOYEE)\n`);
 
         process.exit(0);
     } catch (error) {

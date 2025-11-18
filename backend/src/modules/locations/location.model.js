@@ -48,6 +48,7 @@ locationSchema.index({ latitude: 1, longitude: 1 });
  * @param {Number} userLng - Kinh độ người dùng
  * @returns {Boolean}
  */
+
 locationSchema.methods.isWithinRadius = function (userLat, userLng) {
   const toRad = (value) => (value * Math.PI) / 180;
 
