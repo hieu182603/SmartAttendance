@@ -15,8 +15,8 @@ const userSchema = new mongoose.Schema(
     // Vai trò người dùng
     role: {
       type: String,
-      enum: ["admin", "HR", "PM", "employee"],
-      default: "employee",
+      enum: ["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"],
+      default: "EMPLOYEE",
     },
 
     // Liên kết chi nhánh & phòng ban
