@@ -19,6 +19,8 @@ import LeaveBalancePage from "./components/dashboard/pages/LeaveBalancePage";
 import NotificationsPage from "./components/dashboard/pages/NotificationsPage";
 import CameraCheckinPage from "./components/dashboard/pages/CameraCheckinPage";
 import ProfilePage from "./components/dashboard/pages/ProfilePage";
+import ApproveRequestsPage from "./components/dashboard/pages/ApproveRequestsPage";
+import AttendanceAnalyticsPage from "./components/dashboard/pages/AttendanceAnalyticsPage";
 
 export default function App() {
   return (
@@ -43,6 +45,8 @@ export default function App() {
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="camera-checkin" element={<CameraCheckinPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="approve-requests" element={<ApproveRequestsPage />} />
+            <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
           </Route>
         </Route>
 
