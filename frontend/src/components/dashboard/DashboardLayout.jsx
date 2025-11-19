@@ -8,6 +8,7 @@ import {
   FileText,
   Clock,
   CalendarDays,
+  Calendar,
   User,
   Menu,
   X,
@@ -42,6 +43,12 @@ const employeeMenu = [
     label: "Lịch làm việc",
     icon: Clock,
     path: "/employee/schedule",
+  },
+  {
+    id: "company-calendar",
+    label: "Lịch công ty",
+    icon: Calendar,
+    path: "/employee/company-calendar",
   },
   { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile" },
 ];
@@ -142,19 +149,18 @@ const DashboardLayout = () => {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* Sidebar */}
         <aside
-          className={`
-            fixed lg:sticky top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64 
-            bg-[var(--surface)] border-r border-[var(--border)]
-            transform transition-transform duration-200 ease-in-out
-            ${
-              isSidebarOpen
-                ? "translate-x-0"
-                : "-translate-x-full lg:translate-x-0"
-            }
-          `}
+          className={`fixed top-16 left-0 w-64 h-[calc(100vh-4rem)]
+              bg-[var(--surface)] border-r border-[var(--border)]
+              overflow-y-auto z-40
+              transform transition-transform duration-200 ease-in-out
+              ${
+                isSidebarOpen
+                  ? "translate-x-0"
+                  : "-translate-x-full lg:translate-x-0"
+              }`}
         >
           <nav className="p-4 space-y-1 overflow-y-auto">
             {/* Employee Section */}
@@ -209,7 +215,7 @@ const DashboardLayout = () => {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 ml-0 lg:ml-64 h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

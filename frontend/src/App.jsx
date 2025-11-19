@@ -19,6 +19,7 @@ import LeaveBalancePage from "./components/dashboard/pages/LeaveBalancePage";
 import NotificationsPage from "./components/dashboard/pages/NotificationsPage";
 import CameraCheckinPage from "./components/dashboard/pages/CameraCheckinPage";
 import ProfilePage from "./components/dashboard/pages/ProfilePage";
+import CompanyCalendarPage from "./components/dashboard/pages/CompanyCalendarPage";
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="camera-checkin" element={<CameraCheckinPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="company-calendar" element={<CompanyCalendarPage />} />
           </Route>
         </Route>
 
