@@ -585,12 +585,7 @@ async function seed() {
         console.log(`   - Reports: ${createdReports.length}`);
         console.log(`   - Logs: ${createdLogs.length}\n`);
 
-        console.log('🔑 Test accounts (password: password123):');
-        console.log(`   - superadmin@smartattendance.com (SUPER_ADMIN)`);
-        console.log(`   - admin@smartattendance.com (ADMIN)`);
-        console.log(`   - hr@smartattendance.com (HR_MANAGER)`);
-        console.log(`   - manager@smartattendance.com (MANAGER)`);
-        console.log(`   - employee1@smartattendance.com đến employee27@smartattendance.com (EMPLOYEE)\n`);
+
 
         process.exit(0);
     } catch (error) {

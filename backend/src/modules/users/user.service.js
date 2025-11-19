@@ -65,7 +65,7 @@ export class UserService {
    */
   static async changePassword(userId, currentPassword, newPassword) {
     const user = await UserModel.findById(userId);
-    
+
     if (!user) {
       throw new Error("User not found");
     }
@@ -81,6 +81,108 @@ export class UserService {
     await user.save();
 
     return { message: "Đổi mật khẩu thành công" };
+  }
+
+  static async getAllUsers(options = {}) {
+    const {
+      page = 1,
+      limit = 20,
+      search = "",
+      role = "",
+      department = "",
+      isActive
+    } = options;
+
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    if (role) {
+      query.role = role;
+    }
+
+    if (department) {
+      query.department = { $regex: department, $options: "i" };
+    }
+
+    if (isActive !== undefined) {
+      query.isActive = isActive === "true" || isActive === true;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [users, total] = await Promise.all([
+      UserModel.find(query)
+        .select("-password -otp -otpExpires")
+        .populate("branch", "name address")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      UserModel.countDocuments(query)
+    ]);
+
+    return {
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  static async getUserByIdForAdmin(userId) {
+    const user = await UserModel.findById(userId)
+      .select("-password -otp -otpExpires")
+      .populate("branch", "name address");
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    return user;
+  }
+
+  static async updateUserByAdmin(userId, updateData) {
+    const allowedFields = [
+      "name",
+      "email",
+      "phone",
+      "role",
+      "department",
+      "branch",
+      "isActive",
+      "avatarUrl"
+    ];
+
+    const updateFields = {};
+    for (const field of allowedFields) {
+      if (updateData[field] !== undefined) {
+        updateFields[field] = updateData[field];
+      }
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      throw new Error("Không có dữ liệu để cập nhật");
+    }
+
+    const user = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    ).select("-password -otp -otpExpires").populate("branch", "name address");
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    return user;
   }
 }
 
