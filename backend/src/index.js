@@ -9,6 +9,7 @@ import { swaggerSpec } from "./config/swagger.js";
 import "./modules/locations/location.model.js";
 import "./modules/users/user.model.js";
 import "./modules/attendance/attendance.model.js";
+import "./modules/notifications/notification.model.js";
 import { authRouter } from "./modules/auth/auth.router.js";
 import { leaveRouter } from "./modules/leave/leave.router.js";
 import { attendanceRouter } from "./modules/attendance/attendance.router.js";
