@@ -17,7 +17,6 @@
     "concurrently": "^9.0.1"
   },
   "dependencies": {
-    "googleapis": "^166.0.0",
-    "multer": "^2.0.2"
+    "react-day-picker": "^9.11.1"
   }
 }

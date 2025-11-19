@@ -186,5 +186,165 @@ export class UserController {
       });
     }
   }
+
+  /**
+   * @swagger
+   * /api/users:
+   *   get:
+   *     summary: Lấy danh sách tất cả users (chỉ dành cho ADMIN, HR_MANAGER)
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: page
+   *         schema:
+   *           type: integer
+   *         description: Số trang
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *         description: Số lượng items mỗi trang
+   *       - in: query
+   *         name: search
+   *         schema:
+   *           type: string
+   *         description: Tìm kiếm theo tên hoặc email
+   *       - in: query
+   *         name: role
+   *         schema:
+   *           type: string
+   *         description: Lọc theo role
+   *       - in: query
+   *         name: department
+   *         schema:
+   *           type: string
+   *         description: Lọc theo phòng ban
+   *       - in: query
+   *         name: isActive
+   *         schema:
+   *           type: boolean
+   *         description: Lọc theo trạng thái active
+   *     responses:
+   *       200:
+   *         description: Danh sách users
+   *       403:
+   *         description: Không có quyền truy cập
+   */
+  static async getAllUsers(req, res) {
+    try {
+      const result = await UserService.getAllUsers(req.query);
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Get all users error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/users/{id}:
+   *   get:
+   *     summary: Lấy thông tin user theo ID (chỉ dành cho ADMIN, HR_MANAGER)
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: User ID
+   *     responses:
+   *       200:
+   *         description: Thông tin user
+   *       403:
+   *         description: Không có quyền truy cập
+   *       404:
+   *         description: Không tìm thấy user
+   */
+  static async getUserByIdForAdmin(req, res) {
+    try {
+      const { id } = req.params;
+      const user = await UserService.getUserByIdForAdmin(id);
+      return res.status(200).json(user);
+    } catch (error) {
+      if (error.message === "User not found") {
+        return res.status(404).json({ message: "Không tìm thấy user" });
+      }
+      console.error("Get user by ID error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/users/{id}:
+   *   put:
+   *     summary: Cập nhật thông tin user (chỉ dành cho ADMIN, SUPER_ADMIN)
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: User ID
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               name:
+   *                 type: string
+   *               email:
+   *                 type: string
+   *               phone:
+   *                 type: string
+   *               role:
+   *                 type: string
+   *               department:
+   *                 type: string
+   *               isActive:
+   *                 type: boolean
+   *     responses:
+   *       200:
+   *         description: Cập nhật thành công
+   *       403:
+   *         description: Không có quyền truy cập
+   *       404:
+   *         description: Không tìm thấy user
+   */
+  static async updateUserByAdmin(req, res) {
+    try {
+      const { id } = req.params;
+      const updatedUser = await UserService.updateUserByAdmin(id, req.body);
+      return res.status(200).json({
+        message: "Cập nhật thông tin user thành công",
+        user: updatedUser,
+      });
+    } catch (error) {
+      if (error.message === "User not found") {
+        return res.status(404).json({ message: "Không tìm thấy user" });
+      }
+      if (error.message === "Không có dữ liệu để cập nhật") {
+        return res.status(400).json({ message: error.message });
+      }
+      console.error("Update user by admin error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
 }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Calendar,
@@ -58,6 +59,7 @@ const getLeaveTypeConfig = (typeId) => {
 }
 
 const LeaveBalancePage = () => {
+  const navigate = useNavigate()
   const [selectedType, setSelectedType] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [leaveTypes, setLeaveTypes] = useState([])
@@ -130,7 +132,7 @@ const LeaveBalancePage = () => {
   }
 
   const handleRequestLeave = () => {
-    toast.success('📝 Chuyển đến trang yêu cầu nghỉ phép...')
+    navigate('/employee/requests')
   }
 
   if (loading) {
