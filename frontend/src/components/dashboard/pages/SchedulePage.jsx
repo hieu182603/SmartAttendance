@@ -167,7 +167,7 @@ const mockShifts = [
   },
   {
     id: "15",
-    date: "2025-11-12",
+    date: "2025-11-18",
     shift: "Ca sáng",
     startTime: "08:00",
     endTime: "12:00",
@@ -201,8 +201,39 @@ const SchedulePage = () => {
   const today = new Date(); // Mock today
   const todayStr = today.toISOString().split("T")[0];
 
+  const todayShiftMorning = {
+    id: `today-morning-${todayStr}`,
+    date: todayStr,
+    shift: "Ca sáng",
+    startTime: "08:00",
+    endTime: "12:00",
+    location: "Văn phòng HN",
+    status: "completed",
+    team: "Dev Team",
+    notes: "Họp stand-up 9:00 AM",
+  };
+
+  const todayShiftAfternoon = {
+    id: `today-afternoon-${todayStr}`,
+    date: todayStr,
+    shift: "Ca chiều",
+    startTime: "13:00",
+    endTime: "17:00",
+    location: "Văn phòng HN",
+    status: "scheduled",
+    team: "Dev Team",
+    notes: "Code review 2:00 PM",
+  };
+
+  const hasTodayData = mockShifts.some((s) => s.date === todayStr);
+
+  // Dùng finalShifts để render
+  const finalShifts = hasTodayData
+    ? mockShifts
+    : [todayShiftMorning, todayShiftAfternoon, ...mockShifts];
+
   // Calculate stats for this month
-  const monthShifts = mockShifts.filter((s) => s.date.startsWith("2025-11"));
+  const monthShifts = finalShifts.filter((s) => s.date.startsWith("2025-11"));
   const stats = {
     thisMonth: monthShifts.filter((s) => s.status !== "off").length,
     completed: monthShifts.filter((s) => s.status === "completed").length,
@@ -218,7 +249,7 @@ const SchedulePage = () => {
   };
 
   // Today's shifts
-  const todayShifts = mockShifts.filter((shift) => shift.date === todayStr);
+  const todayShifts = finalShifts.filter((shift) => shift.date === todayStr);
   const currentShift = todayShifts.find((shift) => {
     const now = currentTime.getHours() * 60 + currentTime.getMinutes();
     const start =
@@ -231,7 +262,7 @@ const SchedulePage = () => {
   });
 
   // Get upcoming shifts (next 7 days)
-  const upcomingShifts = mockShifts
+  const upcomingShifts = finalShifts
     .filter((shift) => {
       const shiftDate = new Date(shift.date);
       return shiftDate >= today && shift.status === "scheduled";
