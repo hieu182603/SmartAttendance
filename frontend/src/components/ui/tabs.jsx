@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react'
+import React, { createContext, useContext, useState } from 'react'
 import { cn } from './utils'
 
 const TabsContext = createContext({
@@ -6,9 +6,21 @@ const TabsContext = createContext({
   onValueChange: () => {},
 })
 
-const Tabs = ({ className, value, onValueChange, ...props }) => {
+const Tabs = ({ className, value: controlledValue, onValueChange, defaultValue, ...props }) => {
+  const [internalValue, setInternalValue] = useState(defaultValue || null)
+  
+  const value = controlledValue !== undefined ? controlledValue : internalValue
+  const handleValueChange = (newValue) => {
+    if (controlledValue === undefined) {
+      setInternalValue(newValue)
+    }
+    if (onValueChange) {
+      onValueChange(newValue)
+    }
+  }
+
   return (
-    <TabsContext.Provider value={{ value, onValueChange }}>
+    <TabsContext.Provider value={{ value, onValueChange: handleValueChange }}>
       <div className={cn('flex flex-col gap-2', className)} {...props} />
     </TabsContext.Provider>
   )
