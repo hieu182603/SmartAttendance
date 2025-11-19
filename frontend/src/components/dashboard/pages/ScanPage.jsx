@@ -168,6 +168,20 @@ const ScanPage = () => {
         }
 
         // Bắt đầu quét QR code
+        // Một số trình duyệt yêu cầu gọi play() và play() có thể trả về một Promise
+        try {
+          // Thử play video; nếu bị abort thì bỏ qua
+          // eslint-disable-next-line no-void
+          await videoRef.current.play();
+        } catch (err) {
+          if (err && err.name === "AbortError") {
+            // play() bị hủy do pause() được gọi ngay sau đó — bỏ qua
+            console.warn("video play aborted", err);
+          } else {
+            console.error("video play error", err);
+          }
+        }
+
         startQRScanning();
       }
     } catch (error) {
@@ -186,6 +200,11 @@ const ScanPage = () => {
       streamRef.current = null;
     }
     if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+      } catch (e) {
+        // ignore
+      }
       videoRef.current.srcObject = null;
     }
     if (scanIntervalRef.current) {
@@ -278,9 +297,21 @@ const ScanPage = () => {
     } catch (error) {
       console.error("Check-in error:", error);
       const errorMessage =
-        error.response?.data?.message || "Có lỗi xảy ra khi chấm công";
-      toast.error(errorMessage);
-      setCheckInStatus("error");
+        error.response?.data?.message ||
+        error.message ||
+        "Có lỗi xảy ra khi chấm công";
+
+      // Nếu server trả lỗi business (ví dụ đã chấm công hôm nay)
+      if (
+        error.response?.status === 400 &&
+        /chấm công|đã chấm công/i.test(errorMessage)
+      ) {
+        toast.info(errorMessage);
+        setCheckInStatus("already");
+      } else {
+        toast.error(errorMessage);
+        setCheckInStatus("error");
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -288,11 +319,14 @@ const ScanPage = () => {
 
   // Kiểm tra quyền khi component mount
   useEffect(() => {
-    checkPermissions();
+    (async () => {
+      await checkPermissions();
+      startCamera();
+    })();
+
     return () => {
       stopCamera();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -457,46 +491,29 @@ const ScanPage = () => {
             )}
           </div>
 
-          {/* Nút điều khiển */}
+          {/* Nút điều khiển - sửa: camera tự bật, chỉ còn nút check-in */}
           <div className="flex gap-3">
-            {!isCameraReady ? (
-              <button
-                onClick={startCamera}
-                disabled={!permissions.camera || !permissions.location}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Camera className="h-4 w-4" />
-                Bật Camera
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={stopCamera}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-6 py-3 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--shell)]"
-                >
-                  Tắt Camera
-                </button>
-                <button
-                  onClick={handleCheckIn}
-                  disabled={checkInStatus === "success" || isProcessing}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Đang xử lý...
-                    </>
-                  ) : checkInStatus === "success" ? (
-                    "Đã check-in"
-                  ) : (
-                    <>
-                      <Camera className="h-4 w-4" />
-                      Chụp ảnh và xác nhận
-                    </>
-                  )}
-                </button>
-              </>
-            )}
+            <button
+              onClick={handleCheckIn}
+              disabled={
+                isProcessing || !permissions.camera || !permissions.location
+              }
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : checkInStatus === "success" ? (
+                "Đã check-in"
+              ) : (
+                <>
+                  <Camera className="h-4 w-4" />
+                  Chụp ảnh và xác nhận
+                </>
+              )}
+            </button>
           </div>
         </CardContent>
       </Card>
