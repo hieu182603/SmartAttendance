@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { AuthLayout } from '../AuthLayout'
@@ -12,7 +12,14 @@ import { toast } from 'sonner'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, token, loading } = useAuth()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && token) {
+      navigate('/employee', { replace: true })
+    }
+  }, [token, loading, navigate])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -26,7 +33,7 @@ export default function Login() {
     try {
       await login({ email, password })
       toast.success('Đăng nhập thành công')
-      navigate('/')
+      navigate('/employee')
     } catch (err) {
       toast.error(err.message || 'Đăng nhập thất bại')
     } finally {

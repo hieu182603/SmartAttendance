@@ -25,7 +25,11 @@ const userSchema = new mongoose.Schema(
 
     // Thông tin bổ sung
     phone: { type: String },
+    address: { type: String },
+    birthday: { type: Date },
     avatarUrl: { type: String },
+    bankAccount: { type: String },
+    bankName: { type: String },
     isActive: { type: Boolean, default: true },
 
     // Số ngày phép

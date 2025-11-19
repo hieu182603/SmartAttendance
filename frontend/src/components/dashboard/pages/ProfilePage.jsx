@@ -1,28 +1,22 @@
 import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { useAuth } from '../../../context/AuthContext'
+import { Profile } from '../../Profile'
 
 export default function ProfilePage() {
   const { user } = useAuth()
 
+  // Map backend role to Profile component role
+  const getRole = () => {
+    if (!user?.role) return 'employee'
+    const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER']
+    return adminRoles.includes(user.role) ? 'admin' : 'employee'
+  }
+
   return (
-    <div className="space-y-6">
-      <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">Hồ sơ cá nhân</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-sm text-[var(--text-sub)] mb-1">Tên</p>
-            <p className="text-[var(--text-main)]">{user?.name || 'Chưa có thông tin'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-[var(--text-sub)] mb-1">Email</p>
-            <p className="text-[var(--text-main)]">{user?.email || 'Chưa có thông tin'}</p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <Profile 
+      role={getRole()} 
+      user={user}
+    />
   )
 }
 

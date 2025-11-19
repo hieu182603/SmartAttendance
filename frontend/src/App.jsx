@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "./components/ThemeProvider";
+import LandingPage from "./components/LandingPage";
 import Login from "./components/auth/Login";
 import Register from "./components/auth/Register";
 import VerifyOtp from "./components/auth/VerifyOtp";
@@ -23,6 +24,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -31,7 +33,6 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route element={<ProtectedRoute />}>
-          <Route index element={<Navigate to="/employee" replace />} />
           <Route path="/employee" element={<DashboardLayout />}>
             <Route index element={<DashboardOverview />} />
             <Route path="scan" element={<ScanPage />} />
@@ -45,7 +46,7 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/employee" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster position="top-right" richColors />
     </ThemeProvider>

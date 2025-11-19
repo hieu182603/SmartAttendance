@@ -61,7 +61,7 @@ export default function VerifyOtp() {
           setToken(data.token)
           if (data?.user) setUser(data.user)
           toast.success('Xác thực thành công!')
-          setTimeout(() => navigate('/'), 1000)
+          setTimeout(() => navigate('/employee'), 1000)
         } else {
           toast.error('Xác thực thất bại')
           setOtp('')
