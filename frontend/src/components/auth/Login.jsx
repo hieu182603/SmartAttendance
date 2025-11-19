@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { AuthLayout } from '../AuthLayout'
@@ -12,14 +12,19 @@ import { toast } from 'sonner'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login, token, loading } = useAuth()
+  const { login, token, loading, user } = useAuth()
+
+  const defaultRoute = useMemo(() => {
+    if (!user?.role) return '/employee'
+    return getDefaultRouteByRole(user.role)
+  }, [user])
 
   // Redirect if already authenticated
   useEffect(() => {
     if (!loading && token) {
-      navigate('/employee', { replace: true })
+      navigate(defaultRoute, { replace: true })
     }
-  }, [token, loading, navigate])
+  }, [token, loading, navigate, defaultRoute])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -31,9 +36,10 @@ export default function Login() {
     setIsLoading(true)
     
     try {
-      await login({ email, password })
+      const data = await login({ email, password })
       toast.success('Đăng nhập thành công')
-      navigate('/employee')
+      const nextRoute = getDefaultRouteByRole(data?.user?.role)
+      navigate(nextRoute, { replace: true })
     } catch (err) {
       toast.error(err.message || 'Đăng nhập thất bại')
     } finally {
@@ -138,4 +144,13 @@ export default function Login() {
       </motion.form>
     </AuthLayout>
   )
+}
+
+const managerRoles = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER']
+
+function getDefaultRouteByRole(role) {
+  if (managerRoles.includes(role)) {
+    return '/employee/approve-requests'
+  }
+  return '/employee'
 }
