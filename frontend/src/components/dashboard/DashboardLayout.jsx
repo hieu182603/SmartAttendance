@@ -33,9 +33,8 @@ import {
 
 // Helper function to generate menu based on role
 function getMenuByRole(role) {
-  // Base employee menu (all roles have access)
+  // Base employee menu (all roles have access, excluding home for admin roles)
   const baseMenu = [
-    { id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "employee" },
     { id: "scan", label: "Quét QR", icon: QrCode, path: "/employee/scan", section: "employee" },
     { id: "history", label: "Lịch sử", icon: History, path: "/employee/history", section: "employee" },
     { id: "requests", label: "Yêu cầu", icon: FileText, path: "/employee/requests", section: "employee" },
@@ -45,21 +44,28 @@ function getMenuByRole(role) {
     { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile", section: "employee" },
   ];
 
-  // Admin menus for different roles
+  // Home menu item
+  const homeMenu = { id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "admin" };
+
+  // Admin menus for different roles (home is first in admin section)
   const adminMenus = {
     [UserRole.MANAGER]: [
+      homeMenu,
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
     [UserRole.HR_MANAGER]: [
+      homeMenu,
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
     [UserRole.ADMIN]: [
+      homeMenu,
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
     [UserRole.SUPER_ADMIN]: [
+      homeMenu,
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
@@ -73,8 +79,8 @@ function getMenuByRole(role) {
     return [...additionalMenus, ...baseMenu];
   }
 
-  // For EMPLOYEE, just show base menu
-  return baseMenu;
+  // For EMPLOYEE, add home to employee section
+  return [{ id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "employee" }, ...baseMenu];
 }
 
 const NotificationBell = ({ onClick }) => {
