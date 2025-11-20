@@ -1,303 +1,133 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { motion } from "framer-motion";
-import {
-  QrCode,
-  MapPin,
-  Clock,
-  Calendar,
-  History,
-  Sparkles,
-  CheckCircle2,
-  FileText,
-} from "lucide-react";
+import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Badge } from "../ui/badge";
-import { useDashboardData } from "../../hooks/useDashboardData";
 import { useNavigate } from "react-router-dom";
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
-const getStatusBadge = (status) => {
-  switch (status) {
-    case "ontime":
-      return (
-        <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
-          Đúng giờ
-        </Badge>
-      );
-    case "late":
-      return (
-        <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">
-          Đi muộn
-        </Badge>
-      );
-    case "absent":
-      return (
-        <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">
-          Vắng
-        </Badge>
-      );
-    default:
-      return null;
-  }
-};
+const attendanceData = [
+  { date: "T2", present: 45, late: 5, absent: 2 },
+  { date: "T3", present: 48, late: 3, absent: 1 },
+  { date: "T4", present: 46, late: 4, absent: 2 },
+  { date: "T5", present: 49, late: 2, absent: 1 },
+  { date: "T6", present: 47, late: 3, absent: 2 },
+  { date: "T7", present: 50, late: 1, absent: 1 },
+  { date: "CN", present: 0, late: 0, absent: 0 },
+];
 
-const infoCards = [
+const kpiData = [
   {
+    title: "Tổng nhân viên",
+    value: "52",
+    icon: Users,
+    color: "text-[var(--accent-cyan)]",
+    bgColor: "bg-[var(--accent-cyan)]/10",
+  },
+  {
+    title: "Có mặt hôm nay",
+    value: "47",
+    icon: CheckCircle,
+    color: "text-[var(--success)]",
+    bgColor: "bg-[var(--success)]/10",
+  },
+  {
+    title: "Đi muộn",
+    value: "3",
     icon: Clock,
-    color: "accent-cyan",
-    label: "Ca làm việc",
-    key: "shift",
-    delay: 0.5,
+    color: "text-[var(--warning)]",
+    bgColor: "bg-[var(--warning)]/10",
   },
   {
-    icon: MapPin,
-    color: "success",
-    label: "Địa điểm",
-    key: "location",
-    delay: 0.6,
-  },
-  {
-    icon: Calendar,
-    color: "primary",
-    label: "Công tháng này",
-    key: "workingDays",
-    delay: 0.7,
+    title: "Vắng mặt",
+    value: "2",
+    icon: XCircle,
+    color: "text-[var(--error)]",
+    bgColor: "bg-[var(--error)]/10",
   },
 ];
 
-const formatWorkingDays = (value) => {
-  if (!value) return "—";
-  if (typeof value === "string") return value;
-  if (typeof value === "object" && value.used != null && value.total != null) {
-    return `${value.used}/${value.total} ngày`;
-  }
-  return value;
-};
-
 export const DashboardOverview = () => {
   const navigate = useNavigate();
-  const { summary, recentAttendance, loading, error } = useDashboardData();
-  const currentTime = new Date().toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const currentDate = new Date().toLocaleDateString("vi-VN", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  const attendanceRows = useMemo(() => {
-    if (!Array.isArray(recentAttendance) || recentAttendance.length === 0) {
-      return [];
-    }
-    return recentAttendance.map((record) => ({
-      date: record?.date ?? "—",
-      checkIn: record?.checkIn ?? "—",
-      checkOut: record?.checkOut ?? "—",
-      status: record?.status ?? "unknown",
-      location: record?.location ?? "—",
-    }));
-  }, [recentAttendance]);
-
-  const loadingState = loading && (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/40 p-6 text-sm text-[var(--text-sub)]">
-      Đang tải thông tin bảng điều khiển...
-    </div>
-  );
-
-  const errorState = !loading && error && (
-    <div className="rounded-xl border border-[var(--error)]/30 bg-[var(--error)]/10 p-6 text-sm text-[var(--error)]">
-      Không thể tải dữ liệu bảng điều khiển. Vui lòng thử lại sau.
-    </div>
-  );
 
   return (
     <div className="space-y-6">
-      {loadingState}
-      {errorState}
-
-      {/* Welcome Section */}
-
-      {/*Mở 1 */}
       <motion.div
-        className="bg-gradient-to-r from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--success)] rounded-2xl p-8 text-white relative overflow-hidden animate-gradient"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.5 }}
       >
-        {/* Floating particles */}
-        {/* Mở 2 */}
-        <motion.div
-          className="absolute top-4 right-4 text-2xl"
-          animate={{
-            y: [0, -10, 0],
-            rotate: [0, 10, 0],
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        >
-          ✨
-        </motion.div>
-        {/* Đóng 2 */}
-
-        {/* Mở 3 */}
-        <motion.div
-          className="absolute bottom-4 left-4 text-2xl"
-          animate={{
-            y: [0, 10, 0],
-            rotate: [0, -10, 0],
-          }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        >
-          🌟
-        </motion.div>
-        {/* Đóng 3 */}
-
-        <div className="flex items-center justify-between relative z-10">
-          {/* Mở 4 */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
+        <h1 className="text-3xl text-[var(--text-main)] flex items-center space-x-3">
+          <motion.span
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           >
-            <h1 className="text-3xl mb-2">Chào buổi sáng! 👋</h1>
-            <p className="opacity-90">{currentDate}</p>
-          </motion.div>
-          {/* Đóng 4 */}
-
-          {/* Mở 5 */}
-          <motion.div
-            className="text-right"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            {/* Mỏ 6 */}
-            <motion.div
-              className="text-5xl"
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              {currentTime}
-            </motion.div>
-            {/* Đóng 6 */}
-
-            <p className="opacity-90 mt-2">
-              Ca:{" "}
-              {summary.shift?.timeRange ||
-                summary.shift?.label ||
-                summary.shift ||
-                "08:00 - 17:00"}
-            </p>
-          </motion.div>
-          {/* Đóng 5 */}
-        </div>
+            <Activity className="h-8 w-8 text-[var(--accent-cyan)]" />
+          </motion.span>
+          <span>Dashboard Admin</span>
+        </h1>
+        <p className="text-[var(--text-sub)]">Tổng quan hệ thống chấm công</p>
       </motion.div>
-      {/* Đóng 1 */}
 
-      {/* Check-in CTA */}
-      {/* Mở 6 */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.4 }}
-      >
-        <Card className="bg-[var(--surface)] border-[var(--border)] relative overflow-hidden">
-          {/* Animated glow effect */}
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-[var(--primary)]/5 to-[var(--accent-cyan)]/5"
-            animate={{
-              opacity: [0.3, 0.6, 0.3],
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-          <CardContent className="p-8 relative z-10">
-            <div className="text-center space-y-6">
-              <motion.div
-                animate={{
-                  scale: [0.8, 0.7, 0.8],
-                  rotate: [0, 5, -5, 0],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] mb-4 shadow-lg shadow-[var(--primary)]/30 animate-glow"
-              >
-                <QrCode className="h-10 w-10 text-white" />
-              </motion.div>
-              <div>
-                <h2 className="text-2xl text-[var(--text-main)] mb-2">
-                  Chưa chấm công hôm nay
-                </h2>
-                <p className="text-[var(--text-sub)]">
-                  Quét mã QR tại văn phòng để điểm danh
-                </p>
-              </div>
-              <motion.button
-                onClick={() => navigate("/employee/scan")}
-                className="px-8 py-4 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90 transition-opacity text-white shadow-lg shadow-[var(--primary)]/30"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <span className="flex items-center space-x-2">
-                  <Sparkles className="h-5 w-5" />
-                  <span>Quét QR điểm danh</span>
-                </span>
-              </motion.button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-      {/* Đóng 6 */}
-
-      {/* Today's Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ">
-        {infoCards.map((item) => {
-          const value =
-            item.key === "workingDays"
-              ? formatWorkingDays(summary[item.key])
-              : summary[item.key]?.name || summary[item.key] || "—";
-
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpiData.map((kpi, index) => {
+          const Icon = kpi.icon;
           return (
             <motion.div
-              key={item.key}
+              key={index}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: item.delay }}
-              whileHover={{ y: -5 }}
+              transition={{ delay: index * 0.1 }}
+              whileHover={{ y: -5, scale: 1.02 }}
             >
-              <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all">
-                <CardContent className="p-6 mt-4">
-                  <div className="flex items-center space-x-3">
+              <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all relative overflow-hidden group">
+                {/* Animated background gradient */}
+                <motion.div
+                  className={`absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity ${kpi.bgColor.replace("/10", "/30")}`}
+                  initial={false}
+                />
+
+                <CardContent className="p-6 relative z-10">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-[var(--text-sub)]">{kpi.title}</p>
+                      <motion.p
+                        className="text-3xl mt-2 text-[var(--text-main)]"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: index * 0.1 + 0.3, type: "spring", stiffness: 200 }}
+                      >
+                        {kpi.value}
+                      </motion.p>
+                      <motion.div
+                        className="flex items-center mt-2 text-xs text-[var(--success)]"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 + 0.5 }}
+                      >
+                        <TrendingUp className="h-3 w-3 mr-1" />
+                        <span>+8.2%</span>
+                      </motion.div>
+                    </div>
                     <motion.div
-                      className={`p-3 rounded-xl bg-[var(--${item.color})]/10`}
-                      whileHover={{ rotate: 360 }}
+                      className={`p-3 rounded-xl ${kpi.bgColor}`}
+                      whileHover={{ rotate: 360, scale: 1.1 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <item.icon
-                        className={`h-6 w-6 text-[var(--${item.color})]`}
-                      />
+                      <Icon className={`h-6 w-6 ${kpi.color}`} />
                     </motion.div>
-                    <div>
-                      <p className="text-sm text-[var(--text-sub)]">
-                        {item.label}
-                      </p>
-                      <p className="text-lg text-[var(--text-main)]">{value}</p>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -306,160 +136,125 @@ export const DashboardOverview = () => {
         })}
       </div>
 
-      {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-      >
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Attendance Trend */}
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
-            <CardTitle className="text-[var(--text-main)]">
-              Thao tác nhanh
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              {
-                label: "Lịch làm việc",
-                icon: Calendar,
-                page: "schedule",
-                color: "accent-cyan",
-              },
-              {
-                label: "Yêu cầu nghỉ",
-                icon: FileText,
-                page: "requests",
-                color: "warning",
-              },
-              {
-                label: "Lịch sử",
-                icon: History,
-                page: "history",
-                color: "success",
-              },
-              {
-                label: "Số ngày phép",
-                icon: CheckCircle2,
-                page: "leave-balance",
-                color: "primary",
-              },
-            ].map((action) => (
-              <motion.button
-                key={action.page}
-                onClick={() => navigate(`/employee/${action.page}`)}
-                className="p-4 rounded-xl bg-[var(--shell)] border border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all text-left"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  delay:
-                    0.9 +
-                    (action.page === "schedule"
-                      ? 0
-                      : action.page === "requests"
-                      ? 0.1
-                      : action.page === "history"
-                      ? 0.2
-                      : 0.3),
-                }}
-              >
-                <action.icon
-                  className={`h-8 w-8 text-[var(--${action.color})] mb-2`}
-                />
-                <p className="text-sm text-[var(--text-main)]">
-                  {action.label}
-                </p>
-              </motion.button>
-            ))}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Recent Attendance */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.1 }}
-      >
-        <Card className="bg-[var(--surface)] border-[var(--border)]">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-[var(--text-main)]">
-                Lịch sử gần đây
-              </CardTitle>
-              <button
-                onClick={() => navigate("/employee/history")}
-                className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center space-x-1"
-              >
-                <span>Xem tất cả</span>
-                <History className="h-4 w-4" />
-              </button>
-            </div>
+            <CardTitle className="text-[var(--text-main)]">Xu hướng chấm công tuần này</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--border)]">
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Ngày
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Giờ vào
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Giờ ra
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Địa điểm
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Trạng thái
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendanceRows.length === 0 && !loading ? (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-6 text-center text-sm text-[var(--text-sub)]"
-                      >
-                        Chưa có dữ liệu chấm công gần đây.
-                      </td>
-                    </tr>
-                  ) : (
-                    attendanceRows.map((record, index) => (
-                      <tr
-                        key={`${record.date}-${record.checkIn}-${index}`}
-                        className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--shell)] transition-colors"
-                      >
-                        <td className="py-3 px-4 text-[var(--text-main)]">
-                          {record.date}
-                        </td>
-                        <td className="py-3 px-4 text-[var(--text-main)]">
-                          {record.checkIn}
-                        </td>
-                        <td className="py-3 px-4 text-[var(--text-main)]">
-                          {record.checkOut}
-                        </td>
-                        <td className="py-3 px-4 text-[var(--text-sub)]">
-                          {record.location}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getStatusBadge(record.status)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={attendanceData}>
+                <defs>
+                  <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#06B6D4" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="date" stroke="#94A3B8" />
+                <YAxis stroke="#94A3B8" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1E293B",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#E2E8F0",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="present"
+                  stroke="#06B6D4"
+                  strokeWidth={2}
+                  fill="url(#colorPresent)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
-      </motion.div>
+
+        {/* Status Breakdown */}
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardHeader>
+            <CardTitle className="text-[var(--text-main)]">Phân tích trạng thái</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={attendanceData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="date" stroke="#94A3B8" />
+                <YAxis stroke="#94A3B8" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1E293B",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#E2E8F0",
+                  }}
+                />
+                <Bar dataKey="present" fill="#10B981" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="late" fill="#F59E0B" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="absent" fill="#EF4444" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <Card className="bg-[var(--surface)] border-[var(--border)]">
+        <CardHeader>
+          <CardTitle className="text-[var(--text-main)]">Thao tác nhanh</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <motion.button
+              onClick={() => navigate("/employee/attendance-analytics")}
+              className="p-4 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90 transition-opacity text-white text-center"
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="text-2xl mb-2">
+                <BarChart3 className="h-8 w-8 mx-auto" />
+              </div>
+              <div className="text-sm">Phân tích chấm công</div>
+            </motion.button>
+            <motion.button
+              onClick={() => navigate("/employee/approve-requests")}
+              className="p-4 rounded-xl bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors text-[var(--text-main)] text-center border border-[var(--border)]"
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="text-2xl mb-2">
+                <FileText className="h-8 w-8 mx-auto text-[var(--accent-cyan)]" />
+              </div>
+              <div className="text-sm">Phê duyệt yêu cầu</div>
+            </motion.button>
+            <motion.button
+              className="p-4 rounded-xl bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors text-[var(--text-main)] text-center border border-[var(--border)]"
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="text-2xl mb-2">
+                <Users className="h-8 w-8 mx-auto text-[var(--primary)]" />
+              </div>
+              <div className="text-sm">Quản lý User</div>
+            </motion.button>
+            <motion.button
+              className="p-4 rounded-xl bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors text-[var(--text-main)] text-center border border-[var(--border)]"
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="text-2xl mb-2">
+                <Clock className="h-8 w-8 mx-auto text-[var(--warning)]" />
+              </div>
+              <div className="text-sm">Tạo ca làm</div>
+            </motion.button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

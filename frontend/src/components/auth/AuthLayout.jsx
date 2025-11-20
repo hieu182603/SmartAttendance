@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Sun, Moon, QrCode, MapPin, BarChart3 } from 'lucide-react'
-import { useTheme } from './ThemeProvider'
-import { Button } from './ui/button'
+import { useTheme } from '../ThemeProvider'
+import { Button } from '../ui/button'
 
 export function AuthLayout({ children, title, subtitle }) {
   const { theme, toggleTheme } = useTheme()
@@ -336,3 +336,4 @@ export function AuthLayout({ children, title, subtitle }) {
     </div>
   )
 }
+

@@ -1,6 +1,6 @@
 import React from 'react'
 import { useAuth } from '../../../context/AuthContext'
-import { Profile } from '../../Profile'
+import { Profile } from '../Profile'
 
 export default function ProfilePage() {
   const { user } = useAuth()

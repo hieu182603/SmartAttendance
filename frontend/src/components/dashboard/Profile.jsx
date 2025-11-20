@@ -18,25 +18,25 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Switch } from "./ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Switch } from "../ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
-import { Badge } from "./ui/badge";
-import { Separator } from "./ui/separator";
+} from "../ui/select";
+import { Badge } from "../ui/badge";
+import { Separator } from "../ui/separator";
 import { toast } from "sonner";
-import { updateUserProfile, changePassword } from "../services/userService";
-import { useAuth } from "../context/AuthContext";
+import { updateUserProfile, changePassword } from "../../services/userService";
+import { useAuth } from "../../context/AuthContext";
 
 export function Profile({ role, user }) {
   const { setUser } = useAuth();
@@ -847,3 +847,4 @@ export function Profile({ role, user }) {
     </div>
   );
 }
+

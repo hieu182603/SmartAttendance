@@ -205,7 +205,7 @@ const AttendanceAnalyticsPage = () => {
                     <TrendingUp className="h-6 w-6 text-[var(--success)]" />
                     <p className="text-2xl text-[var(--success)]">+{summary.trend}%</p>
                   </div>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">So với kỳ trước</p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">So với tuần trước</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
                   <BarChart3 className="h-6 w-6 text-[var(--accent-cyan)]" />
