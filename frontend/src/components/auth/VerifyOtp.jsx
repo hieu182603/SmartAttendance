@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { AuthLayout } from '../AuthLayout'
+import { AuthLayout } from './AuthLayout'
 import { Button } from '../ui/button'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '../ui/input-otp'
 import { Mail, ArrowLeft, Loader2, RefreshCw } from 'lucide-react'

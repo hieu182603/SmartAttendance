@@ -10,7 +10,7 @@ import ForgotPassword from "./components/auth/ForgotPassword";
 import ResetPassword from "./components/auth/ResetPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
-import DashboardOverview from "./components/dashboard/Overview";
+import HomePageWrapper from "./components/dashboard/HomePageWrapper";
 import ScanPage from "./components/dashboard/pages/ScanPage";
 import SchedulePage from "./components/dashboard/pages/SchedulePage";
 import RequestsPage from "./components/dashboard/pages/RequestsPage";
@@ -23,6 +23,7 @@ import ProfilePage from "./components/dashboard/pages/ProfilePage";
 import CompanyCalendarPage from "./components/dashboard/pages/CompanyCalendarPage";
 import ApproveRequestsPage from "./components/dashboard/pages/ApproveRequestsPage";
 import AttendanceAnalyticsPage from "./components/dashboard/pages/AttendanceAnalyticsPage";
+import { UserRole } from "./utils/roles";
 
 
 export default function App() {
@@ -37,9 +38,11 @@ export default function App() {
         <Route path="/verify-reset-otp" element={<VerifyOtp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
+        {/* Protected Routes - All authenticated users */}
         <Route element={<ProtectedRoute />}>
           <Route path="/employee" element={<DashboardLayout />}>
-            <Route index element={<DashboardOverview />} />
+            {/* Employee Routes - All roles */}
+            <Route index element={<HomePageWrapper />} />
             <Route path="scan" element={<ScanPage />} />
             <Route path="schedule" element={<SchedulePage />} />
             <Route path="requests" element={<RequestsPage />} />
@@ -48,12 +51,13 @@ export default function App() {
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="camera-checkin" element={<CameraCheckinPage />} />
             <Route path="profile" element={<ProfilePage />} />
-
             <Route path="company-calendar" element={<CompanyCalendarPage />} />
-
-            <Route path="approve-requests" element={<ApproveRequestsPage />} />
-            <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
-
+            
+            {/* Admin Routes - Manager and above (nested protection) */}
+            <Route element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}>
+              <Route path="approve-requests" element={<ApproveRequestsPage />} />
+              <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
+            </Route>
           </Route>
         </Route>
 

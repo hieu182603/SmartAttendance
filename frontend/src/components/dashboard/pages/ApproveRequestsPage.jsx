@@ -62,6 +62,7 @@ const ApproveRequestsPage = () => {
     }
   }
 
+  // Filter requests - logic đã được xử lý ở backend, chỉ cần filter theo search nếu có
   const filteredRequests = requests.filter(req => {
     if (searchQuery && !req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) &&
         !req.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
@@ -333,12 +334,12 @@ const ApproveRequestsPage = () => {
                             )}
                           </div>
 
-                          <div className="ml-4 flex flex-col gap-2 w-full md:w-auto">
+                          <div className="ml-4 flex flex-col gap-2">
                             {request.status === 'pending' ? (
                               <>
                                 <Button
                                   onClick={() => handleOpenDialog(request, 'approve')}
-                                  className="bg-[var(--success)] hover:bg-[var(--success)]/80 text-white w-full md:w-auto"
+                                  className="bg-[var(--success)] hover:bg-[var(--success)]/80 text-white"
                                   size="sm"
                                 >
                                   <CheckCircle2 className="h-4 w-4 mr-1" />
@@ -347,7 +348,7 @@ const ApproveRequestsPage = () => {
                                 <Button
                                   onClick={() => handleOpenDialog(request, 'reject')}
                                   variant="outline"
-                                  className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10 w-full md:w-auto"
+                                  className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
                                   size="sm"
                                 >
                                   <XCircle className="h-4 w-4 mr-1" />
