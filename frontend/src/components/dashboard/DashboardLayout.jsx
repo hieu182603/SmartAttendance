@@ -16,42 +16,72 @@ import {
   Sun,
   Moon,
   Bell,
+  BarChart3,
+  CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
 import { Button } from "../ui/button";
 import NotificationCenter from "./NotificationCenter";
+import {
+  UserRole,
+  canAccessAdminPanel,
+  canApproveRequests,
+  getRoleName,
+  getRoleColor,
+} from "../../utils/roles";
 
-const employeeMenu = [
-  { id: "home", label: "Trang chủ", icon: Home, path: "/employee" },
-  { id: "scan", label: "Quét QR", icon: QrCode, path: "/employee/scan" },
-  { id: "history", label: "Lịch sử", icon: History, path: "/employee/history" },
-  {
-    id: "requests",
-    label: "Yêu cầu",
-    icon: FileText,
-    path: "/employee/requests",
-  },
-  {
-    id: "leave-balance",
-    label: "Số ngày phép",
-    icon: CalendarDays,
-    path: "/employee/leave-balance",
-  },
-  {
-    id: "schedule",
-    label: "Lịch làm việc",
-    icon: Clock,
-    path: "/employee/schedule",
-  },
-  {
-    id: "company-calendar",
-    label: "Lịch công ty",
-    icon: Calendar,
-    path: "/employee/company-calendar",
-  },
-  { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile" },
-];
+// Helper function to generate menu based on role
+function getMenuByRole(role) {
+  // Base employee menu (all roles have access, excluding home for admin roles)
+  const baseMenu = [
+    { id: "scan", label: "Quét QR", icon: QrCode, path: "/employee/scan", section: "employee" },
+    { id: "history", label: "Lịch sử", icon: History, path: "/employee/history", section: "employee" },
+    { id: "requests", label: "Yêu cầu", icon: FileText, path: "/employee/requests", section: "employee" },
+    { id: "leave-balance", label: "Số ngày phép", icon: CalendarDays, path: "/employee/leave-balance", section: "employee" },
+    { id: "schedule", label: "Lịch làm việc", icon: Clock, path: "/employee/schedule", section: "employee" },
+    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: "/employee/company-calendar", section: "employee" },
+    { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile", section: "employee" },
+  ];
+
+  // Home menu item
+  const homeMenu = { id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "admin" };
+
+  // Admin menus for different roles (home is first in admin section)
+  const adminMenus = {
+    [UserRole.MANAGER]: [
+      homeMenu,
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+    ],
+    [UserRole.HR_MANAGER]: [
+      homeMenu,
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+    ],
+    [UserRole.ADMIN]: [
+      homeMenu,
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+    ],
+    [UserRole.SUPER_ADMIN]: [
+      homeMenu,
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+    ],
+  };
+
+  // Get additional menus for the role
+  const additionalMenus = adminMenus[role] || [];
+
+  // For roles with admin access, show admin menus first, then employee section
+  if (canAccessAdminPanel(role)) {
+    return [...additionalMenus, ...baseMenu];
+  }
+
+  // For EMPLOYEE, add home to employee section
+  return [{ id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "employee" }, ...baseMenu];
+}
 
 const NotificationBell = ({ onClick }) => {
   const unreadCount = 3; // TODO: Get from state/context/API
@@ -84,6 +114,12 @@ const DashboardLayout = () => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
 
+  // Get user role and menu items
+  const userRole = user?.role || UserRole.EMPLOYEE;
+  const menu = getMenuByRole(userRole);
+  const roleInfo = getRoleColor(userRole);
+  const roleName = getRoleName(userRole);
+
   const getCurrentPage = () => {
     const path = location.pathname.replace("/employee", "").replace(/^\//, "");
     if (!path || path === "") return "home";
@@ -111,6 +147,14 @@ const DashboardLayout = () => {
               <div className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
                 <h1 className="text-xl">SmartAttendance</h1>
               </div>
+              {canAccessAdminPanel(userRole) && (
+                <span className={`px-2 py-1 text-xs rounded-md ${roleInfo.bg} ${roleInfo.text}`}>
+                  {userRole === UserRole.SUPER_ADMIN ? 'SU' : 
+                   userRole === UserRole.ADMIN ? 'AD' : 
+                   userRole === UserRole.HR_MANAGER ? 'HR' : 
+                   userRole === UserRole.MANAGER ? 'MG' : 'EMP'}
+                </span>
+              )}
             </div>
           </div>
 
@@ -134,7 +178,7 @@ const DashboardLayout = () => {
               <p className="text-sm text-[var(--text-main)]">
                 {user?.email || "Người dùng"}
               </p>
-              <p className="text-xs text-[var(--text-sub)]">Nhân viên</p>
+              <p className="text-xs text-[var(--text-sub)]">{roleName}</p>
             </div>
             <Button
               onClick={logout}
@@ -163,38 +207,86 @@ const DashboardLayout = () => {
               }`}
         >
           <nav className="p-4 space-y-1 overflow-y-auto">
-            {/* Employee Section */}
-            <div className="mb-4">
-              <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                Cá nhân
-              </div>
-              {employeeMenu.map((item) => {
-                const Icon = item.icon;
-                const isActive =
-                  currentPage === item.id ||
-                  (item.id === "home" && location.pathname === "/employee");
-                return (
-                  <NavLink
-                    key={item.id}
-                    to={item.path}
-                    end={item.id === "home"}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={`
-                      w-full flex items-center space-x-3 px-4 py-3 rounded-xl
-                      transition-all duration-200
-                      ${
-                        isActive
-                          ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
-                          : "text-[var(--text-main)] hover:bg-[var(--shell)]"
-                      }
-                    `}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-sm">{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
+            {/* Group menu items by section */}
+            {(() => {
+              const sections = {
+                admin: menu.filter(item => item.section === 'admin'),
+                employee: menu.filter(item => item.section === 'employee'),
+              };
+
+              return (
+                <>
+                  {/* Admin Section */}
+                  {sections.admin.length > 0 && (
+                    <div className="mb-4">
+                      <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
+                        Quản trị
+                      </div>
+                      {sections.admin.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentPage === item.id;
+                        return (
+                          <NavLink
+                            key={item.id}
+                            to={item.path}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className={`
+                              w-full flex items-center space-x-3 px-4 py-3 rounded-xl
+                              transition-all duration-200
+                              ${
+                                isActive
+                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                              }
+                            `}
+                          >
+                            <Icon className="h-5 w-5" />
+                            <span className="text-sm">{item.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Employee Section */}
+                  {sections.employee.length > 0 && (
+                    <div className="mb-4">
+                      {sections.admin.length > 0 && (
+                        <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
+                          Cá nhân
+                        </div>
+                      )}
+                      {sections.employee.map((item) => {
+                        const Icon = item.icon;
+                        const isActive =
+                          currentPage === item.id ||
+                          (item.id === "home" && location.pathname === "/employee");
+                        return (
+                          <NavLink
+                            key={item.id}
+                            to={item.path}
+                            end={item.id === "home"}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className={`
+                              w-full flex items-center space-x-3 px-4 py-3 rounded-xl
+                              transition-all duration-200
+                              ${
+                                isActive
+                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                              }
+                            `}
+                          >
+                            <Icon className="h-5 w-5" />
+                            <span className="text-sm">{item.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </nav>
         </aside>
 

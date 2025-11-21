@@ -26,7 +26,6 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts'
-import { getAttendanceAnalytics, exportAttendanceAnalytics } from '../../../services/attendanceService'
 
 const AttendanceAnalyticsPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('7days')
@@ -41,45 +40,50 @@ const AttendanceAnalyticsPage = () => {
       avgPresent: 0,
       avgLate: 0,
       avgAbsent: 0,
-      trend: 0
+      trend: 0,
+      totalEmployees: 150
     }
   })
 
+  // TODO: Thêm API call để fetch analytics
   useEffect(() => {
-    fetchAnalytics()
+    // fetchAnalytics()
   }, [selectedPeriod, selectedDepartment])
 
-  const fetchAnalytics = async () => {
-    setLoading(true)
-    try {
-      const params = {}
-      const today = new Date()
-      const from = new Date()
+  // TODO: Thêm function fetchAnalytics để gọi API
+  // const fetchAnalytics = async () => {
+  //   setLoading(true)
+  //   try {
+  //     const params = {}
+  //     const today = new Date()
+  //     const from = new Date()
+  //
+  //     if (selectedPeriod === '7days') {
+  //       from.setDate(today.getDate() - 7)
+  //     } else if (selectedPeriod === '30days') {
+  //       from.setDate(today.getDate() - 30)
+  //     } else if (selectedPeriod === '90days') {
+  //       from.setDate(today.getDate() - 90)
+  //     }
+  //
+  //     params.from = from.toISOString().split('T')[0]
+  //     params.to = today.toISOString().split('T')[0]
+  //
+  //     if (selectedDepartment !== 'all') {
+  //       params.department = selectedDepartment
+  //     }
+  //
+  //     // Gọi API ở đây
+  //     // const result = await getAttendanceAnalytics(params)
+  //     // setData(result)
+  //   } catch (error) {
+  //     toast.error('Không thể tải dữ liệu phân tích')
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
 
-      if (selectedPeriod === '7days') {
-        from.setDate(today.getDate() - 7)
-      } else if (selectedPeriod === '30days') {
-        from.setDate(today.getDate() - 30)
-      } else if (selectedPeriod === '90days') {
-        from.setDate(today.getDate() - 90)
-      }
-
-      params.from = from.toISOString().split('T')[0]
-      params.to = today.toISOString().split('T')[0]
-
-      if (selectedDepartment !== 'all') {
-        params.department = selectedDepartment
-      }
-
-      const result = await getAttendanceAnalytics(params)
-      setData(result)
-    } catch (error) {
-      toast.error('Không thể tải dữ liệu phân tích')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // TODO: Thêm API call để export analytics
   const handleExport = async () => {
     try {
       const params = {}
@@ -101,19 +105,23 @@ const AttendanceAnalyticsPage = () => {
         params.department = selectedDepartment
       }
 
-      toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
-      await exportAttendanceAnalytics(params)
-      toast.success('✅ Đã xuất báo cáo thành công!', { id: 'export' })
+      // TODO: Gọi API export ở đây
+      // toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
+      // await exportAttendanceAnalytics(params)
+      // toast.success('✅ Đã xuất báo cáo thành công!', { id: 'export' })
+      toast.info('Chức năng xuất báo cáo đang được phát triển')
     } catch (error) {
       toast.error('❌ Không thể xuất báo cáo', { id: 'export' })
     }
   }
 
   const { dailyData, departmentStats, topPerformers, summary } = data
+  const totalEmployees = summary.totalEmployees || 150
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
             Phân tích chấm công
@@ -143,6 +151,7 @@ const AttendanceAnalyticsPage = () => {
         </div>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
@@ -151,7 +160,7 @@ const AttendanceAnalyticsPage = () => {
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Tỷ lệ đi làm</p>
                   <p className="text-3xl text-[var(--success)] mt-2">{summary.attendanceRate}%</p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">TB {summary.avgPresent} người</p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">TB {summary.avgPresent}/{totalEmployees} người</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
                   <Users className="h-6 w-6 text-[var(--success)]" />
@@ -205,7 +214,7 @@ const AttendanceAnalyticsPage = () => {
                     <TrendingUp className="h-6 w-6 text-[var(--success)]" />
                     <p className="text-2xl text-[var(--success)]">+{summary.trend}%</p>
                   </div>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">So với kỳ trước</p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">So với tuần trước</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
                   <BarChart3 className="h-6 w-6 text-[var(--accent-cyan)]" />
@@ -216,199 +225,195 @@ const AttendanceAnalyticsPage = () => {
         </motion.div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="bg-[var(--surface)] border-[var(--border)]">
-              <CardHeader>
-                <CardTitle className="text-[var(--text-main)]">Xu hướng hàng ngày</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={dailyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="date" stroke="var(--text-sub)" />
-                    <YAxis stroke="var(--text-sub)" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'var(--surface)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                        color: 'var(--text-main)'
-                      }}
-                    />
-                    <Legend />
-                    <Line type="monotone" dataKey="present" stroke="#10B981" name="Đi làm" strokeWidth={2} />
-                    <Line type="monotone" dataKey="late" stroke="#F59E0B" name="Đi muộn" strokeWidth={2} />
-                    <Line type="monotone" dataKey="absent" stroke="#EF4444" name="Vắng mặt" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+      {/* Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Daily Trend */}
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardHeader>
+            <CardTitle className="text-[var(--text-main)]">Xu hướng hàng ngày</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={dailyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" stroke="var(--text-sub)" />
+                <YAxis stroke="var(--text-sub)" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--text-main)'
+                  }}
+                />
+                <Legend />
+                <Line type="monotone" dataKey="present" stroke="#10B981" name="Đi làm" strokeWidth={2} />
+                <Line type="monotone" dataKey="late" stroke="#F59E0B" name="Đi muộn" strokeWidth={2} />
+                <Line type="monotone" dataKey="absent" stroke="#EF4444" name="Vắng mặt" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-            <Card className="bg-[var(--surface)] border-[var(--border)]">
-              <CardHeader>
-                <CardTitle className="text-[var(--text-main)]">So sánh phòng ban</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={departmentStats}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="department" stroke="var(--text-sub)" />
-                    <YAxis stroke="var(--text-sub)" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'var(--surface)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '8px',
-                        color: 'var(--text-main)'
-                      }}
-                    />
-                    <Legend />
-                    <Bar dataKey="onTime" fill="#10B981" name="Đúng giờ (%)" />
-                    <Bar dataKey="late" fill="#F59E0B" name="Đi muộn (%)" />
-                    <Bar dataKey="absent" fill="#EF4444" name="Vắng mặt (%)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+        {/* Department Comparison */}
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardHeader>
+            <CardTitle className="text-[var(--text-main)]">So sánh phòng ban</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={departmentStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="department" stroke="var(--text-sub)" />
+                <YAxis stroke="var(--text-sub)" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--text-main)'
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="onTime" fill="#10B981" name="Đúng giờ (%)" />
+                <Bar dataKey="late" fill="#F59E0B" name="Đi muộn (%)" />
+                <Bar dataKey="absent" fill="#EF4444" name="Vắng mặt (%)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Department Details */}
+      <Card className="bg-[var(--surface)] border-[var(--border)]">
+        <CardHeader>
+          <CardTitle className="text-[var(--text-main)]">Chi tiết phòng ban</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {departmentStats.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-[var(--text-sub)]">Không có dữ liệu</p>
+              </div>
+            ) : (
+              departmentStats.map((dept, index) => (
+                <motion.div
+                  key={dept.department}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-[var(--text-main)]">{dept.department}</h3>
+                    <Badge className={dept.onTime >= 95 ? 'bg-[var(--success)]/20 text-[var(--success)]' :
+                      dept.onTime >= 85 ? 'bg-[var(--warning)]/20 text-[var(--warning)]' :
+                        'bg-[var(--error)]/20 text-[var(--error)]'}>
+                      {dept.onTime}% đúng giờ
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-[var(--text-sub)]">Đúng giờ</span>
+                        <span className="text-sm text-[var(--success)]">{dept.onTime}%</span>
+                      </div>
+                      <Progress value={dept.onTime} className="h-2 [&>div]:bg-[var(--success)]" />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-[var(--text-sub)]">Đi muộn</span>
+                        <span className="text-sm text-[var(--warning)]">{dept.late}%</span>
+                      </div>
+                      <Progress value={dept.late} className="h-2 [&>div]:bg-[var(--warning)]" />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-[var(--text-sub)]">Vắng mặt</span>
+                        <span className="text-sm text-[var(--error)]">{dept.absent}%</span>
+                      </div>
+                      <Progress value={dept.absent} className="h-2 [&>div]:bg-[var(--error)]" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
+        </CardContent>
+      </Card>
 
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--text-main)]">Chi tiết phòng ban</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {departmentStats.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-[var(--text-sub)]">Không có dữ liệu</p>
-                  </div>
-                ) : (
-                  departmentStats.map((dept, index) => (
-                    <motion.div
-                      key={dept.department}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-[var(--text-main)]">{dept.department}</h3>
-                        <Badge className={dept.onTime >= 95 ? 'bg-[var(--success)]/20 text-[var(--success)]' :
-                          dept.onTime >= 85 ? 'bg-[var(--warning)]/20 text-[var(--warning)]' :
-                            'bg-[var(--error)]/20 text-[var(--error)]'}>
-                          {dept.onTime}% đúng giờ
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-[var(--text-sub)]">Đúng giờ</span>
-                            <span className="text-sm text-[var(--success)]">{dept.onTime}%</span>
-                          </div>
-                          <Progress value={dept.onTime} className="h-2" />
-                        </div>
-
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-[var(--text-sub)]">Đi muộn</span>
-                            <span className="text-sm text-[var(--warning)]">{dept.late}%</span>
-                          </div>
-                          <Progress value={dept.late} className="h-2" />
-                        </div>
-
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-[var(--text-sub)]">Vắng mặt</span>
-                            <span className="text-sm text-[var(--error)]">{dept.absent}%</span>
-                          </div>
-                          <Progress value={dept.absent} className="h-2" />
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))
-                )}
+      {/* Top Performers */}
+      <Card className="bg-[var(--surface)] border-[var(--border)]">
+        <CardHeader>
+          <CardTitle className="text-[var(--text-main)]">Top 5 nhân viên chăm chỉ</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {topPerformers.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-[var(--text-sub)]">Không có dữ liệu</p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--text-main)]">Top 5 nhân viên chăm chỉ</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {topPerformers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-[var(--text-sub)]">Không có dữ liệu</p>
+            ) : (
+              topPerformers.map((employee, index) => (
+                <motion.div
+                  key={employee.name}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="flex items-center justify-between p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                      index === 0 ? 'bg-yellow-500/20' :
+                      index === 1 ? 'bg-gray-400/20' :
+                      index === 2 ? 'bg-orange-600/20' : 'bg-[var(--primary)]/20'
+                    }`}>
+                      <span className={`${
+                        index === 0 ? 'text-yellow-500' :
+                        index === 1 ? 'text-gray-400' :
+                        index === 2 ? 'text-orange-600' : 'text-[var(--primary)]'
+                      }`}>
+                        #{index + 1}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="text-[var(--text-main)]">{employee.name}</h3>
+                      <p className="text-sm text-[var(--text-sub)]">
+                        Giờ vào TB: {employee.avgCheckIn}
+                      </p>
+                    </div>
                   </div>
-                ) : (
-                  topPerformers.map((employee, index) => (
-                    <motion.div
-                      key={employee.name}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-center justify-between p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] flex-col md:flex-row gap-4"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                          index === 0 ? 'bg-yellow-500/20' :
-                          index === 1 ? 'bg-gray-400/20' :
-                          index === 2 ? 'bg-orange-600/20' : 'bg-[var(--primary)]/20'
-                        }`}>
-                          <span className={`${
-                            index === 0 ? 'text-yellow-500' :
-                            index === 1 ? 'text-gray-400' :
-                            index === 2 ? 'text-orange-600' : 'text-[var(--primary)]'
-                          }`}>
-                            #{index + 1}
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="text-[var(--text-main)]">{employee.name}</h3>
-                          <p className="text-sm text-[var(--text-sub)]">
-                            Giờ vào TB: {employee.avgCheckIn}
-                          </p>
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-6 flex-wrap">
-                        <div className="text-center">
-                          <p className="text-sm text-[var(--text-sub)]">Đúng giờ</p>
-                          <p className="text-lg text-[var(--success)]">{employee.onTime}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-[var(--text-sub)]">Muộn</p>
-                          <p className="text-lg text-[var(--warning)]">{employee.late}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-[var(--text-sub)]">Vắng</p>
-                          <p className="text-lg text-[var(--error)]">{employee.absent}</p>
-                        </div>
-                        <div className="text-center min-w-[80px]">
-                          <Badge className="bg-[var(--success)]/20 text-[var(--success)]">
-                            {employee.punctuality}%
-                          </Badge>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <p className="text-sm text-[var(--text-sub)]">Đúng giờ</p>
+                      <p className="text-lg text-[var(--success)]">{employee.onTime}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-[var(--text-sub)]">Muộn</p>
+                      <p className="text-lg text-[var(--warning)]">{employee.late}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm text-[var(--text-sub)]">Vắng</p>
+                      <p className="text-lg text-[var(--error)]">{employee.absent}</p>
+                    </div>
+                    <div className="text-center min-w-[80px]">
+                      <Badge className="bg-[var(--success)]/20 text-[var(--success)]">
+                        {employee.punctuality}%
+                      </Badge>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
 export default AttendanceAnalyticsPage
-

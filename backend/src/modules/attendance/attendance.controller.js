@@ -1,5 +1,42 @@
 import { AttendanceModel } from "./attendance.model.js";
 import { LocationModel } from "../locations/location.model.js";
+import { google } from "googleapis";
+import stream from "stream";
+
+// Google Drive setup: use service account JSON path in env GOOGLE_APPLICATION_CREDENTIALS
+// and optionally target folder in env DRIVE_FOLDER_ID. If not provided, folderId can be set manually.
+const driveAuth = new google.auth.GoogleAuth({
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || undefined,
+  scopes: ["https://www.googleapis.com/auth/drive.file"],
+});
+
+async function uploadBufferToDrive(
+  buffer,
+  filename,
+  mimeType,
+  folderId = null
+) {
+  const client = await driveAuth.getClient();
+  const drive = google.drive({ version: "v3", auth: client });
+
+  const bufferStream = new stream.PassThrough();
+  bufferStream.end(buffer);
+
+  const res = await drive.files.create({
+    requestBody: {
+      name: filename,
+      parents: folderId ? [folderId] : undefined,
+      mimeType,
+    },
+    media: {
+      mimeType,
+      body: bufferStream,
+    },
+    fields: "id, name",
+  });
+
+  return res.data; // { id, name }
+}
 
 const formatDateLabel = (date) => {
   const pad = (value) => String(value).padStart(2, "0");
@@ -88,19 +125,41 @@ export const getAttendanceHistory = async (req, res) => {
 export const checkIn = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { latitude, longitude, accuracy, ssid, bssid, qrCode, photo } =
-      req.body;
+    // If request is multipart/form-data (via multer), small fields are in req.body and file in req.file
+    const {
+      latitude: latRaw,
+      longitude: lonRaw,
+      accuracy,
+      ssid,
+      bssid,
+      qrCode,
+    } = req.body || {};
+    const photoFile = req.file || null; // multer will populate req.file when upload.single('photo') used
+
+    // Convert numeric inputs
+    const latitude = latRaw !== undefined ? Number(latRaw) : undefined;
+    const longitude = lonRaw !== undefined ? Number(lonRaw) : undefined;
     // qrCode và photo có thể được sử dụng để validate và lưu trữ trong tương lai
 
     // Validate input
-    if (!latitude || !longitude) {
+    if (
+      latitude === undefined ||
+      longitude === undefined ||
+      !latitude ||
+      !longitude
+    ) {
       return res.status(400).json({
         success: false,
         message: "Vui lòng cung cấp vị trí (latitude và longitude)",
       });
     }
 
-    if (typeof latitude !== "number" || typeof longitude !== "number") {
+    if (
+      typeof latitude !== "number" ||
+      typeof longitude !== "number" ||
+      Number.isNaN(latitude) ||
+      Number.isNaN(longitude)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Vị trí không hợp lệ",
@@ -172,12 +231,25 @@ export const checkIn = async (req, res) => {
       // Cập nhật check-in
       attendance.checkIn = now;
       attendance.locationId = validLocation._id;
-      if (photo) {
-        // Có thể lưu ảnh vào cloud storage hoặc database
-        // Ở đây tạm thời bỏ qua
-        attendance.notes = attendance.notes
-          ? `${attendance.notes}\n[Ảnh đã được lưu]`
-          : "[Ảnh đã được lưu]";
+      if (photoFile) {
+        try {
+          const folderId =
+            process.env.DRIVE_FOLDER_ID || "1TAx6V0Ut8a4Q91bH-5-doVNGKvwuxlfL"; // default to provided link id
+          const uploaded = await uploadBufferToDrive(
+            photoFile.buffer,
+            photoFile.originalname || `checkin-${Date.now()}.jpg`,
+            photoFile.mimetype || "image/jpeg",
+            folderId
+          );
+          attendance.notes = attendance.notes
+            ? `${attendance.notes}\n[Ảnh đã được lưu: ${uploaded.id}]`
+            : `[Ảnh đã được lưu: ${uploaded.id}]`;
+        } catch (e) {
+          console.error("Upload to Drive failed:", e);
+          attendance.notes = attendance.notes
+            ? `${attendance.notes}\n[Ảnh lưu thất bại]`
+            : "[Ảnh lưu thất bại]";
+        }
       }
     } else {
       // Tạo mới bản ghi chấm công
@@ -187,8 +259,29 @@ export const checkIn = async (req, res) => {
         checkIn: now,
         locationId: validLocation._id,
         status: "present",
-        notes: photo ? "[Ảnh đã được lưu]" : "",
+        notes: photoFile ? `[Ảnh đã được lưu]` : "",
       });
+
+      if (photoFile) {
+        try {
+          const folderId =
+            process.env.DRIVE_FOLDER_ID || "1TAx6V0Ut8a4Q91bH-5-doVNGKvwuxlfL";
+          const uploaded = await uploadBufferToDrive(
+            photoFile.buffer,
+            photoFile.originalname || `checkin-${Date.now()}.jpg`,
+            photoFile.mimetype || "image/jpeg",
+            folderId
+          );
+          attendance.notes = attendance.notes
+            ? `${attendance.notes}\n[Ảnh đã được lưu: ${uploaded.id}]`
+            : `[Ảnh đã được lưu: ${uploaded.id}]`;
+        } catch (e) {
+          console.error("Upload to Drive failed:", e);
+          attendance.notes = attendance.notes
+            ? `${attendance.notes}\n[Ảnh lưu thất bại]`
+            : "[Ảnh lưu thất bại]";
+        }
+      }
     }
 
     await attendance.save();

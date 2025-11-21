@@ -100,10 +100,11 @@ const SelectItem = React.forwardRef(({ className, value, children, ...props }, r
   const isSelected = context?.selectedValue === value
 
   React.useEffect(() => {
-    if (value && children) {
-      context?.registerItem?.(value, children)
+    if (value && children && context?.registerItem) {
+      context.registerItem(value, children)
     }
-  }, [value, children, context])
+    // Chỉ depend vào value và children, không depend vào context object
+  }, [value, children])
 
   return (
     <div
