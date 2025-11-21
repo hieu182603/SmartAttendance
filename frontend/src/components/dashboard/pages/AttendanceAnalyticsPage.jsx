@@ -50,40 +50,7 @@ const AttendanceAnalyticsPage = () => {
     // fetchAnalytics()
   }, [selectedPeriod, selectedDepartment])
 
-  // TODO: Thêm function fetchAnalytics để gọi API
-  // const fetchAnalytics = async () => {
-  //   setLoading(true)
-  //   try {
-  //     const params = {}
-  //     const today = new Date()
-  //     const from = new Date()
-  //
-  //     if (selectedPeriod === '7days') {
-  //       from.setDate(today.getDate() - 7)
-  //     } else if (selectedPeriod === '30days') {
-  //       from.setDate(today.getDate() - 30)
-  //     } else if (selectedPeriod === '90days') {
-  //       from.setDate(today.getDate() - 90)
-  //     }
-  //
-  //     params.from = from.toISOString().split('T')[0]
-  //     params.to = today.toISOString().split('T')[0]
-  //
-  //     if (selectedDepartment !== 'all') {
-  //       params.department = selectedDepartment
-  //     }
-  //
-  //     // Gọi API ở đây
-  //     // const result = await getAttendanceAnalytics(params)
-  //     // setData(result)
-  //   } catch (error) {
-  //     toast.error('Không thể tải dữ liệu phân tích')
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
 
-  // TODO: Thêm API call để export analytics
   const handleExport = async () => {
     try {
       const params = {}
@@ -133,7 +100,7 @@ const AttendanceAnalyticsPage = () => {
         <div className="flex gap-2">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-[150px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-              <SelectValue />
+              <SelectValue placeholder="7 ngày qua" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="7days">7 ngày qua</SelectItem>
@@ -155,7 +122,7 @@ const AttendanceAnalyticsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6">
+            <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Tỷ lệ đi làm</p>
@@ -172,7 +139,7 @@ const AttendanceAnalyticsPage = () => {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6">
+            <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Đi muộn TB</p>
@@ -189,7 +156,7 @@ const AttendanceAnalyticsPage = () => {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6">
+            <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Vắng mặt TB</p>
@@ -206,7 +173,7 @@ const AttendanceAnalyticsPage = () => {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6">
+            <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Xu hướng</p>
@@ -214,7 +181,7 @@ const AttendanceAnalyticsPage = () => {
                     <TrendingUp className="h-6 w-6 text-[var(--success)]" />
                     <p className="text-2xl text-[var(--success)]">+{summary.trend}%</p>
                   </div>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">So với tuần trước</p>
+                  <p className="text-xs text-[var(--text-sub)] mt-2">So với tuần trước</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
                   <BarChart3 className="h-6 w-6 text-[var(--accent-cyan)]" />

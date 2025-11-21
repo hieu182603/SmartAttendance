@@ -83,7 +83,7 @@ const SelectContent = React.forwardRef(({ className, children, ...props }, ref) 
       <div
         ref={ref}
         className={cn(
-          'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border p-1 shadow-lg',
+          'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-xl',
           className
         )}
         {...props}
@@ -110,8 +110,10 @@ const SelectItem = React.forwardRef(({ className, value, children, ...props }, r
     <div
       ref={ref}
       className={cn(
-        'relative flex w-full cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm outline-none transition-colors hover:bg-[var(--shell)] focus:bg-[var(--shell)]',
-        isSelected && 'bg-[var(--shell)]',
+        'relative flex w-full cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm outline-none transition-colors',
+        'hover:bg-[var(--primary)]/30 hover:text-[var(--primary)]',
+        'focus:bg-[var(--primary)]/30 focus:text-[var(--primary)]',
+        isSelected && 'bg-[var(--primary)]/40 text-[var(--primary)] font-medium',
         className
       )}
       onClick={() => context?.handleValueChange(value)}

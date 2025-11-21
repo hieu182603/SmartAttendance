@@ -122,7 +122,7 @@ export const DashboardOverview = () => {
                       </motion.div>
                     </div>
                     <motion.div
-                      className={`p-3 rounded-xl ${kpi.bgColor}`}
+                      className={`p-3 mt-4 rounded-xl ${kpi.bgColor}`}
                       whileHover={{ rotate: 360, scale: 1.1 }}
                       transition={{ duration: 0.5 }}
                     >
