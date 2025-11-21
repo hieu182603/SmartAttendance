@@ -1,6 +1,5 @@
-
 import { Router } from "express";
-import multer from "multer";
+import { upload } from "../../middleware/upload.middleware.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireRole, ROLES } from "../../middleware/role.middleware.js";
 import {
@@ -12,11 +11,6 @@ import {
 } from "./attendance.controller.js";
 
 export const attendanceRouter = Router();
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
-});
 
 attendanceRouter.use(authMiddleware);
 

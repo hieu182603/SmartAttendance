@@ -1,5 +1,6 @@
 import { AttendanceModel } from "./attendance.model.js";
 import { LocationModel } from "../locations/location.model.js";
+import { uploadToCloudinary } from "../../config/cloudinary.js";
 import { google } from "googleapis";
 import stream from "stream";
 
@@ -233,19 +234,13 @@ export const checkIn = async (req, res) => {
       attendance.locationId = validLocation._id;
       if (photoFile) {
         try {
-          const folderId =
-            process.env.DRIVE_FOLDER_ID || "1TAx6V0Ut8a4Q91bH-5-doVNGKvwuxlfL"; // default to provided link id
-          const uploaded = await uploadBufferToDrive(
-            photoFile.buffer,
-            photoFile.originalname || `checkin-${Date.now()}.jpg`,
-            photoFile.mimetype || "image/jpeg",
-            folderId
-          );
+          // Upload lên Cloudinary
+          const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkins');
           attendance.notes = attendance.notes
-            ? `${attendance.notes}\n[Ảnh đã được lưu: ${uploaded.id}]`
-            : `[Ảnh đã được lưu: ${uploaded.id}]`;
+            ? `${attendance.notes}\n[Ảnh: ${result.url}]`
+            : `[Ảnh: ${result.url}]`;
         } catch (e) {
-          console.error("Upload to Drive failed:", e);
+          console.error("Upload to Cloudinary failed:", e);
           attendance.notes = attendance.notes
             ? `${attendance.notes}\n[Ảnh lưu thất bại]`
             : "[Ảnh lưu thất bại]";
@@ -259,27 +254,17 @@ export const checkIn = async (req, res) => {
         checkIn: now,
         locationId: validLocation._id,
         status: "present",
-        notes: photoFile ? `[Ảnh đã được lưu]` : "",
+        notes: "",
       });
 
       if (photoFile) {
         try {
-          const folderId =
-            process.env.DRIVE_FOLDER_ID || "1TAx6V0Ut8a4Q91bH-5-doVNGKvwuxlfL";
-          const uploaded = await uploadBufferToDrive(
-            photoFile.buffer,
-            photoFile.originalname || `checkin-${Date.now()}.jpg`,
-            photoFile.mimetype || "image/jpeg",
-            folderId
-          );
-          attendance.notes = attendance.notes
-            ? `${attendance.notes}\n[Ảnh đã được lưu: ${uploaded.id}]`
-            : `[Ảnh đã được lưu: ${uploaded.id}]`;
+          // Upload lên Cloudinary
+          const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkins');
+          attendance.notes = `[Ảnh: ${result.url}]`;
         } catch (e) {
-          console.error("Upload to Drive failed:", e);
-          attendance.notes = attendance.notes
-            ? `${attendance.notes}\n[Ảnh lưu thất bại]`
-            : "[Ảnh lưu thất bại]";
+          console.error("Upload to Cloudinary failed:", e);
+          attendance.notes = "[Ảnh lưu thất bại]";
         }
       }
     }
