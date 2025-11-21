@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Camera,
   MapPin,
@@ -10,109 +10,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { toast } from "sonner";
 import api from "../../../services/api";
 
+// Helper: Convert base64 to Blob
+const dataURLtoBlob = (dataURL) => {
+  const arr = dataURL.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+};
+
 const ScanPage = () => {
-  const [isCameraReady, setIsCameraReady] = useState(false);
-  const [locationData, setLocationData] = useState(null);
-  const [checkInStatus, setCheckInStatus] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState(null);
+  // Gom state liên quan
+  const [state, setState] = useState({
+    isCameraReady: false,
+    isProcessing: false,
+    locationLoading: false,
+    checkInStatus: null,
+  });
+
   const [permissions, setPermissions] = useState({
     camera: false,
     location: false,
   });
-  const [scannedQRCode, setScannedQRCode] = useState(null);
+
+  const [locationData, setLocationData] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const scanIntervalRef = useRef(null);
 
-  // Kiểm tra quyền truy cập thật
-  const checkPermissions = async () => {
-    try {
-      // Kiểm tra quyền camera
-      const cameraPermission = await navigator.permissions.query({
-        name: "camera",
-      });
-      const cameraGranted = cameraPermission.state === "granted";
-
-      // Kiểm tra quyền location
-      const locationPermission = await navigator.permissions.query({
-        name: "geolocation",
-      });
-      const locationGranted = locationPermission.state === "granted";
-
-      setPermissions({
-        camera: cameraGranted,
-        location: locationGranted,
-      });
-
-      // Nếu chưa có quyền, thử yêu cầu
-      if (!cameraGranted || !locationGranted) {
-        // Yêu cầu quyền location
-        if (!locationGranted) {
-          await getLocation();
-        }
-      }
-    } catch (error) {
-      console.error("Error checking permissions:", error);
-      // Fallback: thử truy cập trực tiếp
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        stream.getTracks().forEach((track) => track.stop());
-        setPermissions((prev) => ({ ...prev, camera: true }));
-      } catch (e) {
-        setPermissions((prev) => ({ ...prev, camera: false }));
-      }
-    }
-  };
-
-  // Lấy thông tin WiFi (BSSID/SSID) - nếu có thể
-  const getWiFiInfo = async () => {
-    const result = { ssid: null, bssid: null };
-
-    try {
-      // Thử lấy qua Chrome Experimental API (chỉ Android Chrome)
-      if ("connection" in navigator) {
-        const connection =
-          navigator.connection ||
-          navigator.mozConnection ||
-          navigator.webkitConnection;
-        if (connection && connection.type === "wifi") {
-          // Trên Android Chrome, có thể có API để lấy WiFi info
-          if (
-            "wifi" in navigator &&
-            typeof navigator.wifi?.getWifiInfo === "function"
-          ) {
-            try {
-              const wifiInfo = await navigator.wifi.getWifiInfo();
-              result.ssid = wifiInfo.ssid || null;
-              result.bssid = wifiInfo.bssid || null;
-            } catch (e) {
-              console.log("Chrome WiFi API không khả dụng:", e);
-            }
-          }
-        }
-      }
-
-      // Thử sử dụng Network Information API
-      // Lưu ý: BSSID thường không có sẵn qua Web API vì lý do bảo mật
-      // Cần extension hoặc native app để lấy BSSID đầy đủ
-    } catch (error) {
-      console.log("Không thể lấy thông tin WiFi:", error);
-    }
-
-    return result;
-  };
-
-  // Lấy vị trí thật kết hợp GPS và WiFi
-  const getLocation = async () => {
-    setLocationLoading(true);
+  // Lấy vị trí GPS
+  const getLocation = useCallback(async () => {
+    setState(prev => ({ ...prev, locationLoading: true }));
     setLocationError(null);
 
     try {
-      // Lấy GPS
       const position = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
@@ -121,36 +57,29 @@ const ScanPage = () => {
         });
       });
 
-      // Thử lấy thông tin WiFi
-      const wifiInfo = await getWiFiInfo();
-
       const location = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
-        ssid: wifiInfo.ssid,
-        bssid: wifiInfo.bssid,
       };
 
       setLocationData(location);
-      setPermissions((prev) => ({ ...prev, location: true }));
-      setLocationLoading(false);
+      setPermissions(prev => ({ ...prev, location: true }));
     } catch (error) {
       console.error("Error getting location:", error);
-      setLocationError(
-        "Không thể lấy vị trí. Vui lòng kiểm tra quyền truy cập."
-      );
-      setPermissions((prev) => ({ ...prev, location: false }));
-      setLocationLoading(false);
+      setLocationError("Không thể lấy vị trí. Vui lòng kiểm tra quyền truy cập.");
+      setPermissions(prev => ({ ...prev, location: false }));
+    } finally {
+      setState(prev => ({ ...prev, locationLoading: false }));
     }
-  };
+  }, []);
 
-  // Bật camera thật
-  const startCamera = async () => {
+  // Bật camera
+  const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "environment", // Camera sau (mobile)
+          facingMode: "environment",
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
@@ -159,179 +88,124 @@ const ScanPage = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        setIsCameraReady(true);
-        setPermissions((prev) => ({ ...prev, camera: true }));
+        setState(prev => ({ ...prev, isCameraReady: true }));
+        setPermissions(prev => ({ ...prev, camera: true }));
 
-        // Tự động lấy vị trí khi bật camera
+        // Lấy vị trí nếu chưa có
         if (!locationData) {
           getLocation();
         }
-
-        // Bắt đầu quét QR code
-        // Một số trình duyệt yêu cầu gọi play() và play() có thể trả về một Promise
-        try {
-          // Thử play video; nếu bị abort thì bỏ qua
-          // eslint-disable-next-line no-void
-          await videoRef.current.play();
-        } catch (err) {
-          if (err && err.name === "AbortError") {
-            // play() bị hủy do pause() được gọi ngay sau đó — bỏ qua
-            console.warn("video play aborted", err);
-          } else {
-            console.error("video play error", err);
-          }
-        }
-
-        startQRScanning();
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
-      toast.error(
-        "Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập."
-      );
-      setPermissions((prev) => ({ ...prev, camera: false }));
+      toast.error("Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.");
+      setPermissions(prev => ({ ...prev, camera: false }));
     }
-  };
+  }, [locationData, getLocation]);
 
   // Tắt camera
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
     if (videoRef.current) {
-      try {
-        videoRef.current.pause();
-      } catch (e) {
-        // ignore
-      }
       videoRef.current.srcObject = null;
     }
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-    setIsCameraReady(false);
-    setScannedQRCode(null);
-  };
+    setState(prev => ({ ...prev, isCameraReady: false }));
+  }, []);
 
-  // Quét QR code (sử dụng thư viện html5-qrcode hoặc tự implement)
-  const startQRScanning = () => {
-    // Đơn giản hóa: chỉ cần chụp ảnh và gửi lên server
-    // Hoặc có thể dùng thư viện html5-qrcode để quét real-time
-    // Ở đây tạm thời bỏ qua QR scanning, chỉ cần location validation
-  };
+  // Chụp ảnh và resize
+  const capturePhoto = useCallback(() => {
+    if (!videoRef.current || !state.isCameraReady) return null;
+
+    const canvas = document.createElement("canvas");
+    const video = videoRef.current;
+
+    const MAX_WIDTH = 800;
+    const MAX_HEIGHT = 600;
+
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+
+    if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+      if (width > height) {
+        height = (height * MAX_WIDTH) / width;
+        width = MAX_WIDTH;
+      } else {
+        width = (width * MAX_HEIGHT) / height;
+        height = MAX_HEIGHT;
+      }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, width, height);
+
+    return canvas.toDataURL("image/jpeg", 0.6);
+  }, [state.isCameraReady]);
 
   // Xử lý check-in
-  const handleCheckIn = async () => {
-    if (!locationData) {
-      toast.error("Vui lòng đợi lấy vị trí hoàn tất");
-      return;
-    }
-
-    setIsProcessing(true);
-    setCheckInStatus(null);
+  const handleCheckIn = useCallback(async () => {
+    setState(prev => ({ ...prev, isProcessing: true, checkInStatus: null }));
 
     try {
-      // Chụp ảnh từ video stream và resize để giảm kích thước
-      let photoData = null;
-      if (videoRef.current && isCameraReady) {
-        const canvas = document.createElement("canvas");
-        const video = videoRef.current;
-
-        // Giới hạn kích thước tối đa (ví dụ: 800px chiều rộng)
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 600;
-
-        let width = video.videoWidth;
-        let height = video.videoHeight;
-
-        // Tính toán kích thước mới giữ nguyên tỷ lệ
-        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-          if (width > height) {
-            height = (height * MAX_WIDTH) / width;
-            width = MAX_WIDTH;
-          } else {
-            width = (width * MAX_HEIGHT) / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, width, height);
-
-        // Nén ảnh với chất lượng thấp hơn (0.6 thay vì 0.8)
-        photoData = canvas.toDataURL("image/jpeg", 0.6);
-
-        // Kiểm tra kích thước (cảnh báo nếu > 2MB)
-        const sizeInMB = photoData.length / (1024 * 1024);
-        if (sizeInMB > 2) {
-          console.warn(
-            `Ảnh khá lớn: ${sizeInMB.toFixed(2)}MB. Có thể gửi chậm.`
-          );
-        }
+      const photoData = capturePhoto();
+      if (!photoData) {
+        throw new Error("Không thể chụp ảnh");
       }
 
-      // Sử dụng api service đã có interceptor tự động thêm token
-      const response = await api.post("/attendance/checkin", {
-        latitude: locationData.latitude,
-        longitude: locationData.longitude,
-        accuracy: locationData.accuracy,
-        ssid: locationData.ssid, // SSID của WiFi
-        bssid: locationData.bssid, // BSSID (MAC address) của WiFi
-        qrCode: scannedQRCode, // Nếu có QR code
-        photo: photoData, // Ảnh chụp (base64)
+      const formData = new FormData();
+      formData.append('latitude', locationData.latitude);
+      formData.append('longitude', locationData.longitude);
+      formData.append('accuracy', locationData.accuracy);
+
+      // Convert base64 to Blob
+      const blob = dataURLtoBlob(photoData);
+      formData.append('photo', blob, `checkin-${Date.now()}.jpg`);
+
+      const response = await api.post("/attendance/checkin", formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       if (response.data.success) {
-        setCheckInStatus("success");
+        setState(prev => ({ ...prev, checkInStatus: "success" }));
         toast.success("Chấm công thành công!");
 
-        // Reset sau 3 giây
         setTimeout(() => {
-          setCheckInStatus(null);
+          setState(prev => ({ ...prev, checkInStatus: null }));
         }, 3000);
       }
     } catch (error) {
       console.error("Check-in error:", error);
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Có lỗi xảy ra khi chấm công";
+      const errorMessage = error.response?.data?.message || error.message || "Có lỗi xảy ra khi chấm công";
 
-      // Nếu server trả lỗi business (ví dụ đã chấm công hôm nay)
-      if (
-        error.response?.status === 400 &&
-        /chấm công|đã chấm công/i.test(errorMessage)
-      ) {
+      // Check error code thay vì regex
+      if (error.response?.data?.code === 'ALREADY_CHECKED_IN') {
         toast.info(errorMessage);
-        setCheckInStatus("already");
+        setState(prev => ({ ...prev, checkInStatus: "already" }));
       } else {
         toast.error(errorMessage);
-        setCheckInStatus("error");
+        setState(prev => ({ ...prev, checkInStatus: "error" }));
       }
     } finally {
-      setIsProcessing(false);
+      setState(prev => ({ ...prev, isProcessing: false }));
     }
-  };
+  }, [locationData, capturePhoto]);
 
-  // Kiểm tra quyền khi component mount
+  // Init camera khi mount
   useEffect(() => {
-    (async () => {
-      await checkPermissions();
-      startCamera();
-    })();
-
+    startCamera();
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [startCamera, stopCamera]);
+
+  const { isCameraReady, isProcessing, locationLoading, checkInStatus } = state;
 
   return (
     <div className="space-y-6">
-      {/* Card chính - Quét QR điểm danh */}
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
@@ -342,50 +216,30 @@ const ScanPage = () => {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Trạng thái quyền truy cập */}
+          {/* Trạng thái quyền */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">
               Trạng thái quyền truy cập
             </h3>
             <div className="flex flex-wrap gap-2">
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-                  permissions.camera
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                }`}
-              >
-                {permissions.camera ? (
-                  <CheckCircle2 className="h-3 w-3" />
-                ) : (
-                  <AlertCircle className="h-3 w-3" />
-                )}
-                Camera - {permissions.camera ? "Đã cấp" : "Bị từ chối"}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-                  permissions.location
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                }`}
-              >
-                {permissions.location ? (
-                  <CheckCircle2 className="h-3 w-3" />
-                ) : (
-                  <AlertCircle className="h-3 w-3" />
-                )}
-                Vị trí - {permissions.location ? "Đã cấp" : "Bị từ chối"}
-              </span>
+              {Object.entries(permissions).map(([key, granted]) => (
+                <span
+                  key={key}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+                    granted
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                  }`}
+                >
+                  {granted ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                  {key === 'camera' ? 'Camera' : 'Vị trí'} - {granted ? "Đã cấp" : "Bị từ chối"}
+                </span>
+              ))}
             </div>
             {(!permissions.camera || !permissions.location) && (
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <div className="flex-1">
-                  <p>
-                    Vui lòng cấp quyền truy cập Camera và Vị trí trong cài đặt
-                    trình duyệt để tiếp tục.
-                  </p>
-                </div>
+                <p>Vui lòng cấp quyền truy cập Camera và Vị trí trong cài đặt trình duyệt để tiếp tục.</p>
               </div>
             )}
           </div>
@@ -396,18 +250,14 @@ const ScanPage = () => {
               Camera trực tiếp
             </h3>
             <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--shell)]">
-              {/* Video stream từ camera */}
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                className={`h-full w-full object-cover ${
-                  isCameraReady ? "block" : "hidden"
-                }`}
+                className={`h-full w-full object-cover ${isCameraReady ? "block" : "hidden"}`}
               />
 
-              {/* Hiển thị placeholder khi camera chưa sẵn sàng */}
               {!isCameraReady && (
                 <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--shell)] text-[var(--text-sub)]">
                   <Camera className="h-12 w-12" />
@@ -433,88 +283,64 @@ const ScanPage = () => {
                 {locationError}
               </div>
             ) : locationData ? (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-sub)]">Vĩ độ:</span>
-                  <span className="font-mono text-[var(--text-main)]">
-                    {locationData.latitude?.toFixed(6)}
-                  </span>
+              <>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--text-sub)]">Vĩ độ:</span>
+                    <span className="font-mono text-[var(--text-main)]">
+                      {locationData.latitude?.toFixed(6)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--text-sub)]">Kinh độ:</span>
+                    <span className="font-mono text-[var(--text-main)]">
+                      {locationData.longitude?.toFixed(6)}
+                    </span>
+                  </div>
+                  {locationData.accuracy && (
+                    <div className="flex justify-between">
+                      <span className="text-[var(--text-sub)]">Độ chính xác:</span>
+                      <span className="font-mono text-[var(--text-main)]">
+                        ±{Math.round(locationData.accuracy)}m
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-sub)]">Kinh độ:</span>
-                  <span className="font-mono text-[var(--text-main)]">
-                    {locationData.longitude?.toFixed(6)}
-                  </span>
-                </div>
-                {locationData.accuracy && (
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">
-                      Độ chính xác:
-                    </span>
-                    <span className="font-mono text-[var(--text-main)]">
-                      ±{Math.round(locationData.accuracy)}m
-                    </span>
-                  </div>
-                )}
-                {locationData.ssid && (
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">WiFi SSID:</span>
-                    <span className="font-mono text-[var(--text-main)]">
-                      {locationData.ssid}
-                    </span>
-                  </div>
-                )}
-                {locationData.bssid && (
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">WiFi BSSID:</span>
-                    <span className="font-mono text-[var(--text-main)]">
-                      {locationData.bssid}
-                    </span>
-                  </div>
-                )}
-              </div>
+                <button
+                  onClick={getLocation}
+                  className="mt-2 text-xs text-[var(--primary)] hover:underline"
+                >
+                  Làm mới vị trí
+                </button>
+              </>
             ) : (
               <div className="flex items-center justify-center gap-2 py-4 text-sm text-[var(--text-sub)]">
                 <MapPin className="h-4 w-4" />
                 Đang lấy vị trí...
               </div>
             )}
+          </div>
 
-            {/* Nút lấy lại vị trí */}
-            {locationData && (
-              <button
-                onClick={getLocation}
-                className="mt-2 text-xs text-[var(--primary)] hover:underline"
-              >
-                Làm mới vị trí
-              </button>
+          {/* Nút check-in */}
+          <button
+            onClick={handleCheckIn}
+            disabled={isProcessing || !permissions.camera || !permissions.location || !locationData}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Đang xử lý...
+              </>
+            ) : checkInStatus === "success" ? (
+              "Đã check-in"
+            ) : (
+              <>
+                <Camera className="h-4 w-4" />
+                Chụp ảnh và xác nhận
+              </>
             )}
-          </div>
-
-          {/* Nút điều khiển - sửa: camera tự bật, chỉ còn nút check-in */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleCheckIn}
-              disabled={
-                isProcessing || !permissions.camera || !permissions.location
-              }
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang xử lý...
-                </>
-              ) : checkInStatus === "success" ? (
-                "Đã check-in"
-              ) : (
-                <>
-                  <Camera className="h-4 w-4" />
-                  Chụp ảnh và xác nhận
-                </>
-              )}
-            </button>
-          </div>
+          </button>
         </CardContent>
       </Card>
     </div>
