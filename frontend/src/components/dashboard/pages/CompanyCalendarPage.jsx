@@ -1,9 +1,8 @@
-import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import React, { useState } from "react";
+import { motion } from "framer-motion";
 import {
   Calendar as CalendarIcon,
   Plus,
-  Filter,
   ChevronLeft,
   ChevronRight,
   Users,
@@ -12,169 +11,167 @@ import {
   FileText,
   Tag,
   Bell,
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
-import { Button } from '../../ui/button'
-import { Badge } from '../../ui/badge'
-import { Calendar } from '../../ui/calendar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
-import { toast } from 'sonner'
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Button } from "../../ui/button";
+import { Badge } from "../../ui/badge";
+import { Calendar } from "../../ui/calendar";
+import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
+import { toast } from "sonner";
 
 const events = [
   {
-    id: 'EVT001',
-    title: 'Họp tổng kết quý 4',
-    description: 'Họp tổng kết kết quả kinh doanh quý 4 và kế hoạch năm mới',
-    date: '2025-11-15',
-    startTime: '14:00',
-    endTime: '16:00',
-    type: 'meeting',
-    location: 'Phòng họp tầng 3',
+    id: "EVT001",
+    title: "Họp tổng kết quý 4",
+    description: "Họp tổng kết kết quả kinh doanh quý 4 và kế hoạch năm mới",
+    date: "2025-11-15",
+    startTime: "14:00",
+    endTime: "16:00",
+    type: "meeting",
+    location: "Phòng họp tầng 3",
     attendees: 50,
-    color: 'bg-blue-500',
+    color: "bg-blue-500",
   },
   {
-    id: 'EVT002',
-    title: 'Ngày lễ Nhà giáo Việt Nam',
-    description: 'Nghỉ lễ theo quy định',
-    date: '2025-11-20',
-    startTime: '',
-    endTime: '',
-    type: 'holiday',
+    id: "EVT002",
+    title: "Ngày lễ Nhà giáo Việt Nam",
+    description: "Nghỉ lễ theo quy định",
+    date: "2025-11-20",
+    startTime: "",
+    endTime: "",
+    type: "holiday",
     isAllDay: true,
-    color: 'bg-red-500',
+    color: "bg-red-500",
   },
   {
-    id: 'EVT003',
-    title: 'Deadline dự án ABC',
-    description: 'Hoàn thành và bàn giao dự án ABC cho khách hàng',
-    date: '2025-11-18',
-    startTime: '17:00',
-    endTime: '17:00',
-    type: 'deadline',
-    color: 'bg-orange-500',
+    id: "EVT003",
+    title: "Deadline dự án ABC",
+    description: "Hoàn thành và bàn giao dự án ABC cho khách hàng",
+    date: "2025-11-18",
+    startTime: "17:00",
+    endTime: "17:00",
+    type: "deadline",
+    color: "bg-orange-500",
   },
   {
-    id: 'EVT004',
-    title: 'Team Building',
-    description: 'Hoạt động team building tại Hà Nội',
-    date: '2025-11-22',
-    startTime: '08:00',
-    endTime: '18:00',
-    type: 'event',
-    location: 'Ba Vì, Hà Nội',
+    id: "EVT004",
+    title: "Team Building",
+    description: "Hoạt động team building tại Hà Nội",
+    date: "2025-11-22",
+    startTime: "08:00",
+    endTime: "18:00",
+    type: "event",
+    location: "Ba Vì, Hà Nội",
     attendees: 150,
-    color: 'bg-green-500',
+    color: "bg-green-500",
   },
   {
-    id: 'EVT005',
-    title: 'Đào tạo React Advanced',
-    description: 'Khóa đào tạo nâng cao về React cho team IT',
-    date: '2025-11-12',
-    startTime: '09:00',
-    endTime: '17:00',
-    type: 'training',
-    location: 'Phòng đào tạo',
+    id: "EVT005",
+    title: "Đào tạo React Advanced",
+    description: "Khóa đào tạo nâng cao về React cho team IT",
+    date: "2025-11-12",
+    startTime: "09:00",
+    endTime: "17:00",
+    type: "training",
+    location: "Phòng đào tạo",
     attendees: 25,
-    color: 'bg-purple-500',
+    color: "bg-purple-500",
   },
   {
-    id: 'EVT006',
-    title: 'Sinh nhật công ty',
-    description: 'Kỷ niệm 5 năm thành lập công ty',
-    date: '2025-11-25',
-    startTime: '18:00',
-    endTime: '21:00',
-    type: 'event',
-    location: 'Nhà hàng ABC',
+    id: "EVT006",
+    title: "Sinh nhật công ty",
+    description: "Kỷ niệm 5 năm thành lập công ty",
+    date: "2025-11-25",
+    startTime: "18:00",
+    endTime: "21:00",
+    type: "event",
+    location: "Nhà hàng ABC",
     attendees: 200,
-    color: 'bg-pink-500',
+    color: "bg-pink-500",
   },
   {
-    id: 'EVT007',
-    title: 'Họp giao ban tuần',
-    description: 'Họp giao ban đầu tuần của phòng IT',
-    date: '2025-11-11',
-    startTime: '09:00',
-    endTime: '10:00',
-    type: 'meeting',
-    location: 'Phòng họp IT',
+    id: "EVT007",
+    title: "Họp giao ban tuần",
+    description: "Họp giao ban đầu tuần của phòng IT",
+    date: "2025-11-11",
+    startTime: "09:00",
+    endTime: "10:00",
+    type: "meeting",
+    location: "Phòng họp IT",
     attendees: 15,
-    color: 'bg-blue-500',
+    color: "bg-blue-500",
   },
-]
+];
 
 const CompanyCalendarPage = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [filterType, setFilterType] = useState('all')
-  const [view, setView] = useState('month')
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [filterType, setFilterType] = useState("all");
 
   const filteredEvents = events.filter((event) => {
-    if (filterType !== 'all' && event.type !== filterType) return false
-    return true
-  })
+    if (filterType !== "all" && event.type !== filterType) return false;
+    return true;
+  });
 
   // Get events for selected date
   const selectedDateEvents = selectedDate
     ? events.filter(
-        (event) =>
-          event.date === selectedDate.toISOString().split('T')[0],
+        (event) => event.date === selectedDate.toISOString().split("T")[0]
       )
-    : []
+    : [];
 
   // Get upcoming events (next 7 days)
-  const today = new Date()
-  const nextWeek = new Date(today)
-  nextWeek.setDate(nextWeek.getDate() + 7)
+  const today = new Date();
+  const nextWeek = new Date(today);
+  nextWeek.setDate(nextWeek.getDate() + 7);
 
   const upcomingEvents = events
     .filter((event) => {
-      const eventDate = new Date(event.date)
-      return eventDate >= today && eventDate <= nextWeek
+      const eventDate = new Date(event.date);
+      return eventDate >= today && eventDate <= nextWeek;
     })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const getTypeLabel = (type) => {
     switch (type) {
-      case 'holiday':
-        return 'Ngày lễ'
-      case 'meeting':
-        return 'Họp'
-      case 'event':
-        return 'Sự kiện'
-      case 'deadline':
-        return 'Deadline'
-      case 'training':
-        return 'Đào tạo'
+      case "holiday":
+        return "Ngày lễ";
+      case "meeting":
+        return "Họp";
+      case "event":
+        return "Sự kiện";
+      case "deadline":
+        return "Deadline";
+      case "training":
+        return "Đào tạo";
       default:
-        return type
+        return type;
     }
-  }
+  };
 
   const getTypeIcon = (type) => {
     switch (type) {
-      case 'holiday':
-        return <CalendarIcon className="h-4 w-4" />
-      case 'meeting':
-        return <Users className="h-4 w-4" />
-      case 'event':
-        return <Tag className="h-4 w-4" />
-      case 'deadline':
-        return <Clock className="h-4 w-4" />
-      case 'training':
-        return <FileText className="h-4 w-4" />
+      case "holiday":
+        return <CalendarIcon className="h-4 w-4" />;
+      case "meeting":
+        return <Users className="h-4 w-4" />;
+      case "event":
+        return <Tag className="h-4 w-4" />;
+      case "deadline":
+        return <Clock className="h-4 w-4" />;
+      case "training":
+        return <FileText className="h-4 w-4" />;
       default:
-        return <CalendarIcon className="h-4 w-4" />
+        return <CalendarIcon className="h-4 w-4" />;
     }
-  }
+  };
 
   const handleCreateEvent = () => {
-    toast.success('📅 Tạo sự kiện mới')
-  }
+    toast.success("📅 Tạo sự kiện mới");
+  };
 
   const handleViewEvent = (event) => {
-    toast.success(`👁️ Xem chi tiết: ${event.title}`)
-  }
+    toast.success(`👁️ Xem chi tiết: ${event.title}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -200,11 +197,8 @@ const CompanyCalendarPage = () => {
       {/* Filter Tabs */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6">
-          <Tabs
-            value={filterType}
-            onValueChange={(v) => setFilterType(v)}
-          >
-            <TabsList className="grid w-full grid-cols-6">
+          <Tabs value={filterType} onValueChange={(v) => setFilterType(v)}>
+            <TabsList className="grid w-full grid-cols-6 mt-4">
               <TabsTrigger value="all">Tất cả</TabsTrigger>
               <TabsTrigger value="holiday">Ngày lễ</TabsTrigger>
               <TabsTrigger value="meeting">Họp</TabsTrigger>
@@ -220,33 +214,33 @@ const CompanyCalendarPage = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           {
-            label: 'Tổng sự kiện',
+            label: "Tổng sự kiện",
             value: filteredEvents.length,
-            color: 'primary',
-            icon: '📋',
+            color: "primary",
+            icon: "📋",
             delay: 0.1,
           },
           {
-            label: 'Sắp tới (7 ngày)',
+            label: "Sắp tới (7 ngày)",
             value: upcomingEvents.length,
-            color: 'warning',
-            icon: '⏰',
+            color: "warning",
+            icon: "⏰",
             delay: 0.2,
           },
           {
-            label: 'Ngày lễ',
-            value: events.filter((e) => e.type === 'holiday').length,
-            color: 'error',
-            icon: '🎉',
+            label: "Ngày lễ",
+            value: events.filter((e) => e.type === "holiday").length,
+            color: "error",
+            icon: "🎉",
             delay: 0.3,
           },
           {
-            label: 'Họp & Đào tạo',
+            label: "Họp & Đào tạo",
             value: events.filter(
-              (e) => e.type === 'meeting' || e.type === 'training',
+              (e) => e.type === "meeting" || e.type === "training"
             ).length,
-            color: 'accent-cyan',
-            icon: '👥',
+            color: "accent-cyan",
+            icon: "👥",
             delay: 0.4,
           },
         ].map((stat, index) => (
@@ -259,7 +253,7 @@ const CompanyCalendarPage = () => {
           >
             <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all">
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mt-3">
                   <div>
                     <p className="text-sm text-[var(--text-sub)]">
                       {stat.label}
@@ -270,7 +264,7 @@ const CompanyCalendarPage = () => {
                       animate={{ scale: 1 }}
                       transition={{
                         delay: stat.delay + 0.2,
-                        type: 'spring',
+                        type: "spring",
                       }}
                     >
                       {stat.value}
@@ -300,27 +294,12 @@ const CompanyCalendarPage = () => {
           transition={{ delay: 0.5 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-[var(--text-main)]">
-                  Tháng 11/2025
-                </CardTitle>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="icon" className="h-8 w-8">
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" className="h-8 w-8">
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                className="rounded-md"
+                className="rounded-md w-full p-auto"
               />
 
               {/* Selected Date Info */}
@@ -330,11 +309,11 @@ const CompanyCalendarPage = () => {
                     Ngày đã chọn
                   </p>
                   <p className="text-sm text-[var(--text-main)]">
-                    {selectedDate.toLocaleDateString('vi-VN', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
+                    {selectedDate.toLocaleDateString("vi-VN", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
                     })}
                   </p>
                   {selectedDateEvents.length > 0 && (
@@ -378,14 +357,17 @@ const CompanyCalendarPage = () => {
                       className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all cursor-pointer"
                       onClick={() => handleViewEvent(event)}
                     >
-                      <CardContent className="p-4">
+                      <CardContent className="p-4 mt-4">
                         <div className="flex items-start gap-4">
                           {/* Icon */}
                           <div
                             className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                           >
                             <span
-                              className={`${event.color.replace('bg-', 'text-')}`}
+                              className={`${event.color.replace(
+                                "bg-",
+                                "text-"
+                              )}`}
                             >
                               {getTypeIcon(event.type)}
                             </span>
@@ -400,9 +382,9 @@ const CompanyCalendarPage = () => {
                                 </h4>
                                 <div className="flex items-center gap-2 mt-1">
                                   <Badge
-                                    className={`${event.color} bg-opacity-20`}
+                                    className={`${event.color} bg-opacity-20 text-black`}
                                     style={{
-                                      color: event.color.replace('bg-', ''),
+                                      color: event.color.replace("bg-", ""),
                                     }}
                                   >
                                     {getTypeLabel(event.type)}
@@ -419,8 +401,8 @@ const CompanyCalendarPage = () => {
                               </div>
                               <Badge className="bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] text-xs whitespace-nowrap">
                                 {new Date(event.date).toLocaleDateString(
-                                  'vi-VN',
-                                  { day: 'numeric', month: 'short' },
+                                  "vi-VN",
+                                  { day: "numeric", month: "short" }
                                 )}
                               </Badge>
                             </div>
@@ -486,7 +468,7 @@ const CompanyCalendarPage = () => {
             {filteredEvents
               .sort(
                 (a, b) =>
-                  new Date(a.date).getTime() - new Date(b.date).getTime(),
+                  new Date(a.date).getTime() - new Date(b.date).getTime()
               )
               .map((event, index) => (
                 <motion.div
@@ -502,7 +484,7 @@ const CompanyCalendarPage = () => {
                       className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                     >
                       <span
-                        className={`${event.color.replace('bg-', 'text-')}`}
+                        className={`${event.color.replace("bg-", "text-")}`}
                       >
                         {getTypeIcon(event.type)}
                       </span>
@@ -513,8 +495,8 @@ const CompanyCalendarPage = () => {
                           {event.title}
                         </h3>
                         <Badge
-                          className={`${event.color} bg-opacity-20`}
-                          style={{ color: event.color.replace('bg-', '') }}
+                          className={`${event.color} bg-opacity-20 text-black`}
+                          style={{ color: event.color.replace("bg-", "") }}
                         >
                           {getTypeLabel(event.type)}
                         </Badge>
@@ -534,7 +516,7 @@ const CompanyCalendarPage = () => {
                         <div className="flex items-center gap-2">
                           <CalendarIcon className="h-4 w-4" />
                           <span>
-                            {new Date(event.date).toLocaleDateString('vi-VN')}
+                            {new Date(event.date).toLocaleDateString("vi-VN")}
                           </span>
                         </div>
                         {!event.isAllDay && (
@@ -566,8 +548,7 @@ const CompanyCalendarPage = () => {
         </CardContent>
       </Card>
     </div>
-  )
-}
+  );
+};
 
-export default CompanyCalendarPage
-
+export default CompanyCalendarPage;
