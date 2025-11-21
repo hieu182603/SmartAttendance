@@ -178,7 +178,7 @@ const ApproveRequestsPage = () => {
           transition={{ delay: 0.1 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6 pt-0 p-4 text-center">
+            <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Chờ duyệt</p>
@@ -198,7 +198,7 @@ const ApproveRequestsPage = () => {
           transition={{ delay: 0.2 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6 pt-0 p-4 text-center">
+            <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Đã duyệt</p>
@@ -218,7 +218,7 @@ const ApproveRequestsPage = () => {
           transition={{ delay: 0.3 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6">
+            <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Từ chối</p>
@@ -238,7 +238,7 @@ const ApproveRequestsPage = () => {
           transition={{ delay: 0.4 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6 pt-0 p-4 text-center">
+            <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">Tổng số</p>
@@ -255,7 +255,7 @@ const ApproveRequestsPage = () => {
 
       {/* Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardContent className="p-6">
+        <CardContent className="p-6 mt-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">

@@ -379,7 +379,7 @@ const RequestsPage = () => {
                   <SelectTrigger className="border-[var(--border)] bg-[var(--input-bg)]">
                     <SelectValue placeholder="Chọn loại đơn" />
                   </SelectTrigger>
-                  <SelectContent className="border-[var(--border)] bg-[var(--surface)]">
+                  <SelectContent>
                     <SelectItem value="leave">Nghỉ phép</SelectItem>
                     <SelectItem value="overtime">Tăng ca</SelectItem>
                     <SelectItem value="remote">Remote</SelectItem>
@@ -494,7 +494,7 @@ const RequestsPage = () => {
               <SelectTrigger className="w-full border-[var(--border)] bg-[var(--shell)] text-left md:w-[200px]">
                 <SelectValue placeholder="Loại yêu cầu" />
               </SelectTrigger>
-              <SelectContent className="border-[var(--border)] bg-[var(--surface)]">
+              <SelectContent>
                 <SelectItem value="all">Tất cả loại</SelectItem>
                 <SelectItem value="leave">Nghỉ phép</SelectItem>
                 <SelectItem value="overtime">Tăng ca</SelectItem>
@@ -506,7 +506,7 @@ const RequestsPage = () => {
               <SelectTrigger className="w-full border-[var(--border)] bg-[var(--shell)] text-left md:w-[200px]">
                 <SelectValue placeholder="Phòng ban" />
               </SelectTrigger>
-              <SelectContent className="border-[var(--border)] bg-[var(--surface)]">
+              <SelectContent>
                 <SelectItem value="all">Tất cả phòng ban</SelectItem>
                 <SelectItem value="IT">IT</SelectItem>
                 <SelectItem value="Nhân sự">Nhân sự</SelectItem>
