@@ -153,7 +153,7 @@ export class AuthService {
     static async forgotPassword(email) {
         const user = await UserModel.findOne({ email });
         if (!user) {
-            // Không tiết lộ email có tồn tại hay không vì lý do bảo mật
+            
             return {
                 success: true,
                 message: "If the email exists, an OTP has been sent to your email."

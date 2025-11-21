@@ -1,0 +1,70 @@
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
+import { ThemeProvider } from "./components/ThemeProvider";
+import LandingPage from "./components/LandingPage";
+import Login from "./components/auth/Login";
+import Register from "./components/auth/Register";
+import VerifyOtp from "./components/auth/VerifyOtp";
+import ForgotPassword from "./components/auth/ForgotPassword";
+import ResetPassword from "./components/auth/ResetPassword";
+import ProtectedRoute from "./components/ProtectedRoute";
+import DashboardLayout from "./components/dashboard/DashboardLayout";
+import HomePageWrapper from "./components/dashboard/HomePageWrapper";
+import ScanPage from "./components/dashboard/pages/ScanPage";
+import SchedulePage from "./components/dashboard/pages/SchedulePage";
+import RequestsPage from "./components/dashboard/pages/RequestsPage";
+import HistoryPage from "./components/dashboard/pages/HistoryPage";
+import LeaveBalancePage from "./components/dashboard/pages/LeaveBalancePage";
+import NotificationsPage from "./components/dashboard/pages/NotificationsPage";
+import CameraCheckinPage from "./components/dashboard/pages/CameraCheckinPage";
+import ProfilePage from "./components/dashboard/pages/ProfilePage";
+
+import CompanyCalendarPage from "./components/dashboard/pages/CompanyCalendarPage";
+import ApproveRequestsPage from "./components/dashboard/pages/ApproveRequestsPage";
+import AttendanceAnalyticsPage from "./components/dashboard/pages/AttendanceAnalyticsPage";
+import { UserRole } from "./utils/roles";
+
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/verify-reset-otp" element={<VerifyOtp />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Protected Routes - All authenticated users */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/employee" element={<DashboardLayout />}>
+            {/* Employee Routes - All roles */}
+            <Route index element={<HomePageWrapper />} />
+            <Route path="scan" element={<ScanPage />} />
+            <Route path="schedule" element={<SchedulePage />} />
+            <Route path="requests" element={<RequestsPage />} />
+            <Route path="history" element={<HistoryPage />} />
+            <Route path="leave-balance" element={<LeaveBalancePage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="camera-checkin" element={<CameraCheckinPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="company-calendar" element={<CompanyCalendarPage />} />
+            
+            {/* Admin Routes - Manager and above (nested protection) */}
+            <Route element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}>
+              <Route path="approve-requests" element={<ApproveRequestsPage />} />
+              <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
+            </Route>
+          </Route>
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <Toaster position="top-right" richColors />
+    </ThemeProvider>
+  );
+}
+
