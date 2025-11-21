@@ -12,18 +12,19 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }) {
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center mb-4",
-        caption_label: "text-base font-medium text-[var(--text-main)]",
-        nav: "space-x-1 flex items-center",
+        caption: "relative flex items-center justify-center mb-4",
+        nav: "flex items-center absolute left-0",
         nav_button: cn(
           "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100 text-[var(--text-main)]"
         ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
+        nav_button_previous: "",
+        nav_button_next: "ml-1",
+        caption_label:
+          "absolute left-1/2 -translate-x-1/2 text-base font-medium text-[var(--text-main)]",
+
         table: "w-full border-collapse",
         head_row: "flex mb-2",
-        head_cell:
-          "text-[var(--text-sub)] rounded-md w-9 font-normal text-xs",
+        head_cell: "text-[var(--text-sub)] rounded-md w-9 font-normal text-xs",
         row: "flex w-full mt-1",
         cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(

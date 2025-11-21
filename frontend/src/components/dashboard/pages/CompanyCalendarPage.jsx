@@ -299,7 +299,7 @@ const CompanyCalendarPage = () => {
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                className="rounded-md w-full"
+                className="rounded-md w-full p-auto"
               />
 
               {/* Selected Date Info */}
