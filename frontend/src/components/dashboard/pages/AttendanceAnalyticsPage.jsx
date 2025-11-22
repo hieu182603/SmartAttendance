@@ -333,16 +333,14 @@ const AttendanceAnalyticsPage = () => {
                   className="flex items-center justify-between p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                      index === 0 ? 'bg-yellow-500/20' :
-                      index === 1 ? 'bg-gray-400/20' :
-                      index === 2 ? 'bg-orange-600/20' : 'bg-[var(--primary)]/20'
-                    }`}>
-                      <span className={`${
-                        index === 0 ? 'text-yellow-500' :
-                        index === 1 ? 'text-gray-400' :
-                        index === 2 ? 'text-orange-600' : 'text-[var(--primary)]'
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${index === 0 ? 'bg-yellow-500/20' :
+                        index === 1 ? 'bg-gray-400/20' :
+                          index === 2 ? 'bg-orange-600/20' : 'bg-[var(--primary)]/20'
                       }`}>
+                      <span className={`${index === 0 ? 'text-yellow-500' :
+                          index === 1 ? 'text-gray-400' :
+                            index === 2 ? 'text-orange-600' : 'text-[var(--primary)]'
+                        }`}>
                         #{index + 1}
                       </span>
                     </div>
