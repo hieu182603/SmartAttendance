@@ -68,17 +68,17 @@ const ApproveRequestsPage = () => {
   const filteredRequests = requests.filter(req => {
     // Tab filter
     if (selectedTab !== 'all' && req.status !== selectedTab) return false
-    
+
     // Search filter
-    if (searchQuery && !req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) 
-        && !req.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    
+    if (searchQuery && !req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase())
+      && !req.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
+
     // Type filter
     if (filterType !== 'all' && req.type !== filterType) return false
-    
+
     // Department filter
     if (filterDepartment !== 'all' && req.department !== filterDepartment) return false
-    
+
     return true
   })
 
@@ -460,8 +460,8 @@ const ApproveRequestsPage = () => {
             </Button>
             <Button
               onClick={handleSubmitAction}
-              className={actionType === 'approve' 
-                ? 'bg-[var(--success)] hover:bg-[var(--success)]/80 text-white' 
+              className={actionType === 'approve'
+                ? 'bg-[var(--success)] hover:bg-[var(--success)]/80 text-white'
                 : 'bg-[var(--error)] hover:bg-[var(--error)]/80 text-white'
               }
             >
