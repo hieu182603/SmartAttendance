@@ -12,7 +12,7 @@ const requestSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["leave", "sick", "unpaid", "compensatory", "maternity", "overtime", "remote", "other"],
+      enum: ["leave", "sick", "unpaid", "compensatory", "maternity", "overtime", "remote", "late", "correction", "other"],
       required: true,
     },
     startDate: {
@@ -26,6 +26,15 @@ const requestSchema = new mongoose.Schema(
     reason: {
       type: String,
       required: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    urgency: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "medium",
     },
     status: {
       type: String,
@@ -42,6 +51,10 @@ const requestSchema = new mongoose.Schema(
     rejectionReason: {
       type: String,
     },
+    approvalComments: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true }
 );
@@ -54,11 +67,14 @@ requestSchema.index({ status: 1 });
  * ✅ Method phê duyệt yêu cầu
  * @param {ObjectId} managerId - ID của người duyệt
  */
-requestSchema.methods.approve = function (managerId) {
+requestSchema.methods.approve = function (managerId, comments) {
   this.status = "approved";
   this.approvedBy = managerId;
   this.approvedAt = new Date();
   this.rejectionReason = undefined;
+  if (comments) {
+    this.approvalComments = comments;
+  }
 };
 
 /**

@@ -16,17 +16,16 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
       showOutsideDays={showOutsideDays}
       className={cn("p-4", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "space-y-4",
-        caption: "relative flex items-center justify-center mb-4",
-        nav: "flex items-center absolute left-0",
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 justify-center",
+        month: "space-y-4 flex flex-col items-center",
+        caption: "hidden",
+        nav: "hidden",
         nav_button: cn(
-          "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100 text-[var(--text-main)]"
+          "hidden"
         ),
-        nav_button_previous: "",
-        nav_button_next: "ml-1",
-        caption_label:
-          "absolute left-1/2 -translate-x-1/2 text-base font-medium text-[var(--text-main)]",
+        nav_button_previous: "hidden",
+        nav_button_next: "hidden",
+        caption_label: "hidden",
 
         table: "w-full border-collapse",
         head_row: "flex mb-2",

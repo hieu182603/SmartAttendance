@@ -64,6 +64,52 @@ const deriveStatus = (doc) => {
   return "ontime";
 };
 
+export const getRecentAttendance = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const limit = parseInt(req.query.limit) || 5;
+
+    const docs = await AttendanceModel.find({ userId })
+      .populate("locationId")
+      .sort({ date: -1 })
+      .limit(limit);
+
+    const data = docs.map((doc) => {
+      const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      return {
+        date: dayLabel,
+        checkIn: doc.checkIn
+          ? new Date(doc.checkIn).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : null,
+        checkOut: doc.checkOut
+          ? new Date(doc.checkOut).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : null,
+        status: doc.status || "absent",
+        location: doc.locationId?.name || null,
+      };
+    });
+
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error("[attendance] recent error", error);
+    return res.status(500).json({
+      message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+    });
+  }
+};
+
 export const getAttendanceHistory = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -453,12 +499,32 @@ export const getAttendanceAnalytics = async (req, res) => {
       .sort((a, b) => b.punctuality - a.punctuality)
       .slice(0, 5)
 
+    // Tính tổng số nhân viên thực tế trong hệ thống (theo filter)
+    const totalEmployeesQuery = { isActive: true }
+    if (department && department !== 'all') {
+      totalEmployeesQuery.department = department
+    }
+    const totalEmployees = await UserModel.countDocuments(totalEmployeesQuery)
+
     const totalDays = dailyData.length
     const avgPresent = totalDays > 0 ? Math.round(dailyData.reduce((sum, d) => sum + d.present, 0) / totalDays) : 0
     const avgLate = totalDays > 0 ? Math.round(dailyData.reduce((sum, d) => sum + d.late, 0) / totalDays) : 0
     const avgAbsent = totalDays > 0 ? Math.round(dailyData.reduce((sum, d) => sum + d.absent, 0) / totalDays) : 0
-    const totalEmployees = dailyData.length > 0 ? dailyData[0].total : 0
     const attendanceRate = totalEmployees > 0 ? Math.round((avgPresent / totalEmployees) * 100) : 0
+
+    // Tính trend: so sánh tuần hiện tại với tuần trước
+    let trend = 0
+    if (totalDays >= 7) {
+      const currentWeek = dailyData.slice(-7)
+      const previousWeek = dailyData.slice(-14, -7)
+      if (previousWeek.length === 7) {
+        const currentAvg = currentWeek.reduce((sum, d) => sum + d.present, 0) / 7
+        const previousAvg = previousWeek.reduce((sum, d) => sum + d.present, 0) / 7
+        if (previousAvg > 0) {
+          trend = Math.round(((currentAvg - previousAvg) / previousAvg) * 100)
+        }
+      }
+    }
 
     res.json({
       dailyData,
@@ -469,7 +535,8 @@ export const getAttendanceAnalytics = async (req, res) => {
         avgPresent,
         avgLate,
         avgAbsent,
-        trend: 2.5
+        trend,
+        totalEmployees
       }
     })
   } catch (error) {

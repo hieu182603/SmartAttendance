@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
   Home,
   QrCode,
@@ -18,6 +19,7 @@ import {
   Bell,
   BarChart3,
   CheckCircle2,
+  Users,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
@@ -25,16 +27,24 @@ import { Button } from "../ui/button";
 import NotificationCenter from "./NotificationCenter";
 import {
   UserRole,
+  type UserRoleType,
   canAccessAdminPanel,
-  canApproveRequests,
   getRoleName,
   getRoleColor,
 } from "../../utils/roles";
 
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  path: string;
+  section: "admin" | "employee";
+}
+
 // Helper function to generate menu based on role
-function getMenuByRole(role) {
+function getMenuByRole(role: UserRoleType): MenuItem[] {
   // Base employee menu (all roles have access, excluding home for admin roles)
-  const baseMenu = [
+  const baseMenu: MenuItem[] = [
     { id: "scan", label: "Quét QR", icon: QrCode, path: "/employee/scan", section: "employee" },
     { id: "history", label: "Lịch sử", icon: History, path: "/employee/history", section: "employee" },
     { id: "requests", label: "Yêu cầu", icon: FileText, path: "/employee/requests", section: "employee" },
@@ -45,10 +55,10 @@ function getMenuByRole(role) {
   ];
 
   // Home menu item
-  const homeMenu = { id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "admin" };
+  const homeMenu: MenuItem = { id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "admin" };
 
   // Admin menus for different roles (home is first in admin section)
-  const adminMenus = {
+  const adminMenus: Partial<Record<UserRoleType, MenuItem[]>> = {
     [UserRole.MANAGER]: [
       homeMenu,
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
@@ -56,16 +66,19 @@ function getMenuByRole(role) {
     ],
     [UserRole.HR_MANAGER]: [
       homeMenu,
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
     [UserRole.ADMIN]: [
       homeMenu,
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
     [UserRole.SUPER_ADMIN]: [
       homeMenu,
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
@@ -83,7 +96,11 @@ function getMenuByRole(role) {
   return [{ id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "employee" }, ...baseMenu];
 }
 
-const NotificationBell = ({ onClick }) => {
+interface NotificationBellProps {
+  onClick: () => void;
+}
+
+const NotificationBell: React.FC<NotificationBellProps> = ({ onClick }) => {
   const unreadCount = 3; // TODO: Get from state/context/API
 
   return (
@@ -107,7 +124,7 @@ const NotificationBell = ({ onClick }) => {
   );
 };
 
-const DashboardLayout = () => {
+const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { toggleTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -115,12 +132,12 @@ const DashboardLayout = () => {
   const location = useLocation();
 
   // Get user role and menu items
-  const userRole = user?.role || UserRole.EMPLOYEE;
+  const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
   const menu = getMenuByRole(userRole);
   const roleInfo = getRoleColor(userRole);
   const roleName = getRoleName(userRole);
 
-  const getCurrentPage = () => {
+  const getCurrentPage = (): string => {
     const path = location.pathname.replace("/employee", "").replace(/^\//, "");
     if (!path || path === "") return "home";
     return path;
@@ -209,7 +226,7 @@ const DashboardLayout = () => {
           <nav className="p-4 space-y-1 overflow-y-auto">
             {/* Group menu items by section */}
             {(() => {
-              const sections = {
+              const sections: { admin: MenuItem[]; employee: MenuItem[] } = {
                 admin: menu.filter(item => item.section === 'admin'),
                 employee: menu.filter(item => item.section === 'employee'),
               };
@@ -298,7 +315,7 @@ const DashboardLayout = () => {
             aria-label="Đóng menu"
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
             onClick={() => setIsSidebarOpen(false)}
-            onKeyDown={(e) => {
+            onKeyDown={(e: React.KeyboardEvent) => {
               if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
                 setIsSidebarOpen(false);
               }
@@ -320,3 +337,5 @@ const DashboardLayout = () => {
 };
 
 export default DashboardLayout;
+
+

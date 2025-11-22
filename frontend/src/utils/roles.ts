@@ -7,10 +7,12 @@ export const UserRole = {
     HR_MANAGER: 'HR_MANAGER',
     MANAGER: 'MANAGER',
     EMPLOYEE: 'EMPLOYEE'
-};
+} as const;
+
+export type UserRoleType = typeof UserRole[keyof typeof UserRole];
 
 // Role hierarchy - higher number = more permissions
-export const ROLE_HIERARCHY = {
+export const ROLE_HIERARCHY: Record<UserRoleType, number> = {
     [UserRole.SUPER_ADMIN]: 5,
     [UserRole.ADMIN]: 4,
     [UserRole.HR_MANAGER]: 3,
@@ -18,17 +20,22 @@ export const ROLE_HIERARCHY = {
     [UserRole.EMPLOYEE]: 1,
 };
 
-// Role display names (Vietnamese)
-export const ROLE_NAMES = {
-    [UserRole.SUPER_ADMIN]: 'Quản trị hệ thống',
-    [UserRole.ADMIN]: 'Quản trị viên',
-    [UserRole.HR_MANAGER]: 'Trưởng phòng Nhân sự',
-    [UserRole.MANAGER]: 'Quản lý',
-    [UserRole.EMPLOYEE]: 'Nhân viên',
+// Role display names (English)
+export const ROLE_NAMES: Record<UserRoleType, string> = {
+    [UserRole.SUPER_ADMIN]: 'Super Admin',
+    [UserRole.ADMIN]: 'Admin',
+    [UserRole.HR_MANAGER]: 'HR Manager',
+    [UserRole.MANAGER]: 'Manager',
+    [UserRole.EMPLOYEE]: 'Employee',
 };
 
 // Role badge colors
-export const ROLE_COLORS = {
+export interface RoleColor {
+    bg: string;
+    text: string;
+}
+
+export const ROLE_COLORS: Record<UserRoleType, RoleColor> = {
     [UserRole.SUPER_ADMIN]: { bg: 'bg-purple-500/20', text: 'text-purple-500' },
     [UserRole.ADMIN]: { bg: 'bg-red-500/20', text: 'text-red-500' },
     [UserRole.HR_MANAGER]: { bg: 'bg-blue-500/20', text: 'text-blue-500' },
@@ -58,10 +65,12 @@ export const Permission = {
 
     // System
     MANAGE_SYSTEM: 'MANAGE_SYSTEM',
-};
+} as const;
+
+export type PermissionType = typeof Permission[keyof typeof Permission];
 
 // Role to Permissions mapping
-export const ROLE_PERMISSIONS = {
+export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
     [UserRole.EMPLOYEE]: [
         Permission.VIEW_OWN_ATTENDANCE,
         Permission.CREATE_REQUEST,
@@ -101,7 +110,7 @@ export const ROLE_PERMISSIONS = {
         Permission.MANAGE_SYSTEM,
     ],
 
-    [UserRole.SUPER_ADMIN]: Object.values(Permission), // All permissions
+    [UserRole.SUPER_ADMIN]: Object.values(Permission) as PermissionType[], // All permissions
 };
 
 // Helper Functions
@@ -109,15 +118,15 @@ export const ROLE_PERMISSIONS = {
 /**
  * Check if a role has a specific permission
  */
-export function hasPermission(role, permission) {
+export function hasPermission(role: UserRoleType, permission: PermissionType): boolean {
     const permissions = ROLE_PERMISSIONS[role];
-    return permissions && permissions.includes(permission);
+    return permissions ? permissions.includes(permission) : false;
 }
 
 /**
  * Check if a role has minimum required level
  */
-export function hasMinimumLevel(userRole, requiredRole) {
+export function hasMinimumLevel(userRole: UserRoleType, requiredRole: UserRoleType): boolean {
     return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[requiredRole];
 }
 
@@ -125,7 +134,7 @@ export function hasMinimumLevel(userRole, requiredRole) {
  * Check if a role can manage another role
  * A role can only manage roles below their level
  */
-export function canManageRole(managerRole, targetRole) {
+export function canManageRole(managerRole: UserRoleType, targetRole: UserRoleType): boolean {
     // SUPER_ADMIN can manage all
     if (managerRole === UserRole.SUPER_ADMIN) return true;
 
@@ -136,35 +145,35 @@ export function canManageRole(managerRole, targetRole) {
 /**
  * Get display name for a role
  */
-export function getRoleName(role) {
+export function getRoleName(role: UserRoleType): string {
     return ROLE_NAMES[role] || role;
 }
 
 /**
  * Get color for role badge
  */
-export function getRoleColor(role) {
+export function getRoleColor(role: UserRoleType): RoleColor {
     return ROLE_COLORS[role] || { bg: 'bg-gray-500/20', text: 'text-gray-500' };
 }
 
 /**
  * Check if user can access admin panel
  */
-export function canAccessAdminPanel(role) {
+export function canAccessAdminPanel(role: UserRoleType): boolean {
     return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY[UserRole.MANAGER];
 }
 
 /**
  * Check if user can approve requests
  */
-export function canApproveRequests(role) {
+export function canApproveRequests(role: UserRoleType): boolean {
     return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY[UserRole.MANAGER];
 }
 
 /**
  * Get scope for a role (what data they can access)
  */
-export function getRoleScope(role) {
+export function getRoleScope(role: UserRoleType): 'all' | 'department' | 'own' {
     switch (role) {
         case UserRole.SUPER_ADMIN:
         case UserRole.ADMIN:
@@ -177,4 +186,5 @@ export function getRoleScope(role) {
             return 'own';
     }
 }
+
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart3,
@@ -26,12 +26,60 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts'
+import { getAttendanceAnalytics, exportAttendanceAnalytics } from '../../../services/attendanceService'
 
-const AttendanceAnalyticsPage = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('7days')
-  const [selectedDepartment, setSelectedDepartment] = useState('all')
+type Period = '7days' | '30days' | '90days'
+
+interface DailyData {
+  date: string
+  present: number
+  late: number
+  absent: number
+}
+
+interface DepartmentStat {
+  department: string
+  onTime: number
+  late: number
+  absent: number
+}
+
+interface TopPerformer {
+  name: string
+  avgCheckIn: string
+  onTime: number
+  late: number
+  absent: number
+  punctuality: number
+}
+
+interface Summary {
+  attendanceRate: number
+  avgPresent: number
+  avgLate: number
+  avgAbsent: number
+  trend: number
+  totalEmployees: number
+}
+
+interface AnalyticsData {
+  dailyData: DailyData[]
+  departmentStats: DepartmentStat[]
+  topPerformers: TopPerformer[]
+  summary: Summary
+}
+
+interface AnalyticsParams {
+  from?: string
+  to?: string
+  department?: string
+}
+
+const AttendanceAnalyticsPage: React.FC = () => {
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>('7days')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState({
+  const [data, setData] = useState<AnalyticsData>({
     dailyData: [],
     departmentStats: [],
     topPerformers: [],
@@ -45,15 +93,11 @@ const AttendanceAnalyticsPage = () => {
     }
   })
 
-  // TODO: Thêm API call để fetch analytics
-  useEffect(() => {
-    // fetchAnalytics()
-  }, [selectedPeriod, selectedDepartment])
-
-
-  const handleExport = async () => {
+  // Fetch analytics data from API
+  const fetchAnalytics = useCallback(async () => {
+    setLoading(true)
     try {
-      const params = {}
+      const params: AnalyticsParams = {}
       const today = new Date()
       const from = new Date()
 
@@ -72,11 +116,55 @@ const AttendanceAnalyticsPage = () => {
         params.department = selectedDepartment
       }
 
-      // TODO: Gọi API export ở đây
-      // toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
-      // await exportAttendanceAnalytics(params)
-      // toast.success('✅ Đã xuất báo cáo thành công!', { id: 'export' })
-      toast.info('Chức năng xuất báo cáo đang được phát triển')
+      const result = await getAttendanceAnalytics(params) as AnalyticsData
+      if (result) {
+        setData({
+          dailyData: result.dailyData || [],
+          departmentStats: result.departmentStats || [],
+          topPerformers: result.topPerformers || [],
+          summary: {
+            ...result.summary,
+            totalEmployees: result.summary?.totalEmployees || 150
+          }
+        })
+      }
+    } catch (error) {
+      console.error('[AttendanceAnalytics] fetch error:', error)
+      toast.error('Không thể tải dữ liệu phân tích')
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedPeriod, selectedDepartment])
+
+  useEffect(() => {
+    fetchAnalytics()
+  }, [fetchAnalytics])
+
+
+  const handleExport = async (): Promise<void> => {
+    try {
+      const params: AnalyticsParams = {}
+      const today = new Date()
+      const from = new Date()
+
+      if (selectedPeriod === '7days') {
+        from.setDate(today.getDate() - 7)
+      } else if (selectedPeriod === '30days') {
+        from.setDate(today.getDate() - 30)
+      } else if (selectedPeriod === '90days') {
+        from.setDate(today.getDate() - 90)
+      }
+
+      params.from = from.toISOString().split('T')[0]
+      params.to = today.toISOString().split('T')[0]
+
+      if (selectedDepartment !== 'all') {
+        params.department = selectedDepartment
+      }
+
+      toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
+      await exportAttendanceAnalytics(params)
+      toast.success('✅ Đã xuất báo cáo thành công!', { id: 'export' })
     } catch (error) {
       toast.error('❌ Không thể xuất báo cáo', { id: 'export' })
     }
@@ -98,7 +186,7 @@ const AttendanceAnalyticsPage = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+          <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as Period)}>
             <SelectTrigger className="w-[150px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
               <SelectValue placeholder="7 ngày qua" />
             </SelectTrigger>
@@ -193,6 +281,11 @@ const AttendanceAnalyticsPage = () => {
       </div>
 
       {/* Charts */}
+      {loading ? (
+        <div className="text-center py-12">
+          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Daily Trend */}
         <Card className="bg-[var(--surface)] border-[var(--border)]">
@@ -250,6 +343,7 @@ const AttendanceAnalyticsPage = () => {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Department Details */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
@@ -333,16 +427,14 @@ const AttendanceAnalyticsPage = () => {
                   className="flex items-center justify-between p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                      index === 0 ? 'bg-yellow-500/20' :
-                      index === 1 ? 'bg-gray-400/20' :
-                      index === 2 ? 'bg-orange-600/20' : 'bg-[var(--primary)]/20'
-                    }`}>
-                      <span className={`${
-                        index === 0 ? 'text-yellow-500' :
-                        index === 1 ? 'text-gray-400' :
-                        index === 2 ? 'text-orange-600' : 'text-[var(--primary)]'
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${index === 0 ? 'bg-yellow-500/20' :
+                        index === 1 ? 'bg-gray-400/20' :
+                          index === 2 ? 'bg-orange-600/20' : 'bg-[var(--primary)]/20'
                       }`}>
+                      <span className={`${index === 0 ? 'text-yellow-500' :
+                          index === 1 ? 'text-gray-400' :
+                            index === 2 ? 'text-orange-600' : 'text-[var(--primary)]'
+                        }`}>
                         #{index + 1}
                       </span>
                     </div>
@@ -384,3 +476,5 @@ const AttendanceAnalyticsPage = () => {
 }
 
 export default AttendanceAnalyticsPage
+
+

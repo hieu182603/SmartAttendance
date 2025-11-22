@@ -18,8 +18,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Progress } from "../../ui/progress";
 
+type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
+type WeekDayStatus = "completed" | "today" | "scheduled" | "off" | "none";
+
+interface Shift {
+  id: string;
+  date: string;
+  shift: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  status: ShiftStatus;
+  team?: string;
+  notes?: string;
+}
+
+interface Stats {
+  thisMonth: number;
+  completed: number;
+  upcoming: number;
+  totalHours: number;
+  performance: number;
+}
+
+interface Countdown {
+  hours: number;
+  minutes: number;
+  remaining: number;
+}
+
+interface StatCard {
+  label: string;
+  value: string | number;
+  color: string;
+  icon: string;
+  delay: number;
+}
+
 // Mock data - updated với ngày tháng 11/2025
-const mockShifts = [
+const mockShifts: Shift[] = [
   // Completed shifts
   {
     id: "1",
@@ -187,7 +224,7 @@ const mockShifts = [
   },
 ];
 
-const SchedulePage = () => {
+const SchedulePage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update time every minute
@@ -201,7 +238,7 @@ const SchedulePage = () => {
   const today = new Date(); // Mock today
   const todayStr = today.toISOString().split("T")[0];
 
-  const todayShiftMorning = {
+  const todayShiftMorning: Shift = {
     id: `today-morning-${todayStr}`,
     date: todayStr,
     shift: "Ca sáng",
@@ -213,7 +250,7 @@ const SchedulePage = () => {
     notes: "Họp stand-up 9:00 AM",
   };
 
-  const todayShiftAfternoon = {
+  const todayShiftAfternoon: Shift = {
     id: `today-afternoon-${todayStr}`,
     date: todayStr,
     shift: "Ca chiều",
@@ -228,13 +265,13 @@ const SchedulePage = () => {
   const hasTodayData = mockShifts.some((s) => s.date === todayStr);
 
   // Dùng finalShifts để render
-  const finalShifts = hasTodayData
+  const finalShifts: Shift[] = hasTodayData
     ? mockShifts
     : [todayShiftMorning, todayShiftAfternoon, ...mockShifts];
 
   // Calculate stats for this month
   const monthShifts = finalShifts.filter((s) => s.date.startsWith("2025-11"));
-  const stats = {
+  const stats: Stats = {
     thisMonth: monthShifts.filter((s) => s.status !== "off").length,
     completed: monthShifts.filter((s) => s.status === "completed").length,
     upcoming: monthShifts.filter((s) => s.status === "scheduled").length,
@@ -278,7 +315,7 @@ const SchedulePage = () => {
     return day;
   });
 
-  const getWeekDayStatus = (date) => {
+  const getWeekDayStatus = (date: Date): WeekDayStatus => {
     const dateStr = date.toISOString().split("T")[0];
     const dayShifts = mockShifts.filter((s) => s.date === dateStr);
     if (dayShifts.length === 0) return "none";
@@ -288,7 +325,7 @@ const SchedulePage = () => {
     return "scheduled";
   };
 
-  const getWeekDayColor = (status) => {
+  const getWeekDayColor = (status: WeekDayStatus): string => {
     switch (status) {
       case "completed":
         return "bg-[var(--success)] text-white";
@@ -303,7 +340,7 @@ const SchedulePage = () => {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: ShiftStatus): string => {
     switch (status) {
       case "completed":
         return "bg-[var(--success)]/20 text-[var(--success)] border border-[var(--success)]/40 dark:bg-[var(--success)]/10 dark:border-[var(--success)]/25";
@@ -318,7 +355,7 @@ const SchedulePage = () => {
     }
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusLabel = (status: ShiftStatus): string => {
     switch (status) {
       case "completed":
         return "Hoàn thành";
@@ -334,7 +371,7 @@ const SchedulePage = () => {
   };
 
   // Calculate countdown for next shift
-  const getCountdown = () => {
+  const getCountdown = (): Countdown | null => {
     if (!currentShift) return null;
     const now = currentTime.getHours() * 60 + currentTime.getMinutes();
     const end =
@@ -347,6 +384,44 @@ const SchedulePage = () => {
   };
 
   const countdown = getCountdown();
+
+  const statCards: StatCard[] = [
+    {
+      label: "Tháng này",
+      value: stats.thisMonth,
+      color: "primary",
+      icon: "📋",
+      delay: 0.1,
+    },
+    {
+      label: "Đã điểm danh",
+      value: stats.completed,
+      color: "success",
+      icon: "✅",
+      delay: 0.2,
+    },
+    {
+      label: "Sắp tới",
+      value: stats.upcoming,
+      color: "accent-cyan",
+      icon: "🔜",
+      delay: 0.3,
+    },
+    {
+      label: "Tổng giờ",
+      value: stats.totalHours + "h",
+      color: "warning",
+      icon: "⏰",
+      delay: 0.4,
+    },
+    {
+      label: "Hiệu suất",
+      value: stats.performance + "%",
+      color: "success",
+      icon: "📊",
+      delay: 0.5,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -385,43 +460,7 @@ const SchedulePage = () => {
 
       {/* Stats - 5 KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {[
-          {
-            label: "Tháng này",
-            value: stats.thisMonth,
-            color: "primary",
-            icon: "📋",
-            delay: 0.1,
-          },
-          {
-            label: "Đã điểm danh",
-            value: stats.completed,
-            color: "success",
-            icon: "✅",
-            delay: 0.2,
-          },
-          {
-            label: "Sắp tới",
-            value: stats.upcoming,
-            color: "accent-cyan",
-            icon: "🔜",
-            delay: 0.3,
-          },
-          {
-            label: "Tổng giờ",
-            value: stats.totalHours + "h",
-            color: "warning",
-            icon: "⏰",
-            delay: 0.4,
-          },
-          {
-            label: "Hiệu suất",
-            value: stats.performance + "%",
-            color: "success",
-            icon: "📊",
-            delay: 0.5,
-          },
-        ].map((stat, index) => (
+        {statCards.map((stat, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, scale: 0.9 }}
@@ -672,7 +711,7 @@ const SchedulePage = () => {
                     {stats.completed}/{stats.thisMonth}
                   </p>
                   <p className="text-xs text-[var(--success)]">
-                    {((stats.completed / stats.thisMonth) * 100).toFixed(1)}%
+                    {stats.thisMonth > 0 ? ((stats.completed / stats.thisMonth) * 100).toFixed(1) : 0}%
                   </p>
                 </div>
                 <div className="text-center">
@@ -700,11 +739,11 @@ const SchedulePage = () => {
                   </span>
                   <span className="text-sm text-[var(--text-main)]">
                     {stats.completed}/{stats.thisMonth} ca (
-                    {((stats.completed / stats.thisMonth) * 100).toFixed(0)}%)
+                    {stats.thisMonth > 0 ? ((stats.completed / stats.thisMonth) * 100).toFixed(0) : 0}%)
                   </span>
                 </div>
                 <Progress
-                  value={(stats.completed / stats.thisMonth) * 100}
+                  value={stats.thisMonth > 0 ? (stats.completed / stats.thisMonth) * 100 : 0}
                   className="h-3"
                 />
               </div>
@@ -722,7 +761,7 @@ const SchedulePage = () => {
                   </p>
                   <p className="text-xs text-[var(--text-sub)] mt-1">
                     Trung bình{" "}
-                    {(stats.totalHours / (stats.completed / 2)).toFixed(1)}
+                    {stats.completed > 0 ? (stats.totalHours / (stats.completed / 2)).toFixed(1) : 0}
                     h/ngày
                   </p>
                 </div>
@@ -912,3 +951,5 @@ const SchedulePage = () => {
 };
 
 export default SchedulePage;
+
+

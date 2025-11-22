@@ -2,7 +2,7 @@ import React from 'react'
 import { Camera } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 
-const CameraCheckinPage = () => (
+const CameraCheckinPage: React.FC = () => (
   <Card className="border-[var(--border)] bg-[var(--surface)]">
     <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <CardTitle className="text-[var(--text-main)]">Chấm công bằng Camera AI</CardTitle>
@@ -29,9 +29,5 @@ const CameraCheckinPage = () => (
 )
 
 export default CameraCheckinPage
-
-
-
-
 
 

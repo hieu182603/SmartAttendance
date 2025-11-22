@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
   CheckCircle2,
@@ -13,7 +14,6 @@ import {
   Briefcase,
   Moon,
   Sunset,
-  Sun as SunIcon
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Button } from '../../ui/button'
@@ -25,101 +25,150 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../ui/dialog'
 import { Label } from '../../ui/label'
 import { toast } from 'sonner'
+import { getAllRequests, approveRequest, rejectRequest } from '../../../services/requestService'
+import type { ErrorWithMessage } from '../../../types'
 
-const ApproveRequestsPage = () => {
-  const [requests, setRequests] = useState([])
-  const [selectedTab, setSelectedTab] = useState('pending')
+type RequestStatus = 'pending' | 'approved' | 'rejected'
+type RequestType = 'leave' | 'overtime' | 'late' | 'remote'
+type ActionType = 'approve' | 'reject' | null
+type Urgency = 'high' | 'medium' | 'low'
+
+interface Request {
+  id: string
+  status: RequestStatus
+  type: RequestType
+  employeeName?: string
+  title?: string
+  description?: string
+  reason?: string
+  department?: string
+  branch?: string
+  startDate?: string
+  endDate?: string
+  duration?: string
+  urgency?: Urgency
+  submittedAt?: string
+  approver?: string
+  approvedAt?: string
+  comments?: string
+}
+
+interface GetAllRequestsResponse {
+  requests?: Request[]
+}
+
+interface Stats {
+  pending: number
+  approved: number
+  rejected: number
+  total: number
+}
+
+const ApproveRequestsPage: React.FC = () => {
+  const [allRequests, setAllRequests] = useState<Request[]>([]) // Lưu tất cả requests để tính stats
+  const [requests, setRequests] = useState<Request[]>([]) // Requests đã filter theo tab
+  const [selectedTab, setSelectedTab] = useState<string>('pending')
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterType, setFilterType] = useState('all')
-  const [filterDepartment, setFilterDepartment] = useState('all')
-  const [selectedRequest, setSelectedRequest] = useState(null)
+  const [filterType, setFilterType] = useState<string>('all')
+  const [filterDepartment, setFilterDepartment] = useState<string>('all')
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [actionType, setActionType] = useState(null)
+  const [actionType, setActionType] = useState<ActionType>(null)
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // TODO: Thêm API call để fetch requests
-  useEffect(() => {
-    // fetchRequests()
-  }, [selectedTab, filterType, filterDepartment, searchQuery])
+  // Fetch tất cả requests để tính stats (không filter theo status)
+  const fetchAllRequests = useCallback(async () => {
+    try {
+      const params: Record<string, string> = {}
+      if (filterType !== 'all') params.type = filterType
+      if (filterDepartment !== 'all') params.department = filterDepartment
+      if (searchQuery) params.search = searchQuery
+      // Không filter theo status để lấy tất cả
 
-  // TODO: Thêm function fetchRequests để gọi API
-  // const fetchRequests = async () => {
-  //   setLoading(true)
-  //   try {
-  //     const params = {}
-  //     if (selectedTab !== 'all') params.status = selectedTab
-  //     if (filterType !== 'all') params.type = filterType
-  //     if (filterDepartment !== 'all') params.department = filterDepartment
-  //     if (searchQuery) params.search = searchQuery
-  //
-  //     // Gọi API ở đây
-  //     // const data = await getAllRequests(params)
-  //     // setRequests(data.requests || [])
-  //   } catch (error) {
-  //     toast.error('Không thể tải danh sách yêu cầu')
-  //     setRequests([])
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
+      const result = await getAllRequests(params) as GetAllRequestsResponse
+      setAllRequests(result.requests || [])
+    } catch (error) {
+      console.error('[ApproveRequests] fetch all error:', error)
+      toast.error('Không thể tải danh sách yêu cầu')
+      setAllRequests([])
+    }
+  }, [filterType, filterDepartment, searchQuery])
+
+  // Filter requests theo selectedTab từ allRequests
+  useEffect(() => {
+    if (selectedTab === 'all') {
+      setRequests(allRequests)
+    } else {
+      setRequests(allRequests.filter(req => req.status === selectedTab))
+    }
+  }, [selectedTab, allRequests])
+
+  // Fetch tất cả requests khi component mount hoặc filters thay đổi
+  useEffect(() => {
+    setLoading(true)
+    fetchAllRequests().finally(() => setLoading(false))
+  }, [fetchAllRequests])
 
   // Filter requests - đầy đủ logic như dự án tham khảo
   const filteredRequests = requests.filter(req => {
     // Tab filter
     if (selectedTab !== 'all' && req.status !== selectedTab) return false
-    
+
     // Search filter
-    if (searchQuery && !req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) 
-        && !req.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    
+    if (searchQuery && !req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase())
+      && !req.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
+
     // Type filter
     if (filterType !== 'all' && req.type !== filterType) return false
-    
+
     // Department filter
     if (filterDepartment !== 'all' && req.department !== filterDepartment) return false
-    
+
     return true
   })
 
-  const stats = {
-    pending: requests.filter(r => r.status === 'pending').length,
-    approved: requests.filter(r => r.status === 'approved').length,
-    rejected: requests.filter(r => r.status === 'rejected').length,
-    total: requests.length,
+  // Tính stats từ allRequests (tất cả requests, không filter theo tab)
+  const stats: Stats = {
+    pending: allRequests.filter(r => r.status === 'pending').length,
+    approved: allRequests.filter(r => r.status === 'approved').length,
+    rejected: allRequests.filter(r => r.status === 'rejected').length,
+    total: allRequests.length,
   }
 
-  const handleOpenDialog = (request, action) => {
+  const handleOpenDialog = (request: Request, action: ActionType): void => {
     setSelectedRequest(request)
     setActionType(action)
     setIsDialogOpen(true)
     setComments('')
   }
 
-  // TODO: Thêm API call để approve/reject request
-  const handleSubmitAction = async () => {
+  // Handle approve/reject request via API
+  const handleSubmitAction = async (): Promise<void> => {
     if (!selectedRequest || !actionType) return
 
     try {
-      // TODO: Gọi API approve/reject ở đây
-      // if (actionType === 'approve') {
-      //   await approveRequest(selectedRequest.id, comments)
-      //   toast.success(`✅ Đã phê duyệt yêu cầu ${selectedRequest.id}`)
-      // } else {
-      //   await rejectRequest(selectedRequest.id, comments)
-      //   toast.success(`❌ Đã từ chối yêu cầu ${selectedRequest.id}`)
-      // }
+      if (actionType === 'approve') {
+        await approveRequest(selectedRequest.id, comments)
+        toast.success(`✅ Đã phê duyệt yêu cầu`)
+      } else {
+        await rejectRequest(selectedRequest.id, comments)
+        toast.success(`❌ Đã từ chối yêu cầu`)
+      }
       setIsDialogOpen(false)
       setSelectedRequest(null)
       setActionType(null)
       setComments('')
-      // fetchRequests()
+      // Refresh requests list
+      await fetchAllRequests()
     } catch (error) {
-      toast.error(error.message || 'Có lỗi xảy ra')
+      console.error('[ApproveRequests] action error:', error)
+      const err = error as ErrorWithMessage
+      toast.error((err.response?.data as { message?: string })?.message || err.message || 'Có lỗi xảy ra')
     }
   }
 
-  const getTypeIcon = (type) => {
+  const getTypeIcon = (type: RequestType): ReactNode => {
     switch (type) {
       case 'leave': return <Moon className="h-4 w-4" />
       case 'overtime': return <Sunset className="h-4 w-4" />
@@ -129,7 +178,7 @@ const ApproveRequestsPage = () => {
     }
   }
 
-  const getTypeLabel = (type) => {
+  const getTypeLabel = (type: RequestType): string => {
     switch (type) {
       case 'leave': return 'Nghỉ phép'
       case 'overtime': return 'Tăng ca'
@@ -139,7 +188,7 @@ const ApproveRequestsPage = () => {
     }
   }
 
-  const getTypeColor = (type) => {
+  const getTypeColor = (type: RequestType): string => {
     switch (type) {
       case 'leave': return 'bg-blue-500/20 text-blue-500'
       case 'overtime': return 'bg-orange-500/20 text-orange-500'
@@ -149,7 +198,7 @@ const ApproveRequestsPage = () => {
     }
   }
 
-  const getUrgencyColor = (urgency) => {
+  const getUrgencyColor = (urgency?: Urgency): string => {
     switch (urgency) {
       case 'high': return 'bg-red-500/20 text-red-500'
       case 'medium': return 'bg-yellow-500/20 text-yellow-500'
@@ -329,7 +378,7 @@ const ApproveRequestsPage = () => {
                     transition={{ delay: index * 0.05 }}
                   >
                     <Card className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--primary)] transition-all">
-                      <CardContent className="p-6">
+                      <CardContent className="p-6 mt-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-3">
@@ -356,9 +405,11 @@ const ApproveRequestsPage = () => {
                                 <Calendar className="h-3 w-3 mr-1" />
                                 {request.startDate} {request.endDate !== request.startDate && `→ ${request.endDate}`}
                               </Badge>
-                              <Badge variant="outline" className="border-[var(--border)] text-[var(--text-sub)]">
-                                {request.duration}
-                              </Badge>
+                              {request.duration && (
+                                <Badge variant="outline" className="border-[var(--border)] text-[var(--text-sub)]">
+                                  {request.duration}
+                                </Badge>
+                              )}
                             </div>
 
                             <h4 className="text-[var(--text-main)] mb-2">{request.title}</h4>
@@ -383,7 +434,7 @@ const ApproveRequestsPage = () => {
                             )}
                           </div>
 
-                          <div className="ml-4 flex flex-col gap-2">
+                          <div className="ml-4 mt-2 flex flex-col gap-2">
                             {request.status === 'pending' ? (
                               <>
                                 <Button
@@ -405,7 +456,7 @@ const ApproveRequestsPage = () => {
                                 </Button>
                               </>
                             ) : (
-                              <Badge className={request.status === 'approved' ? 'bg-[var(--success)]/20 text-[var(--success)]' : 'bg-[var(--error)]/20 text-[var(--error)]'}>
+                              <Badge className={request.status === 'approved' ? 'bg-[var(--success)]/20 text-[var(--success)]' : 'bg-red-500/20 text-red-500'}>
                                 {request.status === 'approved' ? '✓ Đã duyệt' : '✗ Đã từ chối'}
                               </Badge>
                             )}
@@ -460,8 +511,8 @@ const ApproveRequestsPage = () => {
             </Button>
             <Button
               onClick={handleSubmitAction}
-              className={actionType === 'approve' 
-                ? 'bg-[var(--success)] hover:bg-[var(--success)]/80 text-white' 
+              className={actionType === 'approve'
+                ? 'bg-[var(--success)] hover:bg-[var(--success)]/80 text-white'
                 : 'bg-[var(--error)] hover:bg-[var(--error)]/80 text-white'
               }
             >
@@ -476,3 +527,5 @@ const ApproveRequestsPage = () => {
 }
 
 export default ApproveRequestsPage
+
+

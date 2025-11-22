@@ -1,21 +1,65 @@
 import api from './api'
+import type { AxiosRequestConfig } from 'axios'
 
-export const getAttendanceHistory = async (params = {}) => {
+interface AttendanceParams {
+  page?: number
+  limit?: number
+  startDate?: string
+  endDate?: string
+  [key: string]: unknown
+}
+
+interface AttendanceRecord {
+  [key: string]: unknown
+}
+
+interface AnalyticsSummary {
+  attendanceRate: number
+  avgPresent: number
+  avgLate: number
+  avgAbsent: number
+  trend: number
+}
+
+interface AttendanceAnalytics {
+  dailyData: unknown[]
+  departmentStats: unknown[]
+  topPerformers: unknown[]
+  summary: AnalyticsSummary
+}
+
+interface AllAttendanceResponse {
+  records: AttendanceRecord[]
+  summary: {
+    total: number
+    present: number
+    late: number
+    absent: number
+  }
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export const getAttendanceHistory = async (params: AttendanceParams = {}): Promise<AttendanceRecord[]> => {
   try {
     const { data } = await api.get('/attendance/history', { params })
     return Array.isArray(data) ? data : []
   } catch (error) {
-    console.warn('[attendance] history unavailable', error.message)
+    console.warn('[attendance] history unavailable', (error as Error).message)
     return []
   }
 }
 
-export const getAttendanceAnalytics = async (params = {}) => {
+export const getAttendanceAnalytics = async (params: AttendanceParams = {}): Promise<AttendanceAnalytics> => {
   try {
     const { data } = await api.get('/attendance/analytics', { params })
-    return data
+    return data as AttendanceAnalytics
   } catch (error) {
-    console.warn('[attendance] analytics unavailable', error.message)
+    console.warn('[attendance] analytics unavailable', (error as Error).message)
     return {
       dailyData: [],
       departmentStats: [],
@@ -25,24 +69,24 @@ export const getAttendanceAnalytics = async (params = {}) => {
   }
 }
 
-export const getAllAttendance = async (params = {}) => {
+export const getAllAttendance = async (params: AttendanceParams = {}): Promise<AllAttendanceResponse> => {
   try {
     const { data } = await api.get('/attendance/all', { params })
-    return data
+    return data as AllAttendanceResponse
   } catch (error) {
-    console.warn('[attendance] getAllAttendance unavailable', error.message)
+    console.warn('[attendance] getAllAttendance unavailable', (error as Error).message)
     return { records: [], summary: { total: 0, present: 0, late: 0, absent: 0 }, pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
   }
 }
 
-export const exportAttendanceAnalytics = async (params = {}) => {
+export const exportAttendanceAnalytics = async (params: AttendanceParams = {}): Promise<{ success: boolean; fileName: string }> => {
   try {
     const response = await api.get('/attendance/analytics/export', {
       params,
       responseType: 'blob'
-    })
+    } as AxiosRequestConfig)
 
-    const blob = new Blob([response.data], {
+    const blob = new Blob([response.data as BlobPart], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     })
 
@@ -71,4 +115,5 @@ export const exportAttendanceAnalytics = async (params = {}) => {
     throw error
   }
 }
+
 

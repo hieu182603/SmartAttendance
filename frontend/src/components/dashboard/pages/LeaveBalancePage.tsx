@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import type { ReactNode } from 'react'
 import {
   Calendar,
   TrendingUp,
@@ -21,10 +22,41 @@ import { Progress } from '../../ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { toast } from 'sonner'
 import { getLeaveBalance, getLeaveHistory } from '../../../services/dashboardService'
+import type { ErrorWithMessage } from '../../../types'
+
+type LeaveStatus = 'approved' | 'pending' | 'rejected'
+
+interface LeaveTypeConfig {
+  icon: ReactNode
+  color: string
+  description: string
+}
+
+interface LeaveType {
+  id: string
+  name?: string
+  description?: string
+  total?: number | null
+  used?: number
+  remaining?: number | null
+  pending?: number
+}
+
+interface LeaveHistory {
+  id?: string
+  type?: string
+  status?: LeaveStatus
+  startDate?: string
+  endDate?: string
+  days?: number
+  reason?: string
+  approver?: string
+  approvedAt?: string
+}
 
 // Helper function để lấy icon và color dựa trên loại nghỉ phép
-const getLeaveTypeConfig = (typeId) => {
-  const configs = {
+const getLeaveTypeConfig = (typeId: string): LeaveTypeConfig => {
+  const configs: Record<string, LeaveTypeConfig> = {
     annual: {
       icon: <Calendar className="h-5 w-5" />,
       color: 'bg-blue-500',
@@ -58,14 +90,14 @@ const getLeaveTypeConfig = (typeId) => {
   }
 }
 
-const LeaveBalancePage = () => {
+const LeaveBalancePage: React.FC = () => {
   const navigate = useNavigate()
-  const [selectedType, setSelectedType] = useState(null)
+  const [selectedType, setSelectedType] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
-  const [leaveTypes, setLeaveTypes] = useState([])
-  const [leaveHistory, setLeaveHistory] = useState([])
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
+  const [leaveHistory, setLeaveHistory] = useState<LeaveHistory[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Fetch leave balance data
   useEffect(() => {
@@ -79,11 +111,12 @@ const LeaveBalancePage = () => {
           getLeaveHistory(),
         ])
 
-        setLeaveTypes(balanceData)
-        setLeaveHistory(historyData)
+        setLeaveTypes(balanceData as LeaveType[])
+        setLeaveHistory(historyData as LeaveHistory[])
       } catch (err) {
         console.error('Error fetching leave data:', err)
-        setError(err.message || 'Không thể tải dữ liệu ngày phép')
+        const error = err as ErrorWithMessage
+        setError(error.message || 'Không thể tải dữ liệu ngày phép')
         toast.error('Không thể tải dữ liệu ngày phép')
       } finally {
         setLoading(false)
@@ -105,7 +138,7 @@ const LeaveBalancePage = () => {
 
   const annualLeaveTotal = leaveTypes.find((t) => t.id === 'annual')?.total || 0
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status?: LeaveStatus): string => {
     switch (status) {
       case 'approved':
         return 'bg-[var(--success)]/20 text-[var(--success)]'
@@ -118,7 +151,7 @@ const LeaveBalancePage = () => {
     }
   }
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status?: LeaveStatus): ReactNode => {
     switch (status) {
       case 'approved':
         return <CheckCircle2 className="h-4 w-4" />
@@ -131,7 +164,7 @@ const LeaveBalancePage = () => {
     }
   }
 
-  const handleRequestLeave = () => {
+  const handleRequestLeave = (): void => {
     navigate('/employee/requests')
   }
 
@@ -380,7 +413,7 @@ const LeaveBalancePage = () => {
                               </div>
 
 
-                              {type.pending > 0 && (
+                              {type.pending && type.pending > 0 && (
                                 <div className="flex items-center justify-between p-2 rounded bg-[var(--warning)]/10">
                                   <span className="text-xs sm:text-sm text-[var(--text-sub)]">
                                     Đang chờ duyệt
@@ -516,4 +549,5 @@ const LeaveBalancePage = () => {
 }
 
 export default LeaveBalancePage
+
 

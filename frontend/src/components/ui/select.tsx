@@ -18,9 +18,10 @@ const SelectContext = React.createContext<SelectContextType | null>(null)
 interface SelectProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: string
   onValueChange?: (value: string) => void
+  disabled?: boolean
 }
 
-const Select = ({ value, onValueChange, children, ...props }: SelectProps) => {
+const Select = ({ value, onValueChange, disabled, children, ...props }: SelectProps) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const [selectedValue, setSelectedValue] = React.useState(value || '')
   const [items, setItems] = React.useState<Record<string, React.ReactNode>>({})
@@ -32,6 +33,7 @@ const Select = ({ value, onValueChange, children, ...props }: SelectProps) => {
   }, [value])
 
   const handleValueChange = (newValue: string) => {
+    if (disabled) return
     setSelectedValue(newValue)
     onValueChange?.(newValue)
     setIsOpen(false)
@@ -42,11 +44,11 @@ const Select = ({ value, onValueChange, children, ...props }: SelectProps) => {
   }
 
   return (
-    <SelectContext.Provider value={{ isOpen, setIsOpen, selectedValue, handleValueChange, registerItem, items }}>
+    <SelectContext.Provider value={{ isOpen, setIsOpen: disabled ? () => {} : setIsOpen, selectedValue, handleValueChange, registerItem, items }}>
       <div className="relative" {...props}>
         {React.Children.map(children, child => {
           if (React.isValidElement(child)) {
-            return React.cloneElement(child, {})
+            return React.cloneElement(child, { disabled: disabled || child.props.disabled })
           }
           return child
         })}
@@ -135,7 +137,8 @@ const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(
         context.registerItem(value, children)
       }
       // Chỉ depend vào value và children, không depend vào context object
-    }, [value, children, context])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, children])
 
     return (
       <div

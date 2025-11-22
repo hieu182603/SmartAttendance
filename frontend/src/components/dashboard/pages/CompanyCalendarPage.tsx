@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -19,7 +20,23 @@ import { Calendar } from "../../ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { toast } from "sonner";
 
-const events = [
+type EventType = "holiday" | "meeting" | "event" | "deadline" | "training";
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  type: EventType;
+  location?: string;
+  attendees?: number;
+  color: string;
+  isAllDay?: boolean;
+}
+
+const events: Event[] = [
   {
     id: "EVT001",
     title: "Họp tổng kết quý 4",
@@ -103,9 +120,17 @@ const events = [
   },
 ];
 
-const CompanyCalendarPage = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [filterType, setFilterType] = useState("all");
+interface StatCard {
+  label: string;
+  value: number;
+  color: string;
+  icon: string;
+  delay: number;
+}
+
+const CompanyCalendarPage: React.FC = () => {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [filterType, setFilterType] = useState<string>("all");
 
   const filteredEvents = events.filter((event) => {
     if (filterType !== "all" && event.type !== filterType) return false;
@@ -115,8 +140,8 @@ const CompanyCalendarPage = () => {
   // Get events for selected date
   const selectedDateEvents = selectedDate
     ? events.filter(
-        (event) => event.date === selectedDate.toISOString().split("T")[0]
-      )
+      (event) => event.date === selectedDate.toISOString().split("T")[0]
+    )
     : [];
 
   // Get upcoming events (next 7 days)
@@ -131,7 +156,7 @@ const CompanyCalendarPage = () => {
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const getTypeLabel = (type) => {
+  const getTypeLabel = (type: EventType): string => {
     switch (type) {
       case "holiday":
         return "Ngày lễ";
@@ -148,7 +173,7 @@ const CompanyCalendarPage = () => {
     }
   };
 
-  const getTypeIcon = (type) => {
+  const getTypeIcon = (type: EventType): ReactNode => {
     switch (type) {
       case "holiday":
         return <CalendarIcon className="h-4 w-4" />;
@@ -165,13 +190,46 @@ const CompanyCalendarPage = () => {
     }
   };
 
-  const handleCreateEvent = () => {
+  const handleCreateEvent = (): void => {
     toast.success("📅 Tạo sự kiện mới");
   };
 
-  const handleViewEvent = (event) => {
+  const handleViewEvent = (event: Event): void => {
     toast.success(`👁️ Xem chi tiết: ${event.title}`);
   };
+
+  const statCards: StatCard[] = [
+    {
+      label: "Tổng sự kiện",
+      value: filteredEvents.length,
+      color: "primary",
+      icon: "📋",
+      delay: 0.1,
+    },
+    {
+      label: "Sắp tới (7 ngày)",
+      value: upcomingEvents.length,
+      color: "warning",
+      icon: "⏰",
+      delay: 0.2,
+    },
+    {
+      label: "Ngày lễ",
+      value: events.filter((e) => e.type === "holiday").length,
+      color: "error",
+      icon: "🎉",
+      delay: 0.3,
+    },
+    {
+      label: "Họp & Đào tạo",
+      value: events.filter(
+        (e) => e.type === "meeting" || e.type === "training"
+      ).length,
+      color: "accent-cyan",
+      icon: "👥",
+      delay: 0.4,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -212,38 +270,7 @@ const CompanyCalendarPage = () => {
 
       {/* Summary Stats - 4 KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          {
-            label: "Tổng sự kiện",
-            value: filteredEvents.length,
-            color: "primary",
-            icon: "📋",
-            delay: 0.1,
-          },
-          {
-            label: "Sắp tới (7 ngày)",
-            value: upcomingEvents.length,
-            color: "warning",
-            icon: "⏰",
-            delay: 0.2,
-          },
-          {
-            label: "Ngày lễ",
-            value: events.filter((e) => e.type === "holiday").length,
-            color: "error",
-            icon: "🎉",
-            delay: 0.3,
-          },
-          {
-            label: "Họp & Đào tạo",
-            value: events.filter(
-              (e) => e.type === "meeting" || e.type === "training"
-            ).length,
-            color: "accent-cyan",
-            icon: "👥",
-            delay: 0.4,
-          },
-        ].map((stat, index) => (
+        {statCards.map((stat, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, scale: 0.9 }}
@@ -294,12 +321,45 @@ const CompanyCalendarPage = () => {
           transition={{ delay: 0.5 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-[var(--text-sub)] hover:text-[var(--text-main)]"
+                  onClick={() => {
+                    const newDate = new Date(selectedDate);
+                    newDate.setMonth(newDate.getMonth() - 1);
+                    setSelectedDate(newDate);
+                  }}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h3 className="text-base font-medium text-[var(--text-main)]">
+                  {selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-[var(--text-sub)] hover:text-[var(--text-main)]"
+                  onClick={() => {
+                    const newDate = new Date(selectedDate);
+                    newDate.setMonth(newDate.getMonth() + 1);
+                    setSelectedDate(newDate);
+                  }}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
             <CardContent className="pt-0">
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="rounded-md w-full p-auto"
+                onSelect={(date) => date && setSelectedDate(date)}
+                className="rounded-md w-full p-0"
+                month={selectedDate}
+                onMonthChange={(date) => setSelectedDate(date)}
               />
 
               {/* Selected Date Info */}
@@ -308,7 +368,7 @@ const CompanyCalendarPage = () => {
                   <p className="text-xs text-[var(--text-sub)] mb-1">
                     Ngày đã chọn
                   </p>
-                  <p className="text-sm text-[var(--text-main)]">
+                  <p className="text-sm text-[var(--text-main)] mb-2">
                     {selectedDate.toLocaleDateString("vi-VN", {
                       weekday: "long",
                       year: "numeric",
@@ -317,9 +377,13 @@ const CompanyCalendarPage = () => {
                     })}
                   </p>
                   {selectedDateEvents.length > 0 && (
-                    <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] mt-2">
-                      {selectedDateEvents.length} sự kiện
-                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-3 text-xs border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
+                    >
+                      {selectedDateEvents.length} SỰ KIỆN
+                    </Button>
                   )}
                 </div>
               )}
@@ -552,3 +616,5 @@ const CompanyCalendarPage = () => {
 };
 
 export default CompanyCalendarPage;
+
+

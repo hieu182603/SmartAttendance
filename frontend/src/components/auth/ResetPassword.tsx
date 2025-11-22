@@ -8,6 +8,7 @@ import { Label } from '../ui/label'
 import { Lock, Eye, EyeOff, CheckCircle2, Loader2 } from 'lucide-react'
 import { resetPassword } from '../../services/authService'
 import { toast } from 'sonner'
+import type { ErrorWithMessage, LocationState } from '../../types'
 
 interface FormData {
   password: string
@@ -17,7 +18,7 @@ interface FormData {
 export default function ResetPassword() {
   const location = useLocation()
   const navigate = useNavigate()
-  const email = (location.state as any)?.email || ''
+  const email = (location.state as LocationState)?.email || ''
   const [formData, setFormData] = useState<FormData>({
     password: '',
     confirmPassword: '',
@@ -62,8 +63,9 @@ export default function ResetPassword() {
       } else {
         toast.error(response.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+    } catch (error) {
+      const err = error as ErrorWithMessage
+      toast.error(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
     } finally {
       setIsLoading(false)
     }
