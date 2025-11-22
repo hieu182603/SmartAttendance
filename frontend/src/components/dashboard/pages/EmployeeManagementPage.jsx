@@ -84,12 +84,18 @@ const EmployeeManagementPage = () => {
     try {
       const params = {}
       if (searchTerm) params.search = searchTerm
+      // Không truyền page và limit để lấy tất cả users (client-side pagination)
+      // Backend sẽ trả về tất cả users nếu không có page/limit
 
       const result = await getAllUsers(params)
-      setUsersList(result.users || result || [])
+      // Backend trả về { users: [...], pagination: {...} }
+      // Hoặc có thể trả về array trực tiếp trong một số trường hợp
+      const users = Array.isArray(result) ? result : (result.users || [])
+      setUsersList(users)
     } catch (error) {
       console.error('[EmployeeManagement] fetch error:', error)
-      toast.error('Không thể tải danh sách nhân viên')
+      const errorMessage = error.message || error.response?.data?.message || 'Không thể tải danh sách nhân viên'
+      toast.error(errorMessage)
       setUsersList([])
     } finally {
       setLoading(false)
@@ -107,7 +113,8 @@ const EmployeeManagementPage = () => {
       setIsViewDialogOpen(true)
     } catch (error) {
       console.error('[EmployeeManagement] get user error:', error)
-      toast.error('Không thể tải thông tin nhân viên')
+      const errorMessage = error.message || error.response?.data?.message || 'Không thể tải thông tin nhân viên'
+      toast.error(errorMessage)
     }
   }
 
@@ -142,7 +149,8 @@ const EmployeeManagementPage = () => {
       fetchUsers()
     } catch (error) {
       console.error('[EmployeeManagement] delete error:', error)
-      toast.error('Không thể xóa nhân viên')
+      const errorMessage = error.message || error.response?.data?.message || 'Không thể vô hiệu hóa nhân viên'
+      toast.error(errorMessage)
     }
   }
 
@@ -189,7 +197,32 @@ const EmployeeManagementPage = () => {
       fetchUsers()
     } catch (error) {
       console.error('[EmployeeManagement] update error:', error)
-      toast.error(error.response?.data?.message || 'Không thể cập nhật thông tin')
+      
+      // Xử lý 403 Forbidden - không có quyền
+      if (error.response?.status === 403) {
+        const errorMessage = error.message || error.response?.data?.message || 'Bạn không có quyền thực hiện thao tác này'
+        toast.error(errorMessage)
+        return
+      }
+      
+      // Xử lý validation errors từ backend
+      if (error.fieldErrors) {
+        const backendErrors = {}
+        Object.keys(error.fieldErrors).forEach(field => {
+          if (error.fieldErrors[field]?.[0]) {
+            backendErrors[field] = error.fieldErrors[field][0]
+          }
+        })
+        if (Object.keys(backendErrors).length > 0) {
+          setValidationErrors(backendErrors)
+          toast.error('Vui lòng kiểm tra lại thông tin')
+          return
+        }
+      }
+      
+      // Hiển thị error message từ backend hoặc message mặc định
+      const errorMessage = error.message || error.response?.data?.message || 'Không thể cập nhật thông tin'
+      toast.error(errorMessage)
     }
   }
 
@@ -240,6 +273,19 @@ const EmployeeManagementPage = () => {
   const canAssignRole = (targetRole) => {
     if (!currentUser?.role) return false
     return canManageRole(currentUser.role, targetRole)
+  }
+
+  // Kiểm tra xem user hiện tại có quyền update user không
+  const canUpdateUser = () => {
+    if (!currentUser?.role) return false
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'HR_MANAGER']
+    return allowedRoles.includes(currentUser.role)
+  }
+
+  // Kiểm tra xem user hiện tại có quyền thay đổi role không
+  const canChangeRole = () => {
+    if (!currentUser?.role) return false
+    return currentUser.role === 'ADMIN' || currentUser.role === 'SUPER_ADMIN'
   }
 
   const stats = {
@@ -458,8 +504,9 @@ const EmployeeManagementPage = () => {
                             </button>
                             <button
                               onClick={() => handleEditUser(user)}
-                              className="p-1 hover:bg-[var(--shell)] rounded text-[var(--primary)]"
-                              title="Chỉnh sửa"
+                              className="p-1 hover:bg-[var(--shell)] rounded text-[var(--primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={canUpdateUser() ? "Chỉnh sửa" : "Bạn không có quyền chỉnh sửa"}
+                              disabled={!canUpdateUser()}
                             >
                               <Edit className="h-4 w-4" />
                             </button>
@@ -733,8 +780,12 @@ const EmployeeManagementPage = () => {
                       setValidationErrors({ ...validationErrors, role: null })
                     }
                   }}
+                  disabled={!canChangeRole()}
                 >
-                  <SelectTrigger className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.role ? 'border-red-500' : ''}`}>
+                  <SelectTrigger 
+                    className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.role ? 'border-red-500' : ''} ${!canChangeRole() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={!canChangeRole()}
+                  >
                     <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
                   <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
@@ -751,6 +802,11 @@ const EmployeeManagementPage = () => {
                     })}
                   </SelectContent>
                 </Select>
+                {!canChangeRole() && (
+                  <p className="text-xs text-[var(--text-sub)]">
+                    ⚠️ Chỉ Admin và Super Admin mới có quyền thay đổi vai trò
+                  </p>
+                )}
                 {validationErrors.role && (
                   <p className="text-xs text-red-500">{validationErrors.role}</p>
                 )}

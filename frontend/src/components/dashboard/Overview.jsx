@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Sparkles } from "lucide-react";
+import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Sparkles, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { UserRole, getRoleName, getRoleColor } from "../../utils/roles";
+import { getDashboardStats } from "../../services/dashboardService";
+import { toast } from "sonner";
 import {
   LineChart,
   Line,
@@ -20,46 +22,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const attendanceData = [
-  { date: "T2", present: 45, late: 5, absent: 2 },
-  { date: "T3", present: 48, late: 3, absent: 1 },
-  { date: "T4", present: 46, late: 4, absent: 2 },
-  { date: "T5", present: 49, late: 2, absent: 1 },
-  { date: "T6", present: 47, late: 3, absent: 2 },
-  { date: "T7", present: 50, late: 1, absent: 1 },
-  { date: "CN", present: 0, late: 0, absent: 0 },
-];
-
-const kpiData = [
-  {
-    title: "Tổng nhân viên",
-    value: "52",
-    icon: Users,
-    color: "text-[var(--accent-cyan)]",
-    bgColor: "bg-[var(--accent-cyan)]/10",
-  },
-  {
-    title: "Có mặt hôm nay",
-    value: "47",
-    icon: CheckCircle,
-    color: "text-[var(--success)]",
-    bgColor: "bg-[var(--success)]/10",
-  },
-  {
-    title: "Đi muộn",
-    value: "3",
-    icon: Clock,
-    color: "text-[var(--warning)]",
-    bgColor: "bg-[var(--warning)]/10",
-  },
-  {
-    title: "Vắng mặt",
-    value: "2",
-    icon: XCircle,
-    color: "text-[var(--error)]",
-    bgColor: "bg-[var(--error)]/10",
-  },
-];
 
 // Role-based welcome messages
 const getRoleWelcomeMessage = (role) => {
@@ -111,10 +73,95 @@ export const DashboardOverview = () => {
   const welcomeMsg = getRoleWelcomeMessage(userRole);
   const WelcomeIcon = welcomeMsg.icon;
 
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState({
+    kpi: {
+      totalEmployees: 0,
+      presentToday: 0,
+      lateToday: 0,
+      absentToday: 0,
+    },
+    attendanceData: [],
+    growthPercentage: 0,
+  });
+
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      setLoading(true);
+      try {
+        const data = await getDashboardStats();
+        setDashboardData(data);
+      } catch (error) {
+        console.error("[DashboardOverview] fetch error:", error);
+        toast.error("Không thể tải dữ liệu dashboard");
+        // Set default values on error
+        setDashboardData({
+          kpi: {
+            totalEmployees: 0,
+            presentToday: 0,
+            lateToday: 0,
+            absentToday: 0,
+          },
+          attendanceData: [],
+          growthPercentage: 0,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardStats();
+  }, []);
+
   const currentTime = new Date().toLocaleTimeString("vi-VN", {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  // Prepare KPI data from API - đảm bảo luôn có giá trị mặc định
+  const kpiData = [
+    {
+      title: "Tổng nhân viên",
+      value: (dashboardData?.kpi?.totalEmployees ?? 0).toString(),
+      icon: Users,
+      color: "text-[var(--accent-cyan)]",
+      bgColor: "bg-[var(--accent-cyan)]/10",
+    },
+    {
+      title: "Có mặt hôm nay",
+      value: (dashboardData?.kpi?.presentToday ?? 0).toString(),
+      icon: CheckCircle,
+      color: "text-[var(--success)]",
+      bgColor: "bg-[var(--success)]/10",
+    },
+    {
+      title: "Đi muộn",
+      value: (dashboardData?.kpi?.lateToday ?? 0).toString(),
+      icon: Clock,
+      color: "text-[var(--warning)]",
+      bgColor: "bg-[var(--warning)]/10",
+    },
+    {
+      title: "Vắng mặt",
+      value: (dashboardData?.kpi?.absentToday ?? 0).toString(),
+      icon: XCircle,
+      color: "text-[var(--error)]",
+      bgColor: "bg-[var(--error)]/10",
+    },
+  ];
+
+  const attendanceData = dashboardData?.attendanceData || [];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-[var(--primary)] mx-auto mb-4" />
+          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -241,15 +288,24 @@ export const DashboardOverview = () => {
                       >
                         {kpi.value}
                       </motion.p>
-                      <motion.div
-                        className="flex items-center mt-2 text-xs font-semibold text-[var(--success)]"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 + 0.6 }}
-                      >
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        <span>+8.2%</span>
-                      </motion.div>
+                      {(dashboardData?.growthPercentage ?? 0) !== 0 && (
+                        <motion.div
+                          className={`flex items-center mt-2 text-xs font-semibold ${
+                            (dashboardData?.growthPercentage ?? 0) > 0
+                              ? "text-[var(--success)]"
+                              : "text-[var(--error)]"
+                          }`}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 + 0.6 }}
+                        >
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          <span>
+                            {(dashboardData?.growthPercentage ?? 0) > 0 ? "+" : ""}
+                            {dashboardData?.growthPercentage ?? 0}%
+                          </span>
+                        </motion.div>
+                      )}
                     </div>
                     <motion.div
                       className={`p-4 mt-4 rounded-2xl ${kpi.bgColor} shadow-lg`}
