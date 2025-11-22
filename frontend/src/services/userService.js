@@ -42,6 +42,18 @@ export const updateUserByAdmin = async (id, userData) => {
     return data
   } catch (error) {
     console.error('[userService] updateUserByAdmin error:', error)
+    // Nếu có validation errors từ backend, throw với message chi tiết
+    if (error?.response?.data?.errors) {
+      const errors = error.response.data.errors
+      const fieldErrors = errors.fieldErrors || {}
+      // Lấy message đầu tiên từ field errors
+      const firstErrorField = Object.keys(fieldErrors)[0]
+      if (firstErrorField && fieldErrors[firstErrorField]?.[0]) {
+        error.message = fieldErrors[firstErrorField][0]
+      }
+      // Lưu field errors để frontend có thể hiển thị
+      error.fieldErrors = fieldErrors
+    }
     throw error
   }
 }

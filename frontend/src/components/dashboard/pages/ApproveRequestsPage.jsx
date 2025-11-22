@@ -28,7 +28,8 @@ import { toast } from 'sonner'
 import { getAllRequests, approveRequest, rejectRequest } from '../../../services/requestService'
 
 const ApproveRequestsPage = () => {
-  const [requests, setRequests] = useState([])
+  const [allRequests, setAllRequests] = useState([]) // Lưu tất cả requests để tính stats
+  const [requests, setRequests] = useState([]) // Requests đã filter theo tab
   const [selectedTab, setSelectedTab] = useState('pending')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
@@ -39,30 +40,38 @@ const ApproveRequestsPage = () => {
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Fetch requests from API
-  const fetchRequests = useCallback(async () => {
-    setLoading(true)
+  // Fetch tất cả requests để tính stats (không filter theo status)
+  const fetchAllRequests = useCallback(async () => {
     try {
       const params = {}
-      if (selectedTab !== 'all') params.status = selectedTab
       if (filterType !== 'all') params.type = filterType
       if (filterDepartment !== 'all') params.department = filterDepartment
       if (searchQuery) params.search = searchQuery
+      // Không filter theo status để lấy tất cả
 
       const result = await getAllRequests(params)
-      setRequests(result.requests || [])
+      setAllRequests(result.requests || [])
     } catch (error) {
-      console.error('[ApproveRequests] fetch error:', error)
+      console.error('[ApproveRequests] fetch all error:', error)
       toast.error('Không thể tải danh sách yêu cầu')
-      setRequests([])
-    } finally {
-      setLoading(false)
+      setAllRequests([])
     }
-  }, [selectedTab, filterType, filterDepartment, searchQuery])
+  }, [filterType, filterDepartment, searchQuery])
 
+  // Filter requests theo selectedTab từ allRequests
   useEffect(() => {
-    fetchRequests()
-  }, [fetchRequests])
+    if (selectedTab === 'all') {
+      setRequests(allRequests)
+    } else {
+      setRequests(allRequests.filter(req => req.status === selectedTab))
+    }
+  }, [selectedTab, allRequests])
+
+  // Fetch tất cả requests khi component mount hoặc filters thay đổi
+  useEffect(() => {
+    setLoading(true)
+    fetchAllRequests().finally(() => setLoading(false))
+  }, [fetchAllRequests])
 
   // Filter requests - đầy đủ logic như dự án tham khảo
   const filteredRequests = requests.filter(req => {
@@ -82,11 +91,12 @@ const ApproveRequestsPage = () => {
     return true
   })
 
+  // Tính stats từ allRequests (tất cả requests, không filter theo tab)
   const stats = {
-    pending: requests.filter(r => r.status === 'pending').length,
-    approved: requests.filter(r => r.status === 'approved').length,
-    rejected: requests.filter(r => r.status === 'rejected').length,
-    total: requests.length,
+    pending: allRequests.filter(r => r.status === 'pending').length,
+    approved: allRequests.filter(r => r.status === 'approved').length,
+    rejected: allRequests.filter(r => r.status === 'rejected').length,
+    total: allRequests.length,
   }
 
   const handleOpenDialog = (request, action) => {
@@ -113,7 +123,7 @@ const ApproveRequestsPage = () => {
       setActionType(null)
       setComments('')
       // Refresh requests list
-      await fetchRequests()
+      await fetchAllRequests()
     } catch (error) {
       console.error('[ApproveRequests] action error:', error)
       toast.error(error.response?.data?.message || error.message || 'Có lỗi xảy ra')

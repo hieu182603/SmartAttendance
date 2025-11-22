@@ -25,7 +25,7 @@ userRouter.get(
 
 userRouter.put(
     "/:id",
-    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
     UserController.updateUserByAdmin
 );
 

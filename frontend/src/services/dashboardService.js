@@ -87,4 +87,14 @@ export const getLeaveHistory = async (config = {}) => {
   }
 }
 
+export const getDashboardStats = async (config = {}) => {
+  try {
+    const { data } = await api.get('/dashboard/stats', config)
+    return data
+  } catch (error) {
+    console.error('[dashboard] stats error:', error)
+    throw error
+  }
+}
+
 

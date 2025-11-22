@@ -19,7 +19,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (res) => res,
     (error) => {
-        // Xử lý validation errors
+        // Xử lý validation errors từ backend (Zod validation)
         if (error?.response?.status === 400 && error?.response?.data?.errors) {
             const errors = error.response.data.errors
             const fieldErrors = errors.fieldErrors || {}
@@ -40,12 +40,18 @@ api.interceptors.response.use(
                 message = formErrors[0]
             }
             
-            return Promise.reject(new Error(message))
+            // Tạo error object với fieldErrors để component có thể sử dụng
+            const validationError = new Error(message)
+            validationError.fieldErrors = fieldErrors
+            validationError.response = error.response
+            return Promise.reject(validationError)
         }
         
-        // Xử lý các lỗi khác
+        // Xử lý các lỗi khác (401, 403, 404, 500, etc.)
         const message = error?.response?.data?.message || error.message || 'Request failed'
-        return Promise.reject(new Error(message))
+        const apiError = new Error(message)
+        apiError.response = error.response
+        return Promise.reject(apiError)
     },
 )
 

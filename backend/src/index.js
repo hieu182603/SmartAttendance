@@ -10,6 +10,7 @@ import { leaveRouter } from "./modules/leave/leave.router.js";
 import { attendanceRouter } from "./modules/attendance/attendance.router.js";
 import { requestRouter } from "./modules/requests/request.router.js";
 import { userRouter } from "./modules/users/user.router.js";
+import { dashboardRouter } from "./modules/dashboard/dashboard.router.js";
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use("/api/leave", leaveRouter);
 app.use("/api/attendance", attendanceRouter);
 app.use("/api/requests", requestRouter);
 app.use("/api/users", userRouter);
+app.use("/api/dashboard", dashboardRouter);
 
 // Error handling middleware
 app.use((err, _req, res, _next) => {
