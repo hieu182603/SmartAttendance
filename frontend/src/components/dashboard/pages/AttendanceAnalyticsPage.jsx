@@ -239,14 +239,14 @@ const AttendanceAnalyticsPage = () => {
           <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Daily Trend */}
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--text-main)]">Xu hướng hàng ngày</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Daily Trend */}
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardHeader>
+            <CardTitle className="text-[var(--text-main)]">Xu hướng hàng ngày</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
               <LineChart data={dailyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="date" stroke="var(--text-sub)" />
@@ -295,7 +295,7 @@ const AttendanceAnalyticsPage = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-        </div>
+      </div>
       )}
 
       {/* Department Details */}

@@ -18,13 +18,13 @@ export const ROLE_HIERARCHY = {
     [UserRole.EMPLOYEE]: 1,
 };
 
-// Role display names (Vietnamese)
+// Role display names (English)
 export const ROLE_NAMES = {
-    [UserRole.SUPER_ADMIN]: 'Quản trị hệ thống',
-    [UserRole.ADMIN]: 'Quản trị viên',
-    [UserRole.HR_MANAGER]: 'Trưởng phòng Nhân sự',
-    [UserRole.MANAGER]: 'Quản lý',
-    [UserRole.EMPLOYEE]: 'Nhân viên',
+    [UserRole.SUPER_ADMIN]: 'Super Admin',
+    [UserRole.ADMIN]: 'Admin',
+    [UserRole.HR_MANAGER]: 'HR Manager',
+    [UserRole.MANAGER]: 'Manager',
+    [UserRole.EMPLOYEE]: 'Employee',
 };
 
 // Role badge colors
