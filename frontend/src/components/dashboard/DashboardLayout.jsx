@@ -18,6 +18,7 @@ import {
   Bell,
   BarChart3,
   CheckCircle2,
+  Users,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
@@ -56,18 +57,23 @@ function getMenuByRole(role) {
     ],
     [UserRole.HR_MANAGER]: [
       homeMenu,
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+      
     ],
     [UserRole.ADMIN]: [
       homeMenu,
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
     [UserRole.SUPER_ADMIN]: [
       homeMenu,
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+     
     ],
   };
 

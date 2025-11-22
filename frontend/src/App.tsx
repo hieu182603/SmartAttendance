@@ -23,6 +23,7 @@ import ProfilePage from "./components/dashboard/pages/ProfilePage";
 import CompanyCalendarPage from "./components/dashboard/pages/CompanyCalendarPage";
 import ApproveRequestsPage from "./components/dashboard/pages/ApproveRequestsPage";
 import AttendanceAnalyticsPage from "./components/dashboard/pages/AttendanceAnalyticsPage";
+import EmployeeManagementPage from "./components/dashboard/pages/EmployeeManagementPage";
 import { UserRole } from "./utils/roles";
 
 
@@ -57,6 +58,11 @@ export default function App() {
             <Route element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}>
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
+            </Route>
+
+            {/* HR/Admin Routes - HR_MANAGER, ADMIN, SUPER_ADMIN only */}
+            <Route element={<ProtectedRoute minimumRole={UserRole.HR_MANAGER} />}>
+              <Route path="employee-management" element={<EmployeeManagementPage />} />
             </Route>
           </Route>
         </Route>
