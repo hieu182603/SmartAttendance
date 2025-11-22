@@ -1,7 +1,97 @@
 import { UserModel } from "../users/user.model.js";
 import { AttendanceModel } from "../attendance/attendance.model.js";
+import { RequestModel } from "../requests/request.model.js";
+import { NotificationModel } from "../notifications/notification.model.js";
 
 export class DashboardService {
+  /**
+   * Lấy summary cho dashboard (shift, location, workingDays)
+   */
+  static async getDashboardSummary(userId) {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Lấy attendance hôm nay của user
+      const todayAttendance = await AttendanceModel.findOne({
+        userId,
+        date: {
+          $gte: today,
+          $lt: tomorrow,
+        },
+      }).populate("locationId");
+
+      // Tính số ngày làm việc trong tháng
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      monthEnd.setHours(23, 59, 59, 999);
+
+      const monthAttendances = await AttendanceModel.find({
+        userId,
+        date: {
+          $gte: monthStart,
+          $lte: monthEnd,
+        },
+        status: { $in: ["present", "late"] },
+      });
+
+      const workingDays = {
+        used: monthAttendances.length,
+        total: new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(), // Tổng số ngày trong tháng
+      };
+
+      return {
+        shift: todayAttendance?.checkIn
+          ? new Date(todayAttendance.checkIn).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : null,
+        location: todayAttendance?.locationId?.name || null,
+        workingDays,
+      };
+    } catch (error) {
+      console.error("[DashboardService] getDashboardSummary error:", error);
+      return {
+        shift: null,
+        location: null,
+        workingDays: { used: 0, total: 0 },
+      };
+    }
+  }
+
+  /**
+   * Lấy pending actions (pending requests, unread notifications)
+   */
+  static async getPendingActions(userId) {
+    try {
+      // Đếm pending requests
+      const pendingRequests = await RequestModel.countDocuments({
+        userId,
+        status: "pending",
+      });
+
+      // Đếm unread notifications
+      const unreadNotifications = await NotificationModel.countDocuments({
+        userId,
+        isRead: false,
+      });
+
+      return {
+        hasPendingRequests: pendingRequests > 0,
+        hasUnreadNotifications: unreadNotifications > 0,
+      };
+    } catch (error) {
+      console.error("[DashboardService] getPendingActions error:", error);
+      return {
+        hasPendingRequests: false,
+        hasUnreadNotifications: false,
+      };
+    }
+  }
+
   /**
    * Lấy thống kê tổng quan cho dashboard
    */

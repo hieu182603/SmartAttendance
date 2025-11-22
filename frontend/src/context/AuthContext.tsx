@@ -1,19 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { getMe, login as loginApi } from '../services/authService'
-
-interface User {
-  _id: string
-  name: string
-  email: string
-  role: string
-  [key: string]: any
-}
+import type { User, LoginResponse } from '../types'
 
 interface AuthContextType {
   token: string
   user: User | null
   loading: boolean
-  login: (credentials: { email: string; password: string }) => Promise<any>
+  login: (credentials: { email: string; password: string }) => Promise<LoginResponse>
   logout: () => void
   setUser: (user: User | null) => void
   setToken: (token: string) => void

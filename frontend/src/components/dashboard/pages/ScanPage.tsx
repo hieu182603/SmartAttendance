@@ -9,11 +9,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { toast } from "sonner";
 import api from "../../../services/api";
+import type { AxiosError } from "axios";
 
 // Helper: Convert base64 to Blob
-const dataURLtoBlob = (dataURL) => {
+const dataURLtoBlob = (dataURL: string): Blob => {
   const arr = dataURL.split(',');
-  const mime = arr[0].match(/:(.*?);/)[1];
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  if (!mimeMatch) throw new Error("Invalid data URL");
+  const mime = mimeMatch[1];
   const bstr = atob(arr[1]);
   let n = bstr.length;
   const u8arr = new Uint8Array(n);
@@ -23,25 +26,58 @@ const dataURLtoBlob = (dataURL) => {
   return new Blob([u8arr], { type: mime });
 };
 
-const ScanPage = () => {
+interface State {
+  isCameraReady: boolean;
+  isProcessing: boolean;
+  locationLoading: boolean;
+  checkInStatus: "success" | "error" | "already" | null;
+}
+
+interface Permissions {
+  camera: boolean;
+  location: boolean;
+}
+
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+}
+
+interface CheckInResponse {
+  success: boolean;
+  message?: string;
+}
+
+interface CheckInError {
+  response?: {
+    data?: {
+      message?: string;
+      code?: string;
+    };
+  };
+  message?: string;
+}
+
+const ScanPage: React.FC = () => {
   // Gom state liên quan
-  const [state, setState] = useState({
+  const [state, setState] = useState<State>({
     isCameraReady: false,
     isProcessing: false,
     locationLoading: false,
     checkInStatus: null,
   });
 
-  const [permissions, setPermissions] = useState({
+  const [permissions, setPermissions] = useState<Permissions>({
     camera: false,
     location: false,
   });
 
-  const [locationData, setLocationData] = useState(null);
-  const [locationError, setLocationError] = useState(null);
+  const [locationData, setLocationData] = useState<LocationData | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Lấy vị trí GPS
   const getLocation = useCallback(async () => {
@@ -49,7 +85,7 @@ const ScanPage = () => {
     setLocationError(null);
 
     try {
-      const position = await new Promise((resolve, reject) => {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
           timeout: 10000,
@@ -57,7 +93,7 @@ const ScanPage = () => {
         });
       });
 
-      const location = {
+      const location: LocationData = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
@@ -116,7 +152,7 @@ const ScanPage = () => {
   }, []);
 
   // Chụp ảnh và resize
-  const capturePhoto = useCallback(() => {
+  const capturePhoto = useCallback((): string | null => {
     if (!videoRef.current || !state.isCameraReady) return null;
 
     const canvas = document.createElement("canvas");
@@ -141,6 +177,7 @@ const ScanPage = () => {
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
     ctx.drawImage(video, 0, 0, width, height);
 
     return canvas.toDataURL("image/jpeg", 0.6);
@@ -148,6 +185,8 @@ const ScanPage = () => {
 
   // Xử lý check-in
   const handleCheckIn = useCallback(async () => {
+    if (!locationData) return;
+    
     setState(prev => ({ ...prev, isProcessing: true, checkInStatus: null }));
 
     try {
@@ -157,15 +196,15 @@ const ScanPage = () => {
       }
 
       const formData = new FormData();
-      formData.append('latitude', locationData.latitude);
-      formData.append('longitude', locationData.longitude);
-      formData.append('accuracy', locationData.accuracy);
+      formData.append('latitude', locationData.latitude.toString());
+      formData.append('longitude', locationData.longitude.toString());
+      formData.append('accuracy', locationData.accuracy.toString());
 
       // Convert base64 to Blob
       const blob = dataURLtoBlob(photoData);
       formData.append('photo', blob, `checkin-${Date.now()}.jpg`);
 
-      const response = await api.post("/attendance/checkin", formData, {
+      const response = await api.post<CheckInResponse>("/attendance/checkin", formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -179,10 +218,11 @@ const ScanPage = () => {
       }
     } catch (error) {
       console.error("Check-in error:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Có lỗi xảy ra khi chấm công";
+      const err = error as AxiosError<CheckInError>;
+      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi chấm công";
 
       // Check error code thay vì regex
-      if (error.response?.data?.code === 'ALREADY_CHECKED_IN') {
+      if (err.response?.data?.code === 'ALREADY_CHECKED_IN') {
         toast.info(errorMessage);
         setState(prev => ({ ...prev, checkInStatus: "already" }));
       } else {
@@ -348,3 +388,5 @@ const ScanPage = () => {
 };
 
 export default ScanPage;
+
+

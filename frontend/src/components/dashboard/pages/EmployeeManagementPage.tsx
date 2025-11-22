@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
+import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
+import type { LucideIcon } from 'lucide-react'
 import {
   Search,
   Plus,
@@ -25,9 +27,17 @@ import { Alert, AlertDescription, AlertTitle } from '../../ui/alert'
 import { toast } from 'sonner'
 import { getAllUsers, getUserById, updateUserByAdmin } from '../../../services/userService'
 import { useAuth } from '../../../context/AuthContext'
-import { UserRole, ROLE_NAMES, canManageRole } from '../../../utils/roles'
+import { UserRole, ROLE_NAMES, canManageRole, type UserRoleType } from '../../../utils/roles'
+import type { ErrorWithMessage } from '../../../types'
 
-const ROLES = [
+interface RoleConfig {
+  value: UserRoleType
+  label: string
+  color: string
+  icon: LucideIcon
+}
+
+const ROLES: RoleConfig[] = [
   { value: UserRole.SUPER_ADMIN, label: ROLE_NAMES[UserRole.SUPER_ADMIN], color: 'error', icon: ShieldAlert },
   { value: UserRole.ADMIN, label: ROLE_NAMES[UserRole.ADMIN], color: 'primary', icon: Shield },
   { value: UserRole.HR_MANAGER, label: ROLE_NAMES[UserRole.HR_MANAGER], color: 'warning', icon: ShieldCheck },
@@ -35,7 +45,51 @@ const ROLES = [
   { value: UserRole.EMPLOYEE, label: ROLE_NAMES[UserRole.EMPLOYEE], color: 'text-sub', icon: Shield },
 ]
 
-const getRoleBadge = (role) => {
+interface User {
+  _id?: string
+  id?: string
+  name?: string
+  email?: string
+  department?: string
+  role?: UserRoleType
+  phone?: string
+  isActive?: boolean
+  createdAt?: string
+}
+
+interface FormData {
+  name: string
+  email: string
+  department: string
+  role: string
+  phone: string
+  isActive: boolean
+}
+
+interface ValidationErrors {
+  name?: string | null
+  email?: string | null
+  role?: string | null
+  phone?: string | null
+  [key: string]: string | null | undefined
+}
+
+interface Stats {
+  total: number
+  active: number
+  admin: number
+  newThisMonth: number
+}
+
+interface GetAllUsersResponse {
+  users?: User[]
+}
+
+interface FieldErrors {
+  [field: string]: string[]
+}
+
+const getRoleBadge = (role?: UserRoleType): ReactNode => {
   const roleConfig = ROLES.find(r => r.value === role)
   if (!roleConfig) return <Badge className="text-xs">Unknown</Badge>
 
@@ -48,25 +102,25 @@ const getRoleBadge = (role) => {
   )
 }
 
-const getStatusBadge = (status) => {
+const getStatusBadge = (status?: boolean | string): ReactNode => {
   return status === true || status === 'active'
     ? <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30 text-xs whitespace-nowrap">Hoạt động</Badge>
     : <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30 text-xs whitespace-nowrap">Ngừng</Badge>
 }
 
-const EmployeeManagementPage = () => {
+const EmployeeManagementPage: React.FC = () => {
   const { user: currentUser } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
-  const [roleFilter, setRoleFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState(null)
-  const [usersList, setUsersList] = useState([])
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [usersList, setUsersList] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     department: '',
@@ -74,7 +128,7 @@ const EmployeeManagementPage = () => {
     phone: '',
     isActive: true,
   })
-  const [validationErrors, setValidationErrors] = useState({})
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
@@ -82,19 +136,20 @@ const EmployeeManagementPage = () => {
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const params = {}
+      const params: Record<string, string> = {}
       if (searchTerm) params.search = searchTerm
       // Không truyền page và limit để lấy tất cả users (client-side pagination)
       // Backend sẽ trả về tất cả users nếu không có page/limit
 
-      const result = await getAllUsers(params)
+      const result = await getAllUsers(params) as GetAllUsersResponse | User[]
       // Backend trả về { users: [...], pagination: {...} }
       // Hoặc có thể trả về array trực tiếp trong một số trường hợp
       const users = Array.isArray(result) ? result : (result.users || [])
       setUsersList(users)
     } catch (error) {
       console.error('[EmployeeManagement] fetch error:', error)
-      const errorMessage = error.message || error.response?.data?.message || 'Không thể tải danh sách nhân viên'
+      const err = error as ErrorWithMessage
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể tải danh sách nhân viên'
       toast.error(errorMessage)
       setUsersList([])
     } finally {
@@ -106,19 +161,20 @@ const EmployeeManagementPage = () => {
     fetchUsers()
   }, [fetchUsers])
 
-  const handleViewUser = async (user) => {
+  const handleViewUser = async (user: User): Promise<void> => {
     try {
-      const userDetail = await getUserById(user._id || user.id)
+      const userDetail = await getUserById(user._id || user.id || '') as User
       setSelectedUser(userDetail)
       setIsViewDialogOpen(true)
     } catch (error) {
       console.error('[EmployeeManagement] get user error:', error)
-      const errorMessage = error.message || error.response?.data?.message || 'Không thể tải thông tin nhân viên'
+      const err = error as ErrorWithMessage
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể tải thông tin nhân viên'
       toast.error(errorMessage)
     }
   }
 
-  const handleEditUser = (user) => {
+  const handleEditUser = (user: User): void => {
     setSelectedUser(user)
     setFormData({
       name: user.name || '',
@@ -132,33 +188,34 @@ const EmployeeManagementPage = () => {
     setIsEditDialogOpen(true)
   }
 
-  const handleDeleteUser = (user) => {
+  const handleDeleteUser = (user: User): void => {
     setSelectedUser(user)
     setIsDeleteDialogOpen(true)
   }
 
-  const confirmDelete = async () => {
+  const confirmDelete = async (): Promise<void> => {
     if (!selectedUser) return
 
     try {
       // Update user to inactive instead of deleting
-      await updateUserByAdmin(selectedUser._id || selectedUser.id, { isActive: false })
+      await updateUserByAdmin(selectedUser._id || selectedUser.id || '', { isActive: false })
       toast.success(`🗑️ Đã vô hiệu hóa nhân viên ${selectedUser.name}`)
       setIsDeleteDialogOpen(false)
       setSelectedUser(null)
       fetchUsers()
     } catch (error) {
       console.error('[EmployeeManagement] delete error:', error)
-      const errorMessage = error.message || error.response?.data?.message || 'Không thể vô hiệu hóa nhân viên'
+      const err = error as ErrorWithMessage
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể vô hiệu hóa nhân viên'
       toast.error(errorMessage)
     }
   }
 
-  const handleSubmitEdit = async () => {
+  const handleSubmitEdit = async (): Promise<void> => {
     if (!selectedUser) return
 
     // Validation
-    const errors = {}
+    const errors: ValidationErrors = {}
 
     if (!formData.name || formData.name.trim().length === 0) {
       errors.name = 'Vui lòng nhập họ và tên'
@@ -189,7 +246,7 @@ const EmployeeManagementPage = () => {
     }
 
     try {
-      await updateUserByAdmin(selectedUser._id || selectedUser.id, formData)
+      await updateUserByAdmin(selectedUser._id || selectedUser.id || '', formData)
       toast.success(`✅ Đã cập nhật thông tin ${formData.name}`)
       setIsEditDialogOpen(false)
       setSelectedUser(null)
@@ -197,20 +254,21 @@ const EmployeeManagementPage = () => {
       fetchUsers()
     } catch (error) {
       console.error('[EmployeeManagement] update error:', error)
+      const err = error as ErrorWithMessage & { fieldErrors?: FieldErrors }
       
       // Xử lý 403 Forbidden - không có quyền
-      if (error.response?.status === 403) {
-        const errorMessage = error.message || error.response?.data?.message || 'Bạn không có quyền thực hiện thao tác này'
+      if ((err.response?.status as number) === 403) {
+        const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Bạn không có quyền thực hiện thao tác này'
         toast.error(errorMessage)
         return
       }
       
       // Xử lý validation errors từ backend
-      if (error.fieldErrors) {
-        const backendErrors = {}
-        Object.keys(error.fieldErrors).forEach(field => {
-          if (error.fieldErrors[field]?.[0]) {
-            backendErrors[field] = error.fieldErrors[field][0]
+      if (err.fieldErrors) {
+        const backendErrors: ValidationErrors = {}
+        Object.keys(err.fieldErrors).forEach(field => {
+          if (err.fieldErrors?.[field]?.[0]) {
+            backendErrors[field] = err.fieldErrors[field][0]
           }
         })
         if (Object.keys(backendErrors).length > 0) {
@@ -221,7 +279,7 @@ const EmployeeManagementPage = () => {
       }
       
       // Hiển thị error message từ backend hoặc message mặc định
-      const errorMessage = error.message || error.response?.data?.message || 'Không thể cập nhật thông tin'
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể cập nhật thông tin'
       toast.error(errorMessage)
     }
   }
@@ -265,30 +323,30 @@ const EmployeeManagementPage = () => {
     setCurrentPage(1)
   }, [searchTerm, roleFilter, statusFilter])
 
-  const getAvatarInitials = (name) => {
+  const getAvatarInitials = (name?: string): string => {
     if (!name) return 'U'
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 3)
   }
 
-  const canAssignRole = (targetRole) => {
+  const canAssignRole = (targetRole: UserRoleType): boolean => {
     if (!currentUser?.role) return false
-    return canManageRole(currentUser.role, targetRole)
+    return canManageRole(currentUser.role as UserRoleType, targetRole)
   }
 
   // Kiểm tra xem user hiện tại có quyền update user không
-  const canUpdateUser = () => {
+  const canUpdateUser = (): boolean => {
     if (!currentUser?.role) return false
     const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'HR_MANAGER']
     return allowedRoles.includes(currentUser.role)
   }
 
   // Kiểm tra xem user hiện tại có quyền thay đổi role không
-  const canChangeRole = () => {
+  const canChangeRole = (): boolean => {
     if (!currentUser?.role) return false
     return currentUser.role === 'ADMIN' || currentUser.role === 'SUPER_ADMIN'
   }
 
-  const stats = {
+  const stats: Stats = {
     total: usersList.length,
     active: usersList.filter(u => u.isActive !== false).length,
     admin: usersList.filter(u => u.role === UserRole.ADMIN || u.role === UserRole.SUPER_ADMIN).length,
@@ -466,7 +524,7 @@ const EmployeeManagementPage = () => {
                 <tbody>
                   {paginatedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="text-center py-12">
+                      <td colSpan={6} className="text-center py-12">
                         <p className="text-[var(--text-sub)]">Không có nhân viên nào</p>
                       </td>
                     </tr>
@@ -916,3 +974,5 @@ const EmployeeManagementPage = () => {
 }
 
 export default EmployeeManagementPage
+
+

@@ -8,6 +8,7 @@ import { Label } from '../ui/label'
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react'
 import { forgotPassword } from '../../services/authService'
 import { toast } from 'sonner'
+import type { ErrorWithMessage } from '../../types'
 
 export default function ForgotPassword() {
   const navigate = useNavigate()
@@ -27,8 +28,9 @@ export default function ForgotPassword() {
       } else {
         toast.error(response.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+    } catch (error) {
+      const err = error as ErrorWithMessage
+      toast.error(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
     } finally {
       setIsLoading(false)
     }

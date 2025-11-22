@@ -9,6 +9,7 @@ import { Checkbox } from '../ui/checkbox'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
+import type { ErrorWithMessage } from '../../types'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -40,8 +41,9 @@ export default function Login() {
       toast.success('Đăng nhập thành công')
       const nextRoute = getDefaultRouteByRole(data?.user?.role)
       navigate(nextRoute, { replace: true })
-    } catch (err: any) {
-      toast.error(err.message || 'Đăng nhập thất bại')
+    } catch (err) {
+      const error = err as ErrorWithMessage
+      toast.error(error.message || 'Đăng nhập thất bại')
     } finally {
       setIsLoading(false)
     }

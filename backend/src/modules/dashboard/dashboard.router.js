@@ -13,4 +13,9 @@ dashboardRouter.get(
   DashboardController.getDashboardStats
 );
 
+dashboardRouter.get("/summary", DashboardController.getDashboardSummary);
+
+dashboardRouter.get("/pending-actions", DashboardController.getPendingActions);
+
+
 

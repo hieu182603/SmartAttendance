@@ -9,6 +9,7 @@ import { Checkbox } from '../ui/checkbox'
 import { Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import { register as registerApi } from '../../services/authService'
 import { toast } from 'sonner'
+import type { ErrorWithMessage } from '../../types'
 
 interface FormData {
   fullName: string
@@ -63,8 +64,9 @@ export default function Register() {
       })
       toast.success('Đăng ký thành công! Vui lòng kiểm tra email để xác thực OTP.')
       navigate('/verify-otp', { state: { email: formData.email, purpose: 'register' } })
-    } catch (err: any) {
-      toast.error(err.message || 'Đăng ký thất bại')
+    } catch (err) {
+      const error = err as ErrorWithMessage
+      toast.error(error.message || 'Đăng ký thất bại')
     } finally {
       setIsLoading(false)
     }

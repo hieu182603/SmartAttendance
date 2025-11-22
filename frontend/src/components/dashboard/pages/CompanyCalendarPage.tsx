@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import type { ReactNode } from "react";
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -19,7 +20,23 @@ import { Calendar } from "../../ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { toast } from "sonner";
 
-const events = [
+type EventType = "holiday" | "meeting" | "event" | "deadline" | "training";
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  type: EventType;
+  location?: string;
+  attendees?: number;
+  color: string;
+  isAllDay?: boolean;
+}
+
+const events: Event[] = [
   {
     id: "EVT001",
     title: "Họp tổng kết quý 4",
@@ -103,9 +120,17 @@ const events = [
   },
 ];
 
-const CompanyCalendarPage = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [filterType, setFilterType] = useState("all");
+interface StatCard {
+  label: string;
+  value: number;
+  color: string;
+  icon: string;
+  delay: number;
+}
+
+const CompanyCalendarPage: React.FC = () => {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [filterType, setFilterType] = useState<string>("all");
 
   const filteredEvents = events.filter((event) => {
     if (filterType !== "all" && event.type !== filterType) return false;
@@ -131,7 +156,7 @@ const CompanyCalendarPage = () => {
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const getTypeLabel = (type) => {
+  const getTypeLabel = (type: EventType): string => {
     switch (type) {
       case "holiday":
         return "Ngày lễ";
@@ -148,7 +173,7 @@ const CompanyCalendarPage = () => {
     }
   };
 
-  const getTypeIcon = (type) => {
+  const getTypeIcon = (type: EventType): ReactNode => {
     switch (type) {
       case "holiday":
         return <CalendarIcon className="h-4 w-4" />;
@@ -165,13 +190,46 @@ const CompanyCalendarPage = () => {
     }
   };
 
-  const handleCreateEvent = () => {
+  const handleCreateEvent = (): void => {
     toast.success("📅 Tạo sự kiện mới");
   };
 
-  const handleViewEvent = (event) => {
+  const handleViewEvent = (event: Event): void => {
     toast.success(`👁️ Xem chi tiết: ${event.title}`);
   };
+
+  const statCards: StatCard[] = [
+    {
+      label: "Tổng sự kiện",
+      value: filteredEvents.length,
+      color: "primary",
+      icon: "📋",
+      delay: 0.1,
+    },
+    {
+      label: "Sắp tới (7 ngày)",
+      value: upcomingEvents.length,
+      color: "warning",
+      icon: "⏰",
+      delay: 0.2,
+    },
+    {
+      label: "Ngày lễ",
+      value: events.filter((e) => e.type === "holiday").length,
+      color: "error",
+      icon: "🎉",
+      delay: 0.3,
+    },
+    {
+      label: "Họp & Đào tạo",
+      value: events.filter(
+        (e) => e.type === "meeting" || e.type === "training"
+      ).length,
+      color: "accent-cyan",
+      icon: "👥",
+      delay: 0.4,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -212,38 +270,7 @@ const CompanyCalendarPage = () => {
 
       {/* Summary Stats - 4 KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          {
-            label: "Tổng sự kiện",
-            value: filteredEvents.length,
-            color: "primary",
-            icon: "📋",
-            delay: 0.1,
-          },
-          {
-            label: "Sắp tới (7 ngày)",
-            value: upcomingEvents.length,
-            color: "warning",
-            icon: "⏰",
-            delay: 0.2,
-          },
-          {
-            label: "Ngày lễ",
-            value: events.filter((e) => e.type === "holiday").length,
-            color: "error",
-            icon: "🎉",
-            delay: 0.3,
-          },
-          {
-            label: "Họp & Đào tạo",
-            value: events.filter(
-              (e) => e.type === "meeting" || e.type === "training"
-            ).length,
-            color: "accent-cyan",
-            icon: "👥",
-            delay: 0.4,
-          },
-        ].map((stat, index) => (
+        {statCards.map((stat, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, scale: 0.9 }}
@@ -329,10 +356,10 @@ const CompanyCalendarPage = () => {
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={setSelectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
                 className="rounded-md w-full p-0"
                 month={selectedDate}
-                onMonthChange={setSelectedDate}
+                onMonthChange={(date) => setSelectedDate(date)}
               />
 
               {/* Selected Date Info */}
@@ -589,3 +616,5 @@ const CompanyCalendarPage = () => {
 };
 
 export default CompanyCalendarPage;
+
+

@@ -64,6 +64,52 @@ const deriveStatus = (doc) => {
   return "ontime";
 };
 
+export const getRecentAttendance = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const limit = parseInt(req.query.limit) || 5;
+
+    const docs = await AttendanceModel.find({ userId })
+      .populate("locationId")
+      .sort({ date: -1 })
+      .limit(limit);
+
+    const data = docs.map((doc) => {
+      const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      return {
+        date: dayLabel,
+        checkIn: doc.checkIn
+          ? new Date(doc.checkIn).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : null,
+        checkOut: doc.checkOut
+          ? new Date(doc.checkOut).toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : null,
+        status: doc.status || "absent",
+        location: doc.locationId?.name || null,
+      };
+    });
+
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error("[attendance] recent error", error);
+    return res.status(500).json({
+      message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+    });
+  }
+};
+
 export const getAttendanceHistory = async (req, res) => {
   try {
     const userId = req.user.userId;

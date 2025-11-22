@@ -4,6 +4,7 @@ import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireRole, ROLES } from "../../middleware/role.middleware.js";
 import {
   getAttendanceHistory,
+  getRecentAttendance,
   checkIn,
   getAttendanceAnalytics,
   getAllAttendance,
@@ -15,6 +16,7 @@ export const attendanceRouter = Router();
 attendanceRouter.use(authMiddleware);
 
 attendanceRouter.get("/history", getAttendanceHistory);
+attendanceRouter.get("/recent", getRecentAttendance);
 attendanceRouter.post("/checkin", upload.single("photo"), checkIn);
 
 attendanceRouter.get(

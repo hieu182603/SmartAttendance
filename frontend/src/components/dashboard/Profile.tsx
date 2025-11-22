@@ -38,18 +38,78 @@ import { toast } from "sonner";
 import { updateUserProfile, changePassword } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
+import type { User as UserType } from "../../types";
+import type { ErrorWithMessage } from "../../types";
 
-export function Profile({ role, user }) {
+interface ProfileProps {
+  role?: string;
+  user?: UserType & {
+    phone?: string;
+    address?: string;
+    birthday?: string;
+    department?: string;
+    createdAt?: string;
+    avatarUrl?: string;
+    bankAccount?: string;
+    bankName?: string;
+    leaveBalance?: {
+      annual?: {
+        used: number;
+        total: number;
+      };
+    };
+  };
+}
+
+interface ProfileData {
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+  birthday: string;
+  department: string;
+  position: string;
+  joinDate: string;
+  employeeId: string;
+  bankAccount: string;
+  bankName: string;
+}
+
+interface PasswordData {
+  current: string;
+  new: string;
+  confirm: string;
+}
+
+interface ShowPassword {
+  current: boolean;
+  new: boolean;
+  confirm: boolean;
+}
+
+interface PasswordErrors {
+  current: string;
+  new: string;
+  confirm: string;
+}
+
+interface Notifications {
+  email: boolean;
+  push: boolean;
+  sms: boolean;
+}
+
+export function Profile({ role, user }: ProfileProps): React.JSX.Element {
   const { setUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
-  const [notifications, setNotifications] = useState({
+  const [notifications, setNotifications] = useState<Notifications>({
     email: true,
     push: true,
     sms: false,
   });
 
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<ProfileData>({
     fullName: "",
     email: "",
     phone: "",
@@ -93,25 +153,25 @@ export function Profile({ role, user }) {
     }
   }, [user, role]);
 
-  const [passwordData, setPasswordData] = useState({
+  const [passwordData, setPasswordData] = useState<PasswordData>({
     current: "",
     new: "",
     confirm: "",
   });
 
-  const [showPassword, setShowPassword] = useState({
+  const [showPassword, setShowPassword] = useState<ShowPassword>({
     current: false,
     new: false,
     confirm: false,
   });
 
-  const [passwordErrors, setPasswordErrors] = useState({
+  const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({
     current: "",
     new: "",
     confirm: "",
   });
 
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = async (): Promise<void> => {
     try {
       const updateData = {
         name: profile.fullName,
@@ -130,11 +190,12 @@ export function Profile({ role, user }) {
         toast.success("Cập nhật thông tin thành công!");
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Cập nhật thông tin thất bại");
+      const err = error as ErrorWithMessage;
+      toast.error(err.response?.data?.message || "Cập nhật thông tin thất bại");
     }
   };
 
-  const handleChangePassword = async () => {
+  const handleChangePassword = async (): Promise<void> => {
     // Reset errors
     setPasswordErrors({ current: "", new: "", confirm: "" });
 
@@ -173,7 +234,8 @@ export function Profile({ role, user }) {
       setPasswordErrors({ current: "", new: "", confirm: "" });
     } catch (error) {
       // API interceptor wraps error, so check both error.message and error.response
-      const errorMessage = error.message || error.response?.data?.message || "Đổi mật khẩu thất bại";
+      const err = error as ErrorWithMessage;
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || "Đổi mật khẩu thất bại";
 
       console.log("Error caught:", error);
       console.log("Error message:", errorMessage);
@@ -193,7 +255,7 @@ export function Profile({ role, user }) {
     }
   };
 
-  const handleAvatarUpload = (e) => {
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (file) {
       // Upload avatar logic
@@ -844,4 +906,5 @@ export function Profile({ role, user }) {
     </div>
   );
 }
+
 

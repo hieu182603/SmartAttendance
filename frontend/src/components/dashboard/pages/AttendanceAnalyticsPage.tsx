@@ -28,11 +28,58 @@ import {
 } from 'recharts'
 import { getAttendanceAnalytics, exportAttendanceAnalytics } from '../../../services/attendanceService'
 
-const AttendanceAnalyticsPage = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('7days')
-  const [selectedDepartment, setSelectedDepartment] = useState('all')
+type Period = '7days' | '30days' | '90days'
+
+interface DailyData {
+  date: string
+  present: number
+  late: number
+  absent: number
+}
+
+interface DepartmentStat {
+  department: string
+  onTime: number
+  late: number
+  absent: number
+}
+
+interface TopPerformer {
+  name: string
+  avgCheckIn: string
+  onTime: number
+  late: number
+  absent: number
+  punctuality: number
+}
+
+interface Summary {
+  attendanceRate: number
+  avgPresent: number
+  avgLate: number
+  avgAbsent: number
+  trend: number
+  totalEmployees: number
+}
+
+interface AnalyticsData {
+  dailyData: DailyData[]
+  departmentStats: DepartmentStat[]
+  topPerformers: TopPerformer[]
+  summary: Summary
+}
+
+interface AnalyticsParams {
+  from?: string
+  to?: string
+  department?: string
+}
+
+const AttendanceAnalyticsPage: React.FC = () => {
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>('7days')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState({
+  const [data, setData] = useState<AnalyticsData>({
     dailyData: [],
     departmentStats: [],
     topPerformers: [],
@@ -50,7 +97,7 @@ const AttendanceAnalyticsPage = () => {
   const fetchAnalytics = useCallback(async () => {
     setLoading(true)
     try {
-      const params = {}
+      const params: AnalyticsParams = {}
       const today = new Date()
       const from = new Date()
 
@@ -69,7 +116,7 @@ const AttendanceAnalyticsPage = () => {
         params.department = selectedDepartment
       }
 
-      const result = await getAttendanceAnalytics(params)
+      const result = await getAttendanceAnalytics(params) as AnalyticsData
       if (result) {
         setData({
           dailyData: result.dailyData || [],
@@ -94,9 +141,9 @@ const AttendanceAnalyticsPage = () => {
   }, [fetchAnalytics])
 
 
-  const handleExport = async () => {
+  const handleExport = async (): Promise<void> => {
     try {
-      const params = {}
+      const params: AnalyticsParams = {}
       const today = new Date()
       const from = new Date()
 
@@ -139,7 +186,7 @@ const AttendanceAnalyticsPage = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+          <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as Period)}>
             <SelectTrigger className="w-[150px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
               <SelectValue placeholder="7 ngày qua" />
             </SelectTrigger>
@@ -429,3 +476,5 @@ const AttendanceAnalyticsPage = () => {
 }
 
 export default AttendanceAnalyticsPage
+
+

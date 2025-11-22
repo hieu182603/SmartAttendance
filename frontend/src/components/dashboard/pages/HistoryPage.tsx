@@ -8,7 +8,21 @@ import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
 import { getAttendanceHistory } from '../../../services/attendanceService'
 
-const getStatusBadge = (status) => {
+type AttendanceStatus = 'ontime' | 'late' | 'absent' | 'overtime' | 'weekend'
+
+interface AttendanceRecord {
+  id?: string
+  date: string
+  day: string
+  checkIn: string
+  checkOut: string
+  hours: string
+  location: string
+  status: AttendanceStatus
+  notes: string
+}
+
+const getStatusBadge = (status: AttendanceStatus): React.JSX.Element | null => {
   switch (status) {
     case 'ontime':
       return <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">Đúng giờ</Badge>
@@ -25,8 +39,8 @@ const getStatusBadge = (status) => {
   }
 }
 
-const HistoryPage = () => {
-  const [records, setRecords] = useState([])
+const HistoryPage: React.FC = () => {
+  const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -42,13 +56,14 @@ const HistoryPage = () => {
         const data = await getAttendanceHistory({
           from: dateFrom || undefined,
           to: dateTo || undefined,
-        })
+        }) as AttendanceRecord[]
         if (isMounted) {
           setRecords(data)
         }
       } catch (err) {
         if (isMounted) {
-          setError(err.message || 'Không thể tải dữ liệu')
+          const error = err as Error
+          setError(error.message || 'Không thể tải dữ liệu')
         }
       } finally {
         if (isMounted) {
@@ -219,7 +234,7 @@ const HistoryPage = () => {
                 )}
                 {!loading && !error && filteredData.map((record, index) => (
                   <tr 
-                    key={record.id} 
+                    key={record.id || index} 
                     className={`border-b border-[var(--border)] hover:bg-[var(--shell)] transition-colors ${
                       index % 2 === 0 ? 'bg-[var(--shell)]/50' : ''
                     }`}
@@ -244,3 +259,5 @@ const HistoryPage = () => {
 }
 
 export default HistoryPage
+
+

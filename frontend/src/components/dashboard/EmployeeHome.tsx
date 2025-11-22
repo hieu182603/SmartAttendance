@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import {
   QrCode,
   MapPin,
@@ -15,7 +16,9 @@ import { Badge } from "../ui/badge";
 import { useDashboardData } from "../../hooks/useDashboardData";
 import { useNavigate } from "react-router-dom";
 
-const getStatusBadge = (status) => {
+type AttendanceStatus = "ontime" | "late" | "absent" | "unknown";
+
+const getStatusBadge = (status: AttendanceStatus): React.JSX.Element | null => {
   switch (status) {
     case "ontime":
       return (
@@ -40,7 +43,15 @@ const getStatusBadge = (status) => {
   }
 };
 
-const infoCards = [
+interface InfoCard {
+  icon: LucideIcon;
+  color: string;
+  label: string;
+  key: "shift" | "location" | "workingDays";
+  delay: number;
+}
+
+const infoCards: InfoCard[] = [
   {
     icon: Clock,
     color: "accent-cyan",
@@ -64,16 +75,24 @@ const infoCards = [
   },
 ];
 
-const formatWorkingDays = (value) => {
+const formatWorkingDays = (value: string | number | { used: number; total: number } | null): string => {
   if (!value) return "—";
   if (typeof value === "string") return value;
   if (typeof value === "object" && value.used != null && value.total != null) {
     return `${value.used}/${value.total} ngày`;
   }
-  return value;
+  return String(value);
 };
 
-export const DashboardOverview = () => {
+interface AttendanceRow {
+  date: string;
+  checkIn: string;
+  checkOut: string;
+  status: AttendanceStatus;
+  location: string;
+}
+
+export const EmployeeHome: React.FC = () => {
   const navigate = useNavigate();
   const { summary, recentAttendance, loading, error } = useDashboardData();
   const currentTime = new Date().toLocaleTimeString("vi-VN", {
@@ -87,7 +106,7 @@ export const DashboardOverview = () => {
     day: "numeric",
   });
 
-  const attendanceRows = useMemo(() => {
+  const attendanceRows = useMemo<AttendanceRow[]>(() => {
     if (!Array.isArray(recentAttendance) || recentAttendance.length === 0) {
       return [];
     }
@@ -95,7 +114,7 @@ export const DashboardOverview = () => {
       date: record?.date ?? "—",
       checkIn: record?.checkIn ?? "—",
       checkOut: record?.checkOut ?? "—",
-      status: record?.status ?? "unknown",
+      status: (record?.status ?? "unknown") as AttendanceStatus,
       location: record?.location ?? "—",
     }));
   }, [recentAttendance]);
@@ -118,8 +137,6 @@ export const DashboardOverview = () => {
       {errorState}
 
       {/* Welcome Section */}
-
-      {/*Mở 1 */}
       <motion.div
         className="bg-gradient-to-r from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--success)] rounded-2xl p-8 text-white relative overflow-hidden animate-gradient"
         initial={{ opacity: 0, y: -20 }}
@@ -127,7 +144,6 @@ export const DashboardOverview = () => {
         transition={{ duration: 0.6 }}
       >
         {/* Floating particles */}
-        {/* Mở 2 */}
         <motion.div
           className="absolute top-4 right-4 text-2xl"
           animate={{
@@ -142,9 +158,7 @@ export const DashboardOverview = () => {
         >
           ✨
         </motion.div>
-        {/* Đóng 2 */}
 
-        {/* Mở 3 */}
         <motion.div
           className="absolute bottom-4 left-4 text-2xl"
           animate={{
@@ -159,10 +173,8 @@ export const DashboardOverview = () => {
         >
           🌟
         </motion.div>
-        {/* Đóng 3 */}
 
         <div className="flex items-center justify-between relative z-10">
-          {/* Mở 4 */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -171,16 +183,13 @@ export const DashboardOverview = () => {
             <h1 className="text-3xl mb-2">Chào buổi sáng! 👋</h1>
             <p className="opacity-90">{currentDate}</p>
           </motion.div>
-          {/* Đóng 4 */}
 
-          {/* Mở 5 */}
           <motion.div
             className="text-right"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
           >
-            {/* Mỏ 6 */}
             <motion.div
               className="text-5xl"
               animate={{ scale: [1, 1.05, 1] }}
@@ -188,23 +197,19 @@ export const DashboardOverview = () => {
             >
               {currentTime}
             </motion.div>
-            {/* Đóng 6 */}
 
             <p className="opacity-90 mt-2">
               Ca:{" "}
-              {summary.shift?.timeRange ||
-                summary.shift?.label ||
-                summary.shift ||
+              {(summary.shift as { timeRange?: string; label?: string })?.timeRange ||
+                (summary.shift as { timeRange?: string; label?: string })?.label ||
+                (summary.shift as string) ||
                 "08:00 - 17:00"}
             </p>
           </motion.div>
-          {/* Đóng 5 */}
         </div>
       </motion.div>
-      {/* Đóng 1 */}
 
       {/* Check-in CTA */}
-      {/* Mở 6 */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -262,15 +267,15 @@ export const DashboardOverview = () => {
           </CardContent>
         </Card>
       </motion.div>
-      {/* Đóng 6 */}
 
       {/* Today's Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ">
         {infoCards.map((item) => {
+          const summaryValue = summary[item.key];
           const value =
             item.key === "workingDays"
-              ? formatWorkingDays(summary[item.key])
-              : summary[item.key]?.name || summary[item.key] || "—";
+              ? formatWorkingDays(summaryValue)
+              : (summaryValue as { name?: string })?.name || (summaryValue as string) || "—";
 
           return (
             <motion.div
@@ -464,4 +469,6 @@ export const DashboardOverview = () => {
   );
 };
 
-export default DashboardOverview;
+export default EmployeeHome;
+
+

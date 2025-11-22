@@ -8,13 +8,14 @@ import { Mail, ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
 import { resendOtp, verifyOtp, verifyResetOtp } from '../../services/authService'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
+import type { ErrorWithMessage, LocationState } from '../../types'
 
 export default function VerifyOtp() {
   const location = useLocation()
   const navigate = useNavigate()
   const { setToken, setUser } = useAuth()
-  const emailFromState = (location.state as any)?.email || ''
-  const purposeFromState = (location.state as any)?.purpose || 'register' // 'register' or 'reset'
+  const emailFromState = (location.state as LocationState)?.email || ''
+  const purposeFromState = (location.state as LocationState)?.purpose || 'register' // 'register' or 'reset'
   const [email, setEmail] = useState(emailFromState)
   const [purpose] = useState(purposeFromState)
   const [otp, setOtp] = useState('')
@@ -67,8 +68,9 @@ export default function VerifyOtp() {
           setOtp('')
         }
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Xác thực OTP thất bại')
+    } catch (err) {
+      const error = err as ErrorWithMessage
+      toast.error(error.message || 'Xác thực OTP thất bại')
       setOtp('')
     } finally {
       setIsLoading(false)
@@ -85,8 +87,9 @@ export default function VerifyOtp() {
       setCountdown(60)
       setCanResend(false)
       setOtp('')
-    } catch (err: any) {
-      toast.error(err.message || 'Gửi lại OTP thất bại')
+    } catch (err) {
+      const error = err as ErrorWithMessage
+      toast.error(error.message || 'Gửi lại OTP thất bại')
     } finally {
       setIsLoading(false)
     }
