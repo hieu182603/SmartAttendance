@@ -15,3 +15,34 @@ export const changePassword = async (currentPassword, newPassword) => {
   })).data
 }
 
+// Admin/HR Manager functions
+export const getAllUsers = async (params = {}) => {
+  try {
+    const { data } = await api.get('/users', { params })
+    return data
+  } catch (error) {
+    console.error('[userService] getAllUsers error:', error)
+    throw error
+  }
+}
+
+export const getUserById = async (id) => {
+  try {
+    const { data } = await api.get(`/users/${id}`)
+    return data
+  } catch (error) {
+    console.error('[userService] getUserById error:', error)
+    throw error
+  }
+}
+
+export const updateUserByAdmin = async (id, userData) => {
+  try {
+    const { data } = await api.put(`/users/${id}`, userData)
+    return data
+  } catch (error) {
+    console.error('[userService] updateUserByAdmin error:', error)
+    throw error
+  }
+}
+
