@@ -13,10 +13,19 @@ const buildDuration = (startDate, endDate) => {
 }
 
 const getTitleByType = (type) => {
-  if (type === 'leave') return 'Nghỉ phép'
-  if (type === 'overtime') return 'Tăng ca'
-  if (type === 'correction') return 'Sửa công'
-  return 'Yêu cầu'
+  const typeMap = {
+    'leave': 'Nghỉ phép',
+    'sick': 'Nghỉ ốm',
+    'unpaid': 'Nghỉ không lương',
+    'compensatory': 'Nghỉ bù',
+    'maternity': 'Nghỉ thai sản',
+    'overtime': 'Tăng ca',
+    'remote': 'Làm từ xa',
+    'late': 'Đi muộn',
+    'correction': 'Sửa công',
+    'other': 'Yêu cầu khác'
+  }
+  return typeMap[type] || 'Yêu cầu'
 }
 
 export const getMyRequests = async (req, res) => {
@@ -39,6 +48,8 @@ export const getMyRequests = async (req, res) => {
       duration: buildDuration(doc.startDate, doc.endDate),
       status: doc.status,
       reason: doc.reason,
+      description: doc.description || doc.reason,
+      urgency: doc.urgency || 'medium',
       createdAt: formatDate(doc.createdAt),
     }))
 
@@ -52,7 +63,7 @@ export const getMyRequests = async (req, res) => {
 export const createRequest = async (req, res) => {
   try {
     const userId = req.user.userId
-    const { type, startDate, endDate, reason } = req.body
+    const { type, startDate, endDate, reason, description, urgency } = req.body
 
     if (!type || !startDate || !endDate || !reason) {
       return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' })
@@ -64,6 +75,8 @@ export const createRequest = async (req, res) => {
       startDate,
       endDate,
       reason,
+      description: description || reason,
+      urgency: urgency || 'medium',
     })
 
     res.status(201).json({
@@ -131,7 +144,14 @@ export const getAllRequests = async (req, res) => {
 
     const [docs, total] = await Promise.all([
       RequestModel.find(query)
-        .populate('userId', 'name email department branch role')
+        .populate({
+          path: 'userId',
+          select: 'name email department branch role',
+          populate: {
+            path: 'branch',
+            select: 'name'
+          }
+        })
         .populate('approvedBy', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -147,7 +167,7 @@ export const getAllRequests = async (req, res) => {
       employeeName: doc.userId?.name || 'N/A',
       employeeEmail: doc.userId?.email || 'N/A',
       department: doc.userId?.department || 'N/A',
-      branch: doc.userId?.branch?.toString() || 'N/A',
+      branch: doc.userId?.branch?.name || doc.userId?.branch?.toString() || 'N/A',
       type: doc.type,
       title: getTitleByType(doc.type),
       startDate: formatDate(doc.startDate),
@@ -155,10 +175,12 @@ export const getAllRequests = async (req, res) => {
       duration: buildDuration(doc.startDate, doc.endDate),
       status: doc.status,
       reason: doc.reason,
+      description: doc.description || doc.reason,
+      urgency: doc.urgency || 'medium',
       submittedAt: doc.createdAt ? new Date(doc.createdAt).toLocaleString('vi-VN') : 'N/A',
       approver: doc.approvedBy?.name || undefined,
       approvedAt: doc.approvedAt ? new Date(doc.approvedAt).toLocaleString('vi-VN') : undefined,
-      comments: doc.rejectionReason || undefined,
+      comments: doc.status === 'approved' ? (doc.approvalComments || undefined) : (doc.rejectionReason || undefined),
     }))
 
     res.json({
@@ -194,10 +216,7 @@ export const approveRequest = async (req, res) => {
       return res.status(400).json({ message: 'Yêu cầu đã được xử lý' })
     }
 
-    request.approve(approverId)
-    if (comments) {
-      request.rejectionReason = undefined
-    }
+    request.approve(approverId, comments)
     await request.save()
 
     const NotificationService = (await import('../notifications/notification.service.js')).NotificationService

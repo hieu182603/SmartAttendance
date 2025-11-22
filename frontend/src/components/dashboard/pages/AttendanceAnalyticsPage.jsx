@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart3,
@@ -26,6 +26,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts'
+import { getAttendanceAnalytics, exportAttendanceAnalytics } from '../../../services/attendanceService'
 
 const AttendanceAnalyticsPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('7days')
@@ -45,10 +46,52 @@ const AttendanceAnalyticsPage = () => {
     }
   })
 
-  // TODO: Thêm API call để fetch analytics
-  useEffect(() => {
-    // fetchAnalytics()
+  // Fetch analytics data from API
+  const fetchAnalytics = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = {}
+      const today = new Date()
+      const from = new Date()
+
+      if (selectedPeriod === '7days') {
+        from.setDate(today.getDate() - 7)
+      } else if (selectedPeriod === '30days') {
+        from.setDate(today.getDate() - 30)
+      } else if (selectedPeriod === '90days') {
+        from.setDate(today.getDate() - 90)
+      }
+
+      params.from = from.toISOString().split('T')[0]
+      params.to = today.toISOString().split('T')[0]
+
+      if (selectedDepartment !== 'all') {
+        params.department = selectedDepartment
+      }
+
+      const result = await getAttendanceAnalytics(params)
+      if (result) {
+        setData({
+          dailyData: result.dailyData || [],
+          departmentStats: result.departmentStats || [],
+          topPerformers: result.topPerformers || [],
+          summary: {
+            ...result.summary,
+            totalEmployees: result.summary?.totalEmployees || 150
+          }
+        })
+      }
+    } catch (error) {
+      console.error('[AttendanceAnalytics] fetch error:', error)
+      toast.error('Không thể tải dữ liệu phân tích')
+    } finally {
+      setLoading(false)
+    }
   }, [selectedPeriod, selectedDepartment])
+
+  useEffect(() => {
+    fetchAnalytics()
+  }, [fetchAnalytics])
 
 
   const handleExport = async () => {
@@ -72,11 +115,9 @@ const AttendanceAnalyticsPage = () => {
         params.department = selectedDepartment
       }
 
-      // TODO: Gọi API export ở đây
-      // toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
-      // await exportAttendanceAnalytics(params)
-      // toast.success('✅ Đã xuất báo cáo thành công!', { id: 'export' })
-      toast.info('Chức năng xuất báo cáo đang được phát triển')
+      toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
+      await exportAttendanceAnalytics(params)
+      toast.success('✅ Đã xuất báo cáo thành công!', { id: 'export' })
     } catch (error) {
       toast.error('❌ Không thể xuất báo cáo', { id: 'export' })
     }
@@ -193,14 +234,19 @@ const AttendanceAnalyticsPage = () => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Daily Trend */}
-        <Card className="bg-[var(--surface)] border-[var(--border)]">
-          <CardHeader>
-            <CardTitle className="text-[var(--text-main)]">Xu hướng hàng ngày</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+      {loading ? (
+        <div className="text-center py-12">
+          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Daily Trend */}
+          <Card className="bg-[var(--surface)] border-[var(--border)]">
+            <CardHeader>
+              <CardTitle className="text-[var(--text-main)]">Xu hướng hàng ngày</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
               <LineChart data={dailyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="date" stroke="var(--text-sub)" />
@@ -249,7 +295,8 @@ const AttendanceAnalyticsPage = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       {/* Department Details */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">

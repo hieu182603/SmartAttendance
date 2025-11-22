@@ -168,9 +168,6 @@ export const DashboardOverview = () => {
             <div>
               <div className="flex items-center space-x-3 mb-2">
                 <h1 className="text-4xl font-bold drop-shadow-md">{welcomeMsg.greeting}</h1>
-                <Badge className={`${roleInfo.bg} ${roleInfo.text} border-white/30 font-semibold`}>
-                  {roleName}
-                </Badge>
               </div>
               <p className="text-lg font-medium drop-shadow-sm">{welcomeMsg.subtitle}</p>
               <p className="text-sm opacity-90 mt-2 drop-shadow-sm">
