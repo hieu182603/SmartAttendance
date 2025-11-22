@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
 import {
   CheckCircle2,
   XCircle,
@@ -37,20 +38,65 @@ import {
   SelectValue,
 } from "../../ui/select";
 import { getMyRequests, createRequest as createRequestApi } from "../../../services/requestService";
+import type { ErrorWithMessage } from "../../../types";
 
-const RequestsPage = () => {
-  const [requests, setRequests] = useState([]);
-  const [selectedTab, setSelectedTab] = useState("pending");
+type RequestStatus = "pending" | "approved" | "rejected";
+type RequestType = "leave" | "overtime" | "remote" | "correction";
+type ActionType = "approve" | "reject" | null;
+type Urgency = "high" | "medium" | "low";
+
+interface Request {
+  id: string;
+  status: RequestStatus;
+  type: RequestType;
+  employeeName?: string;
+  title?: string;
+  description?: string;
+  reason?: string;
+  department?: string;
+  branch?: string;
+  startDate?: string;
+  endDate?: string;
+  date?: string;
+  duration?: string;
+  urgency?: Urgency;
+  submittedAt?: string;
+  createdAt?: string;
+  approver?: string;
+  approvedAt?: string;
+  comments?: string;
+}
+
+interface DateRange {
+  start: string;
+  end: string;
+}
+
+interface Stats {
+  pending: number;
+  approved: number;
+  rejected: number;
+  total: number;
+}
+
+interface TypeIconLabel {
+  icon: ReactNode;
+  label: string;
+}
+
+const RequestsPage: React.FC = () => {
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [selectedTab, setSelectedTab] = useState<string>("pending");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState("all");
-  const [filterDepartment, setFilterDepartment] = useState("all");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState(null);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [requestType, setRequestType] = useState("");
+  const [actionType, setActionType] = useState<ActionType>(null);
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [requestType, setRequestType] = useState<string>("");
   const [requestReason, setRequestReason] = useState("");
-  const [requestDateRange, setRequestDateRange] = useState({
+  const [requestDateRange, setRequestDateRange] = useState<DateRange>({
     start: "",
     end: "",
   });
@@ -63,12 +109,13 @@ const RequestsPage = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const data = await getMyRequests();
+        const data = await getMyRequests() as Request[];
         if (isMounted) {
           setRequests(data);
         }
       } catch (error) {
-        toast.error(error.message || "Không thể tải yêu cầu");
+        const err = error as ErrorWithMessage;
+        toast.error(err.message || "Không thể tải yêu cầu");
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -81,7 +128,7 @@ const RequestsPage = () => {
     };
   }, []);
 
-  const stats = useMemo(() => {
+  const stats = useMemo<Stats>(() => {
     return {
       pending: requests.filter((r) => r.status === "pending").length,
       approved: requests.filter((r) => r.status === "approved").length,
@@ -90,7 +137,7 @@ const RequestsPage = () => {
     };
   }, [requests]);
 
-  const applyFilters = (tabValue) => {
+  const applyFilters = (tabValue: string): Request[] => {
     return requests.filter((req) => {
       if (tabValue !== "all" && req.status !== tabValue) return false;
       if (
@@ -108,7 +155,7 @@ const RequestsPage = () => {
     });
   };
 
-  const handleCreateRequest = async () => {
+  const handleCreateRequest = async (): Promise<void> => {
     if (!requestType || !requestReason || !requestDateRange.start) {
       toast.error("Vui lòng điền đầy đủ thông tin đơn yêu cầu");
       return;
@@ -122,7 +169,7 @@ const RequestsPage = () => {
         endDate: requestDateRange.end || requestDateRange.start,
         reason: requestReason.trim(),
       };
-      const newRequest = await createRequestApi(payload);
+      const newRequest = await createRequestApi(payload) as Request;
       setRequests((prev) => [newRequest, ...prev]);
       setIsCreateDialogOpen(false);
       setRequestType("");
@@ -130,20 +177,21 @@ const RequestsPage = () => {
       setRequestDateRange({ start: "", end: "" });
       toast.success("Đơn yêu cầu đã được gửi!");
     } catch (error) {
-      toast.error(error.message || "Không thể gửi yêu cầu");
+      const err = error as ErrorWithMessage;
+      toast.error(err.message || "Không thể gửi yêu cầu");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleOpenActionDialog = (request, action) => {
+  const handleOpenActionDialog = (request: Request, action: ActionType): void => {
     setSelectedRequest(request);
     setActionType(action);
     setComments("");
     setIsActionDialogOpen(true);
   };
 
-  const handleSubmitAction = () => {
+  const handleSubmitAction = (): void => {
     if (!selectedRequest || !actionType) return;
 
     const updatedRequests = requests.map((req) => {
@@ -172,7 +220,7 @@ const RequestsPage = () => {
     );
   };
 
-  const getTypeIconLabel = (type) => {
+  const getTypeIconLabel = (type: RequestType): TypeIconLabel => {
     switch (type) {
       case "leave":
         return { icon: <Moon className="h-4 w-4" />, label: "Nghỉ phép" };
@@ -186,7 +234,7 @@ const RequestsPage = () => {
     }
   };
 
-  const getBadgeColor = (type) => {
+  const getBadgeColor = (type: RequestType): string => {
     switch (type) {
       case "leave":
         return "bg-blue-500/20 text-blue-500";
@@ -199,7 +247,7 @@ const RequestsPage = () => {
     }
   };
 
-  const getUrgencyColor = (urgency) => {
+  const getUrgencyColor = (urgency?: Urgency): string => {
     switch (urgency) {
       case "high":
         return "bg-red-500/20 text-red-500";
@@ -212,7 +260,7 @@ const RequestsPage = () => {
     }
   };
 
-  const renderRequests = (tabValue) => {
+  const renderRequests = (tabValue: string): ReactNode => {
     const data = applyFilters(tabValue);
 
     if (loading) {
@@ -603,3 +651,5 @@ const RequestsPage = () => {
 };
 
 export default RequestsPage;
+
+

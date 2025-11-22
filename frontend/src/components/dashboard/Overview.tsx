@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Sparkles, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { UserRole, getRoleName, getRoleColor } from "../../utils/roles";
+import { UserRole, type UserRoleType, getRoleName, getRoleColor } from "../../utils/roles";
 import { getDashboardStats } from "../../services/dashboardService";
 import { toast } from "sonner";
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   BarChart,
@@ -22,9 +21,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+interface WelcomeMessage {
+  greeting: string;
+  subtitle: string;
+  icon: LucideIcon;
+  gradient: string;
+}
 
 // Role-based welcome messages
-const getRoleWelcomeMessage = (role) => {
+const getRoleWelcomeMessage = (role: UserRoleType): WelcomeMessage => {
   switch (role) {
     case UserRole.SUPER_ADMIN:
       return {
@@ -64,17 +69,46 @@ const getRoleWelcomeMessage = (role) => {
   }
 };
 
-export const DashboardOverview = () => {
+interface KPIData {
+  totalEmployees: number;
+  presentToday: number;
+  lateToday: number;
+  absentToday: number;
+}
+
+interface AttendanceDataPoint {
+  date: string;
+  present?: number;
+  late?: number;
+  absent?: number;
+  [key: string]: unknown;
+}
+
+interface DashboardStats {
+  kpi: KPIData;
+  attendanceData: AttendanceDataPoint[];
+  growthPercentage: number;
+}
+
+interface KPICard {
+  title: string;
+  value: string;
+  icon: LucideIcon;
+  color: string;
+  bgColor: string;
+}
+
+export const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const userRole = user?.role || UserRole.MANAGER;
+  const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.MANAGER;
   const roleInfo = getRoleColor(userRole);
   const roleName = getRoleName(userRole);
   const welcomeMsg = getRoleWelcomeMessage(userRole);
   const WelcomeIcon = welcomeMsg.icon;
 
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState({
+  const [dashboardData, setDashboardData] = useState<DashboardStats>({
     kpi: {
       totalEmployees: 0,
       presentToday: 0,
@@ -89,7 +123,7 @@ export const DashboardOverview = () => {
     const fetchDashboardStats = async () => {
       setLoading(true);
       try {
-        const data = await getDashboardStats();
+        const data = await getDashboardStats() as DashboardStats;
         setDashboardData(data);
       } catch (error) {
         console.error("[DashboardOverview] fetch error:", error);
@@ -119,7 +153,7 @@ export const DashboardOverview = () => {
   });
 
   // Prepare KPI data from API - đảm bảo luôn có giá trị mặc định
-  const kpiData = [
+  const kpiData: KPICard[] = [
     {
       title: "Tổng nhân viên",
       value: (dashboardData?.kpi?.totalEmployees ?? 0).toString(),
@@ -576,3 +610,5 @@ export const DashboardOverview = () => {
 };
 
 export default DashboardOverview;
+
+

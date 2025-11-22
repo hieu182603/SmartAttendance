@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
   CheckCircle2,
@@ -13,7 +14,6 @@ import {
   Briefcase,
   Moon,
   Sunset,
-  Sun as SunIcon
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Button } from '../../ui/button'
@@ -26,30 +26,67 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '../../ui/label'
 import { toast } from 'sonner'
 import { getAllRequests, approveRequest, rejectRequest } from '../../../services/requestService'
+import type { ErrorWithMessage } from '../../../types'
 
-const ApproveRequestsPage = () => {
-  const [allRequests, setAllRequests] = useState([]) // Lưu tất cả requests để tính stats
-  const [requests, setRequests] = useState([]) // Requests đã filter theo tab
-  const [selectedTab, setSelectedTab] = useState('pending')
+type RequestStatus = 'pending' | 'approved' | 'rejected'
+type RequestType = 'leave' | 'overtime' | 'late' | 'remote'
+type ActionType = 'approve' | 'reject' | null
+type Urgency = 'high' | 'medium' | 'low'
+
+interface Request {
+  id: string
+  status: RequestStatus
+  type: RequestType
+  employeeName?: string
+  title?: string
+  description?: string
+  reason?: string
+  department?: string
+  branch?: string
+  startDate?: string
+  endDate?: string
+  duration?: string
+  urgency?: Urgency
+  submittedAt?: string
+  approver?: string
+  approvedAt?: string
+  comments?: string
+}
+
+interface GetAllRequestsResponse {
+  requests?: Request[]
+}
+
+interface Stats {
+  pending: number
+  approved: number
+  rejected: number
+  total: number
+}
+
+const ApproveRequestsPage: React.FC = () => {
+  const [allRequests, setAllRequests] = useState<Request[]>([]) // Lưu tất cả requests để tính stats
+  const [requests, setRequests] = useState<Request[]>([]) // Requests đã filter theo tab
+  const [selectedTab, setSelectedTab] = useState<string>('pending')
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterType, setFilterType] = useState('all')
-  const [filterDepartment, setFilterDepartment] = useState('all')
-  const [selectedRequest, setSelectedRequest] = useState(null)
+  const [filterType, setFilterType] = useState<string>('all')
+  const [filterDepartment, setFilterDepartment] = useState<string>('all')
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [actionType, setActionType] = useState(null)
+  const [actionType, setActionType] = useState<ActionType>(null)
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState(false)
 
   // Fetch tất cả requests để tính stats (không filter theo status)
   const fetchAllRequests = useCallback(async () => {
     try {
-      const params = {}
+      const params: Record<string, string> = {}
       if (filterType !== 'all') params.type = filterType
       if (filterDepartment !== 'all') params.department = filterDepartment
       if (searchQuery) params.search = searchQuery
       // Không filter theo status để lấy tất cả
 
-      const result = await getAllRequests(params)
+      const result = await getAllRequests(params) as GetAllRequestsResponse
       setAllRequests(result.requests || [])
     } catch (error) {
       console.error('[ApproveRequests] fetch all error:', error)
@@ -92,14 +129,14 @@ const ApproveRequestsPage = () => {
   })
 
   // Tính stats từ allRequests (tất cả requests, không filter theo tab)
-  const stats = {
+  const stats: Stats = {
     pending: allRequests.filter(r => r.status === 'pending').length,
     approved: allRequests.filter(r => r.status === 'approved').length,
     rejected: allRequests.filter(r => r.status === 'rejected').length,
     total: allRequests.length,
   }
 
-  const handleOpenDialog = (request, action) => {
+  const handleOpenDialog = (request: Request, action: ActionType): void => {
     setSelectedRequest(request)
     setActionType(action)
     setIsDialogOpen(true)
@@ -107,7 +144,7 @@ const ApproveRequestsPage = () => {
   }
 
   // Handle approve/reject request via API
-  const handleSubmitAction = async () => {
+  const handleSubmitAction = async (): Promise<void> => {
     if (!selectedRequest || !actionType) return
 
     try {
@@ -126,11 +163,12 @@ const ApproveRequestsPage = () => {
       await fetchAllRequests()
     } catch (error) {
       console.error('[ApproveRequests] action error:', error)
-      toast.error(error.response?.data?.message || error.message || 'Có lỗi xảy ra')
+      const err = error as ErrorWithMessage
+      toast.error((err.response?.data as { message?: string })?.message || err.message || 'Có lỗi xảy ra')
     }
   }
 
-  const getTypeIcon = (type) => {
+  const getTypeIcon = (type: RequestType): ReactNode => {
     switch (type) {
       case 'leave': return <Moon className="h-4 w-4" />
       case 'overtime': return <Sunset className="h-4 w-4" />
@@ -140,7 +178,7 @@ const ApproveRequestsPage = () => {
     }
   }
 
-  const getTypeLabel = (type) => {
+  const getTypeLabel = (type: RequestType): string => {
     switch (type) {
       case 'leave': return 'Nghỉ phép'
       case 'overtime': return 'Tăng ca'
@@ -150,7 +188,7 @@ const ApproveRequestsPage = () => {
     }
   }
 
-  const getTypeColor = (type) => {
+  const getTypeColor = (type: RequestType): string => {
     switch (type) {
       case 'leave': return 'bg-blue-500/20 text-blue-500'
       case 'overtime': return 'bg-orange-500/20 text-orange-500'
@@ -160,7 +198,7 @@ const ApproveRequestsPage = () => {
     }
   }
 
-  const getUrgencyColor = (urgency) => {
+  const getUrgencyColor = (urgency?: Urgency): string => {
     switch (urgency) {
       case 'high': return 'bg-red-500/20 text-red-500'
       case 'medium': return 'bg-yellow-500/20 text-yellow-500'
@@ -367,9 +405,11 @@ const ApproveRequestsPage = () => {
                                 <Calendar className="h-3 w-3 mr-1" />
                                 {request.startDate} {request.endDate !== request.startDate && `→ ${request.endDate}`}
                               </Badge>
-                              <Badge variant="outline" className="border-[var(--border)] text-[var(--text-sub)]">
-                                {request.duration}
-                              </Badge>
+                              {request.duration && (
+                                <Badge variant="outline" className="border-[var(--border)] text-[var(--text-sub)]">
+                                  {request.duration}
+                                </Badge>
+                              )}
                             </div>
 
                             <h4 className="text-[var(--text-main)] mb-2">{request.title}</h4>
@@ -487,3 +527,5 @@ const ApproveRequestsPage = () => {
 }
 
 export default ApproveRequestsPage
+
+

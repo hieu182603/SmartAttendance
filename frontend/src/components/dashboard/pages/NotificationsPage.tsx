@@ -2,7 +2,7 @@ import React from 'react'
 import { Bell } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 
-const NotificationsPage = () => (
+const NotificationsPage: React.FC = () => (
   <Card className="border-[var(--border)] bg-[var(--surface)]">
     <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <CardTitle className="text-[var(--text-main)]">Thông báo</CardTitle>
@@ -26,9 +26,5 @@ const NotificationsPage = () => (
 )
 
 export default NotificationsPage
-
-
-
-
 
 

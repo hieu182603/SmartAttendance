@@ -2,11 +2,11 @@ import React from 'react'
 import { useAuth } from '../../../context/AuthContext'
 import { Profile } from '../Profile'
 
-export default function ProfilePage() {
+export default function ProfilePage(): React.JSX.Element {
   const { user } = useAuth()
 
   // Map backend role to Profile component role
-  const getRole = () => {
+  const getRole = (): string => {
     if (!user?.role) return 'employee'
     const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER']
     return adminRoles.includes(user.role) ? 'admin' : 'employee'
@@ -19,4 +19,5 @@ export default function ProfilePage() {
     />
   )
 }
+
 

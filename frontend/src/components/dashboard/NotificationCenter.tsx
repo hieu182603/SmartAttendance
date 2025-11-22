@@ -1,9 +1,20 @@
 import React, { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import type { LucideIcon } from 'lucide-react'
 import { Bell, Check, X, Clock, Calendar, FileText, AlertCircle } from 'lucide-react'
 import { Button } from '../ui/button'
 
-const mockNotifications = [
+interface Notification {
+  id: string
+  type: 'success' | 'error' | 'warning' | 'info'
+  category: 'attendance' | 'leave' | 'payroll' | 'todo' | 'system'
+  title: string
+  message: string
+  time: string
+  read: boolean
+}
+
+const mockNotifications: Notification[] = [
   {
     id: '1',
     type: 'warning',
@@ -42,7 +53,7 @@ const mockNotifications = [
   },
 ]
 
-const categoryIcon = {
+const categoryIcon: Record<Notification['category'], LucideIcon> = {
   attendance: Clock,
   leave: Calendar,
   payroll: FileText,
@@ -50,14 +61,21 @@ const categoryIcon = {
   system: AlertCircle,
 }
 
-const typeColor = {
+const typeColor: Record<Notification['type'], string> = {
   success: 'var(--success)',
   error: 'var(--error)',
   warning: 'var(--warning)',
   info: 'var(--accent-cyan)',
 }
 
-const NotificationItem = ({ notification, onRead, onDelete, index }) => {
+interface NotificationItemProps {
+  notification: Notification
+  onRead: (id: string) => void
+  onDelete: (id: string) => void
+  index: number
+}
+
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onRead, onDelete, index }) => {
   const Icon = categoryIcon[notification.category] || Bell
   const color = typeColor[notification.type] || typeColor.info
 
@@ -103,12 +121,17 @@ const NotificationItem = ({ notification, onRead, onDelete, index }) => {
   )
 }
 
-const NotificationCenter = ({ isOpen, onClose }) => {
-  const [notifications, setNotifications] = useState(mockNotifications)
+interface NotificationCenterProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose }) => {
+  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications])
 
-  const markAsRead = (id) => {
+  const markAsRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
   }
 
@@ -116,7 +139,7 @@ const NotificationCenter = ({ isOpen, onClose }) => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
   }
 
-  const deleteNotification = (id) => {
+  const deleteNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
 
@@ -197,13 +220,5 @@ const NotificationCenter = ({ isOpen, onClose }) => {
 }
 
 export default NotificationCenter
-
-
-
-
-
-
-
-
 
 

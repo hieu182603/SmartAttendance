@@ -59,6 +59,57 @@ export class DashboardController {
       });
     }
   }
+
+  /**
+   * @swagger
+   * /api/dashboard/summary:
+   *   get:
+   *     summary: Lấy summary cho dashboard (shift, location, workingDays)
+   *     tags: [Dashboard]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Summary data
+   */
+  static async getDashboardSummary(req, res) {
+    try {
+      const userId = req.user.userId;
+      const summary = await DashboardService.getDashboardSummary(userId);
+      return res.status(200).json(summary);
+    } catch (error) {
+      console.error("[DashboardController] getDashboardSummary error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/dashboard/pending-actions:
+   *   get:
+   *     summary: Lấy pending actions (pending requests, unread notifications)
+   *     tags: [Dashboard]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Pending actions data
+   */
+  static async getPendingActions(req, res) {
+    try {
+      const userId = req.user.userId;
+      const pendingActions = await DashboardService.getPendingActions(userId);
+      return res.status(200).json(pendingActions);
+    } catch (error) {
+      console.error("[DashboardController] getPendingActions error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
 }
+
 
 
