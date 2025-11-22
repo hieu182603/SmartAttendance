@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   CheckCircle2,
@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../ui/dialog'
 import { Label } from '../../ui/label'
 import { toast } from 'sonner'
+import { getAllRequests, approveRequest, rejectRequest } from '../../../services/requestService'
 
 const ApproveRequestsPage = () => {
   const [requests, setRequests] = useState([])
@@ -38,31 +39,30 @@ const ApproveRequestsPage = () => {
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // TODO: Thêm API call để fetch requests
-  useEffect(() => {
-    // fetchRequests()
+  // Fetch requests from API
+  const fetchRequests = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = {}
+      if (selectedTab !== 'all') params.status = selectedTab
+      if (filterType !== 'all') params.type = filterType
+      if (filterDepartment !== 'all') params.department = filterDepartment
+      if (searchQuery) params.search = searchQuery
+
+      const result = await getAllRequests(params)
+      setRequests(result.requests || [])
+    } catch (error) {
+      console.error('[ApproveRequests] fetch error:', error)
+      toast.error('Không thể tải danh sách yêu cầu')
+      setRequests([])
+    } finally {
+      setLoading(false)
+    }
   }, [selectedTab, filterType, filterDepartment, searchQuery])
 
-  // TODO: Thêm function fetchRequests để gọi API
-  // const fetchRequests = async () => {
-  //   setLoading(true)
-  //   try {
-  //     const params = {}
-  //     if (selectedTab !== 'all') params.status = selectedTab
-  //     if (filterType !== 'all') params.type = filterType
-  //     if (filterDepartment !== 'all') params.department = filterDepartment
-  //     if (searchQuery) params.search = searchQuery
-  //
-  //     // Gọi API ở đây
-  //     // const data = await getAllRequests(params)
-  //     // setRequests(data.requests || [])
-  //   } catch (error) {
-  //     toast.error('Không thể tải danh sách yêu cầu')
-  //     setRequests([])
-  //   } finally {
-  //     setLoading(false)
-  //   }
-  // }
+  useEffect(() => {
+    fetchRequests()
+  }, [fetchRequests])
 
   // Filter requests - đầy đủ logic như dự án tham khảo
   const filteredRequests = requests.filter(req => {
@@ -96,26 +96,27 @@ const ApproveRequestsPage = () => {
     setComments('')
   }
 
-  // TODO: Thêm API call để approve/reject request
+  // Handle approve/reject request via API
   const handleSubmitAction = async () => {
     if (!selectedRequest || !actionType) return
 
     try {
-      // TODO: Gọi API approve/reject ở đây
-      // if (actionType === 'approve') {
-      //   await approveRequest(selectedRequest.id, comments)
-      //   toast.success(`✅ Đã phê duyệt yêu cầu ${selectedRequest.id}`)
-      // } else {
-      //   await rejectRequest(selectedRequest.id, comments)
-      //   toast.success(`❌ Đã từ chối yêu cầu ${selectedRequest.id}`)
-      // }
+      if (actionType === 'approve') {
+        await approveRequest(selectedRequest.id, comments)
+        toast.success(`✅ Đã phê duyệt yêu cầu`)
+      } else {
+        await rejectRequest(selectedRequest.id, comments)
+        toast.success(`❌ Đã từ chối yêu cầu`)
+      }
       setIsDialogOpen(false)
       setSelectedRequest(null)
       setActionType(null)
       setComments('')
-      // fetchRequests()
+      // Refresh requests list
+      await fetchRequests()
     } catch (error) {
-      toast.error(error.message || 'Có lỗi xảy ra')
+      console.error('[ApproveRequests] action error:', error)
+      toast.error(error.response?.data?.message || error.message || 'Có lỗi xảy ra')
     }
   }
 
@@ -329,7 +330,7 @@ const ApproveRequestsPage = () => {
                     transition={{ delay: index * 0.05 }}
                   >
                     <Card className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--primary)] transition-all">
-                      <CardContent className="p-6">
+                      <CardContent className="p-6 mt-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-3">
@@ -383,7 +384,7 @@ const ApproveRequestsPage = () => {
                             )}
                           </div>
 
-                          <div className="ml-4 flex flex-col gap-2">
+                          <div className="ml-4 mt-2 flex flex-col gap-2">
                             {request.status === 'pending' ? (
                               <>
                                 <Button
@@ -405,7 +406,7 @@ const ApproveRequestsPage = () => {
                                 </Button>
                               </>
                             ) : (
-                              <Badge className={request.status === 'approved' ? 'bg-[var(--success)]/20 text-[var(--success)]' : 'bg-[var(--error)]/20 text-[var(--error)]'}>
+                              <Badge className={request.status === 'approved' ? 'bg-[var(--success)]/20 text-[var(--success)]' : 'bg-red-500/20 text-red-500'}>
                                 {request.status === 'approved' ? '✓ Đã duyệt' : '✗ Đã từ chối'}
                               </Badge>
                             )}
