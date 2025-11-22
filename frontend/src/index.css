@@ -139,3 +139,33 @@ body {
     background-position: 1000px 0;
   }
 }
+
+/* Date Input Styling */
+input[type="date"] {
+  position: relative;
+  padding-right: 2.5rem;
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0.75rem;
+  cursor: pointer;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* For Firefox */
+input[type="date"]::-moz-calendar-picker-indicator {
+  position: absolute;
+  right: 0.75rem;
+  cursor: pointer;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
+

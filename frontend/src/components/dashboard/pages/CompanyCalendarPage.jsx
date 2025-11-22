@@ -115,8 +115,8 @@ const CompanyCalendarPage = () => {
   // Get events for selected date
   const selectedDateEvents = selectedDate
     ? events.filter(
-        (event) => event.date === selectedDate.toISOString().split("T")[0]
-      )
+      (event) => event.date === selectedDate.toISOString().split("T")[0]
+    )
     : [];
 
   // Get upcoming events (next 7 days)
@@ -294,12 +294,45 @@ const CompanyCalendarPage = () => {
           transition={{ delay: 0.5 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-[var(--text-sub)] hover:text-[var(--text-main)]"
+                  onClick={() => {
+                    const newDate = new Date(selectedDate);
+                    newDate.setMonth(newDate.getMonth() - 1);
+                    setSelectedDate(newDate);
+                  }}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h3 className="text-base font-medium text-[var(--text-main)]">
+                  {selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-[var(--text-sub)] hover:text-[var(--text-main)]"
+                  onClick={() => {
+                    const newDate = new Date(selectedDate);
+                    newDate.setMonth(newDate.getMonth() + 1);
+                    setSelectedDate(newDate);
+                  }}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
             <CardContent className="pt-0">
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
-                className="rounded-md w-full p-auto"
+                className="rounded-md w-full p-0"
+                month={selectedDate}
+                onMonthChange={setSelectedDate}
               />
 
               {/* Selected Date Info */}
@@ -308,7 +341,7 @@ const CompanyCalendarPage = () => {
                   <p className="text-xs text-[var(--text-sub)] mb-1">
                     Ngày đã chọn
                   </p>
-                  <p className="text-sm text-[var(--text-main)]">
+                  <p className="text-sm text-[var(--text-main)] mb-2">
                     {selectedDate.toLocaleDateString("vi-VN", {
                       weekday: "long",
                       year: "numeric",
@@ -317,9 +350,13 @@ const CompanyCalendarPage = () => {
                     })}
                   </p>
                   {selectedDateEvents.length > 0 && (
-                    <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] mt-2">
-                      {selectedDateEvents.length} sự kiện
-                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-3 text-xs border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
+                    >
+                      {selectedDateEvents.length} SỰ KIỆN
+                    </Button>
                   )}
                 </div>
               )}
