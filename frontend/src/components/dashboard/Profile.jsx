@@ -37,11 +37,12 @@ import { Separator } from "../ui/separator";
 import { toast } from "sonner";
 import { updateUserProfile, changePassword } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../ThemeProvider";
 
 export function Profile({ role, user }) {
   const { setUser } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -122,7 +123,7 @@ export function Profile({ role, user }) {
       };
 
       const response = await updateUserProfile(updateData);
-      
+
       if (response.user) {
         setUser(response.user);
         setIsEditing(false);
@@ -173,14 +174,14 @@ export function Profile({ role, user }) {
     } catch (error) {
       // API interceptor wraps error, so check both error.message and error.response
       const errorMessage = error.message || error.response?.data?.message || "Đổi mật khẩu thất bại";
-      
+
       console.log("Error caught:", error);
       console.log("Error message:", errorMessage);
-      
+
       // Check if error message contains password validation error
-      if (errorMessage.includes("Mật khẩu hiện tại không đúng") || 
-          errorMessage.includes("không đúng") ||
-          errorMessage === "Mật khẩu hiện tại không đúng") {
+      if (errorMessage.includes("Mật khẩu hiện tại không đúng") ||
+        errorMessage.includes("không đúng") ||
+        errorMessage === "Mật khẩu hiện tại không đúng") {
         setPasswordErrors({
           current: "Mật khẩu hiện tại không đúng",
           new: "",
@@ -241,18 +242,17 @@ export function Profile({ role, user }) {
                       <AvatarImage
                         src={
                           user?.avatarUrl ||
-                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${
-                            user?.name || "user"
+                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "user"
                           }`
                         }
                       />
                       <AvatarFallback className="text-2xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white">
                         {profile.fullName
                           ? profile.fullName
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()
                           : "U"}
                       </AvatarFallback>
                     </Avatar>
@@ -338,7 +338,7 @@ export function Profile({ role, user }) {
           transition={{ delay: 0.3 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6">
+            <CardContent className="p-6 mt-4">
               <Tabs defaultValue="info" className="space-y-6">
                 <TabsList className="bg-[var(--shell)] flex items-center w-full">
                   <TabsTrigger
@@ -565,11 +565,10 @@ export function Profile({ role, user }) {
                               });
                             }
                           }}
-                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${
-                            passwordErrors.current
-                              ? "border-[var(--error)]"
-                              : ""
-                          }`}
+                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${passwordErrors.current
+                            ? "border-[var(--error)]"
+                            : ""
+                            }`}
                           placeholder="••••••••"
                         />
                         <button
@@ -618,9 +617,8 @@ export function Profile({ role, user }) {
                               });
                             }
                           }}
-                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${
-                            passwordErrors.new ? "border-[var(--error)]" : ""
-                          }`}
+                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${passwordErrors.new ? "border-[var(--error)]" : ""
+                            }`}
                           placeholder="••••••••"
                         />
                         <button
@@ -669,11 +667,10 @@ export function Profile({ role, user }) {
                               });
                             }
                           }}
-                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${
-                            passwordErrors.confirm
-                              ? "border-[var(--error)]"
-                              : ""
-                          }`}
+                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${passwordErrors.confirm
+                            ? "border-[var(--error)]"
+                            : ""
+                            }`}
                           placeholder="••••••••"
                         />
                         <button
@@ -725,7 +722,7 @@ export function Profile({ role, user }) {
                     <div className="flex items-center justify-between p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 rounded-lg bg-[var(--accent-cyan)]/10">
-                          {darkMode ? (
+                          {theme === 'dark' ? (
                             <Moon className="h-5 w-5 text-[var(--accent-cyan)]" />
                           ) : (
                             <Sun className="h-5 w-5 text-[var(--warning)]" />
@@ -739,8 +736,8 @@ export function Profile({ role, user }) {
                         </div>
                       </div>
                       <Switch
-                        checked={darkMode}
-                        onCheckedChange={setDarkMode}
+                        checked={theme === 'dark'}
+                        onCheckedChange={toggleTheme}
                       />
                     </div>
 
@@ -759,11 +756,11 @@ export function Profile({ role, user }) {
                       </div>
                       <Select defaultValue="vi">
                         <SelectTrigger className="w-32 bg-[var(--input-bg)] border-[var(--border)]">
-                          <SelectValue />
+                          <SelectValue placeholder="Tiếng Việt" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="vi">🇻🇳 Tiếng Việt</SelectItem>
-                          <SelectItem value="en">🇬🇧 English</SelectItem>
+                          <SelectItem value="vi">Tiếng Việt</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
