@@ -42,9 +42,40 @@ export default function Register() {
 
   const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0
 
+  // Validate form completeness
+  const isFormValid = 
+    formData.fullName.trim().length >= 2 &&
+    formData.email.trim().length > 0 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) &&
+    passwordStrength.hasMinLength &&
+    passwordStrength.hasUpperCase &&
+    passwordStrength.hasLowerCase &&
+    passwordStrength.hasNumber &&
+    passwordsMatch &&
+    formData.agreeTerms
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error('Email không hợp lệ!')
+      return
+    }
+
+    // Validate full name
+    if (formData.fullName.trim().length < 2) {
+      toast.error('Họ và tên phải có ít nhất 2 ký tự!')
+      return
+    }
+
+    // Validate password strength
+    if (!passwordStrength.hasMinLength || !passwordStrength.hasUpperCase || 
+        !passwordStrength.hasLowerCase || !passwordStrength.hasNumber) {
+      toast.error('Mật khẩu không đáp ứng yêu cầu!')
+      return
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast.error('Mật khẩu không khớp!')
       return
@@ -91,10 +122,11 @@ export default function Register() {
             type="text"
             placeholder="Nguyễn Văn A"
             value={formData.fullName}
-            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, fullName: e.target.value.trim() })}
             className="h-9 text-sm"
             required
             disabled={isLoading}
+            autoComplete="name"
           />
         </div>
 
@@ -105,10 +137,11 @@ export default function Register() {
             type="email"
             placeholder="your.email@company.com"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value.trim() })}
             className="h-9 text-sm"
             required
             disabled={isLoading}
+            autoComplete="email"
           />
         </div>
 
@@ -225,11 +258,11 @@ export default function Register() {
           </label>
         </div>
 
-        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="pt-1">
+        <motion.div whileHover={{ scale: isFormValid ? 1.02 : 1 }} whileTap={{ scale: isFormValid ? 0.98 : 1 }} className="pt-1">
           <Button
             type="submit"
-            disabled={isLoading}
-            className="w-full h-9 text-sm bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90 transition-opacity shadow-lg shadow-[var(--primary)]/30"
+            disabled={isLoading || !isFormValid}
+            className="w-full h-9 text-sm bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90 transition-opacity shadow-lg shadow-[var(--primary)]/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
