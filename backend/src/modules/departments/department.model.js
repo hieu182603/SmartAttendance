@@ -45,7 +45,7 @@ const departmentSchema = new mongoose.Schema(
 );
 
 // Indexes để tối ưu truy vấn
-departmentSchema.index({ code: 1 }, { unique: true });
+// Note: code đã có unique: true trong schema nên không cần tạo index lại
 departmentSchema.index({ branchId: 1 });
 departmentSchema.index({ status: 1 });
 departmentSchema.index({ managerId: 1 });

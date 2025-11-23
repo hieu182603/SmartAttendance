@@ -1,4 +1,6 @@
 import { RequestModel } from './request.model.js'
+import { BranchModel } from '../branches/branch.model.js'
+import { DepartmentModel } from '../departments/department.model.js'
 
 const formatDate = (date) => {
   const d = new Date(date)
@@ -147,10 +149,16 @@ export const getAllRequests = async (req, res) => {
         .populate({
           path: 'userId',
           select: 'name email department branch role',
-          populate: {
-            path: 'branch',
-            select: 'name'
-          }
+          populate: [
+            {
+              path: 'branch',
+              select: 'name'
+            },
+            {
+              path: 'department',
+              select: 'name code'
+            }
+          ]
         })
         .populate('approvedBy', 'name email')
         .sort({ createdAt: -1 })
@@ -166,7 +174,7 @@ export const getAllRequests = async (req, res) => {
       employeeId: doc.userId?._id?.toString(),
       employeeName: doc.userId?.name || 'N/A',
       employeeEmail: doc.userId?.email || 'N/A',
-      department: doc.userId?.department || 'N/A',
+      department: doc.userId?.department?.name || doc.userId?.department?.toString() || 'N/A',
       branch: doc.userId?.branch?.name || doc.userId?.branch?.toString() || 'N/A',
       type: doc.type,
       title: getTitleByType(doc.type),

@@ -19,6 +19,13 @@ userRouter.get(
     UserController.getAllUsers
 );
 
+// Route /managers phải đặt TRƯỚC route /:id để tránh conflict
+userRouter.get(
+    "/managers",
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
+    UserController.getManagers
+);
+
 userRouter.get(
     "/:id",
     requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),

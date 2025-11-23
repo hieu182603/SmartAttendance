@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Building2,
@@ -25,9 +25,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '../../ui/label';
 import { Separator } from '../../ui/separator';
 import { toast } from 'sonner';
+import {
+  getAllBranches,
+  getBranchStats,
+  createBranch,
+  updateBranch,
+  deleteBranch,
+  type Branch as BranchType,
+} from '../../../services/branchService';
+import api from '../../../services/api';
 
 interface Branch {
   id: string;
+  _id?: string;
   name: string;
   code: string;
   address: string;
@@ -35,7 +45,7 @@ interface Branch {
   country: string;
   phone: string;
   email: string;
-  managerId: string;
+  managerId: string | { _id: string; name: string; email: string };
   managerName: string;
   employeeCount: number;
   departmentCount: number;
@@ -44,13 +54,28 @@ interface Branch {
   timezone: string;
 }
 
+interface Manager {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export function BranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    totalEmployees: 0,
+    totalDepartments: 0,
+    active: 0,
+  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -64,6 +89,62 @@ export function BranchesPage() {
     timezone: 'GMT+7',
   });
 
+  // Load data
+  useEffect(() => {
+    loadBranches();
+    loadManagers();
+    loadStats();
+  }, []);
+
+  const loadBranches = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllBranches({ limit: 1000 });
+      const branchesData = response.branches.map((branch: BranchType) => ({
+        id: branch._id || branch.id || '',
+        _id: branch._id,
+        name: branch.name,
+        code: branch.code,
+        address: branch.address,
+        city: branch.city,
+        country: branch.country,
+        phone: branch.phone || '',
+        email: branch.email || '',
+        managerId: typeof branch.managerId === 'object' && branch.managerId ? branch.managerId._id : (typeof branch.managerId === 'string' ? branch.managerId : ''),
+        managerName: typeof branch.managerId === 'object' && branch.managerId ? branch.managerId.name : (branch.managerName || ''),
+        employeeCount: branch.employeeCount || 0,
+        departmentCount: branch.departmentCount || 0,
+        establishedDate: branch.establishedDate || new Date().toISOString().split('T')[0],
+        status: branch.status,
+        timezone: branch.timezone,
+      }));
+      setBranches(branchesData);
+    } catch (error) {
+      console.error('Error loading branches:', error);
+      toast.error('Không thể tải danh sách chi nhánh');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadManagers = async () => {
+    try {
+      const response = await api.get('/users/managers');
+      setManagers(response.data.managers || []);
+    } catch (error) {
+      console.error('Error loading managers:', error);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const statsData = await getBranchStats();
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
   // Filter branches
   const filteredBranches = branches.filter(branch => {
     if (searchQuery && !branch.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -71,14 +152,6 @@ export function BranchesPage() {
       && !branch.code.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
-
-  // Stats
-  const stats = {
-    total: branches.length,
-    totalEmployees: branches.reduce((sum, b) => sum + b.employeeCount, 0),
-    totalDepartments: branches.reduce((sum, b) => sum + b.departmentCount, 0),
-    active: branches.filter(b => b.status === 'active').length,
-  };
 
   const handleOpenDialog = (mode: 'create' | 'edit', branch?: Branch) => {
     setDialogMode(mode);
@@ -90,9 +163,9 @@ export function BranchesPage() {
         address: branch.address,
         city: branch.city,
         country: branch.country,
-        phone: branch.phone,
-        email: branch.email,
-        managerId: branch.managerId,
+        phone: branch.phone || '',
+        email: branch.email || '',
+        managerId: typeof branch.managerId === 'string' ? branch.managerId : (branch.managerId as any)?._id || '',
         timezone: branch.timezone,
       });
     } else {
@@ -112,68 +185,62 @@ export function BranchesPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name || !formData.code || !formData.address || !formData.city || !formData.managerId) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
       return;
     }
 
-    // TODO: Replace with API call to get manager name
-    // const manager = mockManagers.find(m => m.id === formData.managerId);
-
-    if (dialogMode === 'create') {
-      const newBranch: Branch = {
-        id: formData.code,
-        name: formData.name,
-        code: formData.code,
-        address: formData.address,
-        city: formData.city,
-        country: formData.country,
-        phone: formData.phone,
-        email: formData.email,
-        managerId: formData.managerId,
-        managerName: formData.managerId, // TODO: Get from API
-        employeeCount: 0,
-        departmentCount: 0,
-        establishedDate: new Date().toISOString().split('T')[0],
-        status: 'active',
-        timezone: formData.timezone,
-      };
-      setBranches([...branches, newBranch]);
-      toast.success(`Đã tạo chi nhánh ${formData.name}`);
-    } else if (selectedBranch) {
-      const updatedBranches = branches.map(branch =>
-        branch.id === selectedBranch.id
-          ? {
-            ...branch,
-            name: formData.name,
-            code: formData.code,
-            address: formData.address,
-            city: formData.city,
-            country: formData.country,
-            phone: formData.phone,
-            email: formData.email,
-            managerId: formData.managerId,
-            managerName: formData.managerId, // TODO: Get from API
-            timezone: formData.timezone,
-          }
-          : branch
-      );
-      setBranches(updatedBranches);
-      toast.success(`Đã cập nhật chi nhánh ${formData.name}`);
+    try {
+      if (dialogMode === 'create') {
+        await createBranch({
+          name: formData.name,
+          code: formData.code,
+          address: formData.address,
+          city: formData.city,
+          country: formData.country,
+          phone: formData.phone || undefined,
+          email: formData.email || undefined,
+          managerId: formData.managerId,
+          timezone: formData.timezone,
+        });
+        toast.success(`Đã tạo chi nhánh ${formData.name}`);
+      } else if (selectedBranch) {
+        await updateBranch(selectedBranch._id || selectedBranch.id, {
+          name: formData.name,
+          code: formData.code,
+          address: formData.address,
+          city: formData.city,
+          country: formData.country,
+          phone: formData.phone || undefined,
+          email: formData.email || undefined,
+          managerId: formData.managerId,
+          timezone: formData.timezone,
+        });
+        toast.success(`Đã cập nhật chi nhánh ${formData.name}`);
+      }
+      setIsDialogOpen(false);
+      await loadBranches();
+      await loadStats();
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra');
     }
-
-    setIsDialogOpen(false);
   };
 
-  const handleDelete = (branch: Branch) => {
-    if (branch.id === 'HQ') {
+  const handleDelete = async (branch: Branch) => {
+    if (branch.code === 'HQ') {
       toast.error('Không thể xóa trụ sở chính');
       return;
     }
     if (confirm(`Bạn có chắc muốn xóa chi nhánh "${branch.name}"?`)) {
-      setBranches(branches.filter(b => b.id !== branch.id));
-      toast.success(`Đã xóa chi nhánh ${branch.name}`);
+      try {
+        await deleteBranch(branch._id || branch.id);
+        toast.success(`Đã xóa chi nhánh ${branch.name}`);
+        await loadBranches();
+        await loadStats();
+      } catch (error: any) {
+        toast.error(error.message || 'Có lỗi xảy ra');
+      }
     }
   };
 
@@ -516,10 +583,9 @@ export function BranchesPage() {
                 className="w-full h-10 px-3 rounded-md bg-[var(--shell)] border border-[var(--border)] text-[var(--text-main)]"
               >
                 <option value="">Chọn giám đốc</option>
-                {/* TODO: Replace with API call to get managers */}
-                {/* {mockManagers.map(manager => (
-                  <option key={manager.id} value={manager.id}>{manager.name}</option>
-                ))} */}
+                {managers.map(manager => (
+                  <option key={manager.id} value={manager.id}>{manager.name} ({manager.role})</option>
+                ))}
               </select>
             </div>
 
@@ -588,7 +654,7 @@ export function BranchesPage() {
               {/* Stats Grid */}
               <div className="grid grid-cols-4 gap-4">
                 <Card className="bg-[var(--shell)] border-[var(--border)]">
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-4 text-center mt-4">
                     <Users className="h-8 w-8 text-[var(--accent-cyan)] mx-auto mb-2" />
                     <p className="text-sm text-[var(--text-sub)]">Nhân viên</p>
                     <p className="text-2xl text-[var(--text-main)] mt-1">{selectedBranch.employeeCount}</p>
@@ -596,7 +662,7 @@ export function BranchesPage() {
                 </Card>
 
                 <Card className="bg-[var(--shell)] border-[var(--border)]">
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-4 text-center mt-4">
                     <Briefcase className="h-8 w-8 text-[var(--warning)] mx-auto mb-2" />
                     <p className="text-sm text-[var(--text-sub)]">Phòng ban</p>
                     <p className="text-2xl text-[var(--text-main)] mt-1">{selectedBranch.departmentCount}</p>
@@ -604,7 +670,7 @@ export function BranchesPage() {
                 </Card>
 
                 <Card className="bg-[var(--shell)] border-[var(--border)]">
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-4 text-center mt-4">
                     <Clock className="h-8 w-8 text-[var(--primary)] mx-auto mb-2" />
                     <p className="text-sm text-[var(--text-sub)]">Ngày thành lập</p>
                     <p className="text-lg text-[var(--text-main)] mt-1">
@@ -614,7 +680,7 @@ export function BranchesPage() {
                 </Card>
 
                 <Card className="bg-[var(--shell)] border-[var(--border)]">
-                  <CardContent className="p-4 text-center">
+                  <CardContent className="p-4 text-center mt-4">
                     <Globe className="h-8 w-8 text-[var(--success)] mx-auto mb-2" />
                     <p className="text-sm text-[var(--text-sub)]">Múi giờ</p>
                     <p className="text-xl text-[var(--text-main)] mt-1">{selectedBranch.timezone}</p>
@@ -672,7 +738,7 @@ export function BranchesPage() {
                       <div>
                         <p className="text-sm text-[var(--text-sub)]">Giám đốc chi nhánh</p>
                         <p className="text-[var(--text-main)]">{selectedBranch.managerName}</p>
-                        <p className="text-xs text-[var(--text-sub)]">ID: {selectedBranch.managerId}</p>
+                        <p className="text-xs text-[var(--text-sub)]">ID: {typeof selectedBranch.managerId === 'string' ? selectedBranch.managerId : (selectedBranch.managerId as any)?._id || ''}</p>
                       </div>
                     </div>
 

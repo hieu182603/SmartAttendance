@@ -1,4 +1,5 @@
 import { UserService } from "./user.service.js";
+import { UserModel } from "./user.model.js";
 import { z } from "zod";
 
 const updateUserSchema = z.object({
@@ -467,6 +468,48 @@ export class UserController {
         return res.status(404).json({ message: "Không tìm thấy user" });
       }
       console.error("Upload avatar error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/managers
+   * Lấy danh sách managers (cho dropdown)
+   */
+  static async getManagers(req, res) {
+    try {
+      const { branchId } = req.query;
+      
+      // Query để lấy managers
+      const query = {
+        role: { $in: ["ADMIN", "HR_MANAGER", "MANAGER", "SUPER_ADMIN"] },
+        isActive: true,
+      };
+
+      if (branchId && branchId !== "all") {
+        query.branch = branchId;
+      }
+
+      // Lấy tất cả managers (không pagination)
+      const users = await UserModel.find(query)
+        .select("name email role branch")
+        .populate("branch", "name")
+        .limit(1000);
+
+      const managersList = users.map((user) => ({
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        branchId: user.branch?._id?.toString() || user.branch?.toString() || null,
+        branchName: user.branch?.name || null,
+      }));
+
+      res.json({ managers: managersList });
+    } catch (error) {
+      console.error("[UserController] getManagers error:", error);
       return res.status(500).json({
         message: error.message || "Lỗi server. Vui lòng thử lại sau.",
       });

@@ -1,4 +1,6 @@
 import { UserModel } from "./user.model.js";
+import { BranchModel } from "../branches/branch.model.js";
+import { DepartmentModel } from "../departments/department.model.js";
 
 export class UserService {
   /**

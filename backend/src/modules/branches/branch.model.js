@@ -63,7 +63,7 @@ const branchSchema = new mongoose.Schema(
 );
 
 // Indexes để tối ưu truy vấn
-branchSchema.index({ code: 1 }, { unique: true });
+// Note: code đã có unique: true trong schema nên không cần tạo index lại
 branchSchema.index({ status: 1 });
 branchSchema.index({ managerId: 1 });
 branchSchema.index({ city: 1 });
