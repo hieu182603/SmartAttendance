@@ -1,5 +1,6 @@
 import { AttendanceModel } from "./attendance.model.js";
 import { LocationModel } from "../locations/location.model.js";
+import { DepartmentModel } from "../departments/department.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
 import { google } from "googleapis";
 import stream from "stream";
@@ -398,7 +399,14 @@ export const getAttendanceAnalytics = async (req, res) => {
     }
 
     const attendances = await AttendanceModel.find(attendanceQuery)
-      .populate('userId', 'name department')
+      .populate({
+        path: 'userId',
+        select: 'name department',
+        populate: {
+          path: 'department',
+          select: 'name'
+        }
+      })
       .sort({ date: 1 })
 
     const dailyMap = new Map()
@@ -408,7 +416,10 @@ export const getAttendanceAnalytics = async (req, res) => {
     attendances.forEach(att => {
       const dateKey = formatDateLabel(att.date)
       const user = att.userId
-      const dept = user?.department || 'N/A'
+      // Lấy tên phòng ban từ populated object hoặc fallback về string/ObjectId
+      const dept = (typeof user?.department === 'object' && user?.department?.name) 
+        ? user.department.name 
+        : (user?.department || 'N/A')
 
       if (!dailyMap.has(dateKey)) {
         dailyMap.set(dateKey, { date: dateKey, present: 0, late: 0, absent: 0, onLeave: 0, total: 0 })
@@ -678,7 +689,14 @@ export const exportAttendanceAnalytics = async (req, res) => {
     }
 
     const attendances = await AttendanceModel.find(attendanceQuery)
-      .populate('userId', 'name email department')
+      .populate({
+        path: 'userId',
+        select: 'name email department',
+        populate: {
+          path: 'department',
+          select: 'name'
+        }
+      })
       .sort({ date: 1 })
 
     const dailyMap = new Map()
@@ -687,7 +705,10 @@ export const exportAttendanceAnalytics = async (req, res) => {
     attendances.forEach(att => {
       const dateKey = formatDateLabel(att.date)
       const user = att.userId
-      const dept = user?.department || 'N/A'
+      // Lấy tên phòng ban từ populated object hoặc fallback về string/ObjectId
+      const dept = (typeof user?.department === 'object' && user?.department?.name) 
+        ? user.department.name 
+        : (user?.department || 'N/A')
 
       if (!dailyMap.has(dateKey)) {
         dailyMap.set(dateKey, { date: dateKey, present: 0, late: 0, absent: 0, total: 0 })
