@@ -11,6 +11,8 @@ import { attendanceRouter } from "./modules/attendance/attendance.router.js";
 import { requestRouter } from "./modules/requests/request.router.js";
 import { userRouter } from "./modules/users/user.router.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.router.js";
+import { branchRouter } from "./modules/branches/branch.router.js";
+import { departmentRouter } from "./modules/departments/department.router.js";
 
 dotenv.config();
 
@@ -46,6 +48,8 @@ app.use("/api/attendance", attendanceRouter);
 app.use("/api/requests", requestRouter);
 app.use("/api/users", userRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/branches", branchRouter);
+app.use("/api/departments", departmentRouter);
 
 // Error handling middleware
 app.use((err, _req, res, _next) => {

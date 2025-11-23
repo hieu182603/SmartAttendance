@@ -27,6 +27,7 @@ import EmployeeManagementPage from "./components/dashboard/pages/EmployeeManagem
 import AuditLogsPage from "./components/dashboard/pages/AuditLogsPage";
 import SystemSettingsPage from "./components/dashboard/pages/SystemSettingsPage";
 import { BranchesPage } from "./components/dashboard/pages/BranchesPage";
+import { DepartmentsPage } from "./components/dashboard/pages/DepartmentsPage";
 import { UserRole } from "./utils/roles";
 
 
@@ -70,6 +71,7 @@ export default function App() {
 
             {/* System Routes - ADMIN and SUPER_ADMIN */}
             <Route element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}>
+              <Route path="departments" element={<DepartmentsPage />} />
               <Route path="branches" element={<BranchesPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="system-settings" element={<SystemSettingsPage />} />

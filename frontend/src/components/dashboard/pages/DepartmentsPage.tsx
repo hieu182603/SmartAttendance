@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
     Briefcase,
@@ -24,16 +24,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../../ui/separator';
 import { toast } from 'sonner';
 import { Textarea } from '../../ui/textarea';
+import {
+    getAllDepartments,
+    getDepartmentStats,
+    createDepartment,
+    updateDepartment,
+    deleteDepartment,
+    type Department as DepartmentType,
+} from '../../../services/departmentService';
+import { getBranchesList } from '../../../services/branchService';
+import api from '../../../services/api';
 
 
 interface Department {
     id: string;
+    _id?: string;
     name: string;
     code: string;
     description: string;
-    branchId: string;
+    branchId: string | { _id: string; name: string; code: string };
     branchName: string;
-    managerId: string;
+    managerId: string | { _id: string; name: string; email: string };
     managerName: string;
     employeeCount: number;
     activeEmployees: number;
@@ -42,14 +53,36 @@ interface Department {
     status: 'active' | 'inactive';
 }
 
+interface Branch {
+    _id: string;
+    name: string;
+    code: string;
+}
+
+interface Manager {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+}
+
 export function DepartmentsPage() {
     const [departments, setDepartments] = useState<Department[]>([]);
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [managers, setManagers] = useState<Manager[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterBranch, setFilterBranch] = useState('all');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
     const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        total: 0,
+        totalEmployees: 0,
+        activeEmployees: 0,
+        totalBudget: 0,
+    });
 
     const [formData, setFormData] = useState({
         name: '',
@@ -60,6 +93,70 @@ export function DepartmentsPage() {
         budget: '',
     });
 
+    // Load data
+    useEffect(() => {
+        loadDepartments();
+        loadBranches();
+        loadManagers();
+        loadStats();
+    }, []);
+
+    const loadDepartments = async () => {
+        try {
+            setLoading(true);
+            const response = await getAllDepartments({ limit: 1000 });
+            const departmentsData = response.departments.map((dept: DepartmentType) => ({
+                id: dept._id || dept.id || '',
+                _id: dept._id,
+                name: dept.name,
+                code: dept.code,
+                description: dept.description || '',
+                branchId: typeof dept.branchId === 'object' && dept.branchId ? dept.branchId._id : (typeof dept.branchId === 'string' ? dept.branchId : ''),
+                branchName: typeof dept.branchId === 'object' && dept.branchId ? dept.branchId.name : (dept.branchName || ''),
+                managerId: typeof dept.managerId === 'object' && dept.managerId ? dept.managerId._id : (typeof dept.managerId === 'string' ? dept.managerId : ''),
+                managerName: typeof dept.managerId === 'object' && dept.managerId ? dept.managerId.name : (dept.managerName || ''),
+                employeeCount: dept.employeeCount || 0,
+                activeEmployees: dept.activeEmployees || 0,
+                budget: dept.budget || 0,
+                createdAt: dept.createdAt || new Date().toISOString().split('T')[0],
+                status: dept.status,
+            }));
+            setDepartments(departmentsData);
+        } catch (error) {
+            console.error('Error loading departments:', error);
+            toast.error('Không thể tải danh sách phòng ban');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadBranches = async () => {
+        try {
+            const response = await getBranchesList();
+            setBranches(response.branches);
+        } catch (error) {
+            console.error('Error loading branches:', error);
+        }
+    };
+
+    const loadManagers = async () => {
+        try {
+            const response = await api.get('/users/managers');
+            setManagers(response.data.managers || []);
+        } catch (error) {
+            console.error('Error loading managers:', error);
+        }
+    };
+
+    const loadStats = async () => {
+        try {
+            const statsData = await getDepartmentStats();
+            setStats(statsData);
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    };
+
     // Filter departments
     const filteredDepartments = departments.filter(dept => {
         if (searchQuery && !dept.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -67,14 +164,6 @@ export function DepartmentsPage() {
         if (filterBranch !== 'all' && dept.branchId !== filterBranch) return false;
         return true;
     });
-
-    // Stats
-    const stats = {
-        total: departments.length,
-        totalEmployees: departments.reduce((sum, d) => sum + d.employeeCount, 0),
-        activeEmployees: departments.reduce((sum, d) => sum + d.activeEmployees, 0),
-        totalBudget: departments.reduce((sum, d) => sum + d.budget, 0),
-    };
 
     const handleOpenDialog = (mode: 'create' | 'edit', department?: Department) => {
         setDialogMode(mode);
@@ -84,8 +173,8 @@ export function DepartmentsPage() {
                 name: department.name,
                 code: department.code,
                 description: department.description,
-                branchId: department.branchId,
-                managerId: department.managerId,
+                branchId: typeof department.branchId === 'string' ? department.branchId : (department.branchId as any)?._id || '',
+                managerId: typeof department.managerId === 'string' ? department.managerId : (department.managerId as any)?._id || '',
                 budget: department.budget.toString(),
             });
         } else {
@@ -102,61 +191,52 @@ export function DepartmentsPage() {
         setIsDialogOpen(true);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!formData.name || !formData.code || !formData.branchId || !formData.managerId) {
             toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
             return;
         }
 
-        // TODO: Replace with API calls to get branch and manager names
-        // const branch = mockBranches.find(b => b.id === formData.branchId);
-        // const manager = mockManagers.find(m => m.id === formData.managerId);
-
-        if (dialogMode === 'create') {
-            const newDepartment: Department = {
-                id: `DEPT${String(departments.length + 1).padStart(3, '0')} `,
-                name: formData.name,
-                code: formData.code,
-                description: formData.description,
-                branchId: formData.branchId,
-                branchName: formData.branchId, // TODO: Get from API
-                managerId: formData.managerId,
-                managerName: formData.managerId, // TODO: Get from API
-                employeeCount: 0,
-                activeEmployees: 0,
-                budget: parseInt(formData.budget) || 0,
-                createdAt: new Date().toISOString().split('T')[0],
-                status: 'active',
-            };
-            setDepartments([...departments, newDepartment]);
-            toast.success(`Đã tạo phòng ban ${formData.name} `);
-        } else if (selectedDepartment) {
-            const updatedDepartments = departments.map(dept =>
-                dept.id === selectedDepartment.id
-                    ? {
-                        ...dept,
-                        name: formData.name,
-                        code: formData.code,
-                        description: formData.description,
-                        branchId: formData.branchId,
-                        branchName: formData.branchId, // TODO: Get from API
-                        managerId: formData.managerId,
-                        managerName: formData.managerId, // TODO: Get from API
-                        budget: parseInt(formData.budget) || dept.budget,
-                    }
-                    : dept
-            );
-            setDepartments(updatedDepartments);
-            toast.success(`Đã cập nhật phòng ban ${formData.name} `);
+        try {
+            if (dialogMode === 'create') {
+                await createDepartment({
+                    name: formData.name,
+                    code: formData.code,
+                    description: formData.description || undefined,
+                    branchId: formData.branchId,
+                    managerId: formData.managerId,
+                    budget: parseInt(formData.budget) || 0,
+                });
+                toast.success(`Đã tạo phòng ban ${formData.name}`);
+            } else if (selectedDepartment) {
+                await updateDepartment(selectedDepartment._id || selectedDepartment.id, {
+                    name: formData.name,
+                    code: formData.code,
+                    description: formData.description || undefined,
+                    branchId: formData.branchId,
+                    managerId: formData.managerId,
+                    budget: parseInt(formData.budget) || undefined,
+                });
+                toast.success(`Đã cập nhật phòng ban ${formData.name}`);
+            }
+            setIsDialogOpen(false);
+            await loadDepartments();
+            await loadStats();
+        } catch (error: any) {
+            toast.error(error.message || 'Có lỗi xảy ra');
         }
-
-        setIsDialogOpen(false);
     };
 
-    const handleDelete = (department: Department) => {
-        if (confirm(`Bạn có chắc muốn xóa phòng ban "${department.name}" ? `)) {
-            setDepartments(departments.filter(d => d.id !== department.id));
-            toast.success(`🗑️ Đã xóa phòng ban ${department.name} `);
+    const handleDelete = async (department: Department) => {
+        if (confirm(`Bạn có chắc muốn xóa phòng ban "${department.name}"?`)) {
+            try {
+                await deleteDepartment(department._id || department.id);
+                toast.success(`Đã xóa phòng ban ${department.name}`);
+                await loadDepartments();
+                await loadStats();
+            } catch (error: any) {
+                toast.error(error.message || 'Có lỗi xảy ra');
+            }
         }
     };
 
@@ -302,10 +382,13 @@ export function DepartmentsPage() {
             </Card>
 
             {/* Departments Grid */}
+            {loading ? (
+                <div className="text-center py-8 text-[var(--text-sub)]">Đang tải...</div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredDepartments.map((department, index) => (
                     <motion.div
-                        key={department.id}
+                        key={department._id || department.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}
@@ -402,6 +485,7 @@ export function DepartmentsPage() {
                     </motion.div>
                 ))}
             </div>
+            )}
 
             {/* Create/Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -454,10 +538,9 @@ export function DepartmentsPage() {
                                     <SelectValue placeholder="Chọn chi nhánh" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {/* TODO: Replace with API call to get branches */}
-                                    {/* {mockBranches.map(branch => (
-                                        <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                                    ))} */}
+                                    {branches.map(branch => (
+                                        <SelectItem key={branch._id} value={branch._id}>{branch.name}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -469,10 +552,9 @@ export function DepartmentsPage() {
                                     <SelectValue placeholder="Chọn trưởng phòng" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {/* TODO: Replace with API call to get managers */}
-                                    {/* {mockManagers.map(manager => (
-                                        <SelectItem key={manager.id} value={manager.id}>{manager.name}</SelectItem>
-                                    ))} */}
+                                    {managers.map(manager => (
+                                        <SelectItem key={manager.id} value={manager.id}>{manager.name} ({manager.role})</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
