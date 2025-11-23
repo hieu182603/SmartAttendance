@@ -150,10 +150,10 @@ const ApproveRequestsPage: React.FC = () => {
     try {
       if (actionType === 'approve') {
         await approveRequest(selectedRequest.id, comments)
-        toast.success(`✅ Đã phê duyệt yêu cầu`)
+        toast.success(`Đã phê duyệt yêu cầu`)
       } else {
         await rejectRequest(selectedRequest.id, comments)
-        toast.success(`❌ Đã từ chối yêu cầu`)
+        toast.success(` Đã từ chối yêu cầu`)
       }
       setIsDialogOpen(false)
       setSelectedRequest(null)

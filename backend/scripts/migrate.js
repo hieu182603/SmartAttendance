@@ -56,6 +56,51 @@ async function migrate() {
       }
     }
 
+    // Check branches collection
+    if (!collectionNames.includes('branches')) {
+      migrations.push({
+        name: 'Create branches collection',
+        action: async () => {
+          console.log('📝 Creating branches collection...');
+          await db.createCollection('branches');
+          
+          const branchesCollection = db.collection('branches');
+          
+          await branchesCollection.createIndex({ code: 1 }, { unique: true });
+          await branchesCollection.createIndex({ status: 1 });
+          await branchesCollection.createIndex({ managerId: 1 });
+          await branchesCollection.createIndex({ city: 1 });
+          
+          console.log('✅ Branches collection created with indexes');
+        }
+      });
+    } else {
+      console.log('✅ Branches collection already exists');
+    }
+
+    // Check departments collection
+    if (!collectionNames.includes('departments')) {
+      migrations.push({
+        name: 'Create departments collection',
+        action: async () => {
+          console.log('📝 Creating departments collection...');
+          await db.createCollection('departments');
+          
+          const departmentsCollection = db.collection('departments');
+          
+          await departmentsCollection.createIndex({ code: 1 }, { unique: true });
+          await departmentsCollection.createIndex({ branchId: 1 });
+          await departmentsCollection.createIndex({ status: 1 });
+          await departmentsCollection.createIndex({ managerId: 1 });
+          await departmentsCollection.createIndex({ branchId: 1, status: 1 });
+          
+          console.log('✅ Departments collection created with indexes');
+        }
+      });
+    } else {
+      console.log('✅ Departments collection already exists');
+    }
+
     if (migrations.length === 0) {
       console.log('\n✅ No migrations needed. Database is up to date.\n');
     } else {

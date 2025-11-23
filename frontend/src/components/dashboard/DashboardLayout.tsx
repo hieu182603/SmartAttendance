@@ -22,6 +22,8 @@ import {
   Users,
   Shield,
   Settings,
+  Briefcase,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
@@ -81,16 +83,22 @@ function getMenuByRole(role: UserRoleType): MenuItem[] {
     [UserRole.ADMIN]: [
       homeMenu,
       { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
+      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: "/employee/departments", section: "admin" },
+      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: "/employee/branches", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+
       { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
       { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
     ],
     [UserRole.SUPER_ADMIN]: [
       homeMenu,
       { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
+      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: "/employee/departments", section: "admin" },
+      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: "/employee/branches", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+
       { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
       { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
     ],

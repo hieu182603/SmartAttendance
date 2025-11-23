@@ -26,6 +26,7 @@ import AttendanceAnalyticsPage from "./components/dashboard/pages/AttendanceAnal
 import EmployeeManagementPage from "./components/dashboard/pages/EmployeeManagementPage";
 import AuditLogsPage from "./components/dashboard/pages/AuditLogsPage";
 import SystemSettingsPage from "./components/dashboard/pages/SystemSettingsPage";
+import { BranchesPage } from "./components/dashboard/pages/BranchesPage";
 import { UserRole } from "./utils/roles";
 
 
@@ -69,6 +70,7 @@ export default function App() {
 
             {/* System Routes - ADMIN and SUPER_ADMIN */}
             <Route element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}>
+              <Route path="branches" element={<BranchesPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="system-settings" element={<SystemSettingsPage />} />
             </Route>
