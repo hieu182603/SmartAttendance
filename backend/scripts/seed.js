@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import { UserModel } from '../src/modules/users/user.model.js';
 import { ShiftModel } from '../src/modules/shifts/shift.model.js';
 import { LocationModel } from '../src/modules/locations/location.model.js';
+import { BranchModel } from '../src/modules/branches/branch.model.js';
+import { DepartmentModel } from '../src/modules/departments/department.model.js';
 import { AttendanceModel } from '../src/modules/attendance/attendance.model.js';
 import { RequestModel } from '../src/modules/requests/request.model.js';
 import { ReportModel } from '../src/modules/reports/report.model.js';
@@ -28,6 +30,8 @@ async function seed() {
         await UserModel.deleteMany({});
         await ShiftModel.deleteMany({});
         await LocationModel.deleteMany({});
+        await BranchModel.deleteMany({});
+        await DepartmentModel.deleteMany({});
         await AttendanceModel.deleteMany({});
         await RequestModel.deleteMany({});
         await ReportModel.deleteMany({});
@@ -145,11 +149,177 @@ async function seed() {
         ]);
         console.log(`✅ Created ${locations.length} locations\n`);
 
+        // ========== 2.5. TẠO BRANCHES (Chi nhánh) ==========
+        console.log('🏢 Creating branches...');
+        const branches = await BranchModel.insertMany([
+            {
+                name: 'Trụ sở chính Hà Nội',
+                code: 'HQ',
+                address: '123 Đường Láng, Đống Đa, Hà Nội',
+                city: 'Hà Nội',
+                country: 'Việt Nam',
+                phone: '0241234567',
+                email: 'hq@smartattendance.com',
+                managerId: null, // Sẽ gán sau khi tạo users
+                establishedDate: new Date('2020-01-01'),
+                status: 'active',
+                timezone: 'GMT+7',
+            },
+            {
+                name: 'Chi nhánh TP.HCM',
+                code: 'HCM',
+                address: '456 Nguyễn Huệ, Quận 1, TP.HCM',
+                city: 'TP.HCM',
+                country: 'Việt Nam',
+                phone: '0281234567',
+                email: 'hcm@smartattendance.com',
+                managerId: null,
+                establishedDate: new Date('2021-06-01'),
+                status: 'active',
+                timezone: 'GMT+7',
+            },
+            {
+                name: 'Chi nhánh Đà Nẵng',
+                code: 'DN',
+                address: '789 Đường Bạch Đằng, Hải Châu, Đà Nẵng',
+                city: 'Đà Nẵng',
+                country: 'Việt Nam',
+                phone: '0236123456',
+                email: 'danang@smartattendance.com',
+                managerId: null,
+                establishedDate: new Date('2022-03-01'),
+                status: 'active',
+                timezone: 'GMT+7',
+            },
+            {
+                name: 'Chi nhánh Cần Thơ',
+                code: 'CT',
+                address: '321 Đường Nguyễn Văn Cừ, Ninh Kiều, Cần Thơ',
+                city: 'Cần Thơ',
+                country: 'Việt Nam',
+                phone: '0292123456',
+                email: 'cantho@smartattendance.com',
+                managerId: null,
+                establishedDate: new Date('2022-08-01'),
+                status: 'active',
+                timezone: 'GMT+7',
+            },
+            {
+                name: 'Chi nhánh Hải Phòng',
+                code: 'HP',
+                address: '654 Đường Lạch Tray, Ngô Quyền, Hải Phòng',
+                city: 'Hải Phòng',
+                country: 'Việt Nam',
+                phone: '0225123456',
+                email: 'haiphong@smartattendance.com',
+                managerId: null,
+                establishedDate: new Date('2023-01-01'),
+                status: 'active',
+                timezone: 'GMT+7',
+            },
+        ]);
+        console.log(`✅ Created ${branches.length} branches\n`);
+
+        // ========== 2.6. TẠO DEPARTMENTS (Phòng ban) ==========
+        console.log('📁 Creating departments...');
+        const departments = await DepartmentModel.insertMany([
+            {
+                name: 'Phòng Phát triển',
+                code: 'DEV',
+                description: 'Phòng ban phát triển phần mềm và công nghệ',
+                branchId: branches[0]._id, // HQ
+                managerId: null, // Sẽ gán sau
+                budget: 5000000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng Thiết kế',
+                code: 'DESIGN',
+                description: 'Phòng ban thiết kế UI/UX và sáng tạo',
+                branchId: branches[0]._id,
+                managerId: null,
+                budget: 2000000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng Marketing',
+                code: 'MKT',
+                description: 'Phòng ban marketing và truyền thông',
+                branchId: branches[0]._id,
+                managerId: null,
+                budget: 3000000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng Kinh doanh',
+                code: 'SALES',
+                description: 'Phòng ban kinh doanh và bán hàng',
+                branchId: branches[1]._id, // HCM
+                managerId: null,
+                budget: 4000000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng Nhân sự',
+                code: 'HR',
+                description: 'Phòng ban quản lý nhân sự',
+                branchId: branches[0]._id,
+                managerId: null,
+                budget: 1500000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng Tài chính',
+                code: 'FINANCE',
+                description: 'Phòng ban tài chính và kế toán',
+                branchId: branches[0]._id,
+                managerId: null,
+                budget: 2500000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng Vận hành',
+                code: 'OPS',
+                description: 'Phòng ban vận hành và quản lý hệ thống',
+                branchId: branches[0]._id,
+                managerId: null,
+                budget: 1800000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng Hỗ trợ',
+                code: 'SUPPORT',
+                description: 'Phòng ban hỗ trợ khách hàng',
+                branchId: branches[1]._id,
+                managerId: null,
+                budget: 1200000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng QA',
+                code: 'QA',
+                description: 'Phòng ban kiểm thử chất lượng',
+                branchId: branches[0]._id,
+                managerId: null,
+                budget: 1500000000,
+                status: 'active',
+            },
+            {
+                name: 'Phòng Sản phẩm',
+                code: 'PRODUCT',
+                description: 'Phòng ban quản lý sản phẩm',
+                branchId: branches[0]._id,
+                managerId: null,
+                budget: 2200000000,
+                status: 'active',
+            },
+        ]);
+        console.log(`✅ Created ${departments.length} departments\n`);
+
         // ========== 3. TẠO USERS (Người dùng) - 30 users ==========
         console.log('👥 Creating users...');
         const hashedPassword = await hashPassword('password123');
 
-        const departments = ['Development', 'Design', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Support', 'QA', 'Product'];
         const firstNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Đinh'];
         const lastNames = ['Văn', 'Thị', 'Minh', 'Hồng', 'Anh', 'Linh', 'Dũng', 'Hùng', 'Lan', 'Hương', 'Tuấn', 'Hải', 'Nam', 'Phương', 'Quang'];
         const middleNames = ['Văn', 'Thị', 'Minh', 'Hồng', 'Anh', 'Linh', 'Dũng', 'Hùng', 'Lan', 'Hương'];
@@ -163,8 +333,8 @@ async function seed() {
             name: 'Super Admin',
             role: 'SUPER_ADMIN',
             phone: '0900000000',
-            department: 'Executive',
-            branch: locations[0]._id,
+            department: null, // Super Admin không thuộc phòng ban cụ thể
+            branch: branches[0]._id, // HQ
             isVerified: true,
             isActive: true,
         });
@@ -175,8 +345,8 @@ async function seed() {
             name: 'Admin',
             role: 'ADMIN',
             phone: '0901234567',
-            department: 'IT',
-            branch: locations[0]._id,
+            department: departments.find(d => d.code === 'DEV')._id,
+            branch: branches[0]._id, // HQ
             isVerified: true,
             isActive: true,
         });
@@ -187,8 +357,8 @@ async function seed() {
             name: 'HR Manager',
             role: 'HR_MANAGER',
             phone: '0901234568',
-            department: 'HR',
-            branch: locations[0]._id,
+            department: departments.find(d => d.code === 'HR')._id,
+            branch: branches[0]._id, // HQ
             isVerified: true,
             isActive: true,
         });
@@ -199,8 +369,8 @@ async function seed() {
             name: 'Manager',
             role: 'MANAGER',
             phone: '0901234569',
-            department: 'Product',
-            branch: locations[0]._id,
+            department: departments.find(d => d.code === 'PRODUCT')._id,
+            branch: branches[0]._id, // HQ
             isVerified: true,
             isActive: true,
         });
@@ -211,8 +381,8 @@ async function seed() {
             const lastName = lastNames[randomInt(0, lastNames.length - 1)];
             const middleName = middleNames[randomInt(0, middleNames.length - 1)];
             const name = `${firstName} ${middleName} ${lastName} ${i}`;
-            const department = departments[randomInt(0, departments.length - 1)];
-            const branch = locations[randomInt(0, locations.length - 1)]._id;
+            const selectedDepartment = departments[randomInt(0, departments.length - 1)];
+            const selectedBranch = branches[randomInt(0, branches.length - 1)]._id;
             const phone = `090${String(1000000 + i).slice(1)}`;
 
             users.push({
@@ -221,8 +391,8 @@ async function seed() {
                 name: name,
                 role: 'EMPLOYEE',
                 phone: phone,
-                department: department,
-                branch: branch,
+                department: selectedDepartment._id,
+                branch: selectedBranch,
                 isVerified: true,
                 isActive: Math.random() > 0.1, // 90% active
             });
@@ -231,9 +401,21 @@ async function seed() {
         const createdUsers = await UserModel.insertMany(users);
         console.log(`✅ Created ${createdUsers.length} users\n`);
 
+        // Gán managerId cho branches và departments
         const adminUser = createdUsers.find((u) => u.role === 'ADMIN');
         const hrUser = createdUsers.find((u) => u.role === 'HR_MANAGER');
+        const managerUser = createdUsers.find((u) => u.role === 'MANAGER');
         const employeeUsers = createdUsers.filter((u) => u.role === 'EMPLOYEE');
+
+        // Gán giám đốc chi nhánh
+        await BranchModel.findByIdAndUpdate(branches[0]._id, { managerId: adminUser._id }); // HQ
+        await BranchModel.findByIdAndUpdate(branches[1]._id, { managerId: managerUser._id }); // HCM
+
+        // Gán trưởng phòng
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DEV')._id, { managerId: adminUser._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'HR')._id, { managerId: hrUser._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'PRODUCT')._id, { managerId: managerUser._id });
+        console.log('✅ Assigned managers to branches and departments\n');
 
         // ========== 4. TẠO ATTENDANCES (Chấm công) - 3 tháng ==========
         console.log('⏰ Creating attendances...');

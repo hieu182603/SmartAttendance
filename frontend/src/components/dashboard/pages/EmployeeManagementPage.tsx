@@ -251,7 +251,7 @@ const EmployeeManagementPage: React.FC = () => {
 
     try {
       await updateUserByAdmin(selectedUser._id || selectedUser.id || '', formData)
-      toast.success(`✅ Đã cập nhật thông tin ${formData.name}`)
+      toast.success(`Đã cập nhật thông tin ${formData.name}`)
       setIsEditDialogOpen(false)
       setSelectedUser(null)
       setValidationErrors({})

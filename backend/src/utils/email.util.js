@@ -212,7 +212,7 @@ export const sendResetPasswordEmail = async (to, otp, name = "User") => {
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log("✅ Reset password OTP email sent:", info.messageId);
+        console.log("Reset password OTP email sent:", info.messageId);
         return { success: true, messageId: info.messageId };
     } catch (error) {
         console.error("❌ Error sending reset password OTP email:", error.message);
@@ -240,7 +240,7 @@ export const verifyEmailConnection = async () => {
 
         const transporter = createTransporter();
         await transporter.verify();
-        console.log("✅ Email server is ready");
+        console.log("Email server is ready");
         return true;
     } catch (error) {
         console.error("❌ Email server connection failed:", error.message);
