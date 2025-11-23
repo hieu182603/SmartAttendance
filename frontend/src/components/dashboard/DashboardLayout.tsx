@@ -72,6 +72,7 @@ function getMenuByRole(role: UserRoleType): MenuItem[] {
     [UserRole.MANAGER]: [
       homeMenu,
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
+      { id: "department-attendance", label: "Chấm công (Phòng)", icon: CheckCircle2, path: "/employee/department-attendance", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
     ],
     [UserRole.HR_MANAGER]: [

@@ -28,6 +28,7 @@ import AuditLogsPage from "./components/dashboard/pages/AuditLogsPage";
 import SystemSettingsPage from "./components/dashboard/pages/SystemSettingsPage";
 import { BranchesPage } from "./components/dashboard/pages/BranchesPage";
 import { DepartmentsPage } from "./components/dashboard/pages/DepartmentsPage";
+import DepartmentAttendancePage from "./components/dashboard/pages/DepartmentAttendancePage";
 import { UserRole } from "./utils/roles";
 
 
@@ -62,6 +63,7 @@ export default function App() {
             <Route element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}>
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
+              <Route path="department-attendance" element={<DepartmentAttendancePage />} />
             </Route>
 
             {/* HR/Admin Routes - HR_MANAGER, ADMIN, SUPER_ADMIN only */}

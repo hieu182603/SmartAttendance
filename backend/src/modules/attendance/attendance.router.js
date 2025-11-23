@@ -9,6 +9,7 @@ import {
   getAttendanceAnalytics,
   getAllAttendance,
   exportAttendanceAnalytics,
+  getDepartmentAttendance,
 } from "./attendance.controller.js";
 
 export const attendanceRouter = Router();
@@ -43,4 +44,9 @@ attendanceRouter.get(
   "/all",
   requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
   getAllAttendance
+);
+attendanceRouter.get(
+  "/department",
+  requireRole([ROLES.MANAGER]),
+  getDepartmentAttendance
 );
