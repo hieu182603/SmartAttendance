@@ -30,6 +30,17 @@ export const changePassword = async (currentPassword: string, newPassword: strin
   })).data
 }
 
+export const uploadAvatar = async (file: File): Promise<UpdateUserResponse> => {
+  const formData = new FormData()
+  formData.append('avatar', file)
+  
+  return (await api.post('/users/me/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })).data
+}
+
 // Admin/HR Manager functions
 export const getAllUsers = async (params: Record<string, unknown> = {}): Promise<unknown> => {
   try {
