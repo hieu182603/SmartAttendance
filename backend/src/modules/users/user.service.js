@@ -11,6 +11,7 @@ export class UserService {
       "phone",
       "address",
       "birthday",
+      "avatar",
       "avatarUrl",
       "bankAccount",
       "bankName",
@@ -26,6 +27,14 @@ export class UserService {
           updateFields[field] = updateData[field];
         }
       }
+    }
+
+    // Đồng bộ avatar và avatarUrl
+    if (updateFields.avatar && !updateFields.avatarUrl) {
+      updateFields.avatarUrl = updateFields.avatar;
+    }
+    if (updateFields.avatarUrl && !updateFields.avatar) {
+      updateFields.avatar = updateFields.avatarUrl;
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -193,6 +202,7 @@ export class UserService {
       "department",
       "branch",
       "isActive",
+      "avatar",
       "avatarUrl"
     ];
 
@@ -201,6 +211,14 @@ export class UserService {
       if (updateData[field] !== undefined) {
         updateFields[field] = updateData[field];
       }
+    }
+
+    // Đồng bộ avatar và avatarUrl
+    if (updateFields.avatar && !updateFields.avatarUrl) {
+      updateFields.avatarUrl = updateFields.avatar;
+    }
+    if (updateFields.avatarUrl && !updateFields.avatar) {
+      updateFields.avatar = updateFields.avatarUrl;
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -271,6 +289,23 @@ export class UserService {
       { $set: updateFields },
       { new: true, runValidators: true }
     ).select("-password -otp -otpExpires").populate("branch", "name address");
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    return user;
+  }
+
+  /**
+   * Cập nhật avatar cho user
+   */
+  static async updateAvatar(userId, avatarUrl) {
+    const user = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: { avatar: avatarUrl, avatarUrl } },
+      { new: true, runValidators: true }
+    ).select("-password -otp -otpExpires");
 
     if (!user) {
       throw new Error("User not found");

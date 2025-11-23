@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema(
     phone: { type: String },
     address: { type: String },
     birthday: { type: Date },
+    avatar: { type: String },
     avatarUrl: { type: String },
     bankAccount: { type: String },
     bankName: { type: String },
