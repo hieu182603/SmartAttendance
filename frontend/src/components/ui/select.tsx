@@ -44,7 +44,7 @@ const Select = ({ value, onValueChange, disabled, children, ...props }: SelectPr
   }
 
   return (
-    <SelectContext.Provider value={{ isOpen, setIsOpen: disabled ? () => {} : setIsOpen, selectedValue, handleValueChange, registerItem, items }}>
+    <SelectContext.Provider value={{ isOpen, setIsOpen: disabled ? () => { } : setIsOpen, selectedValue, handleValueChange, registerItem, items }}>
       <div className="relative" {...props}>
         {React.Children.map(children, child => {
           if (React.isValidElement(child)) {
@@ -57,7 +57,7 @@ const Select = ({ value, onValueChange, disabled, children, ...props }: SelectPr
   )
 }
 
-interface SelectTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+interface SelectTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> { }
 
 const SelectTrigger = React.forwardRef<HTMLButtonElement, SelectTriggerProps>(
   ({ className, children, ...props }, ref) => {
@@ -93,31 +93,28 @@ const SelectValue = ({ placeholder, ...props }: SelectValueProps) => {
 }
 SelectValue.displayName = 'SelectValue'
 
-interface SelectContentProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface SelectContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  side?: 'top' | 'bottom'
+}
 
 const SelectContent = React.forwardRef<HTMLDivElement, SelectContentProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, side = 'bottom', ...props }, ref) => {
     const context = React.useContext(SelectContext)
 
     if (!context?.isOpen) return null
 
     return (
-      <>
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => context?.setIsOpen(false)}
-        />
-        <div
-          ref={ref}
-          className={cn(
-            'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 shadow-xl',
-            className
-          )}
-          {...props}
-        >
-          {children}
-        </div>
-      </>
+      <div
+        ref={ref}
+        className={cn(
+          'absolute z-50 max-h-60 w-full overflow-auto rounded-xl border bg-white dark:bg-gray-800 p-1 shadow-lg',
+          side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </div>
     )
   }
 )

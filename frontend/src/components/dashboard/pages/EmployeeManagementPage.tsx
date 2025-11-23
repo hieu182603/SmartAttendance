@@ -12,7 +12,11 @@ import {
   ShieldCheck,
   ShieldAlert,
   Info,
-  Users
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
@@ -587,74 +591,71 @@ const EmployeeManagementPage: React.FC = () => {
 
           {/* Pagination Controls */}
           {filteredUsers.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border)]">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-[var(--text-sub)]">Hiển thị</span>
-                <Select value={itemsPerPage.toString()} onValueChange={(v) => {
-                  setItemsPerPage(Number(v))
-                  setCurrentPage(1)
-                }}>
-                  <SelectTrigger className="w-20 h-8 bg-[var(--shell)] border-[var(--border)] text-sm">
-                    <SelectValue placeholder="10" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="15">15</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-[var(--text-sub)]">
-                  trên tổng {filteredUsers.length} nhân viên
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <span>
+                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredUsers.length)} của {filteredUsers.length}
                 </span>
+                <span className="hidden sm:inline">•</span>
+                <div className="flex items-center gap-2">
+                  <span>Số dòng:</span>
+                  <Select value={itemsPerPage.toString()} onValueChange={(v) => {
+                    setItemsPerPage(Number(v))
+                    setCurrentPage(1)
+                  }}>
+                    <SelectTrigger className="w-20 h-8 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="15">15</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="h-8 px-3 border-[var(--border)] text-[var(--text-main)]"
+                  className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                 >
-                  Trước
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
 
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => {
-                      // Show first page, last page, current page and neighbors
-                      return page === 1 ||
-                        page === totalPages ||
-                        Math.abs(page - currentPage) <= 1
-                    })
-                    .map((page, idx, arr) => (
-                      <div key={page} className="flex items-center">
-                        {idx > 0 && arr[idx - 1] !== page - 1 && (
-                          <span className="px-2 text-[var(--text-sub)]">...</span>
-                        )}
-                        <Button
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCurrentPage(page)}
-                          className={`h-8 w-8 p-0 ${currentPage === page
-                            ? 'bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white'
-                            : 'border-[var(--border)] text-[var(--text-main)]'
-                            }`}
-                        >
-                          {page}
-                        </Button>
-                      </div>
-                    ))}
-                </div>
+                <span className="px-4 text-sm text-gray-900 dark:text-gray-100">
+                  Trang {currentPage} / {totalPages}
+                </span>
 
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="h-8 px-3 border-[var(--border)] text-[var(--text-main)]"
+                  className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                 >
-                  Sau
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <ChevronsRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>

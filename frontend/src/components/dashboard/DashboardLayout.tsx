@@ -20,6 +20,8 @@ import {
   BarChart3,
   CheckCircle2,
   Users,
+  Shield,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
@@ -38,7 +40,7 @@ interface MenuItem {
   label: string;
   icon: LucideIcon;
   path: string;
-  section: "admin" | "employee";
+  section: "admin" | "employee" | "system";
 }
 
 // Helper function to generate menu based on role
@@ -50,6 +52,12 @@ function getMenuByRole(role: UserRoleType): MenuItem[] {
     { id: "requests", label: "Yêu cầu", icon: FileText, path: "/employee/requests", section: "employee" },
     { id: "leave-balance", label: "Số ngày phép", icon: CalendarDays, path: "/employee/leave-balance", section: "employee" },
     { id: "schedule", label: "Lịch làm việc", icon: Clock, path: "/employee/schedule", section: "employee" },
+    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: "/employee/company-calendar", section: "employee" },
+    { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile", section: "employee" },
+  ];
+
+  // Simplified menu for admin roles (only company calendar and profile)
+  const adminEmployeeMenu: MenuItem[] = [
     { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: "/employee/company-calendar", section: "employee" },
     { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile", section: "employee" },
   ];
@@ -75,19 +83,28 @@ function getMenuByRole(role: UserRoleType): MenuItem[] {
       { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
+      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
     ],
     [UserRole.SUPER_ADMIN]: [
       homeMenu,
       { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
+      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
     ],
   };
 
   // Get additional menus for the role
   const additionalMenus = adminMenus[role] || [];
 
-  // For roles with admin access, show admin menus first, then employee section
+  // For ADMIN and SUPER_ADMIN roles, use simplified employee menu
+  if (role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN) {
+    return [...additionalMenus, ...adminEmployeeMenu];
+  }
+
+  // For other roles with admin access (MANAGER, HR_MANAGER), show full employee menu
   if (canAccessAdminPanel(role)) {
     return [...additionalMenus, ...baseMenu];
   }
@@ -166,10 +183,10 @@ const DashboardLayout: React.FC = () => {
               </div>
               {canAccessAdminPanel(userRole) && (
                 <span className={`px-2 py-1 text-xs rounded-md ${roleInfo.bg} ${roleInfo.text}`}>
-                  {userRole === UserRole.SUPER_ADMIN ? 'SU' : 
-                   userRole === UserRole.ADMIN ? 'AD' : 
-                   userRole === UserRole.HR_MANAGER ? 'HR' : 
-                   userRole === UserRole.MANAGER ? 'MG' : 'EMP'}
+                  {userRole === UserRole.SUPER_ADMIN ? 'SU' :
+                    userRole === UserRole.ADMIN ? 'AD' :
+                      userRole === UserRole.HR_MANAGER ? 'HR' :
+                        userRole === UserRole.MANAGER ? 'MG' : 'EMP'}
                 </span>
               )}
             </div>
@@ -217,18 +234,18 @@ const DashboardLayout: React.FC = () => {
               bg-[var(--surface)] border-r border-[var(--border)]
               overflow-y-auto z-40
               transform transition-transform duration-200 ease-in-out
-              ${
-                isSidebarOpen
-                  ? "translate-x-0"
-                  : "-translate-x-full lg:translate-x-0"
-              }`}
+              ${isSidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
+            }`}
         >
           <nav className="p-4 space-y-1 overflow-y-auto">
             {/* Group menu items by section */}
             {(() => {
-              const sections: { admin: MenuItem[]; employee: MenuItem[] } = {
+              const sections: { admin: MenuItem[]; employee: MenuItem[]; system: MenuItem[] } = {
                 admin: menu.filter(item => item.section === 'admin'),
                 employee: menu.filter(item => item.section === 'employee'),
+                system: menu.filter(item => item.section === 'system'),
               };
 
               return (
@@ -250,10 +267,9 @@ const DashboardLayout: React.FC = () => {
                             className={`
                               w-full flex items-center space-x-3 px-4 py-3 rounded-xl
                               transition-all duration-200
-                              ${
-                                isActive
-                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
-                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                              ${isActive
+                                ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                : "text-[var(--text-main)] hover:bg-[var(--shell)]"
                               }
                             `}
                           >
@@ -287,10 +303,40 @@ const DashboardLayout: React.FC = () => {
                             className={`
                               w-full flex items-center space-x-3 px-4 py-3 rounded-xl
                               transition-all duration-200
-                              ${
-                                isActive
-                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
-                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                              ${isActive
+                                ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                              }
+                            `}
+                          >
+                            <Icon className="h-5 w-5" />
+                            <span className="text-sm">{item.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* System Section */}
+                  {sections.system.length > 0 && (
+                    <div className="mb-4">
+                      <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
+                        Hệ thống
+                      </div>
+                      {sections.system.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = currentPage === item.id;
+                        return (
+                          <NavLink
+                            key={item.id}
+                            to={item.path}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className={`
+                              w-full flex items-center space-x-3 px-4 py-3 rounded-xl
+                              transition-all duration-200
+                              ${isActive
+                                ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                : "text-[var(--text-main)] hover:bg-[var(--shell)]"
                               }
                             `}
                           >
