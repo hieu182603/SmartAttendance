@@ -3,9 +3,9 @@ import { z } from "zod";
 
 // Validation schemas
 export const registerSchema = z.object({
-    email: z.string().email("Invalid email"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    name: z.string().min(1, "Name is required")
+    email: z.string().email("Email không hợp lệ").min(1, "Email không được để trống"),
+    password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự").max(100, "Mật khẩu không được vượt quá 100 ký tự"),
+    name: z.string().min(2, "Họ và tên phải có ít nhất 2 ký tự").max(100, "Họ và tên không được vượt quá 100 ký tự")
 });
 
 export const loginSchema = z.object({
@@ -87,7 +87,7 @@ export class AuthController {
                 } else if (fieldErrors.password) {
                     errorMessage = fieldErrors.password[0] || "Mật khẩu phải có ít nhất 6 ký tự";
                 } else if (fieldErrors.name) {
-                    errorMessage = fieldErrors.name[0] || "Tên không được để trống";
+                    errorMessage = fieldErrors.name[0] || "Họ và tên không được để trống";
                 }
 
                 return res.status(400).json({
@@ -102,7 +102,10 @@ export class AuthController {
             return res.status(201).json(result);
         } catch (error) {
             if (error.message === "Email already registered") {
-                return res.status(409).json({ message: "Email đã được đăng ký" });
+                return res.status(409).json({ message: "Email đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập." });
+            }
+            if (error.message === "Không thể tạo mã OTP. Vui lòng thử lại.") {
+                return res.status(500).json({ message: error.message });
             }
             console.error("Register error:", error);
             return res.status(500).json({

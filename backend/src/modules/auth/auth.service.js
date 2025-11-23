@@ -9,18 +9,43 @@ export class AuthService {
     static async register(userData) {
         const { email, password, name } = userData;
 
-        const existed = await UserModel.findOne({ email });
+        // Normalize email (lowercase, trim)
+        const normalizedEmail = email.toLowerCase().trim();
+        const normalizedName = name.trim();
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(normalizedEmail)) {
+            throw new Error("Email không hợp lệ");
+        }
+
+        // Validate name length
+        if (normalizedName.length < 2) {
+            throw new Error("Họ và tên phải có ít nhất 2 ký tự");
+        }
+
+        // Check if email already exists
+        const existed = await UserModel.findOne({ email: normalizedEmail });
         if (existed) {
             throw new Error("Email already registered");
         }
 
         // Tạo tài khoản mới
-        const user = await UserModel.create({
-            email,
-            password,
-            name,
-            isVerified: false,
-        });
+        let user;
+        try {
+            user = await UserModel.create({
+                email: normalizedEmail,
+                password,
+                name: normalizedName,
+                isVerified: false,
+            });
+        } catch (error) {
+            // Handle duplicate email race condition
+            if (error.code === 11000 || error.message.includes("duplicate")) {
+                throw new Error("Email already registered");
+            }
+            throw error;
+        }
 
         // Tạo OTP mới
         try {
@@ -29,27 +54,31 @@ export class AuthService {
 
             await OtpModel.create({
                 userId: user._id,
-                email,
+                email: normalizedEmail,
                 code: otpCode,
                 purpose: "verify_email",
                 expiresAt: otpExpires,
             });
 
             // Gửi email OTP (không throw error nếu fail - OTP đã được tạo)
-            const emailResult = await sendOTPEmail(email, otpCode, name);
+            const emailResult = await sendOTPEmail(normalizedEmail, otpCode, normalizedName);
             if (!emailResult.success) {
                 console.warn("⚠️  Email không gửi được, nhưng OTP đã được tạo. User có thể xem OTP trong console hoặc request resend.");
             }
         } catch (error) {
             // Nếu tạo OTP thất bại, xóa user đã tạo để tránh orphan data
-            await UserModel.findByIdAndDelete(user._id);
+            try {
+                await UserModel.findByIdAndDelete(user._id);
+            } catch (deleteError) {
+                console.error("Failed to cleanup user after OTP creation failure:", deleteError);
+            }
             console.error("Failed to create OTP:", error);
             throw new Error("Không thể tạo mã OTP. Vui lòng thử lại.");
         }
 
         return {
             message:
-                "Registration successful. Please check your email for OTP verification.",
+                "Đăng ký thành công. Vui lòng kiểm tra email để xác thực OTP.",
             userId: user._id,
             email: user.email,
         };
@@ -87,6 +116,7 @@ export class AuthService {
                 id: user._id,
                 email: user.email,
                 name: user.name,
+                role: user.role,
                 isVerified: user.isVerified,
             },
         };
@@ -136,6 +166,7 @@ export class AuthService {
                 id: user._id,
                 email: user.email,
                 name: user.name,
+                role: user.role,
             },
         };
     }
@@ -151,7 +182,7 @@ export class AuthService {
     static async forgotPassword(email) {
         const user = await UserModel.findOne({ email });
         if (!user) {
-            // Không tiết lộ email có tồn tại hay không vì lý do bảo mật
+            
             return {
                 success: true,
                 message: "If the email exists, an OTP has been sent to your email."

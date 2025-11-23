@@ -15,7 +15,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.0.1"
+  },
+  "dependencies": {
+    "react-day-picker": "^9.11.1"
   }
 }
-
-
