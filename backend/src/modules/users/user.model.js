@@ -20,13 +20,14 @@ const userSchema = new mongoose.Schema(
     },
 
     // Liên kết chi nhánh & phòng ban
-    branch: { type: mongoose.Schema.Types.ObjectId, ref: "Location" },
-    department: { type: String },
+    branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
+    department: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
 
     // Thông tin bổ sung
     phone: { type: String },
     address: { type: String },
     birthday: { type: Date },
+    avatar: { type: String },
     avatarUrl: { type: String },
     bankAccount: { type: String },
     bankName: { type: String },

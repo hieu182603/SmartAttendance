@@ -164,9 +164,9 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
       toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
       await exportAttendanceAnalytics(params)
-      toast.success('✅ Đã xuất báo cáo thành công!', { id: 'export' })
+      toast.success(' Đã xuất báo cáo thành công!', { id: 'export' })
     } catch (error) {
-      toast.error('❌ Không thể xuất báo cáo', { id: 'export' })
+      toast.error(' Không thể xuất báo cáo', { id: 'export' })
     }
   }
 
@@ -476,5 +476,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
 }
 
 export default AttendanceAnalyticsPage
+
+
 
 

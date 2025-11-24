@@ -24,6 +24,11 @@ import CompanyCalendarPage from "./components/dashboard/pages/CompanyCalendarPag
 import ApproveRequestsPage from "./components/dashboard/pages/ApproveRequestsPage";
 import AttendanceAnalyticsPage from "./components/dashboard/pages/AttendanceAnalyticsPage";
 import EmployeeManagementPage from "./components/dashboard/pages/EmployeeManagementPage";
+import AuditLogsPage from "./components/dashboard/pages/AuditLogsPage";
+import SystemSettingsPage from "./components/dashboard/pages/SystemSettingsPage";
+import { BranchesPage } from "./components/dashboard/pages/BranchesPage";
+import { DepartmentsPage } from "./components/dashboard/pages/DepartmentsPage";
+import DepartmentAttendancePage from "./components/dashboard/pages/DepartmentAttendancePage";
 import { UserRole } from "./utils/roles";
 
 
@@ -53,16 +58,25 @@ export default function App() {
             <Route path="camera-checkin" element={<CameraCheckinPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="company-calendar" element={<CompanyCalendarPage />} />
-            
+
             {/* Admin Routes - Manager and above (nested protection) */}
             <Route element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}>
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
+              <Route path="department-attendance" element={<DepartmentAttendancePage />} />
             </Route>
 
             {/* HR/Admin Routes - HR_MANAGER, ADMIN, SUPER_ADMIN only */}
             <Route element={<ProtectedRoute minimumRole={UserRole.HR_MANAGER} />}>
               <Route path="employee-management" element={<EmployeeManagementPage />} />
+            </Route>
+
+            {/* System Routes - ADMIN and SUPER_ADMIN */}
+            <Route element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}>
+              <Route path="departments" element={<DepartmentsPage />} />
+              <Route path="branches" element={<BranchesPage />} />
+              <Route path="audit-logs" element={<AuditLogsPage />} />
+              <Route path="system-settings" element={<SystemSettingsPage />} />
             </Route>
           </Route>
         </Route>

@@ -12,6 +12,8 @@ import { attendanceRouter } from "./modules/attendance/attendance.router.js";
 import { requestRouter } from "./modules/requests/request.router.js";
 import { userRouter } from "./modules/users/user.router.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.router.js";
+import { branchRouter } from "./modules/branches/branch.router.js";
+import { departmentRouter } from "./modules/departments/department.router.js";
 
 // ⭐ THÊM ROUTER SHIFTS
 import { shiftRouter } from "./modules/shifts/shift.router.js";
@@ -26,6 +28,12 @@ const app = express(
 
 // Middleware
 app.use(cors());
+app.use(cors(
+  {
+    origin: "*",
+  }
+));
+// Tăng body size limit để nhận ảnh base64 (tối đa 10MB)
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -46,6 +54,8 @@ app.use("/api/attendance", attendanceRouter);
 app.use("/api/requests", requestRouter);
 app.use("/api/users", userRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/branches", branchRouter);
+app.use("/api/departments", departmentRouter);
 
 // ⭐ THÊM ROUTE SHIFTS
 app.use("/api/shifts", shiftRouter);

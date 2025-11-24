@@ -116,4 +116,16 @@ export const exportAttendanceAnalytics = async (params: AttendanceParams = {}): 
   }
 }
 
+export const getDepartmentAttendance = async (params: AttendanceParams = {}): Promise<AllAttendanceResponse> => {
+  try {
+    const { data } = await api.get('/attendance/department', { params })
+    return data as AllAttendanceResponse
+  } catch (error) {
+    console.warn('[attendance] getDepartmentAttendance unavailable', (error as Error).message)
+    return { records: [], summary: { total: 0, present: 0, late: 0, absent: 0 }, pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
+  }
+}
+
+
+
 

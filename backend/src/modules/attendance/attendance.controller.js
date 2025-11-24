@@ -1,5 +1,6 @@
 import { AttendanceModel } from "./attendance.model.js";
 import { LocationModel } from "../locations/location.model.js";
+import { DepartmentModel } from "../departments/department.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
 import { google } from "googleapis";
 import stream from "stream";
@@ -398,7 +399,14 @@ export const getAttendanceAnalytics = async (req, res) => {
     }
 
     const attendances = await AttendanceModel.find(attendanceQuery)
-      .populate('userId', 'name department')
+      .populate({
+        path: 'userId',
+        select: 'name department',
+        populate: {
+          path: 'department',
+          select: 'name'
+        }
+      })
       .sort({ date: 1 })
 
     const dailyMap = new Map()
@@ -408,7 +416,10 @@ export const getAttendanceAnalytics = async (req, res) => {
     attendances.forEach(att => {
       const dateKey = formatDateLabel(att.date)
       const user = att.userId
-      const dept = user?.department || 'N/A'
+      // Lấy tên phòng ban từ populated object hoặc fallback về string/ObjectId
+      const dept = (typeof user?.department === 'object' && user?.department?.name) 
+        ? user.department.name 
+        : (user?.department || 'N/A')
 
       if (!dailyMap.has(dateKey)) {
         dailyMap.set(dateKey, { date: dateKey, present: 0, late: 0, absent: 0, onLeave: 0, total: 0 })
@@ -678,7 +689,14 @@ export const exportAttendanceAnalytics = async (req, res) => {
     }
 
     const attendances = await AttendanceModel.find(attendanceQuery)
-      .populate('userId', 'name email department')
+      .populate({
+        path: 'userId',
+        select: 'name email department',
+        populate: {
+          path: 'department',
+          select: 'name'
+        }
+      })
       .sort({ date: 1 })
 
     const dailyMap = new Map()
@@ -687,7 +705,10 @@ export const exportAttendanceAnalytics = async (req, res) => {
     attendances.forEach(att => {
       const dateKey = formatDateLabel(att.date)
       const user = att.userId
-      const dept = user?.department || 'N/A'
+      // Lấy tên phòng ban từ populated object hoặc fallback về string/ObjectId
+      const dept = (typeof user?.department === 'object' && user?.department?.name) 
+        ? user.department.name 
+        : (user?.department || 'N/A')
 
       if (!dailyMap.has(dateKey)) {
         dailyMap.set(dateKey, { date: dateKey, present: 0, late: 0, absent: 0, total: 0 })
@@ -772,3 +793,128 @@ export const exportAttendanceAnalytics = async (req, res) => {
     res.status(500).json({ message: 'Không thể xuất báo cáo' })
   }
 }
+
+export const getDepartmentAttendance = async (req, res) => {
+  try {
+    const managerId = req.user.userId;
+    const { date, search, page = 1, limit = 20 } = req.query;
+
+    const UserModel = (await import('../users/user.model.js')).UserModel;
+
+    // Lấy thông tin manager để biết department
+    const manager = await UserModel.findById(managerId).select('department');
+    if (!manager || !manager.department) {
+      return res.status(403).json({
+        message: 'Bạn không thuộc phòng ban nào hoặc không có quyền truy cập'
+      });
+    }
+
+    const query = {};
+
+    // Filter theo ngày
+    if (date) {
+      const dateOnly = new Date(date);
+      dateOnly.setHours(0, 0, 0, 0);
+      const nextDay = new Date(dateOnly);
+      nextDay.setDate(nextDay.getDate() + 1);
+      query.date = { $gte: dateOnly, $lt: nextDay };
+    } else {
+      // Mặc định là hôm nay
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      query.date = { $gte: today, $lt: tomorrow };
+    }
+
+    // Lấy tất cả nhân viên trong phòng ban của manager
+    let userQuery = { department: manager.department, isActive: true };
+    
+    // Tìm kiếm theo tên hoặc email
+    if (search) {
+      userQuery = {
+        ...userQuery,
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+
+    const users = await UserModel.find(userQuery).select('_id name email');
+    const userIds = users.map(u => u._id);
+
+    if (userIds.length === 0) {
+      return res.json({
+        records: [],
+        summary: { total: 0, present: 0, late: 0, absent: 0 },
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
+      });
+    }
+
+    query.userId = { $in: userIds };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [docs, total] = await Promise.all([
+      AttendanceModel.find(query)
+        .populate('userId', 'name email')
+        .populate('locationId', 'name')
+        .sort({ checkIn: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      AttendanceModel.countDocuments(query)
+    ]);
+
+    const records = docs.map(doc => {
+      const status = deriveStatus(doc);
+      return {
+        id: doc._id.toString(),
+        userId: doc.userId?._id?.toString(),
+        name: doc.userId?.name || 'N/A',
+        email: doc.userId?.email || 'N/A',
+        employeeId: doc.userId?._id?.toString().slice(-3) || 'N/A',
+        date: formatDateLabel(doc.date),
+        checkIn: formatTime(doc.checkIn),
+        checkOut: formatTime(doc.checkOut),
+        hours: doc.workHours 
+          ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m` 
+          : '-',
+        status,
+        location: doc.locationId?.name || '-'
+      };
+    });
+
+    // Tính summary từ tất cả records trong ngày (không chỉ trang hiện tại)
+    const allDocs = await AttendanceModel.find(query)
+      .populate('userId', 'name email')
+      .select('status checkIn checkOut');
+
+    const summary = {
+      total: users.length, // Tổng số nhân viên trong phòng ban
+      present: allDocs.filter(d => {
+        const s = deriveStatus(d);
+        return s === 'ontime';
+      }).length,
+      late: allDocs.filter(d => {
+        const s = deriveStatus(d);
+        return s === 'late';
+      }).length,
+      absent: users.length - allDocs.length // Số người chưa chấm công
+    };
+
+    res.json({
+      records,
+      summary,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('[attendance] getDepartmentAttendance error', error);
+    res.status(500).json({ message: 'Không lấy được danh sách chấm công phòng ban' });
+  }
+};

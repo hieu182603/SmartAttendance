@@ -35,7 +35,7 @@ import {
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
 import { toast } from "sonner";
-import { updateUserProfile, changePassword } from "../../services/userService";
+import { updateUserProfile, changePassword, uploadAvatar } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
 import type { User as UserType } from "../../types";
@@ -49,6 +49,7 @@ interface ProfileProps {
     birthday?: string;
     department?: string;
     createdAt?: string;
+    avatar?: string;
     avatarUrl?: string;
     bankAccount?: string;
     bankName?: string;
@@ -255,11 +256,37 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     }
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Upload avatar logic
-      console.log("Uploading avatar:", file.name);
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Kích thước file không được vượt quá 10MB');
+      return;
+    }
+
+    try {
+      toast.loading('Đang upload avatar...', { id: 'upload-avatar' });
+      
+      const response = await uploadAvatar(file);
+      
+      if (response.user) {
+        setUser(response.user);
+        toast.success('Upload avatar thành công!', { id: 'upload-avatar' });
+      }
+    } catch (error) {
+      const err = error as ErrorWithMessage;
+      toast.error(err.response?.data?.message || 'Upload avatar thất bại', { id: 'upload-avatar' });
+    } finally {
+      // Reset input để có thể chọn lại file cùng tên
+      e.target.value = '';
     }
   };
 
@@ -303,7 +330,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <Avatar className="h-32 w-32 border-4 border-[var(--accent-cyan)] shadow-lg">
                       <AvatarImage
                         src={
-                          user?.avatarUrl ||
+                          user?.avatar || user?.avatarUrl ||
                           `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "user"
                           }`
                         }
@@ -906,5 +933,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     </div>
   );
 }
+
+
 
 

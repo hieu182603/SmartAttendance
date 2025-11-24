@@ -215,8 +215,8 @@ const RequestsPage: React.FC = () => {
 
     toast.success(
       actionType === "approve"
-        ? "✅ Đã phê duyệt yêu cầu"
-        : "❌ Đã từ chối yêu cầu"
+        ? "Đã phê duyệt yêu cầu"
+        : "Đã từ chối yêu cầu"
     );
   };
 
@@ -651,5 +651,7 @@ const RequestsPage: React.FC = () => {
 };
 
 export default RequestsPage;
+
+
 
 

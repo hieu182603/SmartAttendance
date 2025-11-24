@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import { UserModel } from "./user.model.js";
+import { DepartmentModel } from "../departments/department.model.js";
 
 export class UserService {
   /**
@@ -11,6 +13,7 @@ export class UserService {
       "phone",
       "address",
       "birthday",
+      "avatar",
       "avatarUrl",
       "bankAccount",
       "bankName",
@@ -26,6 +29,14 @@ export class UserService {
           updateFields[field] = updateData[field];
         }
       }
+    }
+
+    // Đồng bộ avatar và avatarUrl
+    if (updateFields.avatar && !updateFields.avatarUrl) {
+      updateFields.avatarUrl = updateFields.avatar;
+    }
+    if (updateFields.avatarUrl && !updateFields.avatar) {
+      updateFields.avatar = updateFields.avatarUrl;
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -95,13 +106,31 @@ export class UserService {
 
     const query = {};
 
-    // Search filter - tìm kiếm theo name, email, hoặc department
+    // Search filter - tìm kiếm theo name, email
+    // Note: Không thể search trực tiếp trên department vì nó là ObjectId reference
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { department: { $regex: search, $options: "i" } }
+        { email: { $regex: search, $options: "i" } }
       ];
+
+      // Nếu muốn search theo tên phòng ban, tìm trong Department model trước
+      try {
+        const departments = await DepartmentModel.find({
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { code: { $regex: search, $options: "i" } }
+          ]
+        }).select('_id');
+
+        if (departments.length > 0) {
+          const departmentIds = departments.map(d => d._id);
+          query.$or.push({ department: { $in: departmentIds } });
+        }
+      } catch (err) {
+        // Nếu có lỗi khi tìm department, bỏ qua
+        console.warn('[UserService] Error searching departments:', err.message);
+      }
     }
 
     // Role filter
@@ -109,9 +138,32 @@ export class UserService {
       query.role = role;
     }
 
-    // Department filter
+    // Department filter - department có thể là ObjectId hoặc tên phòng ban
     if (department && department !== "all") {
-      query.department = { $regex: department, $options: "i" };
+      // Kiểm tra xem department có phải là ObjectId hợp lệ không
+      if (mongoose.Types.ObjectId.isValid(department)) {
+        query.department = department;
+      } else {
+        // Nếu không phải ObjectId, tìm Department theo name hoặc code
+        try {
+          const dept = await DepartmentModel.findOne({
+            $or: [
+              { name: { $regex: department, $options: "i" } },
+              { code: { $regex: department, $options: "i" } }
+            ]
+          }).select('_id');
+
+          if (dept) {
+            query.department = dept._id;
+          } else {
+            // Nếu không tìm thấy, set query để không trả về kết quả nào
+            query.department = null;
+          }
+        } catch (err) {
+          console.warn('[UserService] Error finding department:', err.message);
+          query.department = null;
+        }
+      }
     }
 
     // Status filter
@@ -126,7 +178,7 @@ export class UserService {
     // Nếu có page và limit thì dùng server-side pagination
     // Nếu không có thì trả về tất cả (cho client-side pagination)
     let users, total;
-    
+
     if (page !== undefined && limit !== undefined) {
       const pageNum = parseInt(page) || 1;
       const limitNum = parseInt(limit) || 20;
@@ -193,6 +245,7 @@ export class UserService {
       "department",
       "branch",
       "isActive",
+      "avatar",
       "avatarUrl"
     ];
 
@@ -201,6 +254,14 @@ export class UserService {
       if (updateData[field] !== undefined) {
         updateFields[field] = updateData[field];
       }
+    }
+
+    // Đồng bộ avatar và avatarUrl
+    if (updateFields.avatar && !updateFields.avatarUrl) {
+      updateFields.avatarUrl = updateFields.avatar;
+    }
+    if (updateFields.avatarUrl && !updateFields.avatar) {
+      updateFields.avatar = updateFields.avatarUrl;
     }
 
     if (Object.keys(updateFields).length === 0) {
@@ -271,6 +332,23 @@ export class UserService {
       { $set: updateFields },
       { new: true, runValidators: true }
     ).select("-password -otp -otpExpires").populate("branch", "name address");
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    return user;
+  }
+
+  /**
+   * Cập nhật avatar cho user
+   */
+  static async updateAvatar(userId, avatarUrl) {
+    const user = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: { avatar: avatarUrl, avatarUrl } },
+      { new: true, runValidators: true }
+    ).select("-password -otp -otpExpires");
 
     if (!user) {
       throw new Error("User not found");

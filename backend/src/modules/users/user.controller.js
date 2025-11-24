@@ -1,4 +1,5 @@
 import { UserService } from "./user.service.js";
+import { UserModel } from "./user.model.js";
 import { z } from "zod";
 
 const updateUserSchema = z.object({
@@ -6,6 +7,7 @@ const updateUserSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   birthday: z.string().optional(),
+  avatar: z.string().url("URL không hợp lệ").optional(),
   avatarUrl: z.string().url("URL không hợp lệ").optional(),
   bankAccount: z.string().optional(),
   bankName: z.string().optional(),
@@ -29,6 +31,12 @@ const updateUserByAdminSchema = z.object({
   department: z.string().optional(),
   branch: z.string().optional(),
   isActive: z.boolean().optional(),
+  avatar: z
+    .union([
+      z.string().url("URL không hợp lệ"),
+      z.literal(""),
+    ])
+    .optional(),
   avatarUrl: z
     .union([
       z.string().url("URL không hợp lệ"),
@@ -401,6 +409,107 @@ export class UserController {
         return res.status(400).json({ message: error.message });
       }
       console.error("[UserController] Update user by admin error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/users/me/avatar:
+   *   post:
+   *     summary: Upload avatar cho user hiện tại
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required: [avatar]
+   *             properties:
+   *               avatar:
+   *                 type: string
+   *                 format: binary
+   *     responses:
+   *       200:
+   *         description: Upload avatar thành công
+   *       400:
+   *         description: Không có file hoặc file không hợp lệ
+   *       401:
+   *         description: Không có quyền truy cập
+   *       404:
+   *         description: Không tìm thấy user
+   */
+  static async uploadAvatar(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      if (!req.file) {
+        return res.status(400).json({
+          message: "Vui lòng chọn file ảnh để upload",
+        });
+      }
+
+      // Lấy URL từ Cloudinary (đã được upload tự động bởi multer-storage-cloudinary)
+      const avatarUrl = req.file.path;
+
+      const updatedUser = await UserService.updateAvatar(userId, avatarUrl);
+
+      return res.status(200).json({
+        message: "Upload avatar thành công",
+        user: updatedUser,
+      });
+    } catch (error) {
+      if (error.message === "User not found") {
+        return res.status(404).json({ message: "Không tìm thấy user" });
+      }
+      console.error("Upload avatar error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/managers
+   * Lấy danh sách managers (cho dropdown)
+   */
+  static async getManagers(req, res) {
+    try {
+      const { branchId } = req.query;
+      
+      // Query để lấy managers
+      const query = {
+        role: { $in: ["ADMIN", "HR_MANAGER", "MANAGER", "SUPER_ADMIN"] },
+        isActive: true,
+      };
+
+      if (branchId && branchId !== "all") {
+        query.branch = branchId;
+      }
+
+      // Lấy tất cả managers (không pagination)
+      const users = await UserModel.find(query)
+        .select("name email role branch")
+        .populate("branch", "name")
+        .limit(1000);
+
+      const managersList = users.map((user) => ({
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        branchId: user.branch?._id?.toString() || user.branch?.toString() || null,
+        branchName: user.branch?.name || null,
+      }));
+
+      res.json({ managers: managersList });
+    } catch (error) {
+      console.error("[UserController] getManagers error:", error);
       return res.status(500).json({
         message: error.message || "Lỗi server. Vui lòng thử lại sau.",
       });

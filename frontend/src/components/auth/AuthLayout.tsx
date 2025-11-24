@@ -10,8 +10,8 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
-  const { theme, toggleTheme } = useTheme()
-  
+  const { toggleTheme } = useTheme()
+
   return (
     <div className="h-screen grid lg:grid-cols-2 relative overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
       {/* Theme Toggle Button */}
@@ -118,49 +118,60 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
       </div>
 
       {/* Right - Banner */}
-      <div 
-        className="hidden lg:flex items-center justify-center p-16 relative overflow-hidden animate-gradient backdrop-blur-sm"
+      <div
+        className="hidden lg:flex items-center justify-center p-16 relative overflow-hidden backdrop-blur-sm"
         style={{
-          background: 'linear-gradient(to bottom right, #3ab5b0, #3d99be, #56317a)'
+          background: `
+            radial-gradient(circle at 20% 50%, rgba(56, 189, 248, 0.3) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(167, 139, 250, 0.3) 0%, transparent 50%),
+            radial-gradient(circle at 40% 10%, rgba(34, 211, 238, 0.2) 0%, transparent 50%),
+            linear-gradient(135deg, #14b8a6 0%, #0ea5e9 35%, #3b82f6 65%, #6366f1 100%)
+          `,
         }}
       >
-        {/* Animated Grid Pattern Background */}
+        {/* Enhanced Animated Grid Pattern Background */}
         <motion.div
-          className="absolute inset-0 opacity-20"
+          className="absolute inset-0 opacity-10"
           style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-            backgroundSize: '50px 50px',
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.15) 2px, transparent 2px), linear-gradient(90deg, rgba(255,255,255,0.15) 2px, transparent 2px)',
+            backgroundSize: '60px 60px',
           }}
           animate={{
-            backgroundPosition: ['0px 0px', '50px 50px'],
+            backgroundPosition: ['0px 0px', '60px 60px'],
           }}
           transition={{
-            duration: 20,
+            duration: 25,
             repeat: Infinity,
             ease: 'linear',
           }}
         />
 
-        {/* Multiple Floating Orbs - More Dynamic */}
+        {/* Diagonal Overlay Lines */}
         <motion.div
-          className="absolute top-10 right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,0.3) 35px, rgba(255,255,255,0.3) 70px)',
+          }}
           animate={{
-            y: [0, -30, 0],
-            scale: [1, 1.2, 1],
-            x: [0, 20, 0],
+            x: [0, 100],
           }}
           transition={{
-            duration: 6,
+            duration: 30,
             repeat: Infinity,
-            ease: "easeInOut",
+            ease: 'linear',
           }}
         />
+
+        {/* Multiple Floating Orbs - Enhanced */}
         <motion.div
-          className="absolute bottom-20 left-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"
+          className="absolute top-20 right-20 w-80 h-80 rounded-full blur-3xl"
+          style={{
+            background: 'radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 70%)',
+          }}
           animate={{
-            y: [0, 30, 0],
+            y: [0, -40, 0],
             scale: [1, 1.3, 1],
-            x: [0, -25, 0],
+            x: [0, 30, 0],
           }}
           transition={{
             duration: 8,
@@ -169,11 +180,14 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           }}
         />
         <motion.div
-          className="absolute top-1/2 left-1/4 w-24 h-24 bg-white/5 rounded-full blur-xl"
+          className="absolute bottom-10 left-20 w-96 h-96 rounded-full blur-3xl"
+          style={{
+            background: 'radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%)',
+          }}
           animate={{
-            y: [0, -40, 0],
-            x: [0, 30, 0],
+            y: [0, 40, 0],
             scale: [1, 1.4, 1],
+            x: [0, -40, 0],
           }}
           transition={{
             duration: 10,
@@ -182,11 +196,14 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           }}
         />
         <motion.div
-          className="absolute bottom-1/4 right-1/3 w-28 h-28 bg-white/8 rounded-full blur-2xl"
+          className="absolute top-1/3 left-1/3 w-64 h-64 rounded-full blur-2xl"
+          style={{
+            background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)',
+          }}
           animate={{
-            y: [0, 35, 0],
-            x: [0, -20, 0],
-            rotate: [0, 180, 360],
+            y: [0, -50, 0],
+            x: [0, 40, 0],
+            scale: [1, 1.5, 1],
           }}
           transition={{
             duration: 12,
@@ -195,50 +212,76 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           }}
         />
 
-        {/* Sparkle Particles */}
-        {[...Array(15)].map((_, i) => (
+        {/* Enhanced Sparkle Particles */}
+        {[...Array(25)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-white rounded-full"
+            className="absolute w-1.5 h-1.5 bg-white rounded-full shadow-lg shadow-white/50"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
             }}
             animate={{
               opacity: [0, 1, 0],
-              scale: [0, 1.5, 0],
+              scale: [0, 2, 0],
             }}
             transition={{
-              duration: 2 + Math.random() * 2,
+              duration: 2.5 + Math.random() * 2,
               repeat: Infinity,
-              delay: Math.random() * 2,
+              delay: Math.random() * 3,
               ease: "easeInOut",
             }}
           />
         ))}
 
-        {/* Animated Border Glow */}
+        {/* Floating Geometric Shapes */}
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={`shape-${i}`}
+            className="absolute w-4 h-4 border-2 border-white/20"
+            style={{
+              left: `${15 + Math.random() * 70}%`,
+              top: `${15 + Math.random() * 70}%`,
+              borderRadius: i % 2 === 0 ? '50%' : '0%',
+            }}
+            animate={{
+              y: [0, -30 - Math.random() * 20, 0],
+              x: [0, 20 - Math.random() * 40, 0],
+              rotate: [0, 360],
+              opacity: [0.2, 0.5, 0.2],
+            }}
+            transition={{
+              duration: 8 + Math.random() * 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.5,
+            }}
+          />
+        ))}
+
+        {/* Animated Border Glow - Enhanced */}
         <motion.div
-          className="absolute inset-0 border-l-2 border-white/10"
+          className="absolute inset-0 border-l-4 border-white/20"
           animate={{
-            opacity: [0.1, 0.3, 0.1],
+            opacity: [0.2, 0.5, 0.2],
+            borderColor: ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.4)', 'rgba(255,255,255,0.2)'],
           }}
           transition={{
-            duration: 3,
+            duration: 4,
             repeat: Infinity,
             ease: "easeInOut",
           }}
         />
 
         <motion.div
-          className="max-w-lg space-y-6 text-white dark:text-white text-center relative z-10"
+          className="max-w-2xl space-y-8 text-white dark:text-white text-center relative z-10 px-8"
           initial={{ opacity: 0, x: 50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
         >
-          {/* Glowing Title */}
+          {/* Glowing Title - Enhanced with Better Visibility */}
           <motion.div
-            className="text-5xl font-bold relative"
+            className="text-6xl font-extrabold relative"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{
@@ -247,99 +290,201 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
               delay: 0.3,
             }}
           >
+            {/* Glow Background Layer */}
             <motion.div
-              className="absolute inset-0 blur-xl opacity-50"
+              className="absolute inset-0 blur-3xl text-white opacity-40"
               animate={{
                 opacity: [0.3, 0.6, 0.3],
+                scale: [1, 1.08, 1],
               }}
               transition={{
-                duration: 2,
+                duration: 3,
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
             >
               Attendance Smart
             </motion.div>
-            <div className="relative">Attendance Smart</div>
+
+            {/* Main Text - Solid White for Maximum Clarity */}
+            <div
+              className="relative text-white font-black"
+              style={{
+                textShadow: '0 4px 20px rgba(0, 0, 0, 0.3), 0 0 40px rgba(255, 255, 255, 0.2)',
+                letterSpacing: '0.02em',
+              }}
+            >
+              Attendance Smart
+            </div>
           </motion.div>
 
           <motion.p
-            className="text-xl opacity-90"
+            className="text-2xl font-light leading-relaxed tracking-wide text-white"
+            style={{
+              textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
+            }}
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 0.9, y: 0 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
           >
             Hệ thống chấm công thông minh với QR, GPS và nhận diện khuôn mặt
           </motion.p>
 
-          {/* Feature Cards with Icons */}
+          {/* Decorative Line */}
           <motion.div
-            className="grid grid-cols-3 gap-4 pt-8"
+            className="w-24 h-1 mx-auto rounded-full bg-gradient-to-r from-transparent via-white to-transparent"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 96, opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+          />
+
+          {/* Feature Cards with Icons - Enhanced */}
+          <motion.div
+            className="grid grid-cols-3 gap-6 pt-12"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
           >
             {[
-              { icon: QrCode, label: "Quét QR", delay: 0.1, color: "from-cyan-400 to-blue-500" },
-              { icon: MapPin, label: "GPS Check", delay: 0.2, color: "from-green-400 to-emerald-500" },
-              { icon: BarChart3, label: "Báo cáo", delay: 0.3, color: "from-purple-400 to-pink-500" },
+              { icon: QrCode, label: "Quét QR", delay: 0.1, color: "from-cyan-400 via-cyan-500 to-blue-500", bgColor: "bg-cyan-500/20" },
+              { icon: MapPin, label: "GPS Check", delay: 0.2, color: "from-emerald-400 via-green-500 to-teal-500", bgColor: "bg-emerald-500/20" },
+              { icon: BarChart3, label: "Báo cáo", delay: 0.3, color: "from-purple-400 via-violet-500 to-pink-500", bgColor: "bg-purple-500/20" },
             ].map((item, index) => {
               const IconComponent = item.icon
               return (
                 <motion.div
                   key={index}
-                  className="relative bg-white/10 backdrop-blur-md rounded-2xl p-4 hover:bg-white/20 transition-all cursor-pointer border border-white/20 group"
-                  whileHover={{ scale: 1.1, y: -8 }}
-                  initial={{ opacity: 0, y: 20 }}
+                  className="relative group"
+                  whileHover={{ scale: 1.05, y: -12 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.8 + item.delay }}
+                  transition={{ delay: 0.8 + item.delay, type: "spring", stiffness: 300 }}
                 >
-                  {/* Glow Effect on Hover */}
-                  <motion.div
-                    className={`absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity blur-xl bg-gradient-to-br ${item.color}`}
-                  />
-                  
-                  <div className="relative z-10">
+                  {/* Glassmorphism Card */}
+                  <div className="relative bg-white/15 backdrop-blur-xl rounded-3xl p-6 border border-white/30 shadow-2xl shadow-black/20 overflow-hidden">
+                    {/* Pulsing Background on Hover */}
                     <motion.div
-                      className={`w-12 h-12 mx-auto mb-2 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-lg`}
+                      className={`absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-30 transition-opacity duration-500 blur-2xl bg-gradient-to-br ${item.color}`}
                       animate={{
-                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.2, 1],
+                      }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    />
+
+                    {/* Animated Corner Accent */}
+                    <motion.div
+                      className="absolute top-0 right-0 w-16 h-16 opacity-20"
+                      style={{
+                        background: `linear-gradient(135deg, transparent 50%, white 50%)`,
+                      }}
+                      animate={{
+                        opacity: [0.1, 0.3, 0.1],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: index * 0.3,
+                      }}
+                    />
+
+                    <div className="relative z-10">
+                      {/* Icon Container with Enhanced Animation */}
+                      <motion.div
+                        className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-2xl relative`}
+                        animate={{
+                          rotate: [0, 8, -8, 0],
+                        }}
+                        transition={{
+                          duration: 5,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: index * 0.3,
+                        }}
+                      >
+                        {/* Icon Glow */}
+                        <motion.div
+                          className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${item.color} blur-md`}
+                          animate={{
+                            opacity: [0.5, 1, 0.5],
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                          }}
+                        />
+                        <IconComponent className="h-8 w-8 text-white relative z-10" />
+                      </motion.div>
+
+                      <div className="text-base font-semibold tracking-wide">{item.label}</div>
+                    </div>
+
+                    {/* Enhanced Shine Effect */}
+                    <motion.div
+                      className="absolute inset-0 rounded-3xl"
+                      style={{
+                        background: 'linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent)',
+                      }}
+                      animate={{
+                        x: ['-150%', '250%'],
                       }}
                       transition={{
                         duration: 4,
                         repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: index * 0.2,
+                        repeatDelay: 3,
+                        ease: 'easeInOut',
                       }}
-                    >
-                      <IconComponent className="h-6 w-6 text-white" />
-                    </motion.div>
-                    <div className="text-sm font-medium">{item.label}</div>
-                  </div>
+                    />
 
-                  {/* Shine Effect */}
-                  <motion.div
-                    className="absolute inset-0 rounded-2xl"
-                    style={{
-                      background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
-                    }}
-                    animate={{
-                      x: ['-100%', '200%'],
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      repeatDelay: 2,
-                      ease: 'linear',
-                    }}
-                  />
+                    {/* Bottom Border Accent */}
+                    <motion.div
+                      className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-1 bg-gradient-to-r ${item.color} rounded-full`}
+                      initial={{ width: 0 }}
+                      animate={{ width: '60%' }}
+                      transition={{
+                        delay: 0.9 + item.delay,
+                        duration: 0.6,
+                      }}
+                    />
+                  </div>
                 </motion.div>
               )
             })}
+          </motion.div>
+
+          {/* Additional Info Badge */}
+          <motion.div
+            className="flex items-center justify-center gap-3 pt-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.2 }}
+          >
+            <motion.div
+              className="px-6 py-3 bg-white/10 backdrop-blur-md rounded-full border border-white/30 text-sm font-medium"
+              whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.15)' }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              <motion.span
+                animate={{
+                  opacity: [0.7, 1, 0.7],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                ✨ Hiện đại - Nhanh chóng - An toàn
+              </motion.span>
+            </motion.div>
           </motion.div>
         </motion.div>
       </div>
     </div>
   )
 }
-
