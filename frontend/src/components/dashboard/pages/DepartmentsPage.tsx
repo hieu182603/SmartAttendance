@@ -198,28 +198,28 @@ export function DepartmentsPage() {
         }
 
         try {
-            if (dialogMode === 'create') {
+        if (dialogMode === 'create') {
                 await createDepartment({
-                    name: formData.name,
-                    code: formData.code,
+                name: formData.name,
+                code: formData.code,
                     description: formData.description || undefined,
-                    branchId: formData.branchId,
-                    managerId: formData.managerId,
-                    budget: parseInt(formData.budget) || 0,
+                branchId: formData.branchId,
+                managerId: formData.managerId,
+                budget: parseInt(formData.budget) || 0,
                 });
                 toast.success(`Đã tạo phòng ban ${formData.name}`);
-            } else if (selectedDepartment) {
+        } else if (selectedDepartment) {
                 await updateDepartment(selectedDepartment._id || selectedDepartment.id, {
-                    name: formData.name,
-                    code: formData.code,
+                        name: formData.name,
+                        code: formData.code,
                     description: formData.description || undefined,
-                    branchId: formData.branchId,
-                    managerId: formData.managerId,
+                        branchId: formData.branchId,
+                        managerId: formData.managerId,
                     budget: parseInt(formData.budget) || undefined,
                 });
                 toast.success(`Đã cập nhật phòng ban ${formData.name}`);
-            }
-            setIsDialogOpen(false);
+        }
+        setIsDialogOpen(false);
             await loadDepartments();
             await loadStats();
         } catch (error: any) {
