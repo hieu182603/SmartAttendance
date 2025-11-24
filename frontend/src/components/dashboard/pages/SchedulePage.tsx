@@ -17,215 +17,30 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Progress } from "../../ui/progress";
+import api from "../../../services/api";
 
 type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
-type WeekDayStatus = "completed" | "today" | "scheduled" | "off" | "none";
 
-interface Shift {
-  id: string;
+interface EmployeeSchedule {
+  _id: string;
   date: string;
-  shift: string;
-  startTime: string;
-  endTime: string;
-  location: string;
+  shift: {
+    _id: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+    breakDuration: number;
+  };
   status: ShiftStatus;
+  location: string;
   team?: string;
   notes?: string;
 }
 
-interface Stats {
-  thisMonth: number;
-  completed: number;
-  upcoming: number;
-  totalHours: number;
-  performance: number;
-}
-
-interface Countdown {
-  hours: number;
-  minutes: number;
-  remaining: number;
-}
-
-interface StatCard {
-  label: string;
-  value: string | number;
-  color: string;
-  icon: string;
-  delay: number;
-}
-
-// Mock data - updated với ngày tháng 11/2025
-const mockShifts: Shift[] = [
-  // Completed shifts
-  {
-    id: "1",
-    date: "2025-11-04",
-    shift: "Ca sáng",
-    startTime: "08:00",
-    endTime: "12:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-  },
-  {
-    id: "2",
-    date: "2025-11-04",
-    shift: "Ca chiều",
-    startTime: "13:00",
-    endTime: "17:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-  },
-  {
-    id: "3",
-    date: "2025-11-05",
-    shift: "Ca sáng",
-    startTime: "08:00",
-    endTime: "12:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-  },
-  {
-    id: "4",
-    date: "2025-11-05",
-    shift: "Ca chiều",
-    startTime: "13:00",
-    endTime: "17:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-  },
-  {
-    id: "5",
-    date: "2025-11-06",
-    shift: "Ca sáng",
-    startTime: "08:00",
-    endTime: "12:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-  },
-  {
-    id: "6",
-    date: "2025-11-06",
-    shift: "Ca chiều",
-    startTime: "13:00",
-    endTime: "17:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-  },
-  {
-    id: "7",
-    date: "2025-11-07",
-    shift: "Ca sáng",
-    startTime: "08:00",
-    endTime: "12:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-  },
-  {
-    id: "8",
-    date: "2025-11-20",
-    shift: "Ca chiều",
-    startTime: "13:00",
-    endTime: "17:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-  },
-  // Today's shifts
-  {
-    id: "9",
-    date: "2025-11-08",
-    shift: "Ca sáng",
-    startTime: "08:00",
-    endTime: "12:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-    notes: "Họp stand-up 9:00 AM",
-  },
-  {
-    id: "10",
-    date: "2025-11-08",
-    shift: "Ca chiều",
-    startTime: "13:00",
-    endTime: "17:00",
-    location: "Văn phòng HN",
-    status: "scheduled",
-    team: "Dev Team",
-    notes: "Code review 2:00 PM",
-  },
-  // Upcoming shifts
-  {
-    id: "11",
-    date: "2025-11-09",
-    shift: "Làm từ xa",
-    startTime: "09:00",
-    endTime: "17:00",
-    location: "Làm từ xa",
-    status: "scheduled",
-    team: "Dev Team",
-    notes: "Submit code review trước 5PM",
-  },
-  {
-    id: "12",
-    date: "2025-11-10",
-    shift: "Nghỉ",
-    startTime: "--",
-    endTime: "--",
-    location: "--",
-    status: "off",
-  },
-  {
-    id: "13",
-    date: "2025-11-11",
-    shift: "Ca sáng",
-    startTime: "08:00",
-    endTime: "12:00",
-    location: "Văn phòng HN",
-    status: "scheduled",
-    team: "Dev Team",
-  },
-  {
-    id: "14",
-    date: "2025-11-11",
-    shift: "Ca chiều",
-    startTime: "13:00",
-    endTime: "17:00",
-    location: "Văn phòng HN",
-    status: "scheduled",
-    team: "Dev Team",
-  },
-  {
-    id: "15",
-    date: "2025-11-18",
-    shift: "Ca sáng",
-    startTime: "08:00",
-    endTime: "12:00",
-    location: "Văn phòng HN",
-    status: "scheduled",
-    team: "Dev Team",
-  },
-  {
-    id: "16",
-    date: "2025-11-18",
-    shift: "Ca chiều",
-    startTime: "13:00",
-    endTime: "17:00",
-    location: "Văn phòng HN",
-    status: "scheduled",
-    team: "Dev Team",
-  },
-];
-
 const SchedulePage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Update time every minute
   useEffect(() => {
@@ -235,97 +50,152 @@ const SchedulePage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const today = new Date(); // Mock today
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        setLoading(true);
+
+        // BƯỚC 1: Lấy danh sách ca từ BE (chính xác như DB bạn gửi)
+        const res = await api.get("/shifts");
+        const availableShifts: any[] = res.data.data;
+
+        // BƯỚC 2: Tạo lịch 30 ngày tới (tất cả nhân viên dùng chung)
+        const scheduleData: EmployeeSchedule[] = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let i = -15; i <= 30; i++) {
+          const date = new Date(today);
+          date.setDate(today.getDate() + i);
+          const dateStr = date.toISOString().split("T")[0];
+          const dayOfWeek = date.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
+
+          // Quy tắc ca làm (bạn có thể tùy chỉnh)
+          let selectedShift = availableShifts.find(
+            (s) => s.name === "Ca sáng"
+          )!;
+
+          // Quy tắc ca làm cố định
+          // === CHỈ SỬA TỪ ĐÂY TRỞ XUỐNG ===
+          if (dayOfWeek === 0) {
+            // Chủ nhật: nghỉ hoàn toàn → KHÔNG tạo ca nào
+            continue;
+          }
+
+          // Chỉ tạo ca nếu không phải Chủ nhật
+          const targetShiftName =
+            dayOfWeek === 6 ? "part-time sáng" : "Ca sáng";
+          const foundShift = availableShifts.find((s) =>
+            dayOfWeek === 6
+              ? s.name.includes("part-time sáng")
+              : s.name === "Ca sáng"
+          );
+
+          if (!foundShift) continue; // Nếu không tìm thấy ca → bỏ qua (an toàn)
+
+          selectedShift = foundShift;
+
+          const isPast = date < today;
+          const isToday = dateStr === new Date().toISOString().split("T")[0];
+
+          scheduleData.push({
+            _id: `${dateStr}-${selectedShift._id}`,
+            date: dateStr,
+            shift: {
+              _id: selectedShift._id,
+              name: selectedShift.name,
+              startTime: selectedShift.startTime,
+              endTime: selectedShift.endTime,
+              breakDuration: selectedShift.breakDuration || 60,
+            },
+            status: isPast ? "completed" : "scheduled",
+            location: "Văn phòng chính",
+            team: "Dev Team",
+            notes: selectedShift.description,
+          });
+        }
+
+        setSchedule(scheduleData);
+      } catch (err) {
+        console.error("Lỗi tải ca làm việc:", err);
+        setSchedule([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchShifts();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
+        <p className="text-lg">Đang tải lịch làm việc...</p>
+      </div>
+    );
+  }
+
+  const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
 
-  const todayShiftMorning: Shift = {
-    id: `today-morning-${todayStr}`,
-    date: todayStr,
-    shift: "Ca sáng",
-    startTime: "08:00",
-    endTime: "12:00",
-    location: "Văn phòng HN",
-    status: "completed",
-    team: "Dev Team",
-    notes: "Họp stand-up 9:00 AM",
-  };
+  const todayShifts = schedule.filter((s) => s.date === todayStr);
+  const upcomingShifts = schedule
+    .filter(
+      (s) => new Date(s.date) >= new Date(todayStr) && s.status === "scheduled"
+    )
+    .slice(0, 6);
 
-  const todayShiftAfternoon: Shift = {
-    id: `today-afternoon-${todayStr}`,
-    date: todayStr,
-    shift: "Ca chiều",
-    startTime: "13:00",
-    endTime: "17:00",
-    location: "Văn phòng HN",
-    status: "scheduled",
-    team: "Dev Team",
-    notes: "Code review 2:00 PM",
-  };
+  const currentMonth = `${today.getFullYear()}-${String(
+    today.getMonth() + 1
+  ).padStart(2, "0")}`;
+  const monthShifts = schedule.filter((s) => s.date.startsWith(currentMonth));
 
-  const hasTodayData = mockShifts.some((s) => s.date === todayStr);
-
-  // Dùng finalShifts để render
-  const finalShifts: Shift[] = hasTodayData
-    ? mockShifts
-    : [todayShiftMorning, todayShiftAfternoon, ...mockShifts];
-
-  // Calculate stats for this month
-  const monthShifts = finalShifts.filter((s) => s.date.startsWith("2025-11"));
-  const stats: Stats = {
+  const stats = {
     thisMonth: monthShifts.filter((s) => s.status !== "off").length,
     completed: monthShifts.filter((s) => s.status === "completed").length,
     upcoming: monthShifts.filter((s) => s.status === "scheduled").length,
     totalHours: monthShifts
       .filter((s) => s.status === "completed")
-      .reduce((acc, shift) => {
-        const start = parseInt(shift.startTime.split(":")[0]);
-        const end = parseInt(shift.endTime.split(":")[0]);
-        return acc + (end - start);
+      .reduce((acc, s) => {
+        const [sh, sm] = s.shift.startTime.split(":").map(Number);
+        const [eh, em] = s.shift.endTime.split(":").map(Number);
+        return acc + (eh - sh + (em - sm) / 60);
       }, 0),
-    performance: 97.2, // Mock performance percentage
+    performance:
+      monthShifts.length > 0
+        ? Math.round(
+            (monthShifts.filter((s) => s.status === "completed").length /
+              monthShifts.length) *
+              100
+          )
+        : 0,
   };
 
-  // Today's shifts
-  const todayShifts = finalShifts.filter((shift) => shift.date === todayStr);
-  const currentShift = todayShifts.find((shift) => {
-    const now = currentTime.getHours() * 60 + currentTime.getMinutes();
-    const start =
-      parseInt(shift.startTime.split(":")[0]) * 60 +
-      parseInt(shift.startTime.split(":")[1] || "0");
-    const end =
-      parseInt(shift.endTime.split(":")[0]) * 60 +
-      parseInt(shift.endTime.split(":")[1] || "0");
-    return shift.status === "scheduled" && now >= start - 120 && now <= end; // 2 hours before to end
-  });
-
-  // Get upcoming shifts (next 7 days)
-  const upcomingShifts = finalShifts
-    .filter((shift) => {
-      const shiftDate = new Date(shift.date);
-      return shiftDate >= today && shift.status === "scheduled";
-    })
-    .slice(0, 6);
-
-  // Week overview (Mon-Sun)
   const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
+  weekStart.setDate(today.getDate() - today.getDay() + 1);
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const day = new Date(weekStart);
     day.setDate(weekStart.getDate() + i);
     return day;
   });
 
-  const getWeekDayStatus = (date: Date): WeekDayStatus => {
+  const getWeekDayStatus = (
+    date: Date
+  ): "completed" | "today" | "scheduled" | "off" | "none" => {
     const dateStr = date.toISOString().split("T")[0];
-    const dayShifts = mockShifts.filter((s) => s.date === dateStr);
-    if (dayShifts.length === 0) return "none";
+    const dayShifts = schedule.filter((s) => s.date === dateStr);
+
+    if (dayShifts.length === 0) return "off";
     if (dayShifts.every((s) => s.status === "completed")) return "completed";
     if (dayShifts.some((s) => s.status === "off")) return "off";
     if (dateStr === todayStr) return "today";
     return "scheduled";
   };
 
-  const getWeekDayColor = (status: WeekDayStatus): string => {
+  const getWeekDayColor = (
+    status: "completed" | "today" | "scheduled" | "off" | "none"
+  ): string => {
     switch (status) {
       case "completed":
         return "bg-[var(--success)] text-white";
@@ -370,20 +240,55 @@ const SchedulePage: React.FC = () => {
     }
   };
 
-  // Calculate countdown for next shift
-  const getCountdown = (): Countdown | null => {
-    if (!currentShift) return null;
-    const now = currentTime.getHours() * 60 + currentTime.getMinutes();
-    const end =
-      parseInt(currentShift.endTime.split(":")[0]) * 60 +
-      parseInt(currentShift.endTime.split(":")[1] || "0");
-    const remaining = end - now;
-    const hours = Math.floor(remaining / 60);
-    const minutes = remaining % 60;
-    return { hours, minutes, remaining };
-  };
+  // Tìm ca hiện tại (đang diễn ra)
+  const currentShift = todayShifts.find((s) => {
+    let now = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const [sh, sm] = s.shift.startTime.split(":").map(Number);
+    const [eh, em] = s.shift.endTime.split(":").map(Number);
+    let startMin = sh * 60 + sm;
+    let endMin = eh * 60 + em;
 
-  const countdown = getCountdown();
+    // Xử lý ca đêm (22:00 → 06:00)
+    if (endMin < startMin) {
+      endMin += 24 * 60;
+      if (now < startMin) now += 24 * 60; // Bây giờ hợp lệ!
+    }
+
+    return now >= startMin && now < endMin;
+  });
+
+  const countdown = currentShift
+    ? (() => {
+        let now = currentTime.getHours() * 60 + currentTime.getMinutes();
+        const [sh, sm] = currentShift.shift.startTime.split(":").map(Number);
+        const [eh, em] = currentShift.shift.endTime.split(":").map(Number);
+        let startMin = sh * 60 + sm;
+        let endMin = eh * 60 + em;
+
+        // Xử lý ca đêm
+        if (endMin < startMin) {
+          endMin += 24 * 60;
+          if (now < startMin) now += 24 * 60;
+        }
+
+        const remaining = endMin - now;
+        if (remaining <= 0) return null;
+
+        return {
+          hours: Math.floor(remaining / 60),
+          minutes: remaining % 60,
+          remaining,
+        };
+      })()
+    : null;
+
+  interface StatCard {
+    label: string;
+    value: string | number;
+    color: string;
+    icon: string;
+    delay: number;
+  }
 
   const statCards: StatCard[] = [
     {
@@ -553,63 +458,71 @@ const SchedulePage: React.FC = () => {
 
               {/* Today's Shifts Details */}
               <div className="space-y-3">
-                {todayShifts.map((shift, index) => (
-                  <motion.div
-                    key={shift.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 + index * 0.1 }}
-                  >
-                    <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)] hover:border-[var(--accent-cyan)] transition-colors duration-200">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className={`p-2 rounded-lg ${
-                              shift.status === "completed"
-                                ? "bg-[var(--success)]/30 dark:bg-[var(--success)]/20"
-                                : "bg-[var(--accent-cyan)]/30 dark:bg-[var(--accent-cyan)]/20"
-                            }`}
-                          >
-                            {shift.shift.includes("sáng") ? "🌅" : "🌆"}
-                          </div>
-                          <div>
-                            <h4 className="text-[var(--text-main)]">
-                              {shift.shift}
-                            </h4>
-                            <Badge className={getStatusColor(shift.status)}>
-                              {shift.status === "completed"
-                                ? "✅ Đã điểm"
-                                : "🔵 Chưa điểm"}
-                            </Badge>
+                {todayShifts.length > 0 ? (
+                  todayShifts.map((shift, index) => (
+                    <motion.div
+                      key={shift._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.7 + index * 0.1 }}
+                    >
+                      <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)] hover:border-[var(--accent-cyan)] transition-colors duration-200">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center space-x-3">
+                            <div
+                              className={`p-2 rounded-lg ${
+                                shift.status === "completed"
+                                  ? "bg-[var(--success)]/30 dark:bg-[var(--success)]/20"
+                                  : "bg-[var(--accent-cyan)]/30 dark:bg-[var(--accent-cyan)]/20"
+                              }`}
+                            >
+                              {shift.shift.name.toLowerCase().includes("sáng")
+                                ? "🌅"
+                                : "🌆"}
+                            </div>
+                            <div>
+                              <h4 className="text-[var(--text-main)]">
+                                {shift.shift.name}
+                              </h4>
+                              <Badge className={getStatusColor(shift.status)}>
+                                {shift.status === "completed"
+                                  ? "✅ Đã điểm"
+                                  : "🔵 Chưa điểm"}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="space-y-1.5 ml-11">
-                        <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
-                          <Clock className="h-4 w-4 text-[var(--accent-cyan)]" />
-                          <span>
-                            {shift.startTime} - {shift.endTime}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
-                          <MapPin className="h-4 w-4 text-[var(--success)]" />
-                          <span>{shift.location}</span>
-                        </div>
-                        <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
-                          <Users className="h-4 w-4 text-[var(--primary)]" />
-                          <span>{shift.team}</span>
-                        </div>
-                        {shift.notes && (
+                        <div className="space-y-1.5 ml-11">
                           <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
-                            <StickyNote className="h-4 w-4 text-[var(--warning)]" />
-                            <span>{shift.notes}</span>
+                            <Clock className="h-4 w-4 text-[var(--accent-cyan)]" />
+                            <span>
+                              {shift.shift.startTime} - {shift.shift.endTime}
+                            </span>
                           </div>
-                        )}
+                          <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
+                            <MapPin className="h-4 w-4 text-[var(--success)]" />
+                            <span>{shift.location}</span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
+                            <Users className="h-4 w-4 text-[var(--primary)]" />
+                            <span>{shift.team}</span>
+                          </div>
+                          {shift.notes && (
+                            <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
+                              <StickyNote className="h-4 w-4 text-[var(--warning)]" />
+                              <span>{shift.notes}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-[var(--text-sub)] text-lg">
+                    Hôm nay chú mày không có việc làm
+                  </div>
+                )}
               </div>
 
               {/* Quick Actions */}
@@ -711,7 +624,10 @@ const SchedulePage: React.FC = () => {
                     {stats.completed}/{stats.thisMonth}
                   </p>
                   <p className="text-xs text-[var(--success)]">
-                    {stats.thisMonth > 0 ? ((stats.completed / stats.thisMonth) * 100).toFixed(1) : 0}%
+                    {stats.thisMonth > 0
+                      ? ((stats.completed / stats.thisMonth) * 100).toFixed(1)
+                      : 0}
+                    %
                   </p>
                 </div>
                 <div className="text-center">
@@ -739,11 +655,18 @@ const SchedulePage: React.FC = () => {
                   </span>
                   <span className="text-sm text-[var(--text-main)]">
                     {stats.completed}/{stats.thisMonth} ca (
-                    {stats.thisMonth > 0 ? ((stats.completed / stats.thisMonth) * 100).toFixed(0) : 0}%)
+                    {stats.thisMonth > 0
+                      ? ((stats.completed / stats.thisMonth) * 100).toFixed(0)
+                      : 0}
+                    %)
                   </span>
                 </div>
                 <Progress
-                  value={stats.thisMonth > 0 ? (stats.completed / stats.thisMonth) * 100 : 0}
+                  value={
+                    stats.thisMonth > 0
+                      ? (stats.completed / stats.thisMonth) * 100
+                      : 0
+                  }
                   className="h-3"
                 />
               </div>
@@ -761,7 +684,9 @@ const SchedulePage: React.FC = () => {
                   </p>
                   <p className="text-xs text-[var(--text-sub)] mt-1">
                     Trung bình{" "}
-                    {stats.completed > 0 ? (stats.totalHours / (stats.completed / 2)).toFixed(1) : 0}
+                    {stats.completed > 0
+                      ? (stats.totalHours / (stats.completed / 2)).toFixed(1)
+                      : 0}
                     h/ngày
                   </p>
                 </div>
@@ -803,7 +728,7 @@ const SchedulePage: React.FC = () => {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
               {upcomingShifts.map((shift, index) => (
                 <motion.div
-                  key={shift.id}
+                  key={shift._id}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 1.0 + index * 0.05 }}
@@ -821,20 +746,20 @@ const SchedulePage: React.FC = () => {
                       <span className="text-xl">
                         {shift.status === "off"
                           ? "🏖️"
-                          : shift.shift.includes("xa")
+                          : shift.shift.name.toLowerCase().includes("xa")
                           ? "💻"
-                          : shift.shift.includes("sáng")
+                          : shift.shift.name.toLowerCase().includes("sáng")
                           ? "🌅"
                           : "🌆"}
                       </span>
                     </div>
                     <h4 className="text-[var(--text-main)] mb-1">
-                      {shift.shift}
+                      {shift.shift.name}
                     </h4>
                     <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
                       <Clock className="h-3 w-3" />
                       <span>
-                        {shift.startTime} - {shift.endTime}
+                        {shift.shift.startTime} - {shift.shift.endTime}
                       </span>
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)] mt-1">
@@ -951,5 +876,3 @@ const SchedulePage: React.FC = () => {
 };
 
 export default SchedulePage;
-
-
