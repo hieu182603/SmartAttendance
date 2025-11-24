@@ -29,6 +29,7 @@ import SystemSettingsPage from "./components/dashboard/pages/SystemSettingsPage"
 import { BranchesPage } from "./components/dashboard/pages/BranchesPage";
 import { DepartmentsPage } from "./components/dashboard/pages/DepartmentsPage";
 import DepartmentAttendancePage from "./components/dashboard/pages/DepartmentAttendancePage";
+import { ShiftsPage } from "./components/dashboard/pages/ShiftsPage";
 import { UserRole } from "./utils/roles";
 
 
@@ -64,6 +65,7 @@ export default function App() {
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="department-attendance" element={<DepartmentAttendancePage />} />
+              <Route path="shifts" element={<ShiftsPage />} />
             </Route>
 
             {/* HR/Admin Routes - HR_MANAGER, ADMIN, SUPER_ADMIN only */}
