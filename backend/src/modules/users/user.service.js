@@ -188,6 +188,7 @@ export class UserService {
         UserModel.find(query)
           .select("-password -otp -otpExpires")
           .populate("branch", "name address")
+          .populate("department", "name code")
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limitNum),
@@ -209,6 +210,7 @@ export class UserService {
         UserModel.find(query)
           .select("-password -otp -otpExpires")
           .populate("branch", "name address")
+          .populate("department", "name code")
           .sort({ createdAt: -1 }),
         UserModel.countDocuments(query)
       ]);
@@ -227,7 +229,8 @@ export class UserService {
   static async getUserByIdForAdmin(userId) {
     const user = await UserModel.findById(userId)
       .select("-password -otp -otpExpires")
-      .populate("branch", "name address");
+      .populate("branch", "name address")
+      .populate("department", "name code");
 
     if (!user) {
       throw new Error("User not found");
@@ -331,7 +334,7 @@ export class UserService {
       userId,
       { $set: updateFields },
       { new: true, runValidators: true }
-    ).select("-password -otp -otpExpires").populate("branch", "name address");
+    ).select("-password -otp -otpExpires").populate("branch", "name address").populate("department", "name code");
 
     if (!user) {
       throw new Error("User not found");

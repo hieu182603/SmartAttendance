@@ -54,7 +54,7 @@ interface User {
   id?: string
   name?: string
   email?: string
-  department?: string
+  department?: string | { _id: string; name: string; code?: string }
   role?: UserRoleType
   phone?: string
   isActive?: boolean
@@ -110,6 +110,20 @@ const getStatusBadge = (status?: boolean | string): ReactNode => {
   return status === true || status === 'active'
     ? <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30 text-xs whitespace-nowrap">Hoạt động</Badge>
     : <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30 text-xs whitespace-nowrap">Ngừng</Badge>
+}
+
+// Helper function để lấy tên phòng ban
+const getDepartmentName = (department?: string | { _id: string; name: string; code?: string }): string => {
+  if (!department) return 'N/A'
+  if (typeof department === 'string') return department
+  return department.name || 'N/A'
+}
+
+// Helper function để lấy department ID (cho form)
+const getDepartmentId = (department?: string | { _id: string; name: string; code?: string }): string => {
+  if (!department) return ''
+  if (typeof department === 'string') return department
+  return department._id || ''
 }
 
 const EmployeeManagementPage: React.FC = () => {
@@ -183,7 +197,7 @@ const EmployeeManagementPage: React.FC = () => {
     setFormData({
       name: user.name || '',
       email: user.email || '',
-      department: user.department || '',
+      department: getDepartmentId(user.department),
       role: user.role || '',
       phone: user.phone || '',
       isActive: user.isActive !== undefined ? user.isActive : true,
@@ -292,10 +306,11 @@ const EmployeeManagementPage: React.FC = () => {
     // Search filter
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
+      const departmentName = getDepartmentName(u.department).toLowerCase()
       const matchesSearch = (
         u.name?.toLowerCase().includes(search) ||
         u.email?.toLowerCase().includes(search) ||
-        u.department?.toLowerCase().includes(search)
+        departmentName.includes(search)
       )
       if (!matchesSearch) return false
     }
@@ -552,7 +567,7 @@ const EmployeeManagementPage: React.FC = () => {
                           </div>
                         </td>
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{user.email || 'N/A'}</td>
-                        <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{user.department || 'N/A'}</td>
+                        <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getDepartmentName(user.department)}</td>
                         <td className="py-2 px-3">{getRoleBadge(user.role)}</td>
                         <td className="py-2 px-3">{getStatusBadge(user.isActive)}</td>
                         <td className="py-2 px-3">
@@ -696,7 +711,7 @@ const EmployeeManagementPage: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-[var(--text-sub)]">Phòng ban</Label>
-                  <p className="text-[var(--text-main)] mt-1">{selectedUser.department || 'N/A'}</p>
+                  <p className="text-[var(--text-main)] mt-1">{getDepartmentName(selectedUser.department)}</p>
                 </div>
                 <div>
                   <Label className="text-[var(--text-sub)]">Vai trò</Label>
@@ -945,7 +960,7 @@ const EmployeeManagementPage: React.FC = () => {
                 <div>
                   <p className="text-[var(--text-main)]">{selectedUser.name || 'N/A'}</p>
                   <p className="text-sm text-[var(--text-sub)]">{selectedUser.email || 'N/A'}</p>
-                  <p className="text-xs text-[var(--text-sub)]">{selectedUser.department || 'N/A'}</p>
+                  <p className="text-xs text-[var(--text-sub)]">{getDepartmentName(selectedUser.department)}</p>
                 </div>
               </div>
               <p className="text-red-500 text-sm mt-4">
