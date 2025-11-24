@@ -187,6 +187,43 @@ export function getRoleScope(role: UserRoleType): 'all' | 'department' | 'own' {
     }
 }
 
+/**
+ * Get base path for a role (URL prefix)
+ */
+export function getRoleBasePath(role: UserRoleType): string {
+    switch (role) {
+        case UserRole.SUPER_ADMIN:
+        case UserRole.ADMIN:
+            return '/admin';
+        case UserRole.HR_MANAGER:
+            return '/hr';
+        case UserRole.MANAGER:
+            return '/manager';
+        case UserRole.EMPLOYEE:
+        default:
+            return '/employee';
+    }
+}
+
+/**
+ * Get all base paths that a role can access (including lower level paths)
+ */
+export function getAccessibleBasePaths(role: UserRoleType): string[] {
+    const paths: string[] = ['/employee']; // All roles can access employee routes
+    
+    if (hasMinimumLevel(role, UserRole.MANAGER)) {
+        paths.push('/manager');
+    }
+    if (hasMinimumLevel(role, UserRole.HR_MANAGER)) {
+        paths.push('/hr');
+    }
+    if (hasMinimumLevel(role, UserRole.ADMIN)) {
+        paths.push('/admin');
+    }
+    
+    return paths;
+}
+
 
 
 

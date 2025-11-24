@@ -35,6 +35,7 @@ import {
   canAccessAdminPanel,
   getRoleName,
   getRoleColor,
+  getRoleBasePath,
 } from "../../utils/roles";
 
 interface MenuItem {
@@ -47,62 +48,64 @@ interface MenuItem {
 
 // Helper function to generate menu based on role
 function getMenuByRole(role: UserRoleType): MenuItem[] {
+  const basePath = getRoleBasePath(role);
+
   // Base employee menu (all roles have access, excluding home for admin roles)
   const baseMenu: MenuItem[] = [
-    { id: "scan", label: "Quét QR", icon: QrCode, path: "/employee/scan", section: "employee" },
-    { id: "history", label: "Lịch sử", icon: History, path: "/employee/history", section: "employee" },
-    { id: "requests", label: "Yêu cầu", icon: FileText, path: "/employee/requests", section: "employee" },
-    { id: "leave-balance", label: "Số ngày phép", icon: CalendarDays, path: "/employee/leave-balance", section: "employee" },
-    { id: "schedule", label: "Lịch làm việc", icon: Clock, path: "/employee/schedule", section: "employee" },
-    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: "/employee/company-calendar", section: "employee" },
-    { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile", section: "employee" },
+    { id: "scan", label: "Quét QR", icon: QrCode, path: `${basePath}/scan`, section: "employee" },
+    { id: "history", label: "Lịch sử", icon: History, path: `${basePath}/history`, section: "employee" },
+    { id: "requests", label: "Yêu cầu", icon: FileText, path: `${basePath}/requests`, section: "employee" },
+    { id: "leave-balance", label: "Số ngày phép", icon: CalendarDays, path: `${basePath}/leave-balance`, section: "employee" },
+    { id: "schedule", label: "Lịch làm việc", icon: Clock, path: `${basePath}/schedule`, section: "employee" },
+    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: `${basePath}/company-calendar`, section: "employee" },
+    { id: "profile", label: "Hồ sơ", icon: User, path: `${basePath}/profile`, section: "employee" },
   ];
 
   // Simplified menu for admin roles (only company calendar and profile)
   const adminEmployeeMenu: MenuItem[] = [
-    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: "/employee/company-calendar", section: "employee" },
-    { id: "profile", label: "Hồ sơ", icon: User, path: "/employee/profile", section: "employee" },
+    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: `${basePath}/company-calendar`, section: "employee" },
+    { id: "profile", label: "Hồ sơ", icon: User, path: `${basePath}/profile`, section: "employee" },
   ];
 
   // Home menu item
-  const homeMenu: MenuItem = { id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "admin" };
+  const homeMenu: MenuItem = { id: "home", label: "Trang chủ", icon: Home, path: basePath, section: "admin" };
 
   // Admin menus for different roles (home is first in admin section)
   const adminMenus: Partial<Record<UserRoleType, MenuItem[]>> = {
     [UserRole.MANAGER]: [
       homeMenu,
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "department-attendance", label: "Chấm công (Phòng)", icon: CheckCircle2, path: "/employee/department-attendance", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
-      { id: "shifts", label: "Quản lý ca làm việc", icon: Clock, path: "/employee/shifts", section: "admin" },
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
+      { id: "department-attendance", label: "Chấm công (Phòng)", icon: CheckCircle2, path: `${basePath}/department-attendance`, section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
+      { id: "shifts", label: "Quản lý ca làm việc", icon: Clock, path: `${basePath}/shifts`, section: "admin" },
     ],
     [UserRole.HR_MANAGER]: [
       homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
     ],
     [UserRole.ADMIN]: [
       homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: "/employee/departments", section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: "/employee/branches", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
+      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
+      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
 
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
+      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
+      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
     ],
     [UserRole.SUPER_ADMIN]: [
       homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: "/employee/departments", section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: "/employee/branches", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
+      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
+      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
 
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
+      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
+      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
     ],
   };
 
@@ -120,7 +123,7 @@ function getMenuByRole(role: UserRoleType): MenuItem[] {
   }
 
   // For EMPLOYEE, add home to employee section
-  return [{ id: "home", label: "Trang chủ", icon: Home, path: "/employee", section: "employee" }, ...baseMenu];
+  return [{ id: "home", label: "Trang chủ", icon: Home, path: basePath, section: "employee" }, ...baseMenu];
 }
 
 interface NotificationBellProps {
@@ -165,7 +168,8 @@ const DashboardLayout: React.FC = () => {
   const roleName = getRoleName(userRole);
 
   const getCurrentPage = (): string => {
-    const path = location.pathname.replace("/employee", "").replace(/^\//, "");
+    const basePath = getRoleBasePath(userRole);
+    const path = location.pathname.replace(basePath, "").replace(/^\//, "");
     if (!path || path === "") return "home";
     return path;
   };
@@ -301,9 +305,10 @@ const DashboardLayout: React.FC = () => {
                       )}
                       {sections.employee.map((item) => {
                         const Icon = item.icon;
+                        const basePath = getRoleBasePath(userRole);
                         const isActive =
                           currentPage === item.id ||
-                          (item.id === "home" && location.pathname === "/employee");
+                          (item.id === "home" && location.pathname === basePath);
                         return (
                           <NavLink
                             key={item.id}

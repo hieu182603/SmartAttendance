@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { hasMinimumLevel, UserRole } from '../utils/roles'
+import { hasMinimumLevel, UserRole, getRoleBasePath, type UserRoleType } from '../utils/roles'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Shield } from 'lucide-react'
 
@@ -39,7 +39,9 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
     if (shouldRedirect) {
       setShowUnauthorized(true)
       const timer = setTimeout(() => {
-        navigate('/employee', { replace: true })
+        const userRole = user?.role as UserRoleType | undefined
+        const redirectPath = userRole ? getRoleBasePath(userRole) : '/employee'
+        navigate(redirectPath, { replace: true })
       }, 2000)
       return () => clearTimeout(timer)
     }

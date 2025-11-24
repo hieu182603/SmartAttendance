@@ -18,18 +18,22 @@ import { Button } from './ui/button'
 import { useTheme } from './ThemeProvider'
 import { useAuth } from '../context/AuthContext'
 import { useEffect } from 'react'
+import { getRoleBasePath, type UserRoleType } from '../utils/roles'
 
 export default function LandingPage() {
   const navigate = useNavigate()
   const { toggleTheme } = useTheme()
-  const { token, loading } = useAuth()
+  const { token, loading, user } = useAuth()
 
-  // Redirect to employee dashboard if already logged in
+  // Redirect to appropriate dashboard based on role if already logged in
   useEffect(() => {
-    if (!loading && token) {
+    if (!loading && token && user?.role) {
+      const basePath = getRoleBasePath(user.role as UserRoleType)
+      navigate(basePath, { replace: true })
+    } else if (!loading && token) {
       navigate('/employee', { replace: true })
     }
-  }, [token, loading, navigate])
+  }, [token, loading, navigate, user])
 
   return (
     <div className="min-h-screen bg-background overflow-hidden relative" style={{ backgroundColor: 'var(--background)' }}>
