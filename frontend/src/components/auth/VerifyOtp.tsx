@@ -9,6 +9,7 @@ import { resendOtp, verifyOtp, verifyResetOtp } from '../../services/authService
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
 import type { ErrorWithMessage, LocationState } from '../../types'
+import { getRoleBasePath, type UserRoleType } from '../../utils/roles'
 
 export default function VerifyOtp() {
   const location = useLocation()
@@ -62,7 +63,10 @@ export default function VerifyOtp() {
           setToken(data.token)
           if (data?.user) setUser(data.user)
           toast.success('Xác thực thành công!')
-          setTimeout(() => navigate('/employee'), 1000)
+          const redirectPath = data?.user?.role 
+            ? getRoleBasePath(data.user.role as UserRoleType)
+            : '/employee'
+          setTimeout(() => navigate(redirectPath), 1000)
         } else {
           toast.error('Xác thực thất bại')
           setOtp('')

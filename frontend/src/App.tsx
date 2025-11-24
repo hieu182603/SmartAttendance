@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "./components/ThemeProvider";
 import LandingPage from "./components/LandingPage";
@@ -19,6 +19,7 @@ import LeaveBalancePage from "./components/dashboard/pages/LeaveBalancePage";
 import NotificationsPage from "./components/dashboard/pages/NotificationsPage";
 import CameraCheckinPage from "./components/dashboard/pages/CameraCheckinPage";
 import ProfilePage from "./components/dashboard/pages/ProfilePage";
+import NotFoundPage from "./components/NotFoundPage";
 
 import CompanyCalendarPage from "./components/dashboard/pages/CompanyCalendarPage";
 import ApproveRequestsPage from "./components/dashboard/pages/ApproveRequestsPage";
@@ -47,8 +48,8 @@ export default function App() {
 
         {/* Protected Routes - All authenticated users */}
         <Route element={<ProtectedRoute />}>
+          {/* Employee Routes - All authenticated users */}
           <Route path="/employee" element={<DashboardLayout />}>
-            {/* Employee Routes - All roles */}
             <Route index element={<HomePageWrapper />} />
             <Route path="scan" element={<ScanPage />} />
             <Route path="schedule" element={<SchedulePage />} />
@@ -59,31 +60,68 @@ export default function App() {
             <Route path="camera-checkin" element={<CameraCheckinPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="company-calendar" element={<CompanyCalendarPage />} />
+          </Route>
 
-            {/* Admin Routes - Manager and above (nested protection) */}
-            <Route element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}>
+          {/* Manager Routes - MANAGER and above */}
+          <Route element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}>
+            <Route path="/manager" element={<DashboardLayout />}>
+              <Route index element={<HomePageWrapper />} />
+              <Route path="scan" element={<ScanPage />} />
+              <Route path="schedule" element={<SchedulePage />} />
+              <Route path="requests" element={<RequestsPage />} />
+              <Route path="history" element={<HistoryPage />} />
+              <Route path="leave-balance" element={<LeaveBalancePage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="camera-checkin" element={<CameraCheckinPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="company-calendar" element={<CompanyCalendarPage />} />
+              {/* Manager specific routes */}
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="department-attendance" element={<DepartmentAttendancePage />} />
               <Route path="shifts" element={<ShiftsPage />} />
             </Route>
+          </Route>
 
-            {/* HR/Admin Routes - HR_MANAGER, ADMIN, SUPER_ADMIN only */}
-            <Route element={<ProtectedRoute minimumRole={UserRole.HR_MANAGER} />}>
+          {/* HR Routes - HR_MANAGER and above */}
+          <Route element={<ProtectedRoute minimumRole={UserRole.HR_MANAGER} />}>
+            <Route path="/hr" element={<DashboardLayout />}>
+              <Route index element={<HomePageWrapper />} />
+              <Route path="scan" element={<ScanPage />} />
+              <Route path="schedule" element={<SchedulePage />} />
+              <Route path="requests" element={<RequestsPage />} />
+              <Route path="history" element={<HistoryPage />} />
+              <Route path="leave-balance" element={<LeaveBalancePage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="camera-checkin" element={<CameraCheckinPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="company-calendar" element={<CompanyCalendarPage />} />
+              {/* HR specific routes */}
               <Route path="employee-management" element={<EmployeeManagementPage />} />
+              <Route path="approve-requests" element={<ApproveRequestsPage />} />
+              <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
             </Route>
+          </Route>
 
-            {/* System Routes - ADMIN and SUPER_ADMIN */}
-            <Route element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}>
+          {/* Admin Routes - ADMIN and SUPER_ADMIN */}
+          <Route element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}>
+            <Route path="/admin" element={<DashboardLayout />}>
+              <Route index element={<HomePageWrapper />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="company-calendar" element={<CompanyCalendarPage />} />
+              {/* Admin specific routes */}
+              <Route path="employee-management" element={<EmployeeManagementPage />} />
               <Route path="departments" element={<DepartmentsPage />} />
               <Route path="branches" element={<BranchesPage />} />
+              <Route path="approve-requests" element={<ApproveRequestsPage />} />
+              <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="system-settings" element={<SystemSettingsPage />} />
             </Route>
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Toaster position="top-right" richColors />
     </ThemeProvider>
