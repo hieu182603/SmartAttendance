@@ -507,10 +507,10 @@ const ScanPage: React.FC = () => {
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            Quét QR điểm danh
+            Chấm công hôm nay
           </CardTitle>
           <p className="text-sm text-[var(--text-sub)] mt-2">
-            Quét mã QR tại văn phòng để chấm công
+            Chụp ảnh và xác nhận vị trí để chấm công
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
