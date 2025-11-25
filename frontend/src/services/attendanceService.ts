@@ -6,6 +6,9 @@ interface AttendanceParams {
   limit?: number
   startDate?: string
   endDate?: string
+  from?: string
+  to?: string
+  search?: string
   [key: string]: unknown
 }
 
@@ -44,13 +47,36 @@ interface AllAttendanceResponse {
   }
 }
 
-export const getAttendanceHistory = async (params: AttendanceParams = {}): Promise<AttendanceRecord[]> => {
+interface AttendanceHistoryResponse {
+  records: AttendanceRecord[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export const getAttendanceHistory = async (params: AttendanceParams = {}): Promise<AttendanceHistoryResponse> => {
   try {
     const { data } = await api.get('/attendance/history', { params })
-    return Array.isArray(data) ? data : []
+    // Backend trả về { records: [...], pagination: {...} }
+    // Hoặc có thể trả về array trực tiếp (backward compatibility)
+    if (Array.isArray(data)) {
+      return {
+        records: data,
+        pagination: {
+          page: 1,
+          limit: data.length,
+          total: data.length,
+          totalPages: 1
+        }
+      }
+    }
+    return data as AttendanceHistoryResponse
   } catch (error) {
     console.warn('[attendance] history unavailable', (error as Error).message)
-    return []
+    return { records: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
   }
 }
 

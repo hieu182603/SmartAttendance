@@ -224,6 +224,25 @@ export function getAccessibleBasePaths(role: UserRoleType): string[] {
     return paths;
 }
 
+/**
+ * Get position/chức danh display name for a role
+ */
+export function getRolePosition(role: UserRoleType): string {
+    switch (role) {
+        case UserRole.SUPER_ADMIN:
+            return 'Super Admin';
+        case UserRole.ADMIN:
+            return 'Admin Manager';
+        case UserRole.HR_MANAGER:
+            return 'HR Manager';
+        case UserRole.MANAGER:
+            return 'Manager';
+        case UserRole.EMPLOYEE:
+        default:
+            return 'Employee';
+    }
+}
+
 
 
 

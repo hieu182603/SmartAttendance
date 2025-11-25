@@ -33,14 +33,36 @@ const getTitleByType = (type) => {
 export const getMyRequests = async (req, res) => {
   try {
     const userId = req.user.userId
-    const { status } = req.query
+    const { status, search, page = 1, limit = 20 } = req.query
 
     const query = { userId }
+
+    // Status filter
     if (status && ['pending', 'approved', 'rejected'].includes(status)) {
       query.status = status
     }
 
-    const docs = await RequestModel.find(query).sort({ createdAt: -1 })
+    // Search filter - search in reason/description
+    if (search) {
+      query.$or = [
+        { reason: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { type: { $regex: search, $options: 'i' } }
+      ]
+    }
+
+    // Pagination
+    const pageNum = parseInt(page) || 1
+    const limitNum = parseInt(limit) || 20
+    const skip = (pageNum - 1) * limitNum
+
+    const [docs, total] = await Promise.all([
+      RequestModel.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      RequestModel.countDocuments(query)
+    ])
 
     const data = docs.map((doc) => ({
       id: doc._id.toString(),
@@ -55,7 +77,15 @@ export const getMyRequests = async (req, res) => {
       createdAt: formatDate(doc.createdAt),
     }))
 
-    res.json(data)
+    res.json({
+      requests: data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    })
   } catch (error) {
     console.error('[requests] fetch error', error)
     res.status(500).json({ message: 'Không lấy được danh sách yêu cầu' })

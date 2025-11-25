@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import {
-  CheckCircle2,
-  XCircle,
   Clock,
   Calendar,
   Search,
@@ -42,7 +40,6 @@ import type { ErrorWithMessage } from "../../../types";
 
 type RequestStatus = "pending" | "approved" | "rejected";
 type RequestType = "leave" | "overtime" | "remote" | "correction";
-type ActionType = "approve" | "reject" | null;
 type Urgency = "high" | "medium" | "low";
 
 interface Request {
@@ -85,33 +82,95 @@ interface TypeIconLabel {
 }
 
 const RequestsPage: React.FC = () => {
-  const [requests, setRequests] = useState<Request[]>([]);
+  const [allRequests, setAllRequests] = useState<Request[]>([]); // Store all requests for stats calculation
+  const [requests, setRequests] = useState<Request[]>([]); // Current page requests
   const [selectedTab, setSelectedTab] = useState<string>("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<ActionType>(null);
-  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [requestType, setRequestType] = useState<string>("");
   const [requestReason, setRequestReason] = useState("");
   const [requestDateRange, setRequestDateRange] = useState<DateRange>({
     start: "",
     end: "",
   });
-  const [comments, setComments] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [pagination, setPagination] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }>({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 0,
+  });
 
+  // Fetch stats (all requests without pagination for accurate stats)
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStats = async () => {
+      try {
+        // Fetch all requests without pagination for stats
+        const pendingResult = await getMyRequests({ status: 'pending', limit: 1000 });
+        const approvedResult = await getMyRequests({ status: 'approved', limit: 1000 });
+        const rejectedResult = await getMyRequests({ status: 'rejected', limit: 1000 });
+        
+        if (isMounted) {
+          const allRequestsData = [
+            ...(pendingResult.requests || []),
+            ...(approvedResult.requests || []),
+            ...(rejectedResult.requests || []),
+          ];
+          setAllRequests(allRequestsData);
+        }
+      } catch (error) {
+        console.error('[RequestsPage] Stats fetch error:', error);
+      }
+    };
+    fetchStats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Fetch paginated requests based on selected tab and filters
   useEffect(() => {
     let isMounted = true;
     const fetchData = async () => {
       setLoading(true);
       try {
-        const data = await getMyRequests() as Request[];
+        const params: {
+          page?: number;
+          limit?: number;
+          status?: string;
+          search?: string;
+        } = {
+          page: currentPage,
+          limit: itemsPerPage,
+        };
+
+        // Status filter based on selected tab
+        if (selectedTab !== "all") {
+          params.status = selectedTab;
+        }
+
+        // Search filter
+        if (searchQuery) {
+          params.search = searchQuery;
+        }
+
+        const result = await getMyRequests(params);
         if (isMounted) {
-          setRequests(data);
+          setRequests(result.requests || []);
+          if (result.pagination) {
+            setPagination(result.pagination);
+          }
         }
       } catch (error) {
         const err = error as ErrorWithMessage;
@@ -126,33 +185,39 @@ const RequestsPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentPage, selectedTab, searchQuery]);
 
+  // Reset to page 1 when tab or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedTab, searchQuery]);
+
+  // Calculate stats from allRequests
   const stats = useMemo<Stats>(() => {
     return {
-      pending: requests.filter((r) => r.status === "pending").length,
-      approved: requests.filter((r) => r.status === "approved").length,
-      rejected: requests.filter((r) => r.status === "rejected").length,
-      total: requests.length,
+      pending: allRequests.filter((r) => r.status === "pending").length,
+      approved: allRequests.filter((r) => r.status === "approved").length,
+      rejected: allRequests.filter((r) => r.status === "rejected").length,
+      total: allRequests.length,
     };
-  }, [requests]);
+  }, [allRequests]);
 
+  // Server-side filtering - no client-side filtering needed for main list
+  // But we still need to filter by type and department if those filters exist
   const applyFilters = (tabValue: string): Request[] => {
-    return requests.filter((req) => {
-      if (tabValue !== "all" && req.status !== tabValue) return false;
-      if (
-        searchQuery &&
-        !req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !req.title?.toLowerCase().includes(searchQuery.toLowerCase())
-      ) {
-        return false;
-      }
-      if (filterType !== "all" && req.type !== filterType) return false;
-      if (filterDepartment !== "all" && req.department !== filterDepartment) {
-        return false;
-      }
-      return true;
-    });
+    // Note: Status filtering is done server-side via selectedTab
+    // Type and department filters may need server-side support or stay client-side for now
+    let filtered = requests;
+    
+    if (filterType !== "all") {
+      filtered = filtered.filter(req => req.type === filterType);
+    }
+    // Department filter may not be applicable for "my requests" but keeping for consistency
+    if (filterDepartment !== "all") {
+      filtered = filtered.filter(req => req.department === filterDepartment);
+    }
+    
+    return filtered;
   };
 
   const handleCreateRequest = async (): Promise<void> => {
@@ -170,7 +235,11 @@ const RequestsPage: React.FC = () => {
         reason: requestReason.trim(),
       };
       const newRequest = await createRequestApi(payload) as Request;
-      setRequests((prev) => [newRequest, ...prev]);
+      // Refresh requests after creating new one
+      // Add to allRequests for stats
+      setAllRequests((prev) => [newRequest, ...prev]);
+      // Refresh current page
+      setCurrentPage(1);
       setIsCreateDialogOpen(false);
       setRequestType("");
       setRequestReason("");
@@ -184,41 +253,9 @@ const RequestsPage: React.FC = () => {
     }
   };
 
-  const handleOpenActionDialog = (request: Request, action: ActionType): void => {
-    setSelectedRequest(request);
-    setActionType(action);
-    setComments("");
-    setIsActionDialogOpen(true);
-  };
-
-  const handleSubmitAction = (): void => {
-    if (!selectedRequest || !actionType) return;
-
-    const updatedRequests = requests.map((req) => {
-      if (req.id === selectedRequest.id) {
-        return {
-          ...req,
-          status: actionType === "approve" ? "approved" : "rejected",
-          approver: "Current User",
-          approvedAt: new Date().toLocaleString("vi-VN"),
-          comments: comments || undefined,
-        };
-      }
-      return req;
-    });
-
-    setRequests(updatedRequests);
-    setIsActionDialogOpen(false);
-    setSelectedRequest(null);
-    setActionType(null);
-    setComments("");
-
-    toast.success(
-      actionType === "approve"
-        ? "Đã phê duyệt yêu cầu"
-        : "Đã từ chối yêu cầu"
-    );
-  };
+  // Note: RequestsPage is for users to view their own requests only
+  // To approve/reject requests of others, use ApproveRequestsPage
+  // Removed approve/reject functionality from this page to prevent confusion
 
   const getTypeIconLabel = (type: RequestType): TypeIconLabel => {
     switch (type) {
@@ -358,37 +395,28 @@ const RequestsPage: React.FC = () => {
             </div>
 
             <div className="flex w-full flex-col gap-2 md:w-auto">
-              {request.status === "pending" ? (
-                <>
-                  <Button
-                    onClick={() => handleOpenActionDialog(request, "approve")}
-                    className="bg-[var(--success)] text-white hover:bg-[var(--success)]/80"
-                    size="sm"
-                  >
-                    <CheckCircle2 className="mr-1 h-4 w-4" />
-                    Duyệt
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenActionDialog(request, "reject")}
-                    className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
-                  >
-                    <XCircle className="mr-1 h-4 w-4" />
-                    Từ chối
-                  </Button>
-                </>
-              ) : (
-                <Badge
-                  className={
-                    request.status === "approved"
-                      ? "bg-[var(--success)]/20 text-[var(--success)]"
-                      : "bg-[var(--error)]/20 text-[var(--error)]"
-                  }
-                >
-                  {request.status === "approved" ? "✓ Đã duyệt" : "✗ Đã từ chối"}
-                </Badge>
-              )}
+              {/* RequestsPage chỉ hiển thị trạng thái, không có nút approve/reject */}
+              {/* Để approve/reject requests của người khác, sử dụng ApproveRequestsPage */}
+              <Badge
+                className={
+                  request.status === "pending"
+                    ? "bg-[var(--warning)]/20 text-[var(--warning)]"
+                    : request.status === "approved"
+                    ? "bg-[var(--success)]/20 text-[var(--success)]"
+                    : "bg-[var(--error)]/20 text-[var(--error)]"
+                }
+              >
+                {request.status === "pending" ? (
+                  <>
+                    <Clock className="mr-1 h-3 w-3" />
+                    Chờ duyệt
+                  </>
+                ) : request.status === "approved" ? (
+                  "✓ Đã duyệt"
+                ) : (
+                  "✗ Đã từ chối"
+                )}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -591,61 +619,64 @@ const RequestsPage: React.FC = () => {
               {renderRequests("all")}
             </TabsContent>
           </Tabs>
+          
+          {/* Pagination Controls */}
+          {pagination.totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-[var(--border)]">
+              <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
+                <span>
+                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  «
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  ‹
+                </Button>
+
+                <span className="px-4 text-sm text-[var(--text-main)]">
+                  Trang {currentPage} / {pagination.totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+                  disabled={currentPage >= pagination.totalPages}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  ›
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(pagination.totalPages)}
+                  disabled={currentPage >= pagination.totalPages}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  »
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <Dialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
-          <DialogHeader>
-            <DialogTitle>
-              {actionType === "approve" ? "Phê duyệt yêu cầu" : "Từ chối yêu cầu"}
-            </DialogTitle>
-            <DialogDescription className="text-[var(--text-sub)]">
-              {selectedRequest && (
-                <>
-                  <strong>{selectedRequest.employeeName}</strong> •{" "}
-                  {selectedRequest.title || selectedRequest.type}
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <Label className="text-[var(--text-main)]">Nhận xét (tùy chọn)</Label>
-            <Textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              placeholder={
-                actionType === "approve"
-                  ? "Nhập nhận xét về yêu cầu..."
-                  : "Nhập lý do từ chối..."
-              }
-              className="border-[var(--border)] bg-[var(--shell)]"
-              rows={4}
-            />
-          </div>
-
-          <DialogFooter className="pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsActionDialogOpen(false)}
-              className="border-[var(--border)] text-[var(--text-main)]"
-            >
-              Hủy
-            </Button>
-            <Button
-              onClick={handleSubmitAction}
-              className={
-                actionType === "approve"
-                  ? "bg-[var(--success)] hover:bg-[var(--success)]/80 text-white"
-                  : "bg-[var(--error)] hover:bg-[var(--error)]/80 text-white"
-              }
-            >
-              {actionType === "approve" ? "Xác nhận duyệt" : "Xác nhận từ chối"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
