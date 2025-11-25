@@ -1,9 +1,22 @@
 import { useNavigate } from 'react-router-dom';
 import { Home, ArrowLeft, SearchX } from 'lucide-react';
 import { Button } from './ui/button';
+import { useAuth } from '../context/AuthContext';
+import { getRoleBasePath, type UserRoleType } from '../utils/roles';
 
 export default function NotFoundPage() {
   const navigate = useNavigate();
+  const { token, user } = useAuth();
+
+  // Get home path - if authenticated, go to role's dashboard, otherwise landing page
+  const getHomePath = () => {
+    if (token && user?.role) {
+      return getRoleBasePath(user.role as UserRoleType);
+    }
+    return '/';
+  };
+
+  const homePath = getHomePath();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-900 flex items-center justify-center p-4 overflow-hidden relative">
@@ -54,13 +67,13 @@ export default function NotFoundPage() {
           </Button>
 
           <Button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(homePath)}
             size="lg"
             className="group relative overflow-hidden bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 dark:from-purple-500 dark:to-pink-500 dark:hover:from-purple-600 dark:hover:to-pink-600 transition-all duration-300 shadow-lg hover:shadow-xl min-w-[180px]"
           >
             <span className="absolute inset-0 bg-white/20 transform translate-x-full group-hover:translate-x-0 transition-transform duration-300"></span>
             <Home className="mr-2 h-5 w-5 relative z-10" />
-            <span className="relative z-10">Về trang chủ</span>
+            <span className="relative z-10">{token ? 'Về trang chủ' : 'Về trang chủ'}</span>
           </Button>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { hasMinimumLevel, UserRole, getRoleBasePath, type UserRoleType } from '../utils/roles'
@@ -15,28 +15,34 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
   const navigate = useNavigate()
   const [showUnauthorized, setShowUnauthorized] = useState(false)
 
-  // Check access and set redirect state
-  useEffect(() => {
-    if (loading) return
-
-    let shouldRedirect = false
+  // Synchronously check access before rendering - prevent race condition
+  const hasAccess = useMemo(() => {
+    // Don't check if still loading or no user
+    if (loading || !user || !user.role) {
+      return null // Still checking
+    }
 
     // Check role-based access if specified
     if (allowedRoles && allowedRoles.length > 0) {
-      const userRole = user?.role
-      if (!userRole || !allowedRoles.includes(userRole)) {
-        shouldRedirect = true
+      const userRole = user.role
+      if (!allowedRoles.includes(userRole)) {
+        return false
       }
     }
 
     // Check minimum role level if specified
-    if (minimumRole && user?.role) {
-      if (!hasMinimumLevel(user.role, minimumRole)) {
-        shouldRedirect = true
+    if (minimumRole) {
+      if (!hasMinimumLevel(user.role as UserRoleType, minimumRole as UserRoleType)) {
+        return false
       }
     }
 
-    if (shouldRedirect) {
+    return true
+  }, [loading, user, allowedRoles, minimumRole])
+
+  // Handle redirect after unauthorized access
+  useEffect(() => {
+    if (hasAccess === false) {
       setShowUnauthorized(true)
       const timer = setTimeout(() => {
         const userRole = user?.role as UserRoleType | undefined
@@ -45,10 +51,10 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
       }, 2000)
       return () => clearTimeout(timer)
     }
-  }, [loading, token, user, allowedRoles, minimumRole, navigate])
+  }, [hasAccess, user, navigate])
 
-  // Loading state
-  if (loading) {
+  // Loading state - show while checking authentication or access
+  if (loading || hasAccess === null) {
     return (
       <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <motion.div
@@ -77,7 +83,7 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
   }
 
   // Show unauthorized message if needed
-  if (showUnauthorized) {
+  if (hasAccess === false || showUnauthorized) {
     return (
       <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <motion.div
@@ -105,6 +111,7 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
     )
   }
 
+  // User has access - render child routes
   return <Outlet />
 }
 

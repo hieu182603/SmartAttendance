@@ -25,12 +25,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     const bootstrap = async () => {
+      setLoading(true)
       try {
         if (token) {
           const me = await getMe()
           setUser(me)
+        } else {
+          setUser(null)
         }
       } catch (e) {
+        // Token invalid or expired - clear auth state
         localStorage.removeItem('sa_token')
         setToken('')
         setUser(null)
@@ -39,8 +43,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     }
     bootstrap()
-    
-  }, [])
+  }, [token]) // Re-run when token changes
 
   useEffect(() => {
     if (token) localStorage.setItem('sa_token', token)
