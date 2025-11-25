@@ -9,7 +9,6 @@ import { AttendanceModel } from '../src/modules/attendance/attendance.model.js';
 import { RequestModel } from '../src/modules/requests/request.model.js';
 import { ReportModel } from '../src/modules/reports/report.model.js';
 import { LogModel } from '../src/modules/logs/log.model.js';
-import { PayrollReportModel } from '../src/modules/payroll/payroll.model.js';
 import { hashPassword } from '../src/utils/bcrypt.util.js';
 
 dotenv.config();
@@ -37,7 +36,6 @@ async function seed() {
         await RequestModel.deleteMany({});
         await ReportModel.deleteMany({});
         await LogModel.deleteMany({});
-        await PayrollReportModel.deleteMany({});
         console.log('✅ Old data cleared\n');
 
         // ========== 1. TẠO SHIFTS (Ca làm việc) ==========
@@ -622,86 +620,6 @@ async function seed() {
         const createdReports = await ReportModel.insertMany(reports);
         console.log(`✅ Created ${createdReports.length} reports\n`);
 
-        // ========== 7.5. TẠO PAYROLL REPORTS (Báo cáo lương) ==========
-        console.log('💰 Creating payroll reports...');
-        const payrollReports = await PayrollReportModel.insertMany([
-            {
-                month: 'Tháng 10/2025',
-                periodStart: new Date('2025-10-01'),
-                periodEnd: new Date('2025-10-31'),
-                totalEmployees: 150,
-                totalSalary: 3500000000,
-                totalBonuses: 500000000,
-                totalDeductions: 350000000,
-                netPay: 3650000000,
-                avgSalary: 24333333,
-                departmentStats: [
-                    { department: 'IT', employees: 45, totalSalary: 1350000000, avgSalary: 30000000, percentage: 37 },
-                    { department: 'Sales', employees: 40, totalSalary: 960000000, avgSalary: 24000000, percentage: 27 },
-                    { department: 'HR', employees: 15, totalSalary: 420000000, avgSalary: 28000000, percentage: 12 },
-                    { department: 'Marketing', employees: 25, totalSalary: 500000000, avgSalary: 20000000, percentage: 14 },
-                    { department: 'Operations', employees: 25, totalSalary: 370000000, avgSalary: 14800000, percentage: 10 },
-                ],
-                monthlyTrend: [
-                    { month: 'T6', total: 3300, employees: 142 },
-                    { month: 'T7', total: 3350, employees: 143 },
-                    { month: 'T8', total: 3400, employees: 145 },
-                    { month: 'T9', total: 3450, employees: 148 },
-                    { month: 'T10', total: 3500, employees: 150 },
-                ],
-            },
-            {
-                month: 'Tháng 9/2025',
-                periodStart: new Date('2025-09-01'),
-                periodEnd: new Date('2025-09-30'),
-                totalEmployees: 148,
-                totalSalary: 3450000000,
-                totalBonuses: 450000000,
-                totalDeductions: 345000000,
-                netPay: 3555000000,
-                avgSalary: 24020270,
-                departmentStats: [
-                    { department: 'IT', employees: 44, totalSalary: 1330000000, avgSalary: 30227272, percentage: 38 },
-                    { department: 'Sales', employees: 38, totalSalary: 930000000, avgSalary: 24473684, percentage: 27 },
-                    { department: 'HR', employees: 15, totalSalary: 410000000, avgSalary: 27333333, percentage: 12 },
-                    { department: 'Marketing', employees: 26, totalSalary: 480000000, avgSalary: 18461538, percentage: 14 },
-                    { department: 'Operations', employees: 25, totalSalary: 360000000, avgSalary: 14400000, percentage: 9 },
-                ],
-                monthlyTrend: [
-                    { month: 'T5', total: 3280, employees: 140 },
-                    { month: 'T6', total: 3300, employees: 142 },
-                    { month: 'T7', total: 3350, employees: 143 },
-                    { month: 'T8', total: 3400, employees: 145 },
-                    { month: 'T9', total: 3450, employees: 148 },
-                ],
-            },
-            {
-                month: 'Tháng 8/2025',
-                periodStart: new Date('2025-08-01'),
-                periodEnd: new Date('2025-08-31'),
-                totalEmployees: 145,
-                totalSalary: 3400000000,
-                totalBonuses: 400000000,
-                totalDeductions: 340000000,
-                netPay: 3460000000,
-                avgSalary: 23862069,
-                departmentStats: [
-                    { department: 'IT', employees: 43, totalSalary: 1310000000, avgSalary: 30465116, percentage: 38 },
-                    { department: 'Sales', employees: 37, totalSalary: 920000000, avgSalary: 24864864, percentage: 27 },
-                    { department: 'HR', employees: 15, totalSalary: 405000000, avgSalary: 27000000, percentage: 12 },
-                    { department: 'Marketing', employees: 25, totalSalary: 470000000, avgSalary: 18800000, percentage: 14 },
-                    { department: 'Operations', employees: 25, totalSalary: 350000000, avgSalary: 14000000, percentage: 9 },
-                ],
-                monthlyTrend: [
-                    { month: 'T4', total: 3260, employees: 138 },
-                    { month: 'T5', total: 3280, employees: 140 },
-                    { month: 'T6', total: 3300, employees: 142 },
-                    { month: 'T7', total: 3350, employees: 143 },
-                    { month: 'T8', total: 3400, employees: 145 },
-                ],
-            },
-        ]);
-        console.log(`✅ Created ${payrollReports.length} payroll reports\n`);
 
         // ========== 7. TẠO LOGS (Nhật ký) - Cho tất cả activities ==========
         console.log('📜 Creating logs...');
@@ -848,7 +766,6 @@ async function seed() {
         console.log(`   - Attendances: ${createdAttendances.length}`);
         console.log(`   - Requests: ${createdRequests.length}`);
         console.log(`   - Reports: ${createdReports.length}`);
-        console.log(`   - Payroll Reports: ${payrollReports.length}`);
         console.log(`   - Logs: ${createdLogs.length}\n`);
 
 
