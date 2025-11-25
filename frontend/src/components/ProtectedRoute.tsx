@@ -53,6 +53,11 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
     }
   }, [hasAccess, user, navigate])
 
+  // Not authenticated - check this FIRST to avoid showing loading screen on logout
+  if (!token) {
+    return <Navigate to="/login" replace />
+  }
+
   // Loading state - show while checking authentication or access
   if (loading || hasAccess === null) {
     return (
@@ -75,11 +80,6 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
         </motion.div>
       </div>
     )
-  }
-
-  // Not authenticated
-  if (!token) {
-    return <Navigate to="/login" replace />
   }
 
   // Show unauthorized message if needed
