@@ -31,6 +31,9 @@ import { BranchesPage } from "./components/dashboard/pages/BranchesPage";
 import { DepartmentsPage } from "./components/dashboard/pages/DepartmentsPage";
 import DepartmentAttendancePage from "./components/dashboard/pages/DepartmentAttendancePage";
 import { ShiftsPage } from "./components/dashboard/pages/ShiftsPage";
+import PayrollPage from "./components/dashboard/pages/PayrollPage";
+import PerformanceReviewPage from "./components/dashboard/pages/PerformanceReviewPage";
+import AdminAttendancePage from "./components/dashboard/pages/AdminAttendancePage";
 import { Navigate } from "react-router-dom";
 import { UserRole } from "./utils/roles";
 
@@ -105,6 +108,9 @@ export default function App() {
               <Route path="employee-management" element={<EmployeeManagementPage />} />
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
+              <Route path="payroll" element={<PayrollPage />} />
+              <Route path="performance-review" element={<PerformanceReviewPage />} />
+              <Route path="admin-attendance" element={<AdminAttendancePage />} />
               {/* Catch-all: redirect invalid HR routes to 404 */}
               <Route path="*" element={<Navigate to="/not-found" replace />} />
             </Route>

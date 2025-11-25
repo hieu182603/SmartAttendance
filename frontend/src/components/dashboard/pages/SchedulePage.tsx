@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Progress } from "../../ui/progress";
 import api from "../../../services/api";
+import shiftService from "../../../services/shiftService";
 
 type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
 
@@ -56,8 +57,7 @@ const SchedulePage: React.FC = () => {
         setLoading(true);
 
         // BƯỚC 1: Lấy danh sách ca từ BE (chính xác như DB bạn gửi)
-        const res = await api.get("/shifts");
-        const availableShifts: any[] = res.data.data;
+        const availableShifts: any[] = await shiftService.getAllShifts();
 
         // BƯỚC 2: Tạo lịch 30 ngày tới (tất cả nhân viên dùng chung)
         const scheduleData: EmployeeSchedule[] = [];
@@ -70,30 +70,29 @@ const SchedulePage: React.FC = () => {
           const dateStr = date.toISOString().split("T")[0];
           const dayOfWeek = date.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
 
-          // Quy tắc ca làm (bạn có thể tùy chỉnh)
-          let selectedShift = availableShifts.find(
-            (s) => s.name === "Ca sáng"
-          )!;
-
           // Quy tắc ca làm cố định
           // === CHỈ SỬA TỪ ĐÂY TRỞ XUỐNG ===
+          // === QUY TẮC CA LÀM VIỆC CHUẨN 100% ===
+          let selectedShift: any = null;
+
           if (dayOfWeek === 0) {
-            // Chủ nhật: nghỉ hoàn toàn → KHÔNG tạo ca nào
+            // Chủ nhật: nghỉ hoàn toàn
             continue;
+          } else if (dayOfWeek === 6) {
+            // Thứ 7: dùng Ca part-time sáng
+            selectedShift =
+              availableShifts.find((s) => s.name === "Ca part-time sáng") || // ← ĐÚNG CHÍNH XÁC TÊN TRONG DB
+              availableShifts.find((s) => s.name.includes("part-time sáng")) ||
+              availableShifts.find((s) =>
+                s.name.toLowerCase().includes("part-time")
+              );
+          } else {
+            // Thứ 2 → Thứ 6: dùng Ca sáng
+            selectedShift = availableShifts.find((s) => s.name === "Ca sáng");
           }
 
-          // Chỉ tạo ca nếu không phải Chủ nhật
-          const targetShiftName =
-            dayOfWeek === 6 ? "part-time sáng" : "Ca sáng";
-          const foundShift = availableShifts.find((s) =>
-            dayOfWeek === 6
-              ? s.name.includes("part-time sáng")
-              : s.name === "Ca sáng"
-          );
-
-          if (!foundShift) continue; // Nếu không tìm thấy ca → bỏ qua (an toàn)
-
-          selectedShift = foundShift;
+          // Nếu không tìm thấy ca nào thì bỏ qua ngày đó (an toàn)
+          if (!selectedShift) continue;
 
           const isPast = date < today;
           const isToday = dateStr === new Date().toISOString().split("T")[0];
@@ -141,9 +140,16 @@ const SchedulePage: React.FC = () => {
 
   const todayShifts = schedule.filter((s) => s.date === todayStr);
   const upcomingShifts = schedule
-    .filter(
-      (s) => new Date(s.date) >= new Date(todayStr) && s.status === "scheduled"
-    )
+    .filter((s) => {
+      const date = new Date(s.date);
+      const dayOfWeek = date.getDay();
+      // BỎ HOÀN TOÀN CHỦ NHẬT (và đảm bảo chỉ lấy ca scheduled)
+      return (
+        dayOfWeek !== 0 &&
+        date >= new Date(todayStr) &&
+        s.status === "scheduled"
+      );
+    })
     .slice(0, 6);
 
   const currentMonth = `${today.getFullYear()}-${String(
@@ -430,31 +436,59 @@ const SchedulePage: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Time Range */}
-              <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)]">
-                <div className="text-center">
-                  <p className="text-sm text-[var(--text-sub)] mb-2">
-                    Khung giờ làm việc
-                  </p>
-                  <motion.div
-                    className="text-3xl text-[var(--text-main)]"
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    08:00 - 17:00
-                  </motion.div>
-                  {countdown && (
-                    <div className="mt-3">
-                      <Progress
-                        value={(countdown.remaining / (9 * 60)) * 100}
-                        className="h-2"
-                      />
-                      <p className="text-xs text-[var(--text-sub)] mt-2">
-                        Đang trong ca làm việc
-                      </p>
-                    </div>
-                  )}
+              {todayShifts.length > 0 && (
+                <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)]">
+                  <div className="text-center">
+                    <p className="text-sm text-[var(--text-sub)] mb-2">
+                      Khung giờ làm việc
+                    </p>
+                    <motion.div
+                      className="text-3xl text-[var(--text-main)]"
+                      animate={{ scale: [1, 1.05, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      {todayShifts[0].shift.startTime} -{" "}
+                      {todayShifts[0].shift.endTime}
+                    </motion.div>
+                    {countdown &&
+                      currentShift &&
+                      (() => {
+                        const [sh, sm] = currentShift.shift.startTime
+                          .split(":")
+                          .map(Number);
+                        const [eh, em] = currentShift.shift.endTime
+                          .split(":")
+                          .map(Number);
+                        let startMin = sh * 60 + sm;
+                        let endMin = eh * 60 + em;
+                        let now =
+                          currentTime.getHours() * 60 +
+                          currentTime.getMinutes();
+
+                        if (endMin < startMin) {
+                          endMin += 24 * 60;
+                          if (now < startMin) now += 24 * 60;
+                        }
+
+                        const totalDuration = endMin - startMin;
+                        const elapsed = now - startMin;
+                        const progress = (elapsed / totalDuration) * 100;
+
+                        return (
+                          <div className="mt-3">
+                            <Progress
+                              value={Math.min(100, Math.max(0, progress))}
+                              className="h-2"
+                            />
+                            <p className="text-xs text-[var(--text-sub)] mt-2">
+                              Đang trong ca làm việc
+                            </p>
+                          </div>
+                        );
+                      })()}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Today's Shifts Details */}
               <div className="space-y-3">
@@ -520,7 +554,9 @@ const SchedulePage: React.FC = () => {
                   ))
                 ) : (
                   <div className="text-center py-8 text-[var(--text-sub)] text-lg">
-                    Hôm nay chú mày không có việc làm
+                    {new Date().getDay() === 0
+                      ? "Hôm nay chú mày được nghỉ"
+                      : "Hôm nay chú mày không có việc làm"}
                   </div>
                 )}
               </div>
@@ -876,7 +912,3 @@ const SchedulePage: React.FC = () => {
 };
 
 export default SchedulePage;
-
-
-
-
