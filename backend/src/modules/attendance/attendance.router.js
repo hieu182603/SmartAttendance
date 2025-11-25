@@ -6,6 +6,7 @@ import {
   getAttendanceHistory,
   getRecentAttendance,
   checkIn,
+  checkOut,
   getAttendanceAnalytics,
   getAllAttendance,
   exportAttendanceAnalytics,
@@ -19,6 +20,7 @@ attendanceRouter.use(authMiddleware);
 attendanceRouter.get("/history", getAttendanceHistory);
 attendanceRouter.get("/recent", getRecentAttendance);
 attendanceRouter.post("/checkin", upload.single("photo"), checkIn);
+attendanceRouter.post("/checkout", upload.single("photo"), checkOut);
 
 attendanceRouter.get(
   "/analytics",

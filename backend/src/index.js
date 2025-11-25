@@ -14,9 +14,9 @@ import { userRouter } from "./modules/users/user.router.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.router.js";
 import { branchRouter } from "./modules/branches/branch.router.js";
 import { departmentRouter } from "./modules/departments/department.router.js";
-
-// ⭐ THÊM ROUTER SHIFTS
 import { shiftRouter } from "./modules/shifts/shift.router.js";
+import { locationRouter } from "./modules/locations/location.router.js";
+import { startCronJobs } from "./jobs/attendance.job.js";
 
 dotenv.config();
 
@@ -56,9 +56,8 @@ app.use("/api/users", userRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/branches", branchRouter);
 app.use("/api/departments", departmentRouter);
-
-// ⭐ THÊM ROUTE SHIFTS
 app.use("/api/shifts", shiftRouter);
+app.use("/api/locations", locationRouter);
 
 // Error handler
 app.use((err, _req, res, _next) => {
@@ -88,6 +87,9 @@ async function start() {
       console.log(`✅ Server đang chạy tại: ${serverUrl}`);
       console.log(`📚 API Documentation: ${docsUrl}`);
       console.log("🚀 ========================================\n");
+
+      // Khởi động cron jobs
+      startCronJobs();
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);

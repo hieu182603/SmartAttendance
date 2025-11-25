@@ -64,16 +64,23 @@ attendanceSchema.pre("save", function (next) {
   this.calculateWorkHours();
 
   // Cập nhật trạng thái
-  if (this.checkIn && this.checkOut) {
-    this.status = "present";
-    // Giả sử đi muộn nếu vào sau 8:30
+  if (this.checkIn) {
+    // Kiểm tra đi muộn
+    // Giờ bắt đầu ca: 08:00, cho phép muộn 30 phút → 08:30
+    const SHIFT_START_HOUR = 8;
+    const SHIFT_START_MINUTE = 0;
+    const LATE_TOLERANCE_MINUTES = 30; // Cho phép muộn 30 phút
+    
     const lateTime = new Date(this.date);
-    lateTime.setHours(8, 30, 0, 0);
+    lateTime.setHours(SHIFT_START_HOUR, SHIFT_START_MINUTE + LATE_TOLERANCE_MINUTES, 0, 0);
+    
     if (this.checkIn > lateTime) {
       this.status = "late";
+    } else {
+      this.status = "present";
     }
-  } else if (this.checkIn && !this.checkOut) {
-    this.status = "present"; // đang làm
+  } else {
+    this.status = "absent";
   }
 
   next();

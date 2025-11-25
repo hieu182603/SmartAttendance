@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
   Home,
-  QrCode,
+  Camera,
   History,
   FileText,
   Clock,
@@ -52,7 +52,7 @@ function getMenuByRole(role: UserRoleType): MenuItem[] {
 
   // Base employee menu (all roles have access, excluding home for admin roles)
   const baseMenu: MenuItem[] = [
-    { id: "scan", label: "Quét QR", icon: QrCode, path: `${basePath}/scan`, section: "employee" },
+    { id: "scan", label: "Quét QR", icon: Camera, path: `${basePath}/scan`, section: "employee" },
     { id: "history", label: "Lịch sử", icon: History, path: `${basePath}/history`, section: "employee" },
     { id: "requests", label: "Yêu cầu", icon: FileText, path: `${basePath}/requests`, section: "employee" },
     { id: "leave-balance", label: "Số ngày phép", icon: CalendarDays, path: `${basePath}/leave-balance`, section: "employee" },
