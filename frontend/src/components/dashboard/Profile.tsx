@@ -140,7 +140,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       // Get position from role using roles.ts helper
       const userRole = (user.role || UserRole.EMPLOYEE) as UserRoleType;
       const position = getRolePosition(userRole);
-      
+
       setProfile({
         fullName: user.name || "",
         email: user.email || "",
