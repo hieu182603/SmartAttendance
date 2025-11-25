@@ -49,15 +49,15 @@ export const getRecentAttendance = async (req, res) => {
         date: dayLabel,
         checkIn: doc.checkIn
           ? new Date(doc.checkIn).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+            hour: "2-digit",
+            minute: "2-digit",
+          })
           : null,
         checkOut: doc.checkOut
           ? new Date(doc.checkOut).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+            hour: "2-digit",
+            minute: "2-digit",
+          })
           : null,
         status: doc.status || "absent",
         location: doc.locationId?.name || null,
@@ -76,51 +76,67 @@ export const getRecentAttendance = async (req, res) => {
 export const getAttendanceHistory = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { from, to, search } = req.query;
+    const { from, to, search, page = 1, limit = 20 } = req.query;
 
     const query = { userId };
 
+    // Date range filter
     if (from || to) {
       query.date = {};
       if (from) query.date.$gte = new Date(from);
-      if (to) query.date.$lte = new Date(to);
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999); // End of day
+        query.date.$lte = toDate;
+      }
     }
 
-    const docs = await AttendanceModel.find(query)
-      .populate("locationId")
-      .sort({ date: -1 });
+    // Search filter - search in notes
+    if (search) {
+      query.notes = { $regex: search, $options: 'i' };
+    }
 
-    const keyword = search?.trim().toLowerCase();
+    // Pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
 
-    const data = docs
-      .map((doc) => {
-        const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
-          weekday: "long",
-        });
-        return {
-          id: doc._id.toString(),
-          date: formatDateLabel(doc.date),
-          day: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1),
-          checkIn: formatTime(doc.checkIn),
-          checkOut: formatTime(doc.checkOut),
-          hours: doc.workHours ? `${doc.workHours}h` : "-",
-          status: deriveStatus(doc),
-          location: doc.locationId?.name || "Văn phòng",
-          notes: doc.notes || "",
-        };
-      })
-      .filter((record) => {
-        if (!keyword) return true;
-        return (
-          record.date.toLowerCase().includes(keyword) ||
-          record.day.toLowerCase().includes(keyword) ||
-          record.location.toLowerCase().includes(keyword) ||
-          record.notes.toLowerCase().includes(keyword) ||
-          record.status.toLowerCase().includes(keyword)
-        );
+    const [docs, total] = await Promise.all([
+      AttendanceModel.find(query)
+        .populate("locationId")
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      AttendanceModel.countDocuments(query)
+    ]);
+
+    // Map and format data
+    const data = docs.map((doc) => {
+      const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
+        weekday: "long",
       });
+      return {
+        id: doc._id.toString(),
+        date: formatDateLabel(doc.date),
+        day: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1),
+        checkIn: formatTime(doc.checkIn),
+        checkOut: formatTime(doc.checkOut),
+        hours: doc.workHours ? `${doc.workHours}h` : "-",
+        status: deriveStatus(doc),
+        location: doc.locationId?.name || "Văn phòng",
+        notes: doc.notes || "",
+      };
+    });
 
-    res.json(data);
+    res.json({
+      records: data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (error) {
     console.error("[attendance] history error", error);
     res.status(500).json({ message: "Không lấy được lịch sử chấm công" });
@@ -569,8 +585,8 @@ export const getAttendanceAnalytics = async (req, res) => {
       const dateKey = formatDateLabel(att.date)
       const user = att.userId
       // Lấy tên phòng ban từ populated object hoặc fallback về string/ObjectId
-      const dept = (typeof user?.department === 'object' && user?.department?.name) 
-        ? user.department.name 
+      const dept = (typeof user?.department === 'object' && user?.department?.name)
+        ? user.department.name
         : (user?.department || 'N/A')
 
       if (!dailyMap.has(dateKey)) {
@@ -858,8 +874,8 @@ export const exportAttendanceAnalytics = async (req, res) => {
       const dateKey = formatDateLabel(att.date)
       const user = att.userId
       // Lấy tên phòng ban từ populated object hoặc fallback về string/ObjectId
-      const dept = (typeof user?.department === 'object' && user?.department?.name) 
-        ? user.department.name 
+      const dept = (typeof user?.department === 'object' && user?.department?.name)
+        ? user.department.name
         : (user?.department || 'N/A')
 
       if (!dailyMap.has(dateKey)) {
@@ -981,7 +997,7 @@ export const getDepartmentAttendance = async (req, res) => {
 
     // Lấy tất cả nhân viên trong phòng ban của manager
     let userQuery = { department: manager.department, isActive: true };
-    
+
     // Tìm kiếm theo tên hoặc email
     if (search) {
       userQuery = {
@@ -1029,8 +1045,8 @@ export const getDepartmentAttendance = async (req, res) => {
         date: formatDateLabel(doc.date),
         checkIn: formatTime(doc.checkIn),
         checkOut: formatTime(doc.checkOut),
-        hours: doc.workHours 
-          ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m` 
+        hours: doc.workHours
+          ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m`
           : '-',
         status,
         location: doc.locationId?.name || '-'

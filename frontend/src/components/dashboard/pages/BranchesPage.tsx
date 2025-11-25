@@ -13,6 +13,9 @@ import {
   Briefcase,
   TrendingUp,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   Globe,
   Clock,
   CheckCircle2
@@ -70,6 +73,19 @@ export function BranchesPage() {
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [pagination, setPagination] = useState<{
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }>({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 0,
+  });
   const [stats, setStats] = useState({
     total: 0,
     totalEmployees: 0,
@@ -91,15 +107,37 @@ export function BranchesPage() {
 
   // Load data
   useEffect(() => {
-    loadBranches();
     loadManagers();
     loadStats();
   }, []);
 
+  // Load branches when filters or pagination change
+  useEffect(() => {
+    loadBranches();
+  }, [currentPage, itemsPerPage, searchQuery]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   const loadBranches = async () => {
     try {
       setLoading(true);
-      const response = await getAllBranches({ limit: 1000 });
+      const params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+      } = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+      
+      if (searchQuery) {
+        params.search = searchQuery;
+      }
+      
+      const response = await getAllBranches(params);
       const branchesData = response.branches.map((branch: BranchType) => ({
         id: branch._id || branch.id || '',
         _id: branch._id,
@@ -119,6 +157,16 @@ export function BranchesPage() {
         timezone: branch.timezone,
       }));
       setBranches(branchesData);
+      
+      // Update pagination info from backend
+      if (response.total !== undefined) {
+        setPagination({
+          total: response.total || 0,
+          page: response.page || currentPage,
+          limit: response.limit || itemsPerPage,
+          totalPages: response.totalPages || 1,
+        });
+      }
     } catch (error) {
       console.error('Error loading branches:', error);
       toast.error('Không thể tải danh sách chi nhánh');
@@ -145,13 +193,8 @@ export function BranchesPage() {
     }
   };
 
-  // Filter branches
-  const filteredBranches = branches.filter(branch => {
-    if (searchQuery && !branch.name.toLowerCase().includes(searchQuery.toLowerCase())
-      && !branch.city.toLowerCase().includes(searchQuery.toLowerCase())
-      && !branch.code.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
+  // Server-side filtering - no client-side filtering needed
+  const filteredBranches = branches;
 
   const handleOpenDialog = (mode: 'create' | 'edit', branch?: Branch) => {
     setDialogMode(mode);
@@ -364,6 +407,15 @@ export function BranchesPage() {
       </Card>
 
       {/* Branches Grid */}
+      {loading ? (
+        <div className="text-center py-8 text-[var(--text-sub)]">Đang tải...</div>
+      ) : filteredBranches.length === 0 ? (
+        <div className="text-center py-12">
+          <Building2 className="h-16 w-16 text-[var(--text-sub)] mx-auto mb-4 opacity-50" />
+          <p className="text-[var(--text-sub)]">Không tìm thấy chi nhánh nào</p>
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredBranches.map((branch, index) => (
           <motion.div
@@ -490,6 +542,67 @@ export function BranchesPage() {
           </motion.div>
         ))}
       </div>
+      
+      {/* Pagination Controls */}
+      {pagination.totalPages > 1 && (
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
+                <span>
+                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <span className="px-4 text-sm text-[var(--text-main)]">
+                  Trang {currentPage} / {pagination.totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+                  disabled={currentPage >= pagination.totalPages}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(pagination.totalPages)}
+                  disabled={currentPage >= pagination.totalPages}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      </>
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

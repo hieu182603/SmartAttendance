@@ -87,6 +87,12 @@ interface Stats {
 
 interface GetAllUsersResponse {
   users?: User[]
+  pagination?: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
 }
 
 interface FieldErrors {
@@ -149,35 +155,65 @@ const EmployeeManagementPage: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [pagination, setPagination] = useState<{
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0
+  })
 
-  // Fetch users from API
+  // Fetch users from API with server-side pagination, search, and filters
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const params: Record<string, string> = {}
+      const params: Record<string, string | number> = {
+        page: currentPage,
+        limit: itemsPerPage
+      }
+      
+      // Search filter
       if (searchTerm) params.search = searchTerm
-      // Không truyền page và limit để lấy tất cả users (client-side pagination)
-      // Backend sẽ trả về tất cả users nếu không có page/limit
+      
+      // Role filter
+      if (roleFilter !== 'all') params.role = roleFilter
+      
+      // Status filter
+      if (statusFilter !== 'all') {
+        params.isActive = statusFilter === 'active' ? 'true' : 'false'
+      }
 
-      const result = await getAllUsers(params) as GetAllUsersResponse | User[]
+      const result = await getAllUsers(params) as GetAllUsersResponse
+      
       // Backend trả về { users: [...], pagination: {...} }
-      // Hoặc có thể trả về array trực tiếp trong một số trường hợp
-      const users = Array.isArray(result) ? result : (result.users || [])
-      setUsersList(users)
+      setUsersList(result.users || [])
+      if (result.pagination) {
+        setPagination(result.pagination)
+      }
     } catch (error) {
       console.error('[EmployeeManagement] fetch error:', error)
       const err = error as ErrorWithMessage
       const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể tải danh sách nhân viên'
       toast.error(errorMessage)
       setUsersList([])
+      setPagination({ total: 0, page: 1, limit: 10, totalPages: 0 })
     } finally {
       setLoading(false)
     }
-  }, [searchTerm])
+  }, [currentPage, itemsPerPage, searchTerm, roleFilter, statusFilter])
 
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
+
+  // Reset to page 1 when search or filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, roleFilter, statusFilter])
 
   const handleViewUser = async (user: User): Promise<void> => {
     try {
@@ -302,45 +338,8 @@ const EmployeeManagementPage: React.FC = () => {
     }
   }
 
-  const filteredUsers = usersList.filter(u => {
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase()
-      const departmentName = getDepartmentName(u.department).toLowerCase()
-      const matchesSearch = (
-        u.name?.toLowerCase().includes(search) ||
-        u.email?.toLowerCase().includes(search) ||
-        departmentName.includes(search)
-      )
-      if (!matchesSearch) return false
-    }
-
-    // Role filter
-    if (roleFilter !== 'all' && u.role !== roleFilter) {
-      return false
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      const isActive = u.isActive !== false
-      if (statusFilter === 'active' && !isActive) return false
-      if (statusFilter === 'inactive' && isActive) return false
-    }
-
-    return true
-  })
-
-  // Pagination
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  )
-
-  // Reset to page 1 when search or filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, roleFilter, statusFilter])
+  // Server-side filtering and pagination - no client-side filtering needed
+  const paginatedUsers = usersList
 
   const getAvatarInitials = (name?: string): string => {
     if (!name) return 'U'
@@ -355,26 +354,31 @@ const EmployeeManagementPage: React.FC = () => {
   // Kiểm tra xem user hiện tại có quyền update user không
   const canUpdateUser = (): boolean => {
     if (!currentUser?.role) return false
-    const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'HR_MANAGER']
-    return allowedRoles.includes(currentUser.role)
+    // Use UserRole constants instead of hardcoded strings
+    const allowedRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER]
+    return allowedRoles.includes(currentUser.role as UserRoleType)
   }
 
   // Kiểm tra xem user hiện tại có quyền thay đổi role không
   const canChangeRole = (): boolean => {
     if (!currentUser?.role) return false
-    return currentUser.role === 'ADMIN' || currentUser.role === 'SUPER_ADMIN'
+    // Use UserRole constants instead of hardcoded strings
+    const userRole = currentUser.role as UserRoleType
+    return userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN
   }
 
+  // Stats: Note - these are approximate since we only have paginated data
+  // For accurate stats, backend should provide a separate stats endpoint
   const stats: Stats = {
-    total: usersList.length,
-    active: usersList.filter(u => u.isActive !== false).length,
-    admin: usersList.filter(u => u.role === UserRole.ADMIN || u.role === UserRole.SUPER_ADMIN).length,
+    total: pagination.total, // Use total from backend pagination
+    active: usersList.filter(u => u.isActive !== false).length, // Approximate - only for current page
+    admin: usersList.filter(u => u.role === UserRole.ADMIN || u.role === UserRole.SUPER_ADMIN).length, // Approximate - only for current page
     newThisMonth: usersList.filter(u => {
       if (!u.createdAt) return false
       const created = new Date(u.createdAt)
       const now = new Date()
       return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
-    }).length,
+    }).length, // Approximate - only for current page
   }
 
   return (
@@ -605,11 +609,11 @@ const EmployeeManagementPage: React.FC = () => {
           )}
 
           {/* Pagination Controls */}
-          {filteredUsers.length > 0 && (
+          {paginatedUsers.length > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4">
               <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <span>
-                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredUsers.length)} của {filteredUsers.length}
+                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
                 </span>
                 <span className="hidden sm:inline">•</span>
                 <div className="flex items-center gap-2">
@@ -651,14 +655,14 @@ const EmployeeManagementPage: React.FC = () => {
                 </Button>
 
                 <span className="px-4 text-sm text-gray-900 dark:text-gray-100">
-                  Trang {currentPage} / {totalPages}
+                  Trang {currentPage} / {pagination.totalPages || 1}
                 </span>
 
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(pagination.totalPages || 1, p + 1))}
+                  disabled={currentPage >= (pagination.totalPages || 1)}
                   className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -666,8 +670,8 @@ const EmployeeManagementPage: React.FC = () => {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(pagination.totalPages || 1)}
+                  disabled={currentPage >= (pagination.totalPages || 1)}
                   className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <ChevronsRight className="h-4 w-4" />

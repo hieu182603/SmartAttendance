@@ -6,6 +6,7 @@ interface RequestParams {
   limit?: number
   status?: string
   type?: string
+  search?: string
   [key: string]: unknown
 }
 
@@ -31,13 +32,26 @@ interface CreateRequestPayload {
   [key: string]: unknown
 }
 
-export const getMyRequests = async (): Promise<Request[]> => {
+export const getMyRequests = async (params: RequestParams = {}): Promise<AllRequestsResponse> => {
   try {
-    const { data } = await api.get('/requests/my')
-    return Array.isArray(data) ? data : []
+    const { data } = await api.get('/requests/my', { params })
+    // Backend trả về { requests: [...], pagination: {...} }
+    // Hoặc có thể trả về array trực tiếp (backward compatibility)
+    if (Array.isArray(data)) {
+      return {
+        requests: data,
+        pagination: {
+          page: 1,
+          limit: data.length,
+          total: data.length,
+          totalPages: 1
+        }
+      }
+    }
+    return data as AllRequestsResponse
   } catch (error) {
     console.warn('[requests] fetch failed', (error as Error).message)
-    return []
+    return { requests: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
   }
 }
 

@@ -18,6 +18,9 @@ import { shiftRouter } from "./modules/shifts/shift.router.js";
 import { locationRouter } from "./modules/locations/location.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
 
+// ⭐ THÊM ROUTER LOGS
+import { logRouter } from "./modules/logs/log.router.js";
+
 dotenv.config();
 
 const app = express(
@@ -58,6 +61,9 @@ app.use("/api/branches", branchRouter);
 app.use("/api/departments", departmentRouter);
 app.use("/api/shifts", shiftRouter);
 app.use("/api/locations", locationRouter);
+
+// ⭐ THÊM ROUTE LOGS
+app.use("/api/logs", logRouter);
 
 // Error handler
 app.use((err, _req, res, _next) => {
