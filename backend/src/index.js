@@ -13,6 +13,7 @@ import { userRouter } from "./modules/users/user.router.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.router.js";
 import { branchRouter } from "./modules/branches/branch.router.js";
 import { departmentRouter } from "./modules/departments/department.router.js";
+import { payrollRouter } from "./modules/payroll/payroll.router.js";
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ app.use("/api/users", userRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/branches", branchRouter);
 app.use("/api/departments", departmentRouter);
+app.use("/api/payroll", payrollRouter);
 
 // Error handling middleware
 app.use((err, _req, res, _next) => {
