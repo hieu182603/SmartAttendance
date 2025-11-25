@@ -31,6 +31,7 @@ import { BranchesPage } from "./components/dashboard/pages/BranchesPage";
 import { DepartmentsPage } from "./components/dashboard/pages/DepartmentsPage";
 import DepartmentAttendancePage from "./components/dashboard/pages/DepartmentAttendancePage";
 import { ShiftsPage } from "./components/dashboard/pages/ShiftsPage";
+import { Navigate } from "react-router-dom";
 import { UserRole } from "./utils/roles";
 
 
@@ -60,6 +61,8 @@ export default function App() {
             <Route path="camera-checkin" element={<CameraCheckinPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="company-calendar" element={<CompanyCalendarPage />} />
+            {/* Catch-all: redirect invalid employee routes to 404 */}
+            <Route path="*" element={<Navigate to="/not-found" replace />} />
           </Route>
 
           {/* Manager Routes - MANAGER and above */}
@@ -80,6 +83,8 @@ export default function App() {
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="department-attendance" element={<DepartmentAttendancePage />} />
               <Route path="shifts" element={<ShiftsPage />} />
+              {/* Catch-all: redirect invalid manager routes to 404 */}
+              <Route path="*" element={<Navigate to="/not-found" replace />} />
             </Route>
           </Route>
 
@@ -100,6 +105,8 @@ export default function App() {
               <Route path="employee-management" element={<EmployeeManagementPage />} />
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
+              {/* Catch-all: redirect invalid HR routes to 404 */}
+              <Route path="*" element={<Navigate to="/not-found" replace />} />
             </Route>
           </Route>
 
@@ -117,10 +124,15 @@ export default function App() {
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="system-settings" element={<SystemSettingsPage />} />
+              {/* Catch-all: redirect invalid admin routes to 404 */}
+              <Route path="*" element={<Navigate to="/not-found" replace />} />
             </Route>
           </Route>
         </Route>
 
+        {/* Public 404 route */}
+        <Route path="/not-found" element={<NotFoundPage />} />
+        {/* Final catch-all for any other invalid routes */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Toaster position="top-right" richColors />
