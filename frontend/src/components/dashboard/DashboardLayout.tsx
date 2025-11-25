@@ -24,6 +24,8 @@ import {
   Settings,
   Briefcase,
   Building2,
+  DollarSign,
+  Award,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
@@ -84,6 +86,9 @@ function getMenuByRole(role: UserRoleType): MenuItem[] {
       { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
+      { id: "payroll", label: "Bảng lương", icon: DollarSign, path: `${basePath}/payroll`, section: "admin" },
+      { id: "performance-review", label: "Đánh giá hiệu suất", icon: Award, path: `${basePath}/performance-review`, section: "admin" },
+      { id: "admin-attendance", label: "Quản lý chấm công", icon: Clock, path: `${basePath}/admin-attendance`, section: "admin" },
     ],
     [UserRole.ADMIN]: [
       homeMenu,
