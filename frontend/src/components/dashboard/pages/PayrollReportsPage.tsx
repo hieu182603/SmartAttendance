@@ -244,7 +244,7 @@ const PayrollReportsPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)]">
-                <CardContent className="p-6">
+                <CardContent className="p-6 mt-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-[var(--text-sub)]">
@@ -285,7 +285,7 @@ const PayrollReportsPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)]">
-                <CardContent className="p-6">
+                <CardContent className="p-6 mt-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-[var(--text-sub)]">
@@ -314,7 +314,7 @@ const PayrollReportsPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)]">
-                <CardContent className="p-6">
+                <CardContent className="p-6 mt-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-[var(--text-sub)]">Thưởng</p>
@@ -335,7 +335,7 @@ const PayrollReportsPage: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)]">
-                <CardContent className="p-6">
+                <CardContent className="p-6 mt-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-[var(--text-sub)]">Lương TB</p>
