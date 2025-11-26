@@ -1,7 +1,5 @@
-//History
-
 import { useEffect, useMemo, useState } from 'react'
-import { Calendar, Search, Download, Filter } from 'lucide-react'
+import { Search, Eye } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
@@ -48,6 +46,7 @@ const HistoryPage: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [quickFilter, setQuickFilter] = useState<'all' | '7days' | 'thisMonth' | 'lastMonth'>('all')
   const [itemsPerPage] = useState(20)
   const [pagination, setPagination] = useState<{
     total: number
@@ -61,6 +60,41 @@ const HistoryPage: React.FC = () => {
     totalPages: 0,
   })
 
+  // Handle quick filter
+  const handleQuickFilter = (filter: 'all' | '7days' | 'thisMonth' | 'lastMonth') => {
+    setQuickFilter(filter)
+    const today = new Date()
+    
+    switch (filter) {
+      case '7days': {
+        const sevenDaysAgo = new Date(today)
+        sevenDaysAgo.setDate(today.getDate() - 7)
+        setDateFrom(sevenDaysAgo.toISOString().split('T')[0])
+        setDateTo(today.toISOString().split('T')[0])
+        break
+      }
+      case 'thisMonth': {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+        setDateFrom(firstDay.toISOString().split('T')[0])
+        setDateTo(today.toISOString().split('T')[0])
+        break
+      }
+      case 'lastMonth': {
+        const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
+        setDateFrom(firstDayLastMonth.toISOString().split('T')[0])
+        setDateTo(lastDayLastMonth.toISOString().split('T')[0])
+        break
+      }
+      case 'all':
+      default:
+        setDateFrom('')
+        setDateTo('')
+        break
+    }
+    setCurrentPage(1)
+  }
+
   // Fetch all records for summary stats (without pagination)
   useEffect(() => {
     let isMounted = true
@@ -72,7 +106,7 @@ const HistoryPage: React.FC = () => {
           limit: 1000, // Get all for stats
         })
         if (isMounted && result.records) {
-          setAllRecords(result.records)
+          setAllRecords(result.records as unknown as AttendanceRecord[])
         }
       } catch (err) {
         console.error('[HistoryPage] Stats fetch error:', err)
@@ -111,7 +145,7 @@ const HistoryPage: React.FC = () => {
 
         const result = await getAttendanceHistory(params)
         if (isMounted) {
-          setRecords(result.records || [])
+          setRecords((result.records || []) as unknown as AttendanceRecord[])
           if (result.pagination) {
             setPagination(result.pagination)
           }
@@ -161,46 +195,69 @@ const HistoryPage: React.FC = () => {
       {/* Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
+          <div className="flex flex-col gap-4">
+            {/* Row 1: Quick Filter và Search */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Quick Filter Dropdown */}
+              <div>
+                <label className="block text-sm text-[var(--text-sub)] mb-2">Lọc nhanh</label>
+                <select
+                  value={quickFilter}
+                  onChange={(e) => handleQuickFilter(e.target.value as 'all' | '7days' | 'thisMonth' | 'lastMonth')}
+                  className="w-full h-10 px-3 rounded-md bg-[var(--input-bg)] border border-[var(--border)] text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                >
+                  <option value="all">Tất cả</option>
+                  <option value="7days">7 ngày qua</option>
+                  <option value="thisMonth">Tháng này</option>
+                  <option value="lastMonth">Tháng trước</option>
+                </select>
+              </div>
+
+              {/* Search */}
+              <div>
+                <label className="block text-sm text-[var(--text-sub)] mb-2">Tìm kiếm</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
+                  <Input
+                    placeholder="Tìm kiếm theo ngày, ghi chú..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Row 2: Date Range */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Date From */}
+              <div>
+                <label className="block text-sm text-[var(--text-sub)] mb-2">Từ ngày</label>
                 <Input
-                  placeholder="Tìm kiếm theo ngày, ghi chú..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value)
+                    setQuickFilter('all')
+                  }}
+                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                />
+              </div>
+
+              {/* Date To */}
+              <div>
+                <label className="block text-sm text-[var(--text-sub)] mb-2">Đến ngày</label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value)
+                    setQuickFilter('all')
+                  }}
+                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
                 />
               </div>
             </div>
-            <div>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-              />
-            </div>
-            <div>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-              />
-            </div>
-          </div>
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="border-[var(--border)] text-[var(--text-main)]">
-                <Filter className="h-4 w-4 mr-2" />
-                Bộ lọc nâng cao
-              </Button>
-            </div>
-            <Button variant="outline" size="sm" className="border-[var(--border)] text-[var(--text-main)]">
-              <Download className="h-4 w-4 mr-2" />
-              Xuất CSV
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -251,26 +308,27 @@ const HistoryPage: React.FC = () => {
                   <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Địa điểm</th>
                   <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Trạng thái</th>
                   <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Ghi chú</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">Xem ảnh</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
+                    <td colSpan={9} className="py-6 text-center text-[var(--text-sub)]">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
                 )}
                 {!loading && error && (
                   <tr>
-                    <td colSpan={8} className="py-6 text-center text-[var(--error)]">
+                    <td colSpan={9} className="py-6 text-center text-[var(--error)]">
                       {error}
                     </td>
                   </tr>
                 )}
                 {!loading && !error && filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
+                    <td colSpan={9} className="py-6 text-center text-[var(--text-sub)]">
                       Không có dữ liệu phù hợp
                     </td>
                   </tr>
@@ -287,9 +345,34 @@ const HistoryPage: React.FC = () => {
                     <td className="py-3 px-4 text-[var(--text-main)]">{record.checkIn}</td>
                     <td className="py-3 px-4 text-[var(--text-main)]">{record.checkOut}</td>
                     <td className="py-3 px-4 text-[var(--text-main)]">{record.hours}</td>
-                    <td className="py-3 px-4 text-[var(--text-sub)]">{record.location}</td>
+                    <td className="py-3 px-4 text-[var(--text-sub)]">
+                      {record.location && !record.location.startsWith('http') 
+                        ? record.location 
+                        : record.location?.includes('attendance') 
+                          ? 'Văn phòng' 
+                          : record.location || '-'}
+                    </td>
                     <td className="py-3 px-4">{getStatusBadge(record.status)}</td>
-                    <td className="py-3 px-4 text-[var(--text-sub)] text-sm">{record.notes}</td>
+                    <td className="py-3 px-4 text-[var(--text-sub)] text-sm">
+                      {record.notes && !record.notes.startsWith('[Ảnh:') && !record.notes.startsWith('http')
+                        ? record.notes
+                        : '-'}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {(record.notes?.includes('http') || record.location?.includes('http')) ? (
+                        <a
+                          href={record.notes?.match(/https?:\/\/[^\s\]]+/)?.[0] || record.location?.match(/https?:\/\/[^\s\]]+/)?.[0] || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors"
+                          title="Xem ảnh chấm công"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </a>
+                      ) : (
+                        <span className="text-[var(--text-sub)]">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
