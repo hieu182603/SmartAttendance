@@ -75,7 +75,9 @@ const infoCards: InfoCard[] = [
   },
 ];
 
-const formatWorkingDays = (value: string | number | { used: number; total: number } | null): string => {
+const formatWorkingDays = (
+  value: string | number | { used: number; total: number } | null
+): string => {
   if (!value) return "—";
   if (typeof value === "string") return value;
   if (typeof value === "object" && value.used != null && value.total != null) {
@@ -118,6 +120,39 @@ export const EmployeeHome: React.FC = () => {
       location: record?.location ?? "—",
     }));
   }, [recentAttendance]);
+
+  // Check if user has checked in today
+  const todayAttendance = useMemo(() => {
+    if (attendanceRows.length === 0) return null;
+
+    const today = new Date();
+    const todayStr = `${today.getDate()}/${
+      today.getMonth() + 1
+    }/${today.getFullYear()}`;
+
+    const latestRecord = attendanceRows[0];
+    // Parse date from format like "Thứ Hai, 25 tháng 11, 2025" or "25/11/2025"
+    const dateMatch = latestRecord.date.match(
+      /(\d{1,2})\s*(?:tháng\s*)?(\d{1,2})(?:,\s*|\s+)(\d{4})/
+    );
+
+    if (dateMatch) {
+      const [, day, month, year] = dateMatch;
+      const recordDateStr = `${parseInt(day)}/${parseInt(month)}/${year}`;
+
+      if (recordDateStr === todayStr) {
+        return {
+          hasCheckedIn: latestRecord.checkIn !== "—",
+          hasCheckedOut: latestRecord.checkOut !== "—",
+          checkInTime: latestRecord.checkIn,
+          checkOutTime: latestRecord.checkOut,
+          location: latestRecord.location,
+        };
+      }
+    }
+
+    return null;
+  }, [attendanceRows]);
 
   const loadingState = loading && (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/40 p-6 text-sm text-[var(--text-sub)]">
@@ -200,8 +235,10 @@ export const EmployeeHome: React.FC = () => {
 
             <p className="opacity-90 mt-2">
               Ca:{" "}
-              {(summary.shift as { timeRange?: string; label?: string })?.timeRange ||
-                (summary.shift as { timeRange?: string; label?: string })?.label ||
+              {(summary.shift as { timeRange?: string; label?: string })
+                ?.timeRange ||
+                (summary.shift as { timeRange?: string; label?: string })
+                  ?.label ||
                 (summary.shift as string) ||
                 "08:00 - 17:00"}
             </p>
@@ -218,7 +255,11 @@ export const EmployeeHome: React.FC = () => {
         <Card className="bg-[var(--surface)] border-[var(--border)] relative overflow-hidden">
           {/* Animated glow effect */}
           <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-[var(--primary)]/5 to-[var(--accent-cyan)]/5"
+            className={`absolute inset-0 bg-gradient-to-r ${
+              todayAttendance?.hasCheckedIn
+                ? "from-[var(--success)]/5 to-[var(--accent-cyan)]/5"
+                : "from-[var(--primary)]/5 to-[var(--accent-cyan)]/5"
+            }`}
             animate={{
               opacity: [0.3, 0.6, 0.3],
             }}
@@ -228,42 +269,82 @@ export const EmployeeHome: React.FC = () => {
               ease: "easeInOut",
             }}
           />
-          <CardContent className="p-8 relative z-10">
-            <div className="text-center space-y-6">
-              <motion.div
-                animate={{
-                  scale: [0.8, 0.7, 0.8],
-                  rotate: [0, 5, -5, 0],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] mb-4 shadow-lg shadow-[var(--primary)]/30 animate-glow"
-              >
-                <QrCode className="h-10 w-10 text-white" />
-              </motion.div>
-              <div>
-                <h2 className="text-2xl text-[var(--text-main)] mb-2">
-                  Chưa chấm công hôm nay
-                </h2>
-                <p className="text-[var(--text-sub)]">
-                  Quét mã QR tại văn phòng để điểm danh
-                </p>
+          <CardContent className="p-8 relative z-10 mt-4">
+            {todayAttendance?.hasCheckedIn ? (
+              // Đã điểm danh
+              <div className="text-center space-y-6">
+                <motion.div
+                  animate={{
+                    scale: [0.7, 0.8, 0.7],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)] mb-4 shadow-lg shadow-[var(--success)]/30"
+                >
+                  <CheckCircle2 className="h-10 w-10 text-white" />
+                </motion.div>
+                <div>
+                  <h2 className="text-2xl text-[var(--text-main)] mb-2">
+                    Đã điểm danh hôm nay
+                  </h2>
+                  <p className="text-[var(--text-sub)] mb-4">
+                    Bạn đã hoàn thành chấm công
+                  </p>
+
+                  {/* Thông tin chi tiết */}
+                  <div className="bg-[var(--shell)]/50 rounded-xl p-4 space-y-3 text-left max-w-md mx-auto">
+                    {!todayAttendance.hasCheckedOut && (
+                      <div className="pt-2 border-t border-[var(--border)]">
+                        <p className="text-[15px] text-[var(--warning)] text-center">
+                          Chưa check-out. Nhớ check-out khi kết thúc ca làm
+                          việc.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <motion.button
-                onClick={() => navigate("/employee/scan")}
-                className="px-8 py-4 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90 transition-opacity text-white shadow-lg shadow-[var(--primary)]/30"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <span className="flex items-center space-x-2">
-                  <Sparkles className="h-5 w-5" />
-                  <span>Quét QR điểm danh</span>
-                </span>
-              </motion.button>
-            </div>
+            ) : (
+              // Chưa điểm danh
+              <div className="text-center space-y-6">
+                <motion.div
+                  animate={{
+                    scale: [0.8, 0.7, 0.8],
+                    rotate: [0, 5, -5, 0],
+                  }}
+                  transition={{
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] mb-4 shadow-lg shadow-[var(--primary)]/30 animate-glow"
+                >
+                  <QrCode className="h-10 w-10 text-white" />
+                </motion.div>
+                <div>
+                  <h2 className="text-2xl text-[var(--text-main)] mb-2">
+                    Chưa chấm công hôm nay
+                  </h2>
+                  <p className="text-[var(--text-sub)]">
+                    Quét mã QR tại văn phòng để điểm danh
+                  </p>
+                </div>
+                <motion.button
+                  onClick={() => navigate("/employee/scan")}
+                  className="px-8 py-4 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90 transition-opacity text-white shadow-lg shadow-[var(--primary)]/30"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <span className="flex items-center space-x-2">
+                    <Sparkles className="h-5 w-5" />
+                    <span>Quét QR điểm danh</span>
+                  </span>
+                </motion.button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -275,7 +356,9 @@ export const EmployeeHome: React.FC = () => {
           const value =
             item.key === "workingDays"
               ? formatWorkingDays(summaryValue)
-              : (summaryValue as { name?: string })?.name || (summaryValue as string) || "—";
+              : (summaryValue as { name?: string })?.name ||
+                (summaryValue as string) ||
+                "—";
 
           return (
             <motion.div
@@ -470,7 +553,3 @@ export const EmployeeHome: React.FC = () => {
 };
 
 export default EmployeeHome;
-
-
-
-
