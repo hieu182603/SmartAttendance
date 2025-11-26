@@ -623,6 +623,7 @@ async function seed() {
         const createdReports = await ReportModel.insertMany(reports);
         console.log(`✅ Created ${createdReports.length} reports\n`);
 
+
         // ========== 7. TẠO LOGS (Nhật ký) - Cho tất cả activities ==========
         console.log('📜 Creating logs...');
         const logs = [];

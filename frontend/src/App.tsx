@@ -25,6 +25,7 @@ import CompanyCalendarPage from "./components/dashboard/pages/CompanyCalendarPag
 import ApproveRequestsPage from "./components/dashboard/pages/ApproveRequestsPage";
 import AttendanceAnalyticsPage from "./components/dashboard/pages/AttendanceAnalyticsPage";
 import EmployeeManagementPage from "./components/dashboard/pages/EmployeeManagementPage";
+import PayrollReportsPage from "./components/dashboard/pages/PayrollReportsPage";
 import AuditLogsPage from "./components/dashboard/pages/AuditLogsPage";
 import SystemSettingsPage from "./components/dashboard/pages/SystemSettingsPage";
 import { BranchesPage } from "./components/dashboard/pages/BranchesPage";
@@ -106,6 +107,8 @@ export default function App() {
               <Route path="company-calendar" element={<CompanyCalendarPage />} />
               {/* HR specific routes */}
               <Route path="employee-management" element={<EmployeeManagementPage />} />
+
+              <Route path="payroll-reports" element={<PayrollReportsPage />} />
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="payroll" element={<PayrollPage />} />
