@@ -17,7 +17,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Progress } from "../../ui/progress";
-import api from "../../../services/api";
 import shiftService from "../../../services/shiftService";
 
 type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
@@ -38,6 +37,18 @@ interface EmployeeSchedule {
   notes?: string;
 }
 
+const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
+  const [sh, sm] = shift.startTime.split(":").map(Number);
+  const [eh, em] = shift.endTime.split(":").map(Number);
+  let startMin = sh * 60 + sm;
+  let endMin = eh * 60 + em;
+  if (endMin < startMin) {
+    endMin += 24 * 60;
+  }
+  const totalMinutes = endMin - startMin - (shift.breakDuration || 0);
+  return Math.max(totalMinutes, 0) / 60;
+};
+
 const SchedulePage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
@@ -56,64 +67,74 @@ const SchedulePage: React.FC = () => {
       try {
         setLoading(true);
 
-        // BƯỚC 1: Lấy danh sách ca từ BE (chính xác như DB bạn gửi)
         const availableShifts: any[] = await shiftService.getAllShifts();
+        if (!availableShifts || availableShifts.length === 0) {
+          setSchedule([]);
+          return;
+        }
 
-        // BƯỚC 2: Tạo lịch 30 ngày tới (tất cả nhân viên dùng chung)
-        const scheduleData: EmployeeSchedule[] = [];
+        const fullTimeShift =
+          availableShifts.find((s) => s.name === "Full time") ||
+          availableShifts[0];
+
+        if (!fullTimeShift) {
+          setSchedule([]);
+          return;
+        }
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        for (let i = -15; i <= 30; i++) {
-          const date = new Date(today);
-          date.setDate(today.getDate() + i);
-          const dateStr = date.toISOString().split("T")[0];
-          const dayOfWeek = date.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        monthEnd.setHours(0, 0, 0, 0);
 
-          // Quy tắc ca làm cố định
-          // === CHỈ SỬA TỪ ĐÂY TRỞ XUỐNG ===
-          // === QUY TẮC CA LÀM VIỆC CHUẨN 100% ===
-          let selectedShift: any = null;
+        const currentDayOfWeek = today.getDay();
+        const mondayDiff = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+        const weekReference = new Date(today);
+        weekReference.setDate(today.getDate() + mondayDiff);
+        weekReference.setHours(0, 0, 0, 0);
 
-          if (dayOfWeek === 0) {
-            // Chủ nhật: nghỉ hoàn toàn
-            continue;
-          } else if (dayOfWeek === 6) {
-            // Thứ 7: dùng Ca part-time sáng
-            selectedShift =
-              availableShifts.find((s) => s.name === "Ca part-time sáng") || // ← ĐÚNG CHÍNH XÁC TÊN TRONG DB
-              availableShifts.find((s) => s.name.includes("part-time sáng")) ||
-              availableShifts.find((s) =>
-                s.name.toLowerCase().includes("part-time")
-              );
-          } else {
-            // Thứ 2 → Thứ 6: dùng Ca sáng
-            selectedShift = availableShifts.find((s) => s.name === "Ca sáng");
+        const futureEnd = new Date(today);
+        futureEnd.setDate(today.getDate() + 30);
+        futureEnd.setHours(0, 0, 0, 0);
+
+        const rangeEnd = futureEnd > monthEnd ? futureEnd : monthEnd;
+        const rangeStart =
+          weekReference < monthStart ? weekReference : monthStart;
+
+        const scheduleData: EmployeeSchedule[] = [];
+        const cursor = new Date(rangeStart);
+
+        while (cursor <= rangeEnd) {
+          const currentDate = new Date(cursor);
+          const dayOfWeek = currentDate.getDay();
+
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            const dateStr = currentDate.toISOString().split("T")[0];
+            const isPast = currentDate < today;
+
+            scheduleData.push({
+              _id: `${dateStr}-${fullTimeShift._id}`,
+              date: dateStr,
+              shift: {
+                _id: fullTimeShift._id,
+                name: fullTimeShift.name,
+                startTime: fullTimeShift.startTime,
+                endTime: fullTimeShift.endTime,
+                breakDuration: fullTimeShift.breakDuration || 60,
+              },
+              status: isPast ? "completed" : "scheduled",
+              location: "Văn phòng chính",
+              team: "Dev Team",
+              notes: fullTimeShift.description,
+            });
           }
 
-          // Nếu không tìm thấy ca nào thì bỏ qua ngày đó (an toàn)
-          if (!selectedShift) continue;
-
-          const isPast = date < today;
-          const isToday = dateStr === new Date().toISOString().split("T")[0];
-
-          scheduleData.push({
-            _id: `${dateStr}-${selectedShift._id}`,
-            date: dateStr,
-            shift: {
-              _id: selectedShift._id,
-              name: selectedShift.name,
-              startTime: selectedShift.startTime,
-              endTime: selectedShift.endTime,
-              breakDuration: selectedShift.breakDuration || 60,
-            },
-            status: isPast ? "completed" : "scheduled",
-            location: "Văn phòng chính",
-            team: "Dev Team",
-            notes: selectedShift.description,
-          });
+          cursor.setDate(cursor.getDate() + 1);
         }
 
+        scheduleData.sort((a, b) => a.date.localeCompare(b.date));
         setSchedule(scheduleData);
       } catch (err) {
         console.error("Lỗi tải ca làm việc:", err);
@@ -136,38 +157,32 @@ const SchedulePage: React.FC = () => {
   }
 
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
 
   const todayShifts = schedule.filter((s) => s.date === todayStr);
   const upcomingShifts = schedule
     .filter((s) => {
       const date = new Date(s.date);
-      const dayOfWeek = date.getDay();
-      // BỎ HOÀN TOÀN CHỦ NHẬT (và đảm bảo chỉ lấy ca scheduled)
-      return (
-        dayOfWeek !== 0 &&
-        date >= new Date(todayStr) &&
-        s.status === "scheduled"
-      );
+      date.setHours(0, 0, 0, 0);
+      return date > today && s.status === "scheduled";
     })
     .slice(0, 6);
 
-  const currentMonth = `${today.getFullYear()}-${String(
+  const currentMonthKey = `${today.getFullYear()}-${String(
     today.getMonth() + 1
   ).padStart(2, "0")}`;
-  const monthShifts = schedule.filter((s) => s.date.startsWith(currentMonth));
+  const monthShifts = schedule.filter((s) =>
+    s.date.startsWith(currentMonthKey)
+  );
 
   const stats = {
-    thisMonth: monthShifts.filter((s) => s.status !== "off").length,
+    thisMonth: monthShifts.length,
     completed: monthShifts.filter((s) => s.status === "completed").length,
     upcoming: monthShifts.filter((s) => s.status === "scheduled").length,
     totalHours: monthShifts
       .filter((s) => s.status === "completed")
-      .reduce((acc, s) => {
-        const [sh, sm] = s.shift.startTime.split(":").map(Number);
-        const [eh, em] = s.shift.endTime.split(":").map(Number);
-        return acc + (eh - sh + (em - sm) / 60);
-      }, 0),
+      .reduce((acc, s) => acc + calculateShiftHours(s.shift), 0),
     performance:
       monthShifts.length > 0
         ? Math.round(
@@ -178,13 +193,64 @@ const SchedulePage: React.FC = () => {
         : 0,
   };
 
+  const formattedTotalHours =
+    Math.round((stats.totalHours + Number.EPSILON) * 10) / 10;
+
+  const currentMonthLabel = today.toLocaleDateString("vi-VN", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const currentDayOfWeek = today.getDay();
+  const mondayDiff = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
   const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay() + 1);
+  weekStart.setDate(today.getDate() + mondayDiff);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const day = new Date(weekStart);
     day.setDate(weekStart.getDate() + i);
     return day;
   });
+
+  const weekShiftEntries = schedule.filter((s) => {
+    const date = new Date(s.date);
+    date.setHours(0, 0, 0, 0);
+    return date >= weekStart && date <= weekEnd;
+  });
+
+  const expectedWeekdays = weekDays.filter(
+    (day) => day.getDay() !== 0 && day.getDay() !== 6
+  ).length;
+  const weekCompletedShifts = weekShiftEntries.filter(
+    (s) => s.status === "completed"
+  ).length;
+  const weekTotalHours = weekShiftEntries.reduce(
+    (acc, s) => acc + calculateShiftHours(s.shift),
+    0
+  );
+  const avgWeekHours =
+    weekShiftEntries.length > 0
+      ? (weekTotalHours / weekShiftEntries.length).toFixed(1)
+      : "0.0";
+  const weekOnTimePercent =
+    expectedWeekdays > 0
+      ? ((weekCompletedShifts / expectedWeekdays) * 100).toFixed(0)
+      : "0";
+  const weekAttendanceLabel =
+    expectedWeekdays > 0
+      ? `${Math.min(
+          weekCompletedShifts,
+          expectedWeekdays
+        )}/${expectedWeekdays} ca`
+      : "0/0 ca";
+  const weekOnTimeLabel =
+    expectedWeekdays > 0
+      ? `${Math.min(weekCompletedShifts, expectedWeekdays)}/${expectedWeekdays}`
+      : "0/0";
 
   const getWeekDayStatus = (
     date: Date
@@ -320,7 +386,7 @@ const SchedulePage: React.FC = () => {
     },
     {
       label: "Tổng giờ",
-      value: stats.totalHours + "h",
+      value: `${formattedTotalHours}h`,
       color: "warning",
       icon: "⏰",
       delay: 0.4,
@@ -560,18 +626,6 @@ const SchedulePage: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {/* Quick Actions */}
-              <div className="grid grid-cols-2 gap-2">
-                <button className="px-4 py-2 rounded-lg bg-[var(--accent-cyan)] text-white hover:opacity-90 transition-opacity text-sm">
-                  <CheckCircle2 className="h-4 w-4 inline mr-1" />
-                  Điểm danh
-                </button>
-                <button className="px-4 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-main)] hover:border-[var(--accent-cyan)] transition-colors duration-200 text-sm">
-                  <AlertCircle className="h-4 w-4 inline mr-1" />
-                  Báo nghỉ
-                </button>
-              </div>
             </CardContent>
           </Card>
         </motion.div>
@@ -651,24 +705,27 @@ const SchedulePage: React.FC = () => {
               <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-[var(--border)]">
                 <div className="text-center">
                   <p className="text-sm text-[var(--text-sub)]">Tuần này</p>
-                  <p className="text-xl text-[var(--text-main)] mt-1">5/5 ca</p>
-                  <p className="text-xs text-[var(--success)]">100%</p>
+                  <p className="text-xl text-[var(--text-main)] mt-1">
+                    {weekAttendanceLabel}
+                  </p>
+                  <p className="text-xs text-[var(--success)]">
+                    {weekOnTimePercent}%
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-[var(--text-sub)]">Đúng giờ</p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
-                    {stats.completed}/{stats.thisMonth}
+                    {weekOnTimeLabel}
                   </p>
                   <p className="text-xs text-[var(--success)]">
-                    {stats.thisMonth > 0
-                      ? ((stats.completed / stats.thisMonth) * 100).toFixed(1)
-                      : 0}
-                    %
+                    {weekOnTimePercent}%
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-[var(--text-sub)]">Avg giờ</p>
-                  <p className="text-xl text-[var(--text-main)] mt-1">8.0h</p>
+                  <p className="text-xl text-[var(--text-main)] mt-1">
+                    {avgWeekHours}h
+                  </p>
                   <p className="text-xs text-[var(--text-sub)]">/ngày</p>
                 </div>
               </div>
@@ -680,7 +737,7 @@ const SchedulePage: React.FC = () => {
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <TrendingUp className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>Thống kê tháng 11</span>
+                <span>Thống kê {currentMonthLabel}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -721,7 +778,7 @@ const SchedulePage: React.FC = () => {
                   <p className="text-xs text-[var(--text-sub)] mt-1">
                     Trung bình{" "}
                     {stats.completed > 0
-                      ? (stats.totalHours / (stats.completed / 2)).toFixed(1)
+                      ? (stats.totalHours / stats.completed).toFixed(1)
                       : 0}
                     h/ngày
                   </p>
@@ -738,7 +795,7 @@ const SchedulePage: React.FC = () => {
                     {stats.performance}%
                   </p>
                   <p className="text-xs text-[var(--text-sub)] mt-1">
-                    +2.5% so với tháng trước
+                    Cập nhật theo dữ liệu tháng
                   </p>
                 </div>
               </div>
