@@ -25,8 +25,7 @@ import {
   Briefcase,
   Building2,
   DollarSign,
-
-
+  TrendingUp,
   Award,
 
 } from "lucide-react";
@@ -86,65 +85,36 @@ function getMenuByRole(role: UserRoleType): MenuItem[] {
     ],
     [UserRole.HR_MANAGER]: [
       homeMenu,
-
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: DollarSign, path: "/employee/payroll-reports", section: "admin" },
-    ],
-    [UserRole.ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: "/employee/departments", section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: "/employee/branches", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: DollarSign, path: "/employee/payroll-reports", section: "admin" },
-
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
-    ],
-    [UserRole.SUPER_ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: "/employee/departments", section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: "/employee/branches", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: DollarSign, path: "/employee/payroll-reports", section: "admin" },
-
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
-
       { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
       { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
       { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
+      { id: "payroll-reports", label: "Báo cáo lương", icon: TrendingUp, path: `${basePath}/payroll-reports`, section: "admin" },
+      { id: "payroll", label: "Bảng lương", icon: DollarSign, path: `${basePath}/payroll`, section: "admin" },
+    ],
+    [UserRole.ADMIN]: [
+      homeMenu,
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
+      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
+      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
+      { id: "payroll-reports", label: "Báo cáo lương", icon: DollarSign, path: `${basePath}/payroll-reports`, section: "admin" },
+      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
+      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
+    ],
+    [UserRole.SUPER_ADMIN]: [
+      homeMenu,
+      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
+      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
+      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
+      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
+      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
+      { id: "payroll-reports", label: "Báo cáo lương", icon: TrendingUp, path: `${basePath}/payroll-reports`, section: "admin" },
       { id: "payroll", label: "Bảng lương", icon: DollarSign, path: `${basePath}/payroll`, section: "admin" },
       { id: "performance-review", label: "Đánh giá hiệu suất", icon: Award, path: `${basePath}/performance-review`, section: "admin" },
       { id: "admin-attendance", label: "Quản lý chấm công", icon: Clock, path: `${basePath}/admin-attendance`, section: "admin" },
-    ],
-    [UserRole.ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-
       { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
       { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
-    ],
-    [UserRole.SUPER_ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
-
     ],
   };
 
