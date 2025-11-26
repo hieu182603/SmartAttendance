@@ -41,24 +41,80 @@ const getStatusBadge = (status: AttendanceStatus): React.JSX.Element | null => {
 
 const HistoryPage: React.FC = () => {
   const [records, setRecords] = useState<AttendanceRecord[]>([])
+  const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]) // For summary stats
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(20)
+  const [pagination, setPagination] = useState<{
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }>({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 0,
+  })
 
+  // Fetch all records for summary stats (without pagination)
+  useEffect(() => {
+    let isMounted = true
+    const fetchStats = async () => {
+      try {
+        const result = await getAttendanceHistory({
+          from: dateFrom || undefined,
+          to: dateTo || undefined,
+          limit: 1000, // Get all for stats
+        })
+        if (isMounted && result.records) {
+          setAllRecords(result.records)
+        }
+      } catch (err) {
+        console.error('[HistoryPage] Stats fetch error:', err)
+      }
+    }
+    fetchStats()
+    return () => {
+      isMounted = false
+    }
+  }, [dateFrom, dateTo])
+
+  // Fetch paginated records
   useEffect(() => {
     let isMounted = true
     const fetchData = async () => {
       setLoading(true)
       setError('')
       try {
-        const data = await getAttendanceHistory({
+        const params: {
+          from?: string
+          to?: string
+          search?: string
+          page?: number
+          limit?: number
+        } = {
           from: dateFrom || undefined,
           to: dateTo || undefined,
-        }) as AttendanceRecord[]
+          page: currentPage,
+          limit: itemsPerPage,
+        }
+
+        // Search filter
+        if (searchTerm) {
+          params.search = searchTerm
+        }
+
+        const result = await getAttendanceHistory(params)
         if (isMounted) {
-          setRecords(data)
+          setRecords(result.records || [])
+          if (result.pagination) {
+            setPagination(result.pagination)
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -76,37 +132,24 @@ const HistoryPage: React.FC = () => {
     return () => {
       isMounted = false
     }
-  }, [dateFrom, dateTo])
+  }, [dateFrom, dateTo, searchTerm, currentPage, itemsPerPage])
 
-  const filteredData = useMemo(() => {
-    const rawKeyword = searchTerm.trim().toLowerCase()
-    let keyword = rawKeyword
-    const isoMatch = rawKeyword.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    if (isoMatch) {
-      const [, year, month, day] = isoMatch
-      keyword = `${day}/${month}/${year}`
-    }
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [dateFrom, dateTo, searchTerm])
 
-    if (!keyword) return records
+  // Server-side filtering - no client-side filtering needed
+  const filteredData = records
 
-    return records.filter((record) => {
-      return (
-        record.date.toLowerCase().includes(keyword) ||
-        record.day.toLowerCase().includes(keyword) ||
-        record.location.toLowerCase().includes(keyword) ||
-        record.notes.toLowerCase().includes(keyword) ||
-        record.status.toLowerCase().includes(keyword)
-      )
-    })
-  }, [records, searchTerm])
-
+  // Calculate summary from allRecords (not paginated data)
   const summary = useMemo(() => {
-    const total = records.length
-    const late = records.filter((item) => item.status === 'late').length
-    const absent = records.filter((item) => item.status === 'absent').length
-    const overtime = records.filter((item) => item.status === 'overtime').length
+    const total = allRecords.length
+    const late = allRecords.filter((item) => item.status === 'late').length
+    const absent = allRecords.filter((item) => item.status === 'absent').length
+    const overtime = allRecords.filter((item) => item.status === 'overtime').length
     return { total, late, absent, overtime }
-  }, [records])
+  }, [allRecords])
 
   return (
     <div className="space-y-6">
@@ -252,6 +295,61 @@ const HistoryPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {pagination.totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-[var(--border)]">
+              <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
+                <span>
+                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  «
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  ‹
+                </Button>
+
+                <span className="px-4 text-sm text-[var(--text-main)]">
+                  Trang {currentPage} / {pagination.totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+                  disabled={currentPage >= pagination.totalPages}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  ›
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(pagination.totalPages)}
+                  disabled={currentPage >= pagination.totalPages}
+                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                >
+                  »
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

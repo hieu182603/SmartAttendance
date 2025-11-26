@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import { updateUserProfile, changePassword, uploadAvatar } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
+import { UserRole, getRolePosition, type UserRoleType } from "../../utils/roles";
 import type { User as UserType } from "../../types";
 import type { ErrorWithMessage } from "../../types";
 
@@ -136,6 +137,10 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
         }
       }
 
+      // Get position from role using roles.ts helper
+      const userRole = (user.role || UserRole.EMPLOYEE) as UserRoleType;
+      const position = getRolePosition(userRole);
+
       setProfile({
         fullName: user.name || "",
         email: user.email || "",
@@ -143,7 +148,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
         address: user.address || "",
         birthday: formattedBirthday,
         department: user.department || "",
-        position: role === "admin" ? "Admin Manager" : "Senior Developer",
+        position: position,
         joinDate: user.createdAt
           ? new Date(user.createdAt).toISOString().split("T")[0]
           : "",
@@ -401,7 +406,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     </div>
                   )}
 
-                  {role === "employee" && user?.leaveBalance?.annual && (
+                  {user?.role === UserRole.EMPLOYEE && user?.leaveBalance?.annual && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[var(--text-sub)] flex items-center space-x-2">
                         <span>🏖️</span>

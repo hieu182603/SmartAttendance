@@ -1,44 +1,6 @@
 import { AttendanceModel } from "./attendance.model.js";
 import { LocationModel } from "../locations/location.model.js";
-import { DepartmentModel } from "../departments/department.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
-import { google } from "googleapis";
-import stream from "stream";
-
-// Google Drive setup: use service account JSON path in env GOOGLE_APPLICATION_CREDENTIALS
-// and optionally target folder in env DRIVE_FOLDER_ID. If not provided, folderId can be set manually.
-const driveAuth = new google.auth.GoogleAuth({
-  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || undefined,
-  scopes: ["https://www.googleapis.com/auth/drive.file"],
-});
-
-async function uploadBufferToDrive(
-  buffer,
-  filename,
-  mimeType,
-  folderId = null
-) {
-  const client = await driveAuth.getClient();
-  const drive = google.drive({ version: "v3", auth: client });
-
-  const bufferStream = new stream.PassThrough();
-  bufferStream.end(buffer);
-
-  const res = await drive.files.create({
-    requestBody: {
-      name: filename,
-      parents: folderId ? [folderId] : undefined,
-      mimeType,
-    },
-    media: {
-      mimeType,
-      body: bufferStream,
-    },
-    fields: "id, name",
-  });
-
-  return res.data; // { id, name }
-}
 
 const formatDateLabel = (date) => {
   const pad = (value) => String(value).padStart(2, "0");
@@ -87,15 +49,15 @@ export const getRecentAttendance = async (req, res) => {
         date: dayLabel,
         checkIn: doc.checkIn
           ? new Date(doc.checkIn).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+            hour: "2-digit",
+            minute: "2-digit",
+          })
           : null,
         checkOut: doc.checkOut
           ? new Date(doc.checkOut).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+            hour: "2-digit",
+            minute: "2-digit",
+          })
           : null,
         status: doc.status || "absent",
         location: doc.locationId?.name || null,
@@ -114,51 +76,67 @@ export const getRecentAttendance = async (req, res) => {
 export const getAttendanceHistory = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { from, to, search } = req.query;
+    const { from, to, search, page = 1, limit = 20 } = req.query;
 
     const query = { userId };
 
+    // Date range filter
     if (from || to) {
       query.date = {};
       if (from) query.date.$gte = new Date(from);
-      if (to) query.date.$lte = new Date(to);
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999); // End of day
+        query.date.$lte = toDate;
+      }
     }
 
-    const docs = await AttendanceModel.find(query)
-      .populate("locationId")
-      .sort({ date: -1 });
+    // Search filter - search in notes
+    if (search) {
+      query.notes = { $regex: search, $options: 'i' };
+    }
 
-    const keyword = search?.trim().toLowerCase();
+    // Pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
 
-    const data = docs
-      .map((doc) => {
-        const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
-          weekday: "long",
-        });
-        return {
-          id: doc._id.toString(),
-          date: formatDateLabel(doc.date),
-          day: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1),
-          checkIn: formatTime(doc.checkIn),
-          checkOut: formatTime(doc.checkOut),
-          hours: doc.workHours ? `${doc.workHours}h` : "-",
-          status: deriveStatus(doc),
-          location: doc.locationId?.name || "Văn phòng",
-          notes: doc.notes || "",
-        };
-      })
-      .filter((record) => {
-        if (!keyword) return true;
-        return (
-          record.date.toLowerCase().includes(keyword) ||
-          record.day.toLowerCase().includes(keyword) ||
-          record.location.toLowerCase().includes(keyword) ||
-          record.notes.toLowerCase().includes(keyword) ||
-          record.status.toLowerCase().includes(keyword)
-        );
+    const [docs, total] = await Promise.all([
+      AttendanceModel.find(query)
+        .populate("locationId")
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limitNum),
+      AttendanceModel.countDocuments(query)
+    ]);
+
+    // Map and format data
+    const data = docs.map((doc) => {
+      const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
+        weekday: "long",
       });
+      return {
+        id: doc._id.toString(),
+        date: formatDateLabel(doc.date),
+        day: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1),
+        checkIn: formatTime(doc.checkIn),
+        checkOut: formatTime(doc.checkOut),
+        hours: doc.workHours ? `${doc.workHours}h` : "-",
+        status: deriveStatus(doc),
+        location: doc.locationId?.name || "Văn phòng",
+        notes: doc.notes || "",
+      };
+    });
 
-    res.json(data);
+    res.json({
+      records: data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (error) {
     console.error("[attendance] history error", error);
     res.status(500).json({ message: "Không lấy được lịch sử chấm công" });
@@ -168,7 +146,7 @@ export const getAttendanceHistory = async (req, res) => {
 /**
  * Chấm công vào (Check-in)
  * POST /api/attendance/checkin
- * Body: { latitude, longitude, accuracy, qrCode?, photo? }
+ * Body: { latitude, longitude, accuracy, ssid?, bssid?, photo? }
  */
 export const checkIn = async (req, res) => {
   try {
@@ -180,14 +158,12 @@ export const checkIn = async (req, res) => {
       accuracy,
       ssid,
       bssid,
-      qrCode,
     } = req.body || {};
     const photoFile = req.file || null; // multer will populate req.file when upload.single('photo') used
 
     // Convert numeric inputs
     const latitude = latRaw !== undefined ? Number(latRaw) : undefined;
     const longitude = lonRaw !== undefined ? Number(lonRaw) : undefined;
-    // qrCode và photo có thể được sử dụng để validate và lưu trữ trong tương lai
 
     // Validate input
     if (
@@ -251,6 +227,31 @@ export const checkIn = async (req, res) => {
       });
     }
 
+    // Kiểm tra giờ check-in (chỉ cho phép check-in trước giờ làm 20 phút)
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+    // Giờ làm: 8:00 (480 phút từ 00:00)
+    const WORK_START_HOUR = 8;
+    const WORK_START_MINUTE = 0;
+    const workStartInMinutes = WORK_START_HOUR * 60 + WORK_START_MINUTE;
+
+    // Cho phép check-in từ 7:40 (trước 20 phút)
+    const EARLY_CHECKIN_MINUTES = 20;
+    const earliestCheckInTime = workStartInMinutes - EARLY_CHECKIN_MINUTES;
+
+    if (currentTimeInMinutes < earliestCheckInTime) {
+      const earliestHour = Math.floor(earliestCheckInTime / 60);
+      const earliestMinute = earliestCheckInTime % 60;
+      return res.status(400).json({
+        success: false,
+        message: `Chưa đến giờ chấm công. Vui lòng chấm công sau ${earliestHour}:${earliestMinute.toString().padStart(2, '0')}.`,
+        code: "TOO_EARLY",
+      });
+    }
+
     // Lấy ngày hiện tại (chỉ lấy phần ngày, không có giờ)
     const today = new Date();
     const dateOnly = new Date(
@@ -264,8 +265,6 @@ export const checkIn = async (req, res) => {
       userId,
       date: dateOnly,
     });
-
-    const now = new Date();
 
     if (attendance) {
       // Nếu đã check-in rồi
@@ -353,6 +352,175 @@ export const checkIn = async (req, res) => {
   }
 };
 
+/**
+ * POST /attendance/checkout
+ * Check-out (chấm công ra)
+ */
+export const checkOut = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    let { latitude, longitude, accuracy } = req.body;
+    const photoFile = req.file;
+
+    // Parse sang number nếu là string (từ FormData)
+    latitude = parseFloat(latitude);
+    longitude = parseFloat(longitude);
+    accuracy = accuracy ? parseFloat(accuracy) : null;
+
+    // Validate vị trí
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng cung cấp vị trí (latitude và longitude)",
+      });
+    }
+
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+      return res.status(400).json({
+        success: false,
+        message: "Vị trí không hợp lệ",
+      });
+    }
+
+    // Tìm địa điểm hợp lệ
+    const locations = await LocationModel.find({ isActive: true });
+    let validLocation = null;
+    let validationResult = null;
+
+    for (const location of locations) {
+      validationResult = location.validateLocation(
+        latitude,
+        longitude,
+        null,
+        null
+      );
+
+      if (validationResult.isValid) {
+        validLocation = location;
+        break;
+      }
+    }
+
+    if (!validLocation) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Bạn không ở trong khu vực cho phép chấm công. Vui lòng đến văn phòng để check-out.",
+      });
+    }
+
+    // Kiểm tra độ chính xác
+    if (accuracy && accuracy > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Vị trí không chính xác. Vui lòng bật GPS và thử lại.",
+      });
+    }
+
+    // Lấy ngày hiện tại
+    const today = new Date();
+    const dateOnly = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+    // Tìm bản ghi chấm công hôm nay
+    let attendance = await AttendanceModel.findOne({
+      userId,
+      date: dateOnly,
+    });
+
+    if (!attendance || !attendance.checkIn) {
+      return res.status(400).json({
+        success: false,
+        message: "Bạn chưa check-in hôm nay. Vui lòng check-in trước.",
+        code: "NOT_CHECKED_IN",
+      });
+    }
+
+    if (attendance.checkOut) {
+      return res.status(400).json({
+        success: false,
+        message: "Bạn đã check-out hôm nay rồi.",
+        code: "ALREADY_CHECKED_OUT",
+      });
+    }
+
+    // Kiểm tra thời gian làm việc tối thiểu
+    // Ca Full time: 08:00-17:00 = 9 giờ (trừ 1 giờ nghỉ trưa = 8 giờ làm việc)
+    const now = new Date();
+    const checkInTime = new Date(attendance.checkIn);
+    const hoursWorked = (now - checkInTime) / (1000 * 60 * 60); // Chuyển sang giờ
+    
+    const MIN_WORK_HOURS = 8; // Tối thiểu 8 giờ (theo ca Full time)
+    if (hoursWorked < MIN_WORK_HOURS) {
+      const remainingMinutes = Math.ceil((MIN_WORK_HOURS - hoursWorked) * 60);
+      const hours = Math.floor(remainingMinutes / 60);
+      const minutes = remainingMinutes % 60;
+      const timeStr = hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
+      
+      return res.status(400).json({
+        success: false,
+        message: `Bạn cần làm việc ít nhất ${MIN_WORK_HOURS} giờ. Vui lòng chờ thêm ${timeStr} nữa.`,
+        code: "INSUFFICIENT_WORK_HOURS",
+        data: {
+          hoursWorked: Math.floor(hoursWorked * 100) / 100,
+          minRequired: MIN_WORK_HOURS,
+          remainingMinutes
+        }
+      });
+    }
+
+    // Cập nhật check-out
+    attendance.checkOut = now;
+
+    if (photoFile) {
+      try {
+        const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkouts');
+        attendance.notes = attendance.notes
+          ? `${attendance.notes}\n[Ảnh check-out: ${result.url}]`
+          : `[Ảnh check-out: ${result.url}]`;
+      } catch (e) {
+        console.error("Upload to Cloudinary failed:", e);
+      }
+    }
+
+    // Tính giờ làm việc (updateStatus sẽ tự động chạy trong pre-save hook)
+    attendance.calculateWorkHours();
+
+    await attendance.save();
+
+    // Format response
+    const checkOutTime = formatTime(attendance.checkOut);
+    const checkOutDate = formatDateLabel(attendance.date);
+    const workHours = attendance.workHours 
+      ? `${Math.floor(attendance.workHours)}h ${Math.round((attendance.workHours % 1) * 60)}m`
+      : '0h';
+
+    res.json({
+      success: true,
+      message: "Check-out thành công!",
+      data: {
+        checkOutTime,
+        checkOutDate,
+        workHours,
+        location: validLocation.name,
+        distance: validationResult.distance
+          ? `${validationResult.distance}m`
+          : null,
+      },
+    });
+  } catch (error) {
+    console.error("[attendance] check-out error", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Có lỗi xảy ra khi check-out. Vui lòng thử lại.",
+    });
+  }
+};
+
 export const getAttendanceAnalytics = async (req, res) => {
   try {
     const { from, to, department } = req.query
@@ -417,8 +585,8 @@ export const getAttendanceAnalytics = async (req, res) => {
       const dateKey = formatDateLabel(att.date)
       const user = att.userId
       // Lấy tên phòng ban từ populated object hoặc fallback về string/ObjectId
-      const dept = (typeof user?.department === 'object' && user?.department?.name) 
-        ? user.department.name 
+      const dept = (typeof user?.department === 'object' && user?.department?.name)
+        ? user.department.name
         : (user?.department || 'N/A')
 
       if (!dailyMap.has(dateKey)) {
@@ -706,8 +874,8 @@ export const exportAttendanceAnalytics = async (req, res) => {
       const dateKey = formatDateLabel(att.date)
       const user = att.userId
       // Lấy tên phòng ban từ populated object hoặc fallback về string/ObjectId
-      const dept = (typeof user?.department === 'object' && user?.department?.name) 
-        ? user.department.name 
+      const dept = (typeof user?.department === 'object' && user?.department?.name)
+        ? user.department.name
         : (user?.department || 'N/A')
 
       if (!dailyMap.has(dateKey)) {
@@ -829,7 +997,7 @@ export const getDepartmentAttendance = async (req, res) => {
 
     // Lấy tất cả nhân viên trong phòng ban của manager
     let userQuery = { department: manager.department, isActive: true };
-    
+
     // Tìm kiếm theo tên hoặc email
     if (search) {
       userQuery = {
@@ -877,8 +1045,8 @@ export const getDepartmentAttendance = async (req, res) => {
         date: formatDateLabel(doc.date),
         checkIn: formatTime(doc.checkIn),
         checkOut: formatTime(doc.checkOut),
-        hours: doc.workHours 
-          ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m` 
+        hours: doc.workHours
+          ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m`
           : '-',
         status,
         location: doc.locationId?.name || '-'

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useRolePath } from '../../../hooks/useRolePath'
 import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 import {
@@ -92,6 +93,7 @@ const getLeaveTypeConfig = (typeId: string): LeaveTypeConfig => {
 
 const LeaveBalancePage: React.FC = () => {
   const navigate = useNavigate()
+  const basePath = useRolePath()
   const [selectedType, setSelectedType] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
@@ -165,7 +167,7 @@ const LeaveBalancePage: React.FC = () => {
   }
 
   const handleRequestLeave = (): void => {
-    navigate('/employee/requests')
+    navigate(`${basePath}/requests`)
   }
 
   if (loading) {

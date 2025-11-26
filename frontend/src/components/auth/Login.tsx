@@ -10,6 +10,7 @@ import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { toast } from 'sonner'
 import type { ErrorWithMessage } from '../../types'
+import { getRoleBasePath, type UserRoleType } from '../../utils/roles'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -17,7 +18,7 @@ export default function Login() {
 
   const defaultRoute = useMemo(() => {
     if (!user?.role) return '/employee'
-    return getDefaultRouteByRole(user.role)
+    return getRoleBasePath(user.role as UserRoleType)
   }, [user])
 
   // Redirect if already authenticated
@@ -39,7 +40,9 @@ export default function Login() {
     try {
       const data = await login({ email, password })
       toast.success('Đăng nhập thành công')
-      const nextRoute = getDefaultRouteByRole(data?.user?.role)
+      const nextRoute = data?.user?.role 
+        ? getRoleBasePath(data.user.role as UserRoleType)
+        : '/employee'
       navigate(nextRoute, { replace: true })
     } catch (err) {
       const error = err as ErrorWithMessage
@@ -148,12 +151,4 @@ export default function Login() {
   )
 }
 
-const managerRoles = ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'MANAGER']
-
-function getDefaultRouteByRole(role: string): string {
-  if (managerRoles.includes(role)) {
-    return '/employee/approve-requests'
-  }
-  return '/employee'
-}
 

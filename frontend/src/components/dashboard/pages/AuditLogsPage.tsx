@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
     FileText,
@@ -34,138 +34,17 @@ import { Separator } from '../../ui/separator';
 import { Switch } from '../../ui/switch';
 import { Label } from '../../ui/label';
 import { toast } from 'sonner';
+import { getAllLogs, getLogStats, type AuditLog } from '../../../services/logService';
 
-interface AuditLog {
-    id: string;
-    timestamp: string;
-    userId: string;
-    userName: string;
-    userRole: string;
-    action: 'create' | 'update' | 'delete' | 'view' | 'login' | 'logout' | 'approve' | 'reject';
-    category: 'auth' | 'user' | 'attendance' | 'request' | 'system' | 'settings';
-    resource: string;
-    description: string;
-    ipAddress: string;
+interface AuditLogPage extends AuditLog {
+    action: string;
+    category: string;
     status: 'success' | 'failed' | 'warning';
-    metadata?: Record<string, any>;
 }
 
-const mockLogs: AuditLog[] = [
-    {
-        id: 'LOG001',
-        timestamp: '2025-11-23 00:30:25',
-        userId: 'USR001',
-        userName: 'Nguyễn Văn A',
-        userRole: 'SUPER_ADMIN',
-        action: 'update',
-        category: 'settings',
-        resource: 'SystemSettings',
-        description: 'Cập nhật cài đặt hệ thống - Bật MFA',
-        ipAddress: '192.168.1.100',
-        status: 'success',
-        metadata: { section: 'security', field: 'mfaEnabled', value: true },
-    },
-    {
-        id: 'LOG002',
-        timestamp: '2025-11-23 00:25:10',
-        userId: 'USR005',
-        userName: 'Hoàng Văn E',
-        userRole: 'MANAGER',
-        action: 'approve',
-        category: 'request',
-        resource: 'LeaveRequest',
-        description: 'Phê duyệt yêu cầu nghỉ phép cho Nguyễn Văn K',
-        ipAddress: '192.168.1.105',
-        status: 'success',
-        metadata: { requestId: 'REQ001', employeeId: 'EMP001' },
-    },
-    {
-        id: 'LOG003',
-        timestamp: '2025-11-23 00:20:45',
-        userId: 'USR002',
-        userName: 'Trần Thị B',
-        userRole: 'ADMIN',
-        action: 'create',
-        category: 'user',
-        resource: 'Employee',
-        description: 'Tạo nhân viên mới - Vũ Văn H',
-        ipAddress: '192.168.1.102',
-        status: 'success',
-        metadata: { employeeId: 'EMP010', department: 'IT' },
-    },
-    {
-        id: 'LOG004',
-        timestamp: '2025-11-22 23:15:30',
-        userId: 'USR007',
-        userName: 'Vũ Văn G',
-        userRole: 'EMPLOYEE',
-        action: 'login',
-        category: 'auth',
-        resource: 'Authentication',
-        description: 'Đăng nhập thành công',
-        ipAddress: '192.168.1.107',
-        status: 'success',
-    },
-    {
-        id: 'LOG005',
-        timestamp: '2025-11-22 23:10:15',
-        userId: 'UNKNOWN',
-        userName: 'Unknown User',
-        userRole: 'NONE',
-        action: 'login',
-        category: 'auth',
-        resource: 'Authentication',
-        description: 'Đăng nhập thất bại - Sai mật khẩu',
-        ipAddress: '192.168.1.200',
-        status: 'failed',
-        metadata: { attempts: 3, email: 'hacker@evil.com' },
-    },
-    {
-        id: 'LOG006',
-        timestamp: '2025-11-22 22:05:00',
-        userId: 'USR003',
-        userName: 'Lê Văn C',
-        userRole: 'HR_MANAGER',
-        action: 'delete',
-        category: 'user',
-        resource: 'Employee',
-        description: 'Xóa nhân viên - Nguyễn Văn X',
-        ipAddress: '192.168.1.103',
-        status: 'warning',
-        metadata: { employeeId: 'EMP999', reason: 'Nghỉ việc' },
-    },
-    {
-        id: 'LOG007',
-        timestamp: '2025-11-22 21:00:00',
-        userId: 'USR004',
-        userName: 'Phạm Thị D',
-        userRole: 'BRANCH_MANAGER',
-        action: 'update',
-        category: 'attendance',
-        resource: 'AttendanceRecord',
-        description: 'Chỉnh sửa bản ghi chấm công',
-        ipAddress: '192.168.1.104',
-        status: 'success',
-        metadata: { recordId: 'ATT001', field: 'checkOut', oldValue: '17:00', newValue: '18:00' },
-    },
-    {
-        id: 'LOG008',
-        timestamp: '2025-11-22 20:55:30',
-        userId: 'USR001',
-        userName: 'Nguyễn Văn A',
-        userRole: 'SUPER_ADMIN',
-        action: 'create',
-        category: 'system',
-        resource: 'Branch',
-        description: 'Tạo chi nhánh mới - Chi nhánh Cần Thơ',
-        ipAddress: '192.168.1.100',
-        status: 'success',
-        metadata: { branchId: 'CT', branchName: 'Chi nhánh Cần Thơ' },
-    },
-];
-
 export default function AuditLogsPage() {
-    const [logs] = useState<AuditLog[]>(mockLogs);
+    const [logs, setLogs] = useState<AuditLogPage[]>([]);
+    const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterAction, setFilterAction] = useState('all');
     const [filterCategory, setFilterCategory] = useState('all');
@@ -173,37 +52,142 @@ export default function AuditLogsPage() {
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
+    const [pagination, setPagination] = useState<{
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>({
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+    });
+
+    // Stats state
+    const [stats, setStats] = useState({
+        total: 0,
+        success: 0,
+        failed: 0,
+        warning: 0,
+    });
 
     // Auto-refresh state
     const [autoRefresh, setAutoRefresh] = useState(false);
 
     // Details modal state
-    const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+    const [selectedLog, setSelectedLog] = useState<AuditLogPage | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    const filteredLogs = logs.filter(log => {
-        if (selectedTab !== 'all' && log.status !== selectedTab) return false;
-        if (searchQuery && !log.userName.toLowerCase().includes(searchQuery.toLowerCase())
-            && !log.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-        if (filterAction !== 'all' && log.action !== filterAction) return false;
-        if (filterCategory !== 'all' && log.category !== filterCategory) return false;
-        return true;
-    });
+    // Load stats (separate call, not paginated)
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const statsData = await getLogStats();
+                setStats(statsData);
+            } catch (error) {
+                console.error('[AuditLogsPage] Fetch stats error:', error);
+            }
+        };
+        fetchStats();
+    }, []);
 
-    // Pagination
-    const totalPages = Math.ceil(filteredLogs.length / pageSize);
-    const paginatedLogs = filteredLogs.slice(
-        (currentPage - 1) * pageSize,
-        currentPage * pageSize
-    );
+    // Load logs with filters and pagination
+    useEffect(() => {
+        const fetchLogs = async () => {
+            setLoading(true);
+            try {
+                const params: {
+                    page?: number;
+                    limit?: number;
+                    search?: string;
+                    action?: string;
+                    status?: string;
+                    category?: string;
+                } = {
+                    page: currentPage,
+                    limit: pageSize,
+                };
 
-    const stats = {
-        total: logs.length,
-        success: logs.filter(l => l.status === 'success').length,
-        failed: logs.filter(l => l.status === 'failed').length,
-        warning: logs.filter(l => l.status === 'warning').length,
-    };
+                if (searchQuery) {
+                    params.search = searchQuery;
+                }
+
+                if (selectedTab !== 'all') {
+                    params.status = selectedTab;
+                }
+
+                if (filterAction !== 'all') {
+                    params.action = filterAction;
+                }
+
+                if (filterCategory !== 'all') {
+                    params.category = filterCategory;
+                }
+
+                const result = await getAllLogs(params);
+                setLogs(result.logs as AuditLogPage[]);
+                setPagination(result.pagination);
+            } catch (error) {
+                console.error('[AuditLogsPage] Fetch logs error:', error);
+                toast.error('Không thể tải nhật ký hệ thống');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchLogs();
+    }, [currentPage, pageSize, searchQuery, selectedTab, filterAction, filterCategory]);
+
+    // Auto-refresh functionality
+    useEffect(() => {
+        if (!autoRefresh) return;
+
+        const interval = setInterval(() => {
+            const fetchLogs = async () => {
+                try {
+                    const params: {
+                        page?: number;
+                        limit?: number;
+                        search?: string;
+                        action?: string;
+                        status?: string;
+                        category?: string;
+                    } = {
+                        page: currentPage,
+                        limit: pageSize,
+                    };
+
+                    if (searchQuery) params.search = searchQuery;
+                    if (selectedTab !== 'all') params.status = selectedTab;
+                    if (filterAction !== 'all') params.action = filterAction;
+                    if (filterCategory !== 'all') params.category = filterCategory;
+
+                    const result = await getAllLogs(params);
+                    setLogs(result.logs as AuditLogPage[]);
+                    setPagination(result.pagination);
+
+                    // Refresh stats too
+                    const statsData = await getLogStats();
+                    setStats(statsData);
+                } catch (error) {
+                    console.error('[AuditLogsPage] Auto-refresh error:', error);
+                }
+            };
+            fetchLogs();
+        }, 30000); // Refresh every 30 seconds
+
+        return () => clearInterval(interval);
+    }, [autoRefresh, currentPage, pageSize, searchQuery, selectedTab, filterAction, filterCategory]);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, selectedTab, filterAction, filterCategory]);
+
+    // Server-side filtering - no client-side filtering needed
+    const filteredLogs = logs;
 
     const getActionIcon = (action: string) => {
         switch (action) {
@@ -281,7 +265,7 @@ export default function AuditLogsPage() {
         toast.success('📥 Đã xuất file JSON thành công!');
     };
 
-    const handleViewDetails = (log: AuditLog) => {
+    const handleViewDetails = (log: AuditLogPage) => {
         setSelectedLog(log);
         setIsDetailsOpen(true);
     };
@@ -293,6 +277,43 @@ export default function AuditLogsPage() {
     const handlePageSizeChange = (size: number) => {
         setPageSize(size);
         setCurrentPage(1); // Reset to first page
+    };
+
+    const handleRefresh = async () => {
+        setLoading(true);
+        try {
+            const params: {
+                page?: number;
+                limit?: number;
+                search?: string;
+                action?: string;
+                status?: string;
+                category?: string;
+            } = {
+                page: currentPage,
+                limit: pageSize,
+            };
+
+            if (searchQuery) params.search = searchQuery;
+            if (selectedTab !== 'all') params.status = selectedTab;
+            if (filterAction !== 'all') params.action = filterAction;
+            if (filterCategory !== 'all') params.category = filterCategory;
+
+            const [result, statsData] = await Promise.all([
+                getAllLogs(params),
+                getLogStats(),
+            ]);
+
+            setLogs(result.logs as AuditLogPage[]);
+            setPagination(result.pagination);
+            setStats(statsData);
+            toast.success('Đã làm mới dữ liệu');
+        } catch (error) {
+            console.error('[AuditLogsPage] Refresh error:', error);
+            toast.error('Không thể làm mới dữ liệu');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -309,6 +330,16 @@ export default function AuditLogsPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefresh}
+                        disabled={loading}
+                        className="border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                    >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                        Làm mới
+                    </Button>
                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                         <RefreshCw className={`h-4 w-4 text-gray-600 dark:text-gray-400 ${autoRefresh ? 'animate-spin' : ''}`} />
                         <Label htmlFor="auto-refresh" className="text-sm text-gray-900 dark:text-gray-100 cursor-pointer">
@@ -479,137 +510,153 @@ export default function AuditLogsPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {paginatedLogs.map((log, index) => (
-                                            <motion.tr
-                                                key={log.id}
-                                                initial={{ opacity: 0, x: -20 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: index * 0.05 }}
-                                                className={`border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/50 cursor-pointer ${log.status === 'failed' ? 'bg-red-500/5' :
-                                                    log.status === 'warning' ? 'bg-yellow-500/5' : ''
-                                                    }`}
-                                                onClick={() => handleViewDetails(log)}
-                                            >
-                                                <TableCell className="text-gray-900 dark:text-gray-100">
-                                                    <div className="flex items-center gap-2">
-                                                        <Clock className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                                                        <span className="text-sm">{log.timestamp}</span>
-                                                    </div>
+                                        {loading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={9} className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                                    Đang tải dữ liệu...
                                                 </TableCell>
-                                                <TableCell>
-                                                    <div>
-                                                        <p className="text-gray-900 dark:text-gray-100">{log.userName}</p>
-                                                        <p className="text-xs text-gray-600 dark:text-gray-400">{log.userRole}</p>
-                                                    </div>
+                                            </TableRow>
+                                        ) : filteredLogs.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={9} className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                                    Không tìm thấy nhật ký nào
                                                 </TableCell>
-                                                <TableCell>
-                                                    <Badge className={getActionColor(log.action)}>
-                                                        <span className="mr-1">{getActionIcon(log.action)}</span>
-                                                        {log.action}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
-                                                        {log.category}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-gray-900 dark:text-gray-100 max-w-xs truncate">
-                                                    {log.description}
-                                                </TableCell>
-                                                <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                                                    {log.ipAddress}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge className={getStatusColor(log.status)}>
-                                                        {log.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleViewDetails(log);
-                                                        }}
-                                                        className="h-8 w-8 text-cyan-500"
-                                                    >
-                                                        <Info className="h-4 w-4" />
-                                                    </Button>
-                                                </TableCell>
-                                            </motion.tr>
-                                        ))}
+                                            </TableRow>
+                                        ) : (
+                                            filteredLogs.map((log, index) => (
+                                                <motion.tr
+                                                    key={log.id}
+                                                    initial={{ opacity: 0, x: -20 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: index * 0.05 }}
+                                                    className={`border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/50 cursor-pointer ${log.status === 'failed' ? 'bg-red-500/5' :
+                                                        log.status === 'warning' ? 'bg-yellow-500/5' : ''
+                                                        }`}
+                                                    onClick={() => handleViewDetails(log)}
+                                                >
+                                                    <TableCell className="text-gray-900 dark:text-gray-100">
+                                                        <div className="flex items-center gap-2">
+                                                            <Clock className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                                                            <span className="text-sm">{log.timestamp}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div>
+                                                            <p className="text-gray-900 dark:text-gray-100">{log.userName}</p>
+                                                            <p className="text-xs text-gray-600 dark:text-gray-400">{log.userRole}</p>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge className={getActionColor(log.action)}>
+                                                            <span className="mr-1">{getActionIcon(log.action)}</span>
+                                                            {log.action}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline" className="border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
+                                                            {log.category}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-gray-900 dark:text-gray-100 max-w-xs truncate">
+                                                        {log.description}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                                                        {log.ipAddress}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge className={getStatusColor(log.status)}>
+                                                            {log.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleViewDetails(log);
+                                                            }}
+                                                            className="h-8 w-8 text-cyan-500"
+                                                        >
+                                                            <Info className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </motion.tr>
+                                            ))
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>
 
                             {/* Pagination */}
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4">
-                                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                    <span>
-                                        Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, filteredLogs.length)} của {filteredLogs.length}
-                                    </span>
-                                    <span className="hidden sm:inline">•</span>
-                                    <div className="flex items-center gap-2">
-                                        <span>Số dòng:</span>
-                                        <Select value={pageSize.toString()} onValueChange={(v) => handlePageSizeChange(Number(v))}>
-                                            <SelectTrigger className="w-20 h-8 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent side="top">
-                                                <SelectItem value="10">10</SelectItem>
-                                                <SelectItem value="25">25</SelectItem>
-                                                <SelectItem value="50">50</SelectItem>
-                                                <SelectItem value="100">100</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                            {pagination.totalPages > 1 && (
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4">
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                        <span>
+                                            Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, pagination.total)} của {pagination.total}
+                                        </span>
+                                        <span className="hidden sm:inline">•</span>
+                                        <div className="flex items-center gap-2">
+                                            <span>Số dòng:</span>
+                                            <Select value={pageSize.toString()} onValueChange={(v) => handlePageSizeChange(Number(v))}>
+                                                <SelectTrigger className="w-20 h-8 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent side="top">
+                                                    <SelectItem value="10">10</SelectItem>
+                                                    <SelectItem value="25">25</SelectItem>
+                                                    <SelectItem value="50">50</SelectItem>
+                                                    <SelectItem value="100">100</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => handlePageChange(1)}
+                                            disabled={currentPage === 1}
+                                            className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                                        >
+                                            <ChevronsLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => handlePageChange(currentPage - 1)}
+                                            disabled={currentPage === 1}
+                                            className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+
+                                        <span className="px-4 text-sm text-gray-900 dark:text-gray-100">
+                                            Trang {currentPage} / {pagination.totalPages}
+                                        </span>
+
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => handlePageChange(currentPage + 1)}
+                                            disabled={currentPage >= pagination.totalPages}
+                                            className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                                        >
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => handlePageChange(pagination.totalPages)}
+                                            disabled={currentPage >= pagination.totalPages}
+                                            className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                                        >
+                                            <ChevronsRight className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 </div>
-
-                                <div className="flex items-center gap-1">
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => handlePageChange(1)}
-                                        disabled={currentPage === 1}
-                                        className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                                    >
-                                        <ChevronsLeft className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => handlePageChange(currentPage - 1)}
-                                        disabled={currentPage === 1}
-                                        className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                                    >
-                                        <ChevronLeft className="h-4 w-4" />
-                                    </Button>
-
-                                    <span className="px-4 text-sm text-gray-900 dark:text-gray-100">
-                                        Trang {currentPage} / {totalPages}
-                                    </span>
-
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => handlePageChange(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
-                                        className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                                    >
-                                        <ChevronRight className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => handlePageChange(totalPages)}
-                                        disabled={currentPage === totalPages}
-                                        className="h-8 w-8 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                                    >
-                                        <ChevronsRight className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
+                            )}
                         </TabsContent>
                     </Tabs>
                 </CardContent>

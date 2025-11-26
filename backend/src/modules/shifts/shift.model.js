@@ -28,8 +28,7 @@ const shiftSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// 🔍 Index để tránh trùng tên ca
-shiftSchema.index({ name: 1 }, { unique: true });
+// Note: name đã có unique: true trong schema nên không cần tạo index lại
 
 // 🧮 Method tính tổng giờ làm việc (đã trừ giờ nghỉ)
 shiftSchema.methods.getTotalHours = function () {

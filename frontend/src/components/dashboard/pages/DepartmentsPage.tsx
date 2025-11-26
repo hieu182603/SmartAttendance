@@ -12,7 +12,10 @@ import {
     TrendingUp,
     Target,
     BarChart3,
-    ChevronRight
+    ChevronRight,
+    ChevronLeft,
+    ChevronsLeft,
+    ChevronsRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
@@ -77,6 +80,19 @@ export function DepartmentsPage() {
     const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [pagination, setPagination] = useState<{
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>({
+        total: 0,
+        page: 1,
+        limit: 20,
+        totalPages: 0,
+    });
     const [stats, setStats] = useState({
         total: 0,
         totalEmployees: 0,
@@ -95,16 +111,43 @@ export function DepartmentsPage() {
 
     // Load data
     useEffect(() => {
-        loadDepartments();
         loadBranches();
         loadManagers();
         loadStats();
     }, []);
 
+    // Load departments when filters or pagination change
+    useEffect(() => {
+        loadDepartments();
+    }, [currentPage, itemsPerPage, searchQuery, filterBranch]);
+
+    // Reset to page 1 when search or filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filterBranch]);
+
     const loadDepartments = async () => {
         try {
             setLoading(true);
-            const response = await getAllDepartments({ limit: 1000 });
+            const params: {
+                page?: number;
+                limit?: number;
+                search?: string;
+                branchId?: string;
+            } = {
+                page: currentPage,
+                limit: itemsPerPage,
+            };
+            
+            if (searchQuery) {
+                params.search = searchQuery;
+            }
+            
+            if (filterBranch !== 'all') {
+                params.branchId = filterBranch;
+            }
+            
+            const response = await getAllDepartments(params);
             const departmentsData = response.departments.map((dept: DepartmentType) => ({
                 id: dept._id || dept.id || '',
                 _id: dept._id,
@@ -122,6 +165,16 @@ export function DepartmentsPage() {
                 status: dept.status,
             }));
             setDepartments(departmentsData);
+            
+            // Update pagination info from backend
+            if (response.total !== undefined) {
+                setPagination({
+                    total: response.total || 0,
+                    page: response.page || currentPage,
+                    limit: response.limit || itemsPerPage,
+                    totalPages: response.totalPages || 1,
+                });
+            }
         } catch (error) {
             console.error('Error loading departments:', error);
             toast.error('Không thể tải danh sách phòng ban');
@@ -157,13 +210,8 @@ export function DepartmentsPage() {
         }
     };
 
-    // Filter departments
-    const filteredDepartments = departments.filter(dept => {
-        if (searchQuery && !dept.name.toLowerCase().includes(searchQuery.toLowerCase())
-            && !dept.code.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-        if (filterBranch !== 'all' && dept.branchId !== filterBranch) return false;
-        return true;
-    });
+    // Server-side filtering - no client-side filtering needed
+    const filteredDepartments = departments;
 
     const handleOpenDialog = (mode: 'create' | 'edit', department?: Department) => {
         setDialogMode(mode);
@@ -198,28 +246,28 @@ export function DepartmentsPage() {
         }
 
         try {
-            if (dialogMode === 'create') {
+        if (dialogMode === 'create') {
                 await createDepartment({
-                    name: formData.name,
-                    code: formData.code,
+                name: formData.name,
+                code: formData.code,
                     description: formData.description || undefined,
-                    branchId: formData.branchId,
-                    managerId: formData.managerId,
-                    budget: parseInt(formData.budget) || 0,
+                branchId: formData.branchId,
+                managerId: formData.managerId,
+                budget: parseInt(formData.budget) || 0,
                 });
                 toast.success(`Đã tạo phòng ban ${formData.name}`);
-            } else if (selectedDepartment) {
+        } else if (selectedDepartment) {
                 await updateDepartment(selectedDepartment._id || selectedDepartment.id, {
-                    name: formData.name,
-                    code: formData.code,
+                        name: formData.name,
+                        code: formData.code,
                     description: formData.description || undefined,
-                    branchId: formData.branchId,
-                    managerId: formData.managerId,
+                        branchId: formData.branchId,
+                        managerId: formData.managerId,
                     budget: parseInt(formData.budget) || undefined,
                 });
                 toast.success(`Đã cập nhật phòng ban ${formData.name}`);
-            }
-            setIsDialogOpen(false);
+        }
+        setIsDialogOpen(false);
             await loadDepartments();
             await loadStats();
         } catch (error: any) {
@@ -371,10 +419,9 @@ export function DepartmentsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tất cả chi nhánh</SelectItem>
-                                {/* TODO: Replace with API call to get branches */}
-                                {/* {mockBranches.map(branch => (
-                                    <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                                ))} */}
+                                {branches.map(branch => (
+                                    <SelectItem key={branch._id} value={branch._id}>{branch.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -384,7 +431,13 @@ export function DepartmentsPage() {
             {/* Departments Grid */}
             {loading ? (
                 <div className="text-center py-8 text-[var(--text-sub)]">Đang tải...</div>
+            ) : filteredDepartments.length === 0 ? (
+                <div className="text-center py-12">
+                    <Briefcase className="h-16 w-16 text-[var(--text-sub)] mx-auto mb-4 opacity-50" />
+                    <p className="text-[var(--text-sub)]">Không tìm thấy phòng ban nào</p>
+                </div>
             ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredDepartments.map((department, index) => (
                     <motion.div
@@ -485,6 +538,66 @@ export function DepartmentsPage() {
                     </motion.div>
                 ))}
             </div>
+            
+            {/* Pagination Controls */}
+            {pagination.totalPages > 1 && (
+                <Card className="bg-[var(--surface)] border-[var(--border)]">
+                    <CardContent className="p-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
+                                <span>
+                                    Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setCurrentPage(1)}
+                                    disabled={currentPage === 1}
+                                    className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                                >
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+
+                                <span className="px-4 text-sm text-[var(--text-main)]">
+                                    Trang {currentPage} / {pagination.totalPages}
+                                </span>
+
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+                                    disabled={currentPage >= pagination.totalPages}
+                                    className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setCurrentPage(pagination.totalPages)}
+                                    disabled={currentPage >= pagination.totalPages}
+                                    className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                                >
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+            </>
             )}
 
             {/* Create/Edit Dialog */}

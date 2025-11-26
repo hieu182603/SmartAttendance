@@ -5,6 +5,7 @@ import swaggerUi from "swagger-ui-express";
 
 import { connectDatabase } from "./config/database.js";
 import { swaggerSpec } from "./config/swagger.js";
+
 import { authRouter } from "./modules/auth/auth.router.js";
 import { leaveRouter } from "./modules/leave/leave.router.js";
 import { attendanceRouter } from "./modules/attendance/attendance.router.js";
@@ -13,6 +14,12 @@ import { userRouter } from "./modules/users/user.router.js";
 import { dashboardRouter } from "./modules/dashboard/dashboard.router.js";
 import { branchRouter } from "./modules/branches/branch.router.js";
 import { departmentRouter } from "./modules/departments/department.router.js";
+import { shiftRouter } from "./modules/shifts/shift.router.js";
+import { locationRouter } from "./modules/locations/location.router.js";
+import { startCronJobs } from "./jobs/attendance.job.js";
+
+// ⭐ THÊM ROUTER LOGS
+import { logRouter } from "./modules/logs/log.router.js";
 
 dotenv.config();
 
@@ -23,6 +30,7 @@ const app = express(
 );
 
 // Middleware
+app.use(cors());
 app.use(cors(
   {
     origin: "*",
@@ -32,7 +40,7 @@ app.use(cors(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Swagger API Documentation
+// Swagger
 app.use(
   "/api/docs",
   swaggerUi.serve,
@@ -42,6 +50,7 @@ app.use(
   })
 );
 
+// REGISTER ROUTES
 app.use("/api/auth", authRouter);
 app.use("/api/leave", leaveRouter);
 app.use("/api/attendance", attendanceRouter);
@@ -50,8 +59,13 @@ app.use("/api/users", userRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/branches", branchRouter);
 app.use("/api/departments", departmentRouter);
+app.use("/api/shifts", shiftRouter);
+app.use("/api/locations", locationRouter);
 
-// Error handling middleware
+// ⭐ THÊM ROUTE LOGS
+app.use("/api/logs", logRouter);
+
+// Error handler
 app.use((err, _req, res, _next) => {
   console.error("Error:", err);
   res.status(err.status || 500).json({
@@ -59,19 +73,18 @@ app.use((err, _req, res, _next) => {
   });
 });
 
+// 404 fallback
 app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// Start server
+// Server start
 const PORT = process.env.PORT || 4000;
 
 async function start() {
   try {
-    // Kết nối database
     await connectDatabase();
 
-    // Khởi động server
     app.listen(PORT, () => {
       const serverUrl = `http://localhost:${PORT}`;
       const docsUrl = `${serverUrl}/api/docs`;
@@ -80,6 +93,9 @@ async function start() {
       console.log(`✅ Server đang chạy tại: ${serverUrl}`);
       console.log(`📚 API Documentation: ${docsUrl}`);
       console.log("🚀 ========================================\n");
+
+      // Khởi động cron jobs
+      startCronJobs();
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);

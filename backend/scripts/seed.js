@@ -36,63 +36,33 @@ async function seed() {
         await RequestModel.deleteMany({});
         await ReportModel.deleteMany({});
         await LogModel.deleteMany({});
+
+        // Xóa collection UserShift nếu tồn tại
+        try {
+            const db = mongoose.connection.db;
+            const collections = await db.listCollections().toArray();
+            const userShiftCollection = collections.find(col => col.name.toLowerCase() === 'usershifts' || col.name.toLowerCase() === 'usershift');
+            if (userShiftCollection) {
+                await db.collection(userShiftCollection.name).drop();
+                console.log('✅ Deleted UserShift collection');
+            }
+        } catch (error) {
+            // Collection không tồn tại, bỏ qua
+            console.log('ℹ️  UserShift collection not found, skipping...');
+        }
+
         console.log('✅ Old data cleared\n');
 
         // ========== 1. TẠO SHIFTS (Ca làm việc) ==========
         console.log('📅 Creating shifts...');
         const shifts = await ShiftModel.insertMany([
             {
-                name: 'Ca sáng',
+                name: 'Full time',
                 startTime: '08:00',
                 endTime: '17:00',
                 breakDuration: 60,
                 isFlexible: false,
-                description: 'Ca làm việc buổi sáng từ 8h-17h',
-                isActive: true,
-            },
-            {
-                name: 'Ca chiều',
-                startTime: '13:00',
-                endTime: '22:00',
-                breakDuration: 60,
-                isFlexible: false,
-                description: 'Ca làm việc buổi chiều từ 13h-22h',
-                isActive: true,
-            },
-            {
-                name: 'Ca đêm',
-                startTime: '22:00',
-                endTime: '06:00',
-                breakDuration: 30,
-                isFlexible: false,
-                description: 'Ca làm việc đêm từ 22h-6h sáng hôm sau',
-                isActive: true,
-            },
-            {
-                name: 'Ca linh hoạt',
-                startTime: '09:00',
-                endTime: '18:00',
-                breakDuration: 60,
-                isFlexible: true,
-                description: 'Ca làm việc linh hoạt, nhân viên tự chọn giờ',
-                isActive: true,
-            },
-            {
-                name: 'Ca part-time sáng',
-                startTime: '08:00',
-                endTime: '12:00',
-                breakDuration: 0,
-                isFlexible: false,
-                description: 'Ca làm việc bán thời gian buổi sáng',
-                isActive: true,
-            },
-            {
-                name: 'Ca part-time chiều',
-                startTime: '13:00',
-                endTime: '17:00',
-                breakDuration: 0,
-                isFlexible: false,
-                description: 'Ca làm việc bán thời gian buổi chiều',
+                description: 'Ca làm việc cả ngày từ 8h-17h',
                 isActive: true,
             },
         ]);
@@ -316,7 +286,7 @@ async function seed() {
         ]);
         console.log(`✅ Created ${departments.length} departments\n`);
 
-        // ========== 3. TẠO USERS (Người dùng) - 30 users ==========
+        // ========== 3. TẠO USERS (Người dùng) - 150 users ==========
         console.log('👥 Creating users...');
         const hashedPassword = await hashPassword('password123');
 
@@ -375,15 +345,48 @@ async function seed() {
             isActive: true,
         });
 
-        // Tạo 27 employees
-        for (let i = 1; i <= 27; i++) {
-            const firstName = firstNames[randomInt(0, firstNames.length - 1)];
-            const lastName = lastNames[randomInt(0, lastNames.length - 1)];
-            const middleName = middleNames[randomInt(0, middleNames.length - 1)];
-            const name = `${firstName} ${middleName} ${lastName} ${i}`;
+        // Tạo 146 employees (tổng 150 users: 4 admins/managers + 146 employees)
+        // Map để track số lần xuất hiện của mỗi lastName (để thêm số thứ tự nếu trùng)
+        const lastNameCountMap = new Map();
+        // Set để track các tên đầy đủ đã tạo (để hạn chế trùng tên)
+        const usedFullNames = new Set();
+
+        for (let i = 1; i <= 146; i++) {
+            let firstName, middleName, lastName, name;
+            let attempts = 0;
+            const maxAttempts = 50; // Giới hạn số lần thử để tránh vòng lặp vô hạn
+
+            // Tạo tên mới cho đến khi không trùng hoặc đạt max attempts
+            do {
+                firstName = firstNames[randomInt(0, firstNames.length - 1)];
+                middleName = middleNames[randomInt(0, middleNames.length - 1)];
+                lastName = lastNames[randomInt(0, lastNames.length - 1)];
+
+                // Kiểm tra xem lastName này đã xuất hiện chưa
+                let finalLastName = lastName;
+                if (lastNameCountMap.has(lastName)) {
+                    // Nếu lastName trùng, tăng số đếm và thêm số thứ tự vào sau lastName
+                    const count = lastNameCountMap.get(lastName) + 1;
+                    lastNameCountMap.set(lastName, count);
+                    finalLastName = `${lastName} ${count}`;
+                } else {
+                    // Nếu không trùng, đánh dấu là đã xuất hiện lần đầu
+                    lastNameCountMap.set(lastName, 0);
+                }
+
+                // Tên đầy đủ: firstName + middleName + lastName (có thể có số thứ tự)
+                name = `${firstName} ${middleName} ${finalLastName}`;
+                attempts++;
+            } while (usedFullNames.has(name) && attempts < maxAttempts);
+
+            // Đánh dấu tên này đã được sử dụng
+            usedFullNames.add(name);
+
             const selectedDepartment = departments[randomInt(0, departments.length - 1)];
             const selectedBranch = branches[randomInt(0, branches.length - 1)]._id;
-            const phone = `090${String(1000000 + i).slice(1)}`;
+            // Phone number format: 090xxxxxxx (7 số cuối)
+            const phoneNumber = String(1000000 + i - 1).slice(-7);
+            const phone = `090${phoneNumber}`;
 
             users.push({
                 email: `employee${i}@smartattendance.com`,

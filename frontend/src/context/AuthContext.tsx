@@ -25,12 +25,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     const bootstrap = async () => {
+      // If no token, immediately set user to null without loading state
+      if (!token) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      // Only show loading when we actually need to fetch user data
+      setLoading(true)
       try {
-        if (token) {
-          const me = await getMe()
-          setUser(me)
-        }
+        const me = await getMe()
+        setUser(me)
       } catch (e) {
+        // Token invalid or expired - clear auth state
         localStorage.removeItem('sa_token')
         setToken('')
         setUser(null)
@@ -39,8 +47,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     }
     bootstrap()
-    
-  }, [])
+  }, [token]) // Re-run when token changes
 
   useEffect(() => {
     if (token) localStorage.setItem('sa_token', token)
@@ -57,6 +64,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem('sa_token')
     setToken('')
     setUser(null)
+    setLoading(false) // Ensure loading is false immediately on logout
   }
 
   const value = useMemo(() => ({ token, user, loading, login, logout, setUser, setToken }), [token, user, loading])
