@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import api from "../../../services/api";
 import type { AxiosError } from "axios";
 
-// Helper: Convert base64 to Blob
 const dataURLtoBlob = (dataURL: string): Blob => {
   const arr = dataURL.split(',');
   const mimeMatch = arr[0].match(/:(.*?);/);
@@ -47,8 +46,8 @@ interface LocationData {
   latitude: number;
   longitude: number;
   accuracy: number;
-  distance?: number; // Khoảng cách đến văn phòng gần nhất (mét)
-  nearestOffice?: string; // Tên văn phòng gần nhất
+  distance?: number; 
+  nearestOffice?: string; 
 }
 
 interface Office {
@@ -71,7 +70,7 @@ interface CheckInResponse {
     workHours?: string;
     location?: string;
     validationMethod?: string;
-    distance?: string; // Format: "123m"
+    distance?: string; 
   };
 }
 
@@ -87,7 +86,6 @@ interface CheckInError {
 }
 
 const ScanPage: React.FC = () => {
-  // Gom state liên quan
   const [state, setState] = useState<State>({
     isCameraReady: false,
     isProcessing: false,
@@ -114,8 +112,8 @@ const ScanPage: React.FC = () => {
 
   // Hàm tính khoảng cách giữa 2 tọa độ (Haversine formula)
   const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const toRad = (value: number) => (value * Math.PI) / 180;
-    const R = 6371e3; // Bán kính Trái Đất (mét)
+const toRad = (value: number) => (value * Math.PI) / 180;
+    const R = 6371e3; 
     
     const φ1 = toRad(lat1);
     const φ2 = toRad(lat2);
@@ -125,7 +123,7 @@ const ScanPage: React.FC = () => {
     const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     
-    return R * c; // Khoảng cách (mét)
+    return R * c; 
   }, []);
 
   // Tìm văn phòng gần nhất
@@ -166,7 +164,6 @@ const ScanPage: React.FC = () => {
         accuracy: position.coords.accuracy,
       };
 
-      // Tính khoảng cách đến văn phòng gần nhất
       const nearest = findNearestOffice(location.latitude, location.longitude);
       if (nearest) {
         location.distance = nearest.distance;
@@ -202,7 +199,7 @@ const ScanPage: React.FC = () => {
         setPermissions(prev => ({ ...prev, camera: true }));
       }
     } catch (error) {
-      console.error("Error accessing camera:", error);
+console.error("Error accessing camera:", error);
       toast.error("Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.");
       setPermissions(prev => ({ ...prev, camera: false }));
     }
@@ -247,6 +244,8 @@ const ScanPage: React.FC = () => {
     canvas.height = height;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
+    ctx.translate(width, 0);
+    ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, width, height);
 
     return canvas.toDataURL("image/jpeg", 0.6);
@@ -269,7 +268,6 @@ const ScanPage: React.FC = () => {
       formData.append('longitude', locationData.longitude.toString());
       formData.append('accuracy', locationData.accuracy.toString());
 
-      // Convert base64 to Blob
       const blob = dataURLtoBlob(photoData);
       formData.append('photo', blob, `checkin-${Date.now()}.jpg`);
 
@@ -292,8 +290,7 @@ const ScanPage: React.FC = () => {
           const distanceValue = parseInt(response.data.data.distance);
           setLocationData(prev => prev ? { ...prev, distance: distanceValue } : null);
         }
-        
-        toast.success("Check-in thành công!");
+toast.success("Check-in thành công!");
 
         setTimeout(() => {
           setState(prev => ({ ...prev, checkInStatus: null }));
@@ -304,7 +301,6 @@ const ScanPage: React.FC = () => {
       const err = error as AxiosError<CheckInError>;
       const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi chấm công";
 
-      // Check error code thay vì regex
       if (err.response?.data?.code === 'ALREADY_CHECKED_IN') {
         toast.info(errorMessage);
         setState(prev => ({ ...prev, checkInStatus: "already", hasCheckedIn: true }));
@@ -366,7 +362,7 @@ const ScanPage: React.FC = () => {
         toast.info(errorMessage);
         setState(prev => ({ ...prev, checkOutStatus: "success", hasCheckedOut: true }));
       } else if (err.response?.data?.code === 'INSUFFICIENT_WORK_HOURS') {
-        toast.warning(errorMessage);
+toast.warning(errorMessage);
         setState(prev => ({ ...prev, checkOutStatus: "insufficient_hours" }));
       } else {
         toast.error(errorMessage);
@@ -396,11 +392,9 @@ const ScanPage: React.FC = () => {
         if (response.data && response.data.length > 0) {
           const latestAttendance = response.data[0];
           
-          // Lấy ngày hôm nay (chỉ ngày, không có giờ)
           const today = new Date();
           const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
           
-          // Parse ngày từ response (format: "Thứ Hai, 25 tháng 11, 2025" hoặc "25/11/2025")
           const dateMatch = latestAttendance.date.match(/(\d{1,2})\s*(?:tháng\s*)?(\d{1,2})(?:,\s*|\s+)(\d{4})/);
           
           if (dateMatch) {
@@ -409,7 +403,6 @@ const ScanPage: React.FC = () => {
             
             // So sánh ngày
             if (attendanceStr === todayStr) {
-              // Parse thời gian check-in từ response (format: "08:30")
               let checkInTime = null;
               if (latestAttendance.checkIn) {
                 const [hours, minutes] = latestAttendance.checkIn.split(':').map(Number);
@@ -422,7 +415,7 @@ const ScanPage: React.FC = () => {
                 hasCheckedIn: !!latestAttendance.checkIn,
                 hasCheckedOut: !!latestAttendance.checkOut,
                 checkInTime: checkInTime,
-                canCheckOut: false // Sẽ được tính lại bởi useEffect
+                canCheckOut: false 
               }));
             }
           }
@@ -441,16 +434,15 @@ const ScanPage: React.FC = () => {
     if (offices.length > 0) {
       getLocation();
     }
-  }, [offices.length]); // Chỉ chạy khi offices được load lần đầu
+  }, [offices.length]); 
 
   // Reset state khi sang ngày mới (kiểm tra mỗi phút)
   useEffect(() => {
-    let lastCheckDate = new Date().toDateString();
+let lastCheckDate = new Date().toDateString();
 
     const checkNewDay = setInterval(() => {
       const currentDate = new Date().toDateString();
       if (currentDate !== lastCheckDate) {
-        // Sang ngày mới - reset state
         setState(prev => ({
           ...prev,
           hasCheckedIn: false,
@@ -462,7 +454,7 @@ const ScanPage: React.FC = () => {
         }));
         lastCheckDate = currentDate;
       }
-    }, 60000); // Kiểm tra mỗi phút
+    }, 60000); 
 
     return () => clearInterval(checkNewDay);
   }, []);
@@ -471,7 +463,7 @@ const ScanPage: React.FC = () => {
   useEffect(() => {
     if (!state.checkInTime || state.hasCheckedOut) return;
 
-    const MIN_WORK_HOURS = 8; // Ca Full time: 8 giờ làm việc
+    const MIN_WORK_HOURS = 8; 
     const checkInterval = setInterval(() => {
       const now = new Date();
       const hoursWorked = (now.getTime() - state.checkInTime!.getTime()) / (1000 * 60 * 60);
@@ -480,19 +472,17 @@ const ScanPage: React.FC = () => {
         setState(prev => ({ ...prev, canCheckOut: true }));
         clearInterval(checkInterval);
       }
-    }, 60000); // Kiểm tra mỗi phút
+    }, 60000); 
 
-    // Kiểm tra ngay lập tức
     const now = new Date();
     const hoursWorked = (now.getTime() - state.checkInTime.getTime()) / (1000 * 60 * 60);
-    if (hoursWorked >= 8) { // 8 giờ làm việc
+    if (hoursWorked >= 8) { 
       setState(prev => ({ ...prev, canCheckOut: true }));
     }
 
     return () => clearInterval(checkInterval);
   }, [state.checkInTime, state.hasCheckedOut]);
 
-  // Init camera khi mount
   useEffect(() => {
     startCamera();
     return () => {
@@ -526,7 +516,7 @@ const ScanPage: React.FC = () => {
                   className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
                     granted
                       ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                   }`}
                 >
                   {granted ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
@@ -554,6 +544,7 @@ const ScanPage: React.FC = () => {
                 playsInline
                 muted
                 className={`h-full w-full object-cover ${isCameraReady ? "block" : "hidden"}`}
+                style={{ transform: 'scaleX(-1)' }}
               />
 
               {!isCameraReady && (
@@ -585,7 +576,7 @@ const ScanPage: React.FC = () => {
                 <div className="space-y-2 text-sm">
                   {locationData.nearestOffice && (
                     <div className="flex justify-between items-start">
-                      <span className="text-[var(--text-sub)]">Văn phòng gần nhất:</span>
+<span className="text-[var(--text-sub)]">Văn phòng gần nhất:</span>
                       <span className="font-medium text-[var(--text-main)] text-right">
                         {locationData.nearestOffice}
                       </span>
@@ -646,7 +637,7 @@ const ScanPage: React.FC = () => {
                 </>
               ) : hasCheckedIn ? (
                 <>
-                  <CheckCircle2 className="h-4 w-4" />
+<CheckCircle2 className="h-4 w-4" />
                   Đã check-in
                 </>
               ) : (
@@ -657,7 +648,6 @@ const ScanPage: React.FC = () => {
               )}
             </button>
 
-            {/* Nút Check-out */}
             <button
               onClick={handleCheckOut}
               disabled={isProcessing || !permissions.camera || !permissions.location || !locationData || !hasCheckedIn || hasCheckedOut || !canCheckOut}
@@ -689,7 +679,3 @@ const ScanPage: React.FC = () => {
 };
 
 export default ScanPage;
-
-
-
-

@@ -14,14 +14,13 @@ const attendanceSchema = new mongoose.Schema(
     date: {
       type: Date,
       required: true,
-      // Chỉ lưu ngày (không giờ phút giây)
       set: (v) => {
         const d = new Date(v);
         return new Date(d.getFullYear(), d.getMonth(), d.getDate());
       },
     },
-    checkIn: { type: Date }, // Giờ vào
-    checkOut: { type: Date }, // Giờ ra
+    checkIn: { type: Date }, 
+    checkOut: { type: Date }, 
     status: {
       type: String,
       enum: ["present", "absent", "late"],
@@ -46,8 +45,8 @@ attendanceSchema.index({ userId: 1, date: 1 }, { unique: true });
 // === Tính giờ làm việc tự động ===
 attendanceSchema.methods.calculateWorkHours = function () {
   if (this.checkIn && this.checkOut) {
-    const diff = (this.checkOut - this.checkIn) / (1000 * 60 * 60); // giờ
-    this.workHours = Math.round(diff * 100) / 100; // làm tròn 2 chữ số
+    const diff = (this.checkOut - this.checkIn) / (1000 * 60 * 60);
+    this.workHours = Math.round(diff * 100) / 100; 
   } else {
     this.workHours = 0;
   }
@@ -66,10 +65,9 @@ attendanceSchema.pre("save", function (next) {
   // Cập nhật trạng thái
   if (this.checkIn) {
     // Kiểm tra đi muộn
-    // Giờ bắt đầu ca: 08:00, cho phép muộn 30 phút → 08:30
     const SHIFT_START_HOUR = 8;
     const SHIFT_START_MINUTE = 0;
-    const LATE_TOLERANCE_MINUTES = 30; // Cho phép muộn 30 phút
+    const LATE_TOLERANCE_MINUTES = 30; 
     
     const lateTime = new Date(this.date);
     lateTime.setHours(SHIFT_START_HOUR, SHIFT_START_MINUTE + LATE_TOLERANCE_MINUTES, 0, 0);

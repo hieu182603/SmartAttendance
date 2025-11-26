@@ -280,7 +280,6 @@ export const checkIn = async (req, res) => {
       attendance.locationId = validLocation._id;
       if (photoFile) {
         try {
-          // Upload lên Cloudinary
           const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkins');
           attendance.notes = attendance.notes
             ? `${attendance.notes}\n[Ảnh: ${result.url}]`
@@ -328,7 +327,7 @@ export const checkIn = async (req, res) => {
         checkInTime,
         checkInDate,
         location: validLocation.name,
-        validationMethod: validationResult.method, // 'bssid', 'ssid', hoặc 'gps'
+        validationMethod: validationResult.method, 
         distance: validationResult.distance
           ? `${validationResult.distance}m`
           : null,
@@ -337,7 +336,7 @@ export const checkIn = async (req, res) => {
   } catch (error) {
     console.error("[attendance] check-in error", error);
 
-    // Xử lý lỗi duplicate (nếu có)
+
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -448,12 +447,11 @@ export const checkOut = async (req, res) => {
     }
 
     // Kiểm tra thời gian làm việc tối thiểu
-    // Ca Full time: 08:00-17:00 = 9 giờ (trừ 1 giờ nghỉ trưa = 8 giờ làm việc)
     const now = new Date();
     const checkInTime = new Date(attendance.checkIn);
-    const hoursWorked = (now - checkInTime) / (1000 * 60 * 60); // Chuyển sang giờ
+    const hoursWorked = (now - checkInTime) / (1000 * 60 * 60); 
     
-    const MIN_WORK_HOURS = 8; // Tối thiểu 8 giờ (theo ca Full time)
+    const MIN_WORK_HOURS = 8; 
     if (hoursWorked < MIN_WORK_HOURS) {
       const remainingMinutes = Math.ceil((MIN_WORK_HOURS - hoursWorked) * 60);
       const hours = Math.floor(remainingMinutes / 60);
@@ -1059,7 +1057,7 @@ export const getDepartmentAttendance = async (req, res) => {
       .select('status checkIn checkOut');
 
     const summary = {
-      total: users.length, // Tổng số nhân viên trong phòng ban
+      total: users.length, 
       present: allDocs.filter(d => {
         const s = deriveStatus(d);
         return s === 'ontime';
@@ -1068,7 +1066,7 @@ export const getDepartmentAttendance = async (req, res) => {
         const s = deriveStatus(d);
         return s === 'late';
       }).length,
-      absent: users.length - allDocs.length // Số người chưa chấm công
+      absent: users.length - allDocs.length 
     };
 
     res.json({
