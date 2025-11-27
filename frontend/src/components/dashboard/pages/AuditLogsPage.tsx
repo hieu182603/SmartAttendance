@@ -655,68 +655,94 @@ export default function AuditLogsPage() {
 
             {/* Log Details Dialog */}
             <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-                <DialogContent className="max-w-2xl bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <DialogContent className="max-w-3xl bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                     <DialogHeader>
-                        <DialogTitle className="text-gray-900 dark:text-gray-100">Chi tiết nhật ký</DialogTitle>
+                        <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chi tiết nhật ký hệ thống</DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">
                             Thông tin chi tiết về hoạt động này
                         </DialogDescription>
                     </DialogHeader>
 
                     {selectedLog && (
-                        <div className="space-y-4 py-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Thời gian</Label>
-                                    <p className="text-sm text-gray-900 dark:text-gray-100">{selectedLog.timestamp}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Trạng thái</Label>
-                                    <div>
-                                        <Badge className={getStatusColor(selectedLog.status)}>
-                                            {selectedLog.status}
-                                        </Badge>
+                        <div className="space-y-5 py-2">
+                            {/* Status Banner */}
+                            <div className={`p-4 rounded-xl border-2 ${selectedLog.status === 'success' ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900' :
+                                    selectedLog.status === 'failed' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' :
+                                        'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900'
+                                }`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <Badge className={getActionColor(selectedLog.action)}>
+                                                <span className="mr-1">{getActionIcon(selectedLog.action)}</span>
+                                                {selectedLog.action}
+                                            </Badge>
+                                            <Badge className={getStatusColor(selectedLog.status)}>
+                                                {selectedLog.status}
+                                            </Badge>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Người dùng</Label>
-                                    <p className="text-sm text-gray-900 dark:text-gray-100">{selectedLog.userName}</p>
-                                    <p className="text-xs text-gray-600 dark:text-gray-400">{selectedLog.userRole}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Hành động</Label>
-                                    <div>
-                                        <Badge className={getActionColor(selectedLog.action)}>
-                                            <span className="mr-1">{getActionIcon(selectedLog.action)}</span>
-                                            {selectedLog.action}
-                                        </Badge>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                        <Clock className="h-4 w-4" />
+                                        {selectedLog.timestamp}
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Danh mục</Label>
-                                    <p className="text-sm text-gray-900 dark:text-gray-100">{selectedLog.category}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">IP Address</Label>
-                                    <p className="text-sm text-gray-900 dark:text-gray-100">{selectedLog.ipAddress || 'N/A'}</p>
                                 </div>
                             </div>
 
                             <Separator />
 
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Mô tả</Label>
-                                <p className="text-sm text-gray-900 dark:text-gray-100">{selectedLog.description}</p>
+                            {/* User Information */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">
+                                    Thông tin người dùng
+                                </h4>
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Tên người dùng</Label>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedLog.userName}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Vai trò</Label>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedLog.userRole}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Địa chỉ IP</Label>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">{selectedLog.ipAddress || 'N/A'}</p>
+                                    </div>
+                                </div>
                             </div>
 
+                            <Separator />
+
+                            {/* Action Details */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">
+                                    Chi tiết hoạt động
+                                </h4>
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Mô tả</Label>
+                                        <p className="text-sm text-gray-900 dark:text-gray-100 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                                            {selectedLog.description}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Metadata Section - Only show if exists */}
                             {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
                                 <>
                                     <Separator />
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Chi tiết bổ sung</Label>
-                                        <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded-lg overflow-auto text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700">
-                                            {JSON.stringify(selectedLog.metadata, null, 2)}
-                                        </pre>
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                            <Info className="h-4 w-4" />
+                                            Dữ liệu bổ sung
+                                        </h4>
+                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 overflow-auto max-h-64">
+                                            <pre className="text-xs text-gray-900 dark:text-gray-100 font-mono">
+                                                {JSON.stringify(selectedLog.metadata, null, 2)}
+                                            </pre>
+                                        </div>
                                     </div>
                                 </>
                             )}
@@ -727,7 +753,7 @@ export default function AuditLogsPage() {
                         <Button
                             variant="outline"
                             onClick={() => setIsDetailsOpen(false)}
-                            className="border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                            className="border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                             Đóng
                         </Button>
