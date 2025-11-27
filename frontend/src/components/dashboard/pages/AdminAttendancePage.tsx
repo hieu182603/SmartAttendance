@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Download,
@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
@@ -52,6 +53,7 @@ interface AttendanceRecordItem {
   id: string;
   userId: string | number;
   name: string;
+  role: string;
   avatar: string;
   date: string;
   checkIn: string;
@@ -220,6 +222,8 @@ export default function AdminAttendancePage() {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const checkInInputRef = useRef<HTMLInputElement>(null);
+  const checkOutInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -324,6 +328,7 @@ export default function AdminAttendancePage() {
               pickString(item.employeeCode) ??
               "N/A",
             name: safeName,
+            role: pickString(item.role) ?? pickString(item.userRole) ?? "N/A",
             avatar: buildAvatar(safeName),
             date: pickString(item.date) ?? "-",
             checkIn: checkInValue,
@@ -460,6 +465,24 @@ export default function AdminAttendancePage() {
     setPage(1);
   };
 
+  const openCheckInPicker = () => {
+    if (!checkInInputRef.current) return;
+    if (checkInInputRef.current.showPicker) {
+      checkInInputRef.current.showPicker();
+    } else {
+      checkInInputRef.current.focus();
+    }
+  };
+
+  const openCheckOutPicker = () => {
+    if (!checkOutInputRef.current) return;
+    if (checkOutInputRef.current.showPicker) {
+      checkOutInputRef.current.showPicker();
+    } else {
+      checkOutInputRef.current.focus();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -506,171 +529,173 @@ export default function AdminAttendancePage() {
         </CardContent>
       </Card>
 
-        {/* Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-4 text-center mt-4">
-              <p className="text-sm text-[var(--text-sub)]">Tổng NV</p>
-              <p className="text-2xl text-[var(--text-main)] mt-1">
-                {summaryCounts.total}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-4 text-center mt-4">
-              <p className="text-sm text-[var(--text-sub)]">Có mặt</p>
-              <p className="text-2xl text-[var(--success)] mt-1">
-                {summaryCounts.present}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-4 text-center mt-4">
-              <p className="text-sm text-[var(--text-sub)]">Đi muộn</p>
-              <p className="text-2xl text-[var(--warning)] mt-1">
-                {summaryCounts.late}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-4 text-center mt-4">
-              <p className="text-sm text-[var(--text-sub)]">Vắng</p>
-              <p className="text-2xl text-[var(--error)] mt-1">
-                {summaryCounts.absent}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Table */}
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-[var(--surface)] border-[var(--border)]">
-          <CardHeader>
-            <CardTitle className="text-[var(--text-main)]">
-              Danh sách chấm công hôm nay
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-[var(--shell)]">
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Nhân viên
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Ngày
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Giờ vào
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Giờ ra
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Tổng giờ
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Địa điểm
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Trạng thái
-                    </th>
-                    <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Thao tác
-                    </th>
+          <CardContent className="p-4 text-center mt-4">
+            <p className="text-sm text-[var(--text-sub)]">Tổng NV</p>
+            <p className="text-2xl text-[var(--text-main)] mt-1">
+              {summaryCounts.total}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardContent className="p-4 text-center mt-4">
+            <p className="text-sm text-[var(--text-sub)]">Có mặt</p>
+            <p className="text-2xl text-[var(--success)] mt-1">
+              {summaryCounts.present}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardContent className="p-4 text-center mt-4">
+            <p className="text-sm text-[var(--text-sub)]">Đi muộn</p>
+            <p className="text-2xl text-[var(--warning)] mt-1">
+              {summaryCounts.late}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardContent className="p-4 text-center mt-4">
+            <p className="text-sm text-[var(--text-sub)]">Vắng</p>
+            <p className="text-2xl text-[var(--error)] mt-1">
+              {summaryCounts.absent}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Table */}
+      <Card className="bg-[var(--surface)] border-[var(--border)]">
+        <CardHeader>
+          <CardTitle className="text-[var(--text-main)]">
+            Danh sách chấm công hôm nay
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto rounded-lg">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-[var(--shell)]">
+                  <th className="text-left py-4 px-6 text-sm font-semibold text-[var(--text-main)] first:rounded-tl-lg">
+                    Nhânviên
+                  </th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
+                    Ngày
+                  </th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
+                    Giờ vào
+                  </th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
+                    Giờ ra
+                  </th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
+                    Tổng giờ
+                  </th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)]">
+                    Địa điểm
+                  </th>
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)]">
+                    Trạng thái
+                  </th>
+                  <th className="text-center py-4 px-6 text-sm font-semibold text-[var(--text-main)] last:rounded-tr-lg whitespace-nowrap">
+                    Thao tác
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-[var(--text-sub)]">
+                      Đang tải dữ liệu...
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-[var(--text-sub)]">
-                        Đang tải dữ liệu...
-                      </td>
-                    </tr>
-                  ) : fetchError ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-[var(--error)]">
-                        {fetchError}
-                      </td>
-                    </tr>
-                  ) : records.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-[var(--text-sub)]">
-                        Không có bản ghi nào phù hợp với bộ lọc hiện tại.
-                      </td>
-                    </tr>
-                  ) : (
-                    records.map((record, index) => (
-                      <tr
-                        key={record.id}
-                        className={`border-b border-[var(--border)] hover:bg-[var(--shell)] transition-colors ${index % 2 === 0 ? "bg-[var(--shell)]/50" : ""
-                          }`}
-                      >
-                        <td className="py-3 px-4">
-                          <div className="flex items-center space-x-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="bg-[var(--primary)] text-white text-xs">
-                                {record.avatar}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="text-[var(--text-main)]">
-                                {record.name}
-                              </p>
-                              <p className="text-xs text-[var(--text-sub)]">
-                                ID: {record.userId}
-                              </p>
-                            </div>
+                ) : fetchError ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-[var(--error)]">
+                      {fetchError}
+                    </td>
+                  </tr>
+                ) : records.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-[var(--text-sub)]">
+                      Không có bản ghi nào phù hợp với bộ lọc hiện tại.
+                    </td>
+                  </tr>
+                ) : (
+                  records.map((record) => (
+                    <tr
+                      key={record.id}
+                      className="border-b border-[var(--border)] hover:bg-[var(--shell)]/70 transition-all duration-150"
+                    >
+                      <td className="py-4 px-6">
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] text-white text-xs font-semibold">
+                              {record.avatar}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium text-[var(--text-main)]">
+                              {record.name}
+                            </p>
+                            <p className="text-xs text-[var(--text-sub)]">
+                              Role: {record.role}
+                            </p>
                           </div>
-                        </td>
-                        <td className="py-3 px-4 text-[var(--text-main)]">
-                          {record.date}
-                        </td>
-                        <td className="py-3 px-4 text-[var(--text-main)]">
-                          {record.checkIn}
-                        </td>
-                        <td className="py-3 px-4 text-[var(--text-main)]">
-                          {record.checkOut}
-                        </td>
-                        <td className="py-3 px-4 text-[var(--text-main)]">
-                          {record.hours}
-                        </td>
-                        <td className="py-3 px-4 text-[var(--text-sub)]">
-                          {record.location}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getStatusBadge(record.status)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-center space-x-2">
-                            <button
-                              onClick={() => handleViewRecord(record)}
-                              className="rounded p-1 text-[var(--accent-cyan)] hover:bg-[var(--shell)]"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleEditRecord(record)}
-                              disabled={!roleConfig.canEdit}
-                              className="rounded p-1 text-[var(--primary)] hover:bg-[var(--shell)] disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteRecord(record)}
-                              disabled={!roleConfig.canDelete}
-                              className="rounded p-1 text-[var(--error)] hover:bg-[var(--shell)] disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-sm text-[var(--text-main)] whitespace-nowrap">
+                        {record.date}
+                      </td>
+                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                        {record.checkIn}
+                      </td>
+                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                        {record.checkOut}
+                      </td>
+                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                        {record.hours}
+                      </td>
+                      <td className="py-4 px-4 text-sm text-[var(--text-sub)]">
+                        {record.location}
+                      </td>
+                      <td className="py-4 px-4">
+                        {getStatusBadge(record.status)}
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            onClick={() => handleViewRecord(record)}
+                            className="rounded-md p-2 text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-colors"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEditRecord(record)}
+                            disabled={!roleConfig.canEdit}
+                            className="rounded-md p-2 text-[var(--primary)] hover:bg-[var(--primary)]/10 disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40 transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRecord(record)}
+                            disabled={!roleConfig.canDelete}
+                            className="rounded-md p-2 text-[var(--error)] hover:bg-[var(--error)]/10 disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40 transition-colors"
+                            title="Xóa"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4 text-[var(--text-sub)]">
             <div className="flex items-center gap-2 text-sm">
               <span>
@@ -745,217 +770,239 @@ export default function AdminAttendancePage() {
               </Button>
             </div>
           </div>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
-        {/* View Dialog */}
-        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-3xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold">Chi tiết chấm công</DialogTitle>
-              <DialogDescription className="text-[var(--text-sub)]">
-                Thông tin chi tiết về bản ghi chấm công
-              </DialogDescription>
-            </DialogHeader>
-            {selectedRecord && (
-              <div className="space-y-5 py-2">
-                {/* Employee Info Section */}
-                <div className="flex items-center space-x-4 p-4 bg-[var(--shell)] rounded-xl">
-                  <Avatar className="h-16 w-16">
-                    <AvatarFallback className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white text-lg font-semibold">
-                      {selectedRecord.avatar}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-[var(--text-main)]">
-                      {selectedRecord.name}
-                    </h3>
-                    <p className="text-sm text-[var(--text-sub)]">
-                      Mã nhân viên: {selectedRecord.userId}
+      {/* View Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Chi tiết chấm công</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Thông tin chi tiết về bản ghi chấm công
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="space-y-5 py-2">
+              {/* Employee Info Section */}
+              <div className="flex items-center space-x-4 p-4 bg-[var(--shell)] rounded-xl">
+                <Avatar className="h-16 w-16">
+                  <AvatarFallback className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white text-lg font-semibold">
+                    {selectedRecord.avatar}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-[var(--text-main)]">
+                    {selectedRecord.name}
+                  </h3>
+                  <p className="text-sm text-[var(--text-sub)]">
+                    Mã nhân viên: {selectedRecord.userId}
+                  </p>
+                </div>
+                <div>
+                  {getStatusBadge(selectedRecord.status)}
+                </div>
+              </div>
+
+              <Separator className="bg-[var(--border)]" />
+
+              {/* Attendance Details */}
+              <div>
+                <h4 className="text-sm font-semibold text-[var(--text-sub)] uppercase tracking-wide mb-3">
+                  Thông tin chấm công
+                </h4>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)]">Ngày làm việc</Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.date}
                     </p>
                   </div>
-                  <div>
-                    {getStatusBadge(selectedRecord.status)}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)]">Tổng giờ làm</Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.hours}
+                    </p>
                   </div>
-                </div>
-
-                <Separator className="bg-[var(--border)]" />
-
-                {/* Attendance Details */}
-                <div>
-                  <h4 className="text-sm font-semibold text-[var(--text-sub)] uppercase tracking-wide mb-3">
-                    Thông tin chấm công
-                  </h4>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-[var(--text-sub)]">Ngày làm việc</Label>
-                      <p className="text-[var(--text-main)] font-medium">
-                        {selectedRecord.date}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-[var(--text-sub)]">Tổng giờ làm</Label>
-                      <p className="text-[var(--text-main)] font-medium">
-                        {selectedRecord.hours}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-[var(--text-sub)]">Giờ vào</Label>
-                      <p className="text-[var(--text-main)] font-medium">
-                        {selectedRecord.checkIn}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-[var(--text-sub)]">Giờ ra</Label>
-                      <p className="text-[var(--text-main)] font-medium">
-                        {selectedRecord.checkOut}
-                      </p>
-                    </div>
-                    <div className="col-span-2 space-y-1">
-                      <Label className="text-xs text-[var(--text-sub)] flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5" />
-                        Địa điểm làm việc
-                      </Label>
-                      <p className="text-[var(--text-main)] font-medium">
-                        {selectedRecord.location}
-                      </p>
-                    </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)]">Giờ vào</Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.checkIn}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)]">Giờ ra</Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.checkOut}
+                    </p>
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)] flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Địa điểm làm việc
+                    </Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.location}
+                    </p>
                   </div>
                 </div>
               </div>
-            )}
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsViewDialogOpen(false)}
-                className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
-              >
-                Đóng
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsViewDialogOpen(false)}
+              className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
+            >
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Edit Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
-            <DialogHeader>
-              <DialogTitle>Chỉnh sửa bản ghi chấm công</DialogTitle>
-              <DialogDescription className="text-[var(--text-sub)]">
-                Cập nhật thông tin chấm công cho {selectedRecord?.name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Giờ vào</Label>
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+          <DialogHeader>
+            <DialogTitle>Chỉnh sửa bản ghi chấm công</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Cập nhật thông tin chấm công cho {selectedRecord?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Giờ vào</Label>
+                <div className="relative">
                   <Input
+                    ref={checkInInputRef}
                     type="time"
-                    className="bg-[var(--input-bg)] border-[var(--border)]"
+                    className="time-input bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pl-4 pr-10"
                     value={formData.checkIn}
                     onChange={(e) =>
                       setFormData({ ...formData, checkIn: e.target.value })
                     }
                   />
+                  <button
+                    type="button"
+                    onClick={openCheckInPicker}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
+                    aria-label="Chọn giờ vào"
+                  >
+                    <Clock className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <Label>Giờ ra</Label>
+              </div>
+              <div className="space-y-2">
+                <Label>Giờ ra</Label>
+                <div className="relative">
                   <Input
+                    ref={checkOutInputRef}
                     type="time"
-                    className="bg-[var(--input-bg)] border-[var(--border)]"
+                    className="time-input bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pl-4 pr-10"
                     value={formData.checkOut}
                     onChange={(e) =>
                       setFormData({ ...formData, checkOut: e.target.value })
                     }
                   />
+                  <button
+                    type="button"
+                    onClick={openCheckOutPicker}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
+                    aria-label="Chọn giờ ra"
+                  >
+                    <Clock className="h-4 w-4" />
+                  </button>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Địa điểm</Label>
-                <Input
-                  placeholder="Văn phòng HN"
-                  className="bg-[var(--input-bg)] border-[var(--border)]"
-                  value={formData.location}
-                  onChange={(e) =>
-                    setFormData({ ...formData, location: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsEditDialogOpen(false)}
-                  className="border-[var(--border)] text-[var(--text-main)]"
-                >
-                  Hủy
-                </Button>
-                <Button
-                onClick={handleSubmitEdit}
-                disabled={isSaving}
-                className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] disabled:opacity-60"
-                >
-                {isSaving ? "Đang lưu..." : "Cập nhật"}
-                </Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
 
-        {/* Delete Dialog */}
-        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
-            <DialogHeader>
-              <DialogTitle>Xác nhận xóa bản ghi</DialogTitle>
-              <DialogDescription className="text-[var(--text-sub)]">
-                Bạn có chắc chắn muốn xóa bản ghi chấm công này?
-              </DialogDescription>
-            </DialogHeader>
-            {selectedRecord && (
-              <div className="py-4">
-                <div className="flex items-center space-x-3 p-4 bg-[var(--shell)] rounded-lg">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-[var(--error)] text-white">
-                      {selectedRecord.avatar}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-[var(--text-main)]">
-                      {selectedRecord.name}
-                    </p>
-                    <p className="text-sm text-[var(--text-sub)]">
-                      {selectedRecord.date}
-                    </p>
-                    <p className="text-xs text-[var(--text-sub)]">
-                      {selectedRecord.checkIn} - {selectedRecord.checkOut}
-                    </p>
-                  </div>
-                </div>
-                <p className="text-[var(--error)] text-sm mt-4">
-                  ⚠️ Hành động này không thể hoàn tác. Bản ghi chấm công sẽ bị xóa
-                  vĩnh viễn.
-                </p>
-              </div>
-            )}
-            <DialogFooter>
+            <div className="space-y-2">
+              <Label>Địa điểm</Label>
+              <Input
+                placeholder="Văn phòng HN"
+                className="bg-[var(--input-bg)] border-[var(--border)]"
+                value={formData.location}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
               <Button
                 variant="outline"
-                onClick={() => setIsDeleteDialogOpen(false)}
+                onClick={() => setIsEditDialogOpen(false)}
                 className="border-[var(--border)] text-[var(--text-main)]"
               >
                 Hủy
               </Button>
               <Button
+                onClick={handleSubmitEdit}
+                disabled={isSaving}
+                className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] disabled:opacity-60"
+              >
+                {isSaving ? "Đang lưu..." : "Cập nhật"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa bản ghi</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Bạn có chắc chắn muốn xóa bản ghi chấm công này?
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="py-4">
+              <div className="flex items-center space-x-3 p-4 bg-[var(--shell)] rounded-lg">
+                <Avatar className="h-12 w-12">
+                  <AvatarFallback className="bg-[var(--error)] text-white">
+                    {selectedRecord.avatar}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-[var(--text-main)]">
+                    {selectedRecord.name}
+                  </p>
+                  <p className="text-sm text-[var(--text-sub)]">
+                    {selectedRecord.date}
+                  </p>
+                  <p className="text-xs text-[var(--text-sub)]">
+                    {selectedRecord.checkIn} - {selectedRecord.checkOut}
+                  </p>
+                </div>
+              </div>
+              <p className="text-[var(--error)] text-sm mt-4">
+                ⚠️ Hành động này không thể hoàn tác. Bản ghi chấm công sẽ bị xóa
+                vĩnh viễn.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              className="border-[var(--border)] text-[var(--text-main)]"
+            >
+              Hủy
+            </Button>
+            <Button
               onClick={confirmDelete}
               disabled={isDeleting}
               className="bg-[var(--error)] hover:bg-[var(--error)]/90 text-white disabled:opacity-60"
-              >
+            >
               {isDeleting ? "Đang xóa..." : "Xóa bản ghi"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
