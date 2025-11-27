@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import {
@@ -19,106 +19,45 @@ import { Badge } from "../../ui/badge";
 import { Calendar } from "../../ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { toast } from "sonner";
+import eventService, { Event } from "../../../services/eventService";
 
 type EventType = "holiday" | "meeting" | "event" | "deadline" | "training";
 
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  type: EventType;
-  location?: string;
-  attendees?: number;
-  color: string;
-  isAllDay?: boolean;
-}
+// Map backend color to Tailwind class
+const getColorClass = (color?: string): string => {
+  if (!color) return "bg-blue-500";
+  // If it's a hex color, convert to Tailwind class
+  const colorMap: Record<string, string> = {
+    "#3B82F6": "bg-blue-500",
+    "#EF4444": "bg-red-500",
+    "#F59E0B": "bg-orange-500",
+    "#10B981": "bg-green-500",
+    "#8B5CF6": "bg-purple-500",
+    "#EC4899": "bg-pink-500",
+  };
+  return colorMap[color] || "bg-blue-500";
+};
 
-const events: Event[] = [
-  {
-    id: "EVT001",
-    title: "Họp tổng kết quý 4",
-    description: "Họp tổng kết kết quả kinh doanh quý 4 và kế hoạch năm mới",
-    date: "2025-11-15",
-    startTime: "14:00",
-    endTime: "16:00",
-    type: "meeting",
-    location: "Phòng họp tầng 3",
-    attendees: 50,
-    color: "bg-blue-500",
-  },
-  {
-    id: "EVT002",
-    title: "Ngày lễ Nhà giáo Việt Nam",
-    description: "Nghỉ lễ theo quy định",
-    date: "2025-11-20",
-    startTime: "",
-    endTime: "",
-    type: "holiday",
-    isAllDay: true,
-    color: "bg-red-500",
-  },
-  {
-    id: "EVT003",
-    title: "Deadline dự án ABC",
-    description: "Hoàn thành và bàn giao dự án ABC cho khách hàng",
-    date: "2025-11-18",
-    startTime: "17:00",
-    endTime: "17:00",
-    type: "deadline",
-    color: "bg-orange-500",
-  },
-  {
-    id: "EVT004",
-    title: "Team Building",
-    description: "Hoạt động team building tại Hà Nội",
-    date: "2025-11-22",
-    startTime: "08:00",
-    endTime: "18:00",
-    type: "event",
-    location: "Ba Vì, Hà Nội",
-    attendees: 150,
-    color: "bg-green-500",
-  },
-  {
-    id: "EVT005",
-    title: "Đào tạo React Advanced",
-    description: "Khóa đào tạo nâng cao về React cho team IT",
-    date: "2025-11-12",
-    startTime: "09:00",
-    endTime: "17:00",
-    type: "training",
-    location: "Phòng đào tạo",
-    attendees: 25,
-    color: "bg-purple-500",
-  },
-  {
-    id: "EVT006",
-    title: "Sinh nhật công ty",
-    description: "Kỷ niệm 5 năm thành lập công ty",
-    date: "2025-11-25",
-    startTime: "18:00",
-    endTime: "21:00",
-    type: "event",
-    location: "Nhà hàng ABC",
-    attendees: 200,
-    color: "bg-pink-500",
-  },
-  {
-    id: "EVT007",
-    title: "Họp giao ban tuần",
-    description: "Họp giao ban đầu tuần của phòng IT",
-    date: "2025-11-11",
-    startTime: "09:00",
-    endTime: "10:00",
-    type: "meeting",
-    location: "Phòng họp IT",
-    attendees: 15,
-    color: "bg-blue-500",
-  },
-];
+// Convert backend Event to frontend Event format
+const mapEvent = (event: Event) => {
+  const eventDate = new Date(event.date);
+  const dateStr = eventDate.toISOString().split("T")[0];
+
+  return {
+    id: event._id,
+    title: event.title,
+    description: event.description || "",
+    date: dateStr,
+    startTime: event.startTime || "",
+    endTime: event.endTime || "",
+    type: event.type,
+    location: event.location,
+    attendees: event.attendeeCount || event.attendees?.length || 0,
+    color: getColorClass(event.color),
+    isAllDay: event.isAllDay || false,
+    originalEvent: event, // Keep original for reference
+  };
+};
 
 interface StatCard {
   label: string;
@@ -131,6 +70,59 @@ interface StatCard {
 const CompanyCalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filterType, setFilterType] = useState<string>("all");
+  const [events, setEvents] = useState<ReturnType<typeof mapEvent>[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<
+    ReturnType<typeof mapEvent>[]
+  >([]);
+  const [monthEvents, setMonthEvents] = useState<ReturnType<typeof mapEvent>[]>(
+    []
+  );
+  const [stats, setStats] = useState({
+    total: 0,
+    upcoming: 0,
+    holidays: 0,
+    meetingsAndTraining: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch data on mount and when month changes
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const currentMonth = selectedDate.getMonth() + 1;
+        const currentYear = selectedDate.getFullYear();
+
+        // Fetch upcoming events (next 7 days)
+        const upcoming = await eventService.getUpcomingEvents();
+        setUpcomingEvents(upcoming.map(mapEvent));
+
+        // Fetch month events
+        const month = await eventService.getMonthEvents(
+          currentMonth,
+          currentYear
+        );
+        setMonthEvents(month.map(mapEvent));
+
+        // Fetch stats
+        const eventStats = await eventService.getEventStats(
+          currentMonth,
+          currentYear
+        );
+        setStats(eventStats);
+
+        // Set all events for filtering
+        setEvents(month.map(mapEvent));
+      } catch (error) {
+        console.error("Error fetching events:", error);
+        toast.error("Không thể tải dữ liệu sự kiện");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [selectedDate]);
 
   const filteredEvents = events.filter((event) => {
     if (filterType !== "all" && event.type !== filterType) return false;
@@ -140,21 +132,9 @@ const CompanyCalendarPage: React.FC = () => {
   // Get events for selected date
   const selectedDateEvents = selectedDate
     ? events.filter(
-      (event) => event.date === selectedDate.toISOString().split("T")[0]
-    )
+        (event) => event.date === selectedDate.toISOString().split("T")[0]
+      )
     : [];
-
-  // Get upcoming events (next 7 days)
-  const today = new Date();
-  const nextWeek = new Date(today);
-  nextWeek.setDate(nextWeek.getDate() + 7);
-
-  const upcomingEvents = events
-    .filter((event) => {
-      const eventDate = new Date(event.date);
-      return eventDate >= today && eventDate <= nextWeek;
-    })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const getTypeLabel = (type: EventType): string => {
     switch (type) {
@@ -192,39 +172,39 @@ const CompanyCalendarPage: React.FC = () => {
 
   const handleCreateEvent = (): void => {
     toast.success("📅 Tạo sự kiện mới");
+    // TODO: Open create event modal/dialog
   };
 
-  const handleViewEvent = (event: Event): void => {
+  const handleViewEvent = (event: ReturnType<typeof mapEvent>): void => {
     toast.success(`👁️ Xem chi tiết: ${event.title}`);
+    // TODO: Open event detail modal/dialog
   };
 
   const statCards: StatCard[] = [
     {
       label: "Tổng sự kiện",
-      value: filteredEvents.length,
+      value: stats.total,
       color: "primary",
       icon: "📋",
       delay: 0.1,
     },
     {
       label: "Sắp tới (7 ngày)",
-      value: upcomingEvents.length,
+      value: stats.upcoming,
       color: "warning",
       icon: "⏰",
       delay: 0.2,
     },
     {
       label: "Ngày lễ",
-      value: events.filter((e) => e.type === "holiday").length,
+      value: stats.holidays,
       color: "error",
       icon: "🎉",
       delay: 0.3,
     },
     {
       label: "Họp & Đào tạo",
-      value: events.filter(
-        (e) => e.type === "meeting" || e.type === "training"
-      ).length,
+      value: stats.meetingsAndTraining,
       color: "accent-cyan",
       icon: "👥",
       delay: 0.4,
@@ -336,7 +316,10 @@ const CompanyCalendarPage: React.FC = () => {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <h3 className="text-base font-medium text-[var(--text-main)]">
-                  {selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  {selectedDate.toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
                 </h3>
                 <Button
                   variant="ghost"
@@ -376,7 +359,7 @@ const CompanyCalendarPage: React.FC = () => {
                       day: "numeric",
                     })}
                   </p>
-                  {selectedDateEvents.length > 0 && (
+                  {selectedDateEvents.length > 0 ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -384,6 +367,10 @@ const CompanyCalendarPage: React.FC = () => {
                     >
                       {selectedDateEvents.length} SỰ KIỆN
                     </Button>
+                  ) : (
+                    <p className="text-xs text-[var(--text-sub)]">
+                      Không có sự kiện
+                    </p>
                   )}
                 </div>
               )}
@@ -408,7 +395,12 @@ const CompanyCalendarPage: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {upcomingEvents.length > 0 ? (
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-[var(--text-sub)]">Đang tải sự kiện...</p>
+                </div>
+              ) : upcomingEvents.length > 0 ? (
                 upcomingEvents.map((event, index) => (
                   <motion.div
                     key={event.id}
@@ -524,90 +516,108 @@ const CompanyCalendarPage: React.FC = () => {
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            Tất cả sự kiện ({filteredEvents.length})
+            Tất cả sự kiện ({filteredEvents.length}) - Tháng{" "}
+            {selectedDate.toLocaleDateString("vi-VN", {
+              month: "long",
+              year: "numeric",
+            })}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {filteredEvents
-              .sort(
-                (a, b) =>
-                  new Date(a.date).getTime() - new Date(b.date).getTime()
-              )
-              .map((event, index) => (
-                <motion.div
-                  key={event.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                  className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all"
-                  onClick={() => handleViewEvent(event)}
-                >
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
-                    >
-                      <span
-                        className={`${event.color.replace("bg-", "text-")}`}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-[var(--text-sub)]">Đang tải sự kiện...</p>
+              </div>
+            ) : filteredEvents.length > 0 ? (
+              filteredEvents
+                .sort(
+                  (a, b) =>
+                    new Date(a.date).getTime() - new Date(b.date).getTime()
+                )
+                .map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all"
+                    onClick={() => handleViewEvent(event)}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                       >
-                        {getTypeIcon(event.type)}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-[var(--text-main)]">
-                          {event.title}
-                        </h3>
-                        <Badge
-                          className={`${event.color} bg-opacity-20 text-black`}
-                          style={{ color: event.color.replace("bg-", "") }}
+                        <span
+                          className={`${event.color.replace("bg-", "text-")}`}
                         >
-                          {getTypeLabel(event.type)}
-                        </Badge>
-                        {event.isAllDay && (
-                          <Badge
-                            variant="outline"
-                            className="border-[var(--border)] text-[var(--text-sub)]"
-                          >
-                            Cả ngày
-                          </Badge>
-                        )}
+                          {getTypeIcon(event.type)}
+                        </span>
                       </div>
-                      <p className="text-sm text-[var(--text-sub)] mb-3">
-                        {event.description}
-                      </p>
-                      <div className="flex items-center gap-6 text-sm text-[var(--text-sub)]">
-                        <div className="flex items-center gap-2">
-                          <CalendarIcon className="h-4 w-4" />
-                          <span>
-                            {new Date(event.date).toLocaleDateString("vi-VN")}
-                          </span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-[var(--text-main)]">
+                            {event.title}
+                          </h3>
+                          <Badge
+                            className={`${event.color} bg-opacity-20 text-black`}
+                            style={{ color: event.color.replace("bg-", "") }}
+                          >
+                            {getTypeLabel(event.type)}
+                          </Badge>
+                          {event.isAllDay && (
+                            <Badge
+                              variant="outline"
+                              className="border-[var(--border)] text-[var(--text-sub)]"
+                            >
+                              Cả ngày
+                            </Badge>
+                          )}
                         </div>
-                        {!event.isAllDay && (
+                        <p className="text-sm text-[var(--text-sub)] mb-3">
+                          {event.description}
+                        </p>
+                        <div className="flex items-center gap-6 text-sm text-[var(--text-sub)]">
                           <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
+                            <CalendarIcon className="h-4 w-4" />
                             <span>
-                              {event.startTime} - {event.endTime}
+                              {new Date(event.date).toLocaleDateString("vi-VN")}
                             </span>
                           </div>
-                        )}
-                        {event.location && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4" />
-                            <span>{event.location}</span>
-                          </div>
-                        )}
-                        {event.attendees && (
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            <span>{event.attendees} người tham gia</span>
-                          </div>
-                        )}
+                          {!event.isAllDay && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              <span>
+                                {event.startTime} - {event.endTime}
+                              </span>
+                            </div>
+                          )}
+                          {event.location && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              <span>{event.location}</span>
+                            </div>
+                          )}
+                          {event.attendees && (
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              <span>{event.attendees} người tham gia</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📅</div>
+                <p className="text-[var(--text-sub)]">
+                  Không có sự kiện nào trong tháng này
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -616,7 +626,3 @@ const CompanyCalendarPage: React.FC = () => {
 };
 
 export default CompanyCalendarPage;
-
-
-
-

@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Award,
   Zap,
-  CheckCircle2,
   StickyNote,
   Target,
   Star,
@@ -18,8 +17,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Progress } from "../../ui/progress";
 import shiftService from "../../../services/shiftService";
+import { getAttendanceHistory } from "../../../services/attendanceService";
 
 type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
+
+interface AttendanceRecord {
+  id?: string;
+  date: string;
+  day: string;
+  checkIn: string;
+  checkOut: string;
+  hours: string;
+  location: string;
+  status: "ontime" | "late" | "absent" | "overtime" | "weekend";
+  notes: string;
+}
 
 interface EmployeeSchedule {
   _id: string;
@@ -35,6 +47,7 @@ interface EmployeeSchedule {
   location: string;
   team?: string;
   notes?: string;
+  attendanceRecord?: AttendanceRecord; // Thêm attendance record nếu có
 }
 
 const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
@@ -63,24 +76,81 @@ const SchedulePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchShifts = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
 
-        const availableShifts: any[] = await shiftService.getAllShifts();
+        // Fetch shifts and attendance data in parallel
+        const [availableShifts, attendanceData] = await Promise.all([
+          shiftService.getAllShifts(),
+          getAttendanceHistory({ limit: 1000 }).catch(() => ({ records: [], pagination: null })),
+        ]);
+
         if (!availableShifts || availableShifts.length === 0) {
-          setSchedule([]);
+        setSchedule([]);
           return;
         }
 
         const fullTimeShift =
-          availableShifts.find((s) => s.name === "Full time") ||
+          availableShifts.find((s: any) => s.name === "Full time") ||
           availableShifts[0];
 
         if (!fullTimeShift) {
           setSchedule([]);
           return;
         }
+
+        // Store attendance records
+        const records = (attendanceData.records || []) as AttendanceRecord[];
+
+        // Create a map of attendance by date (YYYY-MM-DD)
+        const attendanceMap = new Map<string, AttendanceRecord>();
+        records.forEach((record) => {
+          try {
+            // Parse date from different possible formats
+            let dateStr = "";
+            if (record.date) {
+              const dateValue = String(record.date).trim();
+              
+              // Try ISO format first (YYYY-MM-DD)
+              if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+                const d = new Date(dateValue);
+                if (!Number.isNaN(d.getTime())) {
+                  dateStr = d.toISOString().split("T")[0];
+                }
+              } 
+              // Try format like "24 tháng 11, 2024" or "24/11/2024" or "24-11-2024"
+              else {
+                const dateRegex = /(\d{1,2})\s*(?:tháng|[/-])\s*(\d{1,2})(?:,\s*|\s+|[/-])\s*(\d{4})/;
+                const dateMatch = dateRegex.exec(dateValue);
+                if (dateMatch) {
+                  const day = Number.parseInt(dateMatch[1], 10);
+                  const month = Number.parseInt(dateMatch[2], 10);
+                  const year = Number.parseInt(dateMatch[3], 10);
+                  const d = new Date(year, month - 1, day);
+                  if (!Number.isNaN(d.getTime())) {
+                    dateStr = d.toISOString().split("T")[0];
+                  }
+                } else {
+                  // Try generic date parsing
+                  const d = new Date(dateValue);
+                  if (!Number.isNaN(d.getTime())) {
+                    dateStr = d.toISOString().split("T")[0];
+                  }
+                }
+              }
+              
+              if (dateStr) {
+                attendanceMap.set(dateStr, record);
+              } else {
+                console.warn("Could not parse attendance date:", record.date);
+              }
+            }
+          } catch (err) {
+            console.warn("Error parsing attendance date:", record.date, err);
+          }
+        });
+        
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -110,9 +180,30 @@ const SchedulePage: React.FC = () => {
           const currentDate = new Date(cursor);
           const dayOfWeek = currentDate.getDay();
 
-          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          if (dayOfWeek !== 0 && dayOfWeek !== 1) {
             const dateStr = currentDate.toISOString().split("T")[0];
             const isPast = currentDate < today;
+            const attendance = attendanceMap.get(dateStr);
+
+            // Determine status based on attendance
+            let status: ShiftStatus = "scheduled";
+            if (attendance) {
+              const hasCheckIn = attendance.checkIn && 
+                                 String(attendance.checkIn).trim() !== "" && 
+                                 String(attendance.checkIn).trim() !== "—" &&
+                                 String(attendance.checkIn).trim() !== "null" &&
+                                 String(attendance.checkIn).trim() !== "undefined";
+              
+              if (hasCheckIn) {
+                status = "completed";
+              } else if (attendance.status === "absent" || attendance.status === "weekend") {
+                status = "off";
+              } else if (isPast) {
+                status = "missed";
+              }
+            } else if (isPast) {
+              status = "missed";
+            }
 
             scheduleData.push({
               _id: `${dateStr}-${fullTimeShift._id}`,
@@ -124,10 +215,11 @@ const SchedulePage: React.FC = () => {
                 endTime: fullTimeShift.endTime,
                 breakDuration: fullTimeShift.breakDuration || 60,
               },
-              status: isPast ? "completed" : "scheduled",
-              location: "Văn phòng chính",
+              status,
+              location: attendance?.location || "Văn phòng chính",
               team: "Dev Team",
               notes: fullTimeShift.description,
+              attendanceRecord: attendance,
             });
           }
 
@@ -144,7 +236,16 @@ const SchedulePage: React.FC = () => {
       }
     };
 
-    fetchShifts();
+    fetchData();
+  }, []);
+
+  const [liveTime, setLiveTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   if (loading) {
@@ -176,21 +277,63 @@ const SchedulePage: React.FC = () => {
     s.date.startsWith(currentMonthKey)
   );
 
+  // Calculate month stats based on actual attendance
+  const monthAttended = monthShifts.filter((s) => {
+    if (!s.attendanceRecord) return false;
+    const checkIn = s.attendanceRecord.checkIn;
+    if (!checkIn) return false;
+    const checkInStr = String(checkIn).trim();
+    return checkInStr !== "" && 
+           checkInStr !== "—" && 
+           checkInStr !== "null" && 
+           checkInStr !== "undefined";
+  });
+
+  const monthOnTime = monthAttended.filter((s) => {
+    return s.attendanceRecord?.status === "ontime";
+  });
+
+  // Calculate total hours from attendance records
+  const monthTotalHours = monthAttended.reduce((acc, s) => {
+    if (s.attendanceRecord?.hours) {
+      const hoursStr = s.attendanceRecord.hours;
+      // Parse hours string like "8.0h" or "8.0"
+      const hoursRegex = /(\d+\.?\d*)/;
+      const hoursMatch = hoursRegex.exec(hoursStr);
+      if (hoursMatch) {
+        return acc + Number.parseFloat(hoursMatch[1]);
+      }
+    }
+    // Fallback to calculated hours
+    return acc + calculateShiftHours(s.shift);
+  }, 0);
+
+  // Count upcoming shifts (not yet attended and in the future)
+  const monthUpcoming = monthShifts.filter((s) => {
+    const date = new Date(s.date);
+    date.setHours(0, 0, 0, 0);
+    const hasAttended = s.attendanceRecord && 
+                        s.attendanceRecord.checkIn && 
+                        String(s.attendanceRecord.checkIn).trim() !== "" && 
+                        String(s.attendanceRecord.checkIn).trim() !== "—" &&
+                        String(s.attendanceRecord.checkIn).trim() !== "null" &&
+                        String(s.attendanceRecord.checkIn).trim() !== "undefined";
+    return !hasAttended && date >= today;
+  });
+
   const stats = {
     thisMonth: monthShifts.length,
-    completed: monthShifts.filter((s) => s.status === "completed").length,
-    upcoming: monthShifts.filter((s) => s.status === "scheduled").length,
-    totalHours: monthShifts
-      .filter((s) => s.status === "completed")
-      .reduce((acc, s) => acc + calculateShiftHours(s.shift), 0),
+    completed: monthAttended.length,
+    upcoming: monthUpcoming.length,
+    totalHours: monthTotalHours,
     performance:
       monthShifts.length > 0
-        ? Math.round(
-            (monthShifts.filter((s) => s.status === "completed").length /
-              monthShifts.length) *
-              100
-          )
+        ? Math.round((monthAttended.length / monthShifts.length) * 100)
         : 0,
+    onTimeCount: monthOnTime.length,
+    onTimeRate: monthAttended.length > 0
+      ? Math.round((monthOnTime.length / monthAttended.length) * 100)
+      : 0,
   };
 
   const formattedTotalHours =
@@ -222,34 +365,62 @@ const SchedulePage: React.FC = () => {
     return date >= weekStart && date <= weekEnd;
   });
 
-  const expectedWeekdays = weekDays.filter(
-    (day) => day.getDay() !== 0 && day.getDay() !== 6
-  ).length;
-  const weekCompletedShifts = weekShiftEntries.filter(
-    (s) => s.status === "completed"
-  ).length;
-  const weekTotalHours = weekShiftEntries.reduce(
-    (acc, s) => acc + calculateShiftHours(s.shift),
-    0
-  );
+  // Total shifts in week (excluding weekends)
+  const expectedWeekdays = weekShiftEntries.length;
+
+  // Count week attended shifts (has checkIn)
+  const weekAttendedShifts = weekShiftEntries.filter((s) => {
+    if (!s.attendanceRecord) return false;
+    const checkIn = s.attendanceRecord.checkIn;
+    if (!checkIn) return false;
+    const checkInStr = String(checkIn).trim();
+    return checkInStr !== "" && 
+           checkInStr !== "—" && 
+           checkInStr !== "null" && 
+           checkInStr !== "undefined";
+  });
+
+  // Count week on-time shifts
+  const weekOnTimeShifts = weekAttendedShifts.filter((s) => {
+    return s.attendanceRecord?.status === "ontime";
+  });
+
+  // Calculate week total hours from attendance records
+  const weekTotalHours = weekAttendedShifts.reduce((acc, s) => {
+    if (s.attendanceRecord?.hours) {
+      const hoursStr = s.attendanceRecord.hours;
+      const hoursMatch = hoursStr.match(/(\d+\.?\d*)/);
+      if (hoursMatch) {
+        return acc + parseFloat(hoursMatch[1]);
+      }
+    }
+    return acc + calculateShiftHours(s.shift);
+  }, 0);
+
+  // Avg hours: total hours / number of attended shifts (not total shifts)
   const avgWeekHours =
-    weekShiftEntries.length > 0
-      ? (weekTotalHours / weekShiftEntries.length).toFixed(1)
+    weekAttendedShifts.length > 0
+      ? (weekTotalHours / weekAttendedShifts.length).toFixed(1)
       : "0.0";
-  const weekOnTimePercent =
+
+  // Week attendance: attended / total shifts in week
+  const weekAttendancePercent =
     expectedWeekdays > 0
-      ? ((weekCompletedShifts / expectedWeekdays) * 100).toFixed(0)
+      ? ((weekAttendedShifts.length / expectedWeekdays) * 100).toFixed(0)
       : "0";
   const weekAttendanceLabel =
     expectedWeekdays > 0
-      ? `${Math.min(
-          weekCompletedShifts,
-          expectedWeekdays
-        )}/${expectedWeekdays} ca`
+      ? `${weekAttendedShifts.length}/${expectedWeekdays} ca`
       : "0/0 ca";
+
+  // On-time: on-time shifts / total shifts in week
+  const weekOnTimePercent =
+    expectedWeekdays > 0
+      ? ((weekOnTimeShifts.length / expectedWeekdays) * 100).toFixed(0)
+      : "0";
   const weekOnTimeLabel =
     expectedWeekdays > 0
-      ? `${Math.min(weekCompletedShifts, expectedWeekdays)}/${expectedWeekdays}`
+      ? `${weekOnTimeShifts.length}/${expectedWeekdays}`
       : "0/0";
 
   const getWeekDayStatus = (
@@ -259,9 +430,37 @@ const SchedulePage: React.FC = () => {
     const dayShifts = schedule.filter((s) => s.date === dateStr);
 
     if (dayShifts.length === 0) return "off";
-    if (dayShifts.every((s) => s.status === "completed")) return "completed";
+    
+    // Check if today
+    if (dateStr === todayStr) {
+      // Check if has attendance record with checkIn
+      const hasAttended = dayShifts.some((s) => 
+        s.attendanceRecord && s.attendanceRecord.checkIn && 
+        s.attendanceRecord.checkIn !== "—" && s.attendanceRecord.checkIn !== ""
+      );
+      return hasAttended ? "completed" : "today";
+    }
+
+    // Check if has attendance (completed)
+    const hasAttended = dayShifts.some((s) => {
+      if (!s.attendanceRecord) return false;
+      const checkIn = s.attendanceRecord.checkIn;
+      if (!checkIn) return false;
+      const checkInStr = String(checkIn).trim();
+      return checkInStr !== "" && 
+             checkInStr !== "—" && 
+             checkInStr !== "null" && 
+             checkInStr !== "undefined";
+    });
+    if (hasAttended) return "completed";
+
+    // Check if off
     if (dayShifts.some((s) => s.status === "off")) return "off";
-    if (dateStr === todayStr) return "today";
+    
+    // Check if no attendance and in the past (should be "off"/nghỉ)
+    const isPast = date < today;
+    if (isPast && !hasAttended) return "off";
+
     return "scheduled";
   };
 
@@ -297,20 +496,6 @@ const SchedulePage: React.FC = () => {
     }
   };
 
-  const getStatusLabel = (status: ShiftStatus): string => {
-    switch (status) {
-      case "completed":
-        return "Hoàn thành";
-      case "scheduled":
-        return "Đã lên lịch";
-      case "missed":
-        return "Vắng mặt";
-      case "off":
-        return "Nghỉ";
-      default:
-        return status;
-    }
-  };
 
   // Tìm ca hiện tại (đang diễn ra)
   const currentShift = todayShifts.find((s) => {
@@ -499,13 +684,20 @@ const SchedulePage: React.FC = () => {
                   </Badge>
                 )}
               </CardTitle>
+
+              <div className="flex items-center text-4xl text-[var(--text-sub)] mt-2 justify-center mt-8 mb-8">
+                <Clock className="h-4 w-4 mr-2 text-5xl text-[var(--accent-cyan)] animate-pulse h- w-8" />
+                <span>
+                  {liveTime.toLocaleTimeString("vi-VN", { hour12: false })}
+                </span>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Time Range */}
               {todayShifts.length > 0 && (
                 <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)]">
                   <div className="text-center">
-                    <p className="text-sm text-[var(--text-sub)] mb-2">
+                    <p className="text-sm text-[var(--text-sub)] mb-4">
                       Khung giờ làm việc
                     </p>
                     <motion.div
@@ -709,7 +901,7 @@ const SchedulePage: React.FC = () => {
                     {weekAttendanceLabel}
                   </p>
                   <p className="text-xs text-[var(--success)]">
-                    {weekOnTimePercent}%
+                    {weekAttendancePercent}%
                   </p>
                 </div>
                 <div className="text-center">
@@ -921,45 +1113,83 @@ const SchedulePage: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
-                <div className="w-10 h-10 rounded-full bg-[var(--success)]/30 dark:bg-[var(--success)]/20 flex items-center justify-center text-xl">
-                  🎯
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-[var(--text-main)]">
-                    Bạn đang on-time 97.2%
-                  </p>
-                  <p className="text-xs text-[var(--text-sub)]">Xuất sắc!</p>
-                </div>
-              </div>
+              {(() => {
+                // Calculate on-time rate from month data
+                const onTimeRate = stats.onTimeRate;
+                let onTimeMessage = "Xuất sắc!";
+                if (onTimeRate < 50) onTimeMessage = "Cần cải thiện";
+                else if (onTimeRate < 80) onTimeMessage = "Tốt";
+                else if (onTimeRate < 95) onTimeMessage = "Rất tốt";
 
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
-                <div className="w-10 h-10 rounded-full bg-[var(--warning)]/30 dark:bg-[var(--warning)]/20 flex items-center justify-center text-xl">
-                  🔥
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-[var(--text-main)]">
-                    Streak: 5 ngày liên tiếp
-                  </p>
-                  <p className="text-xs text-[var(--text-sub)]">
-                    Giữ vững phong độ!
-                  </p>
-                </div>
-              </div>
+                // Calculate current streak (consecutive days with attendance)
+                let currentStreak = 0;
+                const sortedAttended = [...monthAttended].sort((a, b) => 
+                  b.date.localeCompare(a.date)
+                );
+                
+                // Start from today and go backwards
+                const checkDate = new Date(today);
+                for (let i = 0; i < 365; i++) {
+                  const dateStr = checkDate.toISOString().split("T")[0];
+                  const hasAttended = sortedAttended.some((s) => s.date === dateStr);
+                  
+                  if (hasAttended) {
+                    currentStreak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                  } else {
+                    break;
+                  }
+                }
 
-              <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
-                <div className="w-10 h-10 rounded-full bg-[var(--accent-cyan)]/30 dark:bg-[var(--accent-cyan)]/20 flex items-center justify-center text-xl">
-                  ⭐
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-[var(--text-main)]">
-                    Top 10% công ty
-                  </p>
-                  <p className="text-xs text-[var(--text-sub)]">
-                    Về chuyên cần
-                  </p>
-                </div>
-              </div>
+                // Calculate average hours per day from month
+                const avgHoursPerDay = stats.completed > 0
+                  ? (stats.totalHours / stats.completed).toFixed(1)
+                  : "0.0";
+
+                return (
+                  <>
+                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
+                      <div className="w-10 h-10 rounded-full bg-[var(--success)]/30 dark:bg-[var(--success)]/20 flex items-center justify-center text-xl">
+                        🎯
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-[var(--text-main)]">
+                          Bạn đang on-time {onTimeRate}%
+                        </p>
+                        <p className="text-xs text-[var(--text-sub)]">{onTimeMessage}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
+                      <div className="w-10 h-10 rounded-full bg-[var(--warning)]/30 dark:bg-[var(--warning)]/20 flex items-center justify-center text-xl">
+                        🔥
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-[var(--text-main)]">
+                          Streak: {currentStreak} ngày liên tiếp
+                        </p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          {currentStreak > 0 ? "Giữ vững phong độ!" : "Bắt đầu streak mới!"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
+                      <div className="w-10 h-10 rounded-full bg-[var(--accent-cyan)]/30 dark:bg-[var(--accent-cyan)]/20 flex items-center justify-center text-xl">
+                        ⭐
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-[var(--text-main)]">
+                          Trung bình {avgHoursPerDay}h/ngày
+                        </p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          Tháng {currentMonthLabel}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </motion.div>
