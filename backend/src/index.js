@@ -16,6 +16,7 @@ import { branchRouter } from "./modules/branches/branch.router.js";
 import { departmentRouter } from "./modules/departments/department.router.js";
 import { shiftRouter } from "./modules/shifts/shift.router.js";
 import { locationRouter } from "./modules/locations/location.router.js";
+import { payrollRouter } from "./modules/payroll/payroll.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
 
 // ⭐ THÊM ROUTER LOGS
@@ -61,6 +62,7 @@ app.use("/api/branches", branchRouter);
 app.use("/api/departments", departmentRouter);
 app.use("/api/shifts", shiftRouter);
 app.use("/api/locations", locationRouter);
+app.use("/api/payroll", payrollRouter);
 
 // ⭐ THÊM ROUTE LOGS
 app.use("/api/logs", logRouter);
