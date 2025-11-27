@@ -86,6 +86,7 @@ export default function App() {
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="department-attendance" element={<DepartmentAttendancePage />} />
+              <Route path="performance-review" element={<PerformanceReviewPage />} />
               <Route path="shifts" element={<ShiftsPage />} />
               <Route path="admin-attendance" element={<AdminAttendancePage />} />
               {/* Catch-all: redirect invalid manager routes to 404 */}

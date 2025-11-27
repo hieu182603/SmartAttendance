@@ -209,6 +209,14 @@ export const createReview = async (req, res) => {
       achievements: achievements || [],
       improvements: improvements || [],
       comments: comments || "",
+      history: [
+        {
+          action: "created",
+          by: reviewerId,
+          at: new Date(),
+          changes: { status: status || "draft" },
+        },
+      ],
     });
 
     await review.save();
@@ -247,7 +255,7 @@ export const updateReview = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đánh giá" });
     }
 
-    // Manager chỉ sửa được đánh giá của mình và chỉ khi status là draft/pending
+    // Manager chỉ sửa được đánh giá của mình và chỉ khi status là draft/pending/rejected
     if (userRole === "MANAGER") {
       if (existingReview.reviewerId.toString() !== userId) {
         return res
@@ -261,13 +269,37 @@ export const updateReview = async (req, res) => {
       }
     }
 
+    // Log changes for audit
+    const changes = {};
+    Object.keys(updateData).forEach((key) => {
+      if (JSON.stringify(existingReview[key]) !== JSON.stringify(updateData[key])) {
+        changes[key] = {
+          from: existingReview[key],
+          to: updateData[key],
+        };
+      }
+    });
+
+    // Add to history
+    const historyEntry = {
+      action: updateData.status === "completed" ? "approved" : "updated",
+      by: userId,
+      at: new Date(),
+      changes,
+    };
+
+    // Update with history
     const review = await PerformanceReviewModel.findByIdAndUpdate(
       id,
-      updateData,
+      {
+        ...updateData,
+        $push: { history: historyEntry },
+      },
       { new: true, runValidators: true }
     )
       .populate("employeeId", "name position avatar avatarUrl")
-      .populate("reviewerId", "name");
+      .populate("reviewerId", "name")
+      .populate("history.by", "name");
 
     res.json({
       message: "Cập nhật đánh giá thành công",
@@ -396,11 +428,23 @@ export const rejectReview = async (req, res) => {
       {
         status: "rejected",
         rejectionReason: rejectionReason.trim(),
+        $push: {
+          history: {
+            action: "rejected",
+            by: req.user.userId,
+            at: new Date(),
+            changes: {
+              status: { from: "pending", to: "rejected" },
+              rejectionReason: rejectionReason.trim(),
+            },
+          },
+        },
       },
       { new: true, runValidators: true }
     )
       .populate("employeeId", "name position avatar avatarUrl")
-      .populate("reviewerId", "name");
+      .populate("reviewerId", "name")
+      .populate("history.by", "name");
 
     if (!review) {
       return res.status(404).json({ message: "Không tìm thấy đánh giá" });
@@ -416,6 +460,43 @@ export const rejectReview = async (req, res) => {
   } catch (error) {
     console.error("Reject review error:", error);
     res.status(500).json({ message: "Lỗi khi reject đánh giá" });
+  }
+};
+
+/**
+ * Lấy danh sách periods có trong database
+ */
+export const getAvailablePeriods = async (req, res) => {
+  try {
+    const userRole = req.user.role;
+    const userId = req.user.userId;
+
+    // Role-based filter
+    const filter = {};
+    if (userRole === "MANAGER") {
+      filter.reviewerId = userId;
+    }
+
+    // Get distinct periods
+    const periods = await PerformanceReviewModel.distinct("period", filter);
+
+    // Sort periods (newest first)
+    const sortedPeriods = periods.sort((a, b) => {
+      const yearA = parseInt(a.match(/\d{4}/)?.[0] || "0");
+      const yearB = parseInt(b.match(/\d{4}/)?.[0] || "0");
+      if (yearA !== yearB) return yearB - yearA;
+
+      // Sort by period within same year
+      const periodOrder = { Q4: 4, Q3: 3, Q2: 2, Q1: 1, H2: 2.5, H1: 1.5 };
+      const periodA = a.split(" ")[0];
+      const periodB = b.split(" ")[0];
+      return (periodOrder[periodB] || 0) - (periodOrder[periodA] || 0);
+    });
+
+    res.json({ periods: sortedPeriods });
+  } catch (error) {
+    console.error("Get available periods error:", error);
+    res.status(500).json({ message: "Lỗi khi lấy danh sách kỳ đánh giá" });
   }
 };
 

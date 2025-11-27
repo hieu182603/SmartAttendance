@@ -265,7 +265,6 @@ export class UserController {
   static async getAllUsers(req, res) {
     try {
       const result = await UserService.getAllUsers(req.query);
-      // Trả về format phù hợp với frontend (frontend expect result.users || result)
       return res.status(200).json(result);
     } catch (error) {
       console.error("[UserController] Get all users error:", error);
@@ -360,8 +359,6 @@ export class UserController {
     try {
       const { id } = req.params;
       const currentUserRole = req.user?.role;
-
-      // Validate request body với Zod
       const parse = updateUserByAdminSchema.safeParse(req.body);
       if (!parse.success) {
         const errors = parse.error.flatten().fieldErrors;
@@ -538,6 +535,52 @@ export class UserController {
       res.json({ managers: managersList });
     } catch (error) {
       console.error("[UserController] getManagers error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/my-team
+   * Lấy danh sách nhân viên trong phòng ban của Manager
+   */
+  static async getMyTeamMembers(req, res) {
+    try {
+      const managerId = req.user.userId;
+
+      // Lấy thông tin manager để biết department
+      const manager = await UserModel.findById(managerId).select("department");
+      
+      if (!manager || !manager.department) {
+        return res.json({ users: [] });
+      }
+
+      // Lấy tất cả nhân viên trong cùng phòng ban (trừ chính manager)
+      const teamMembers = await UserModel.find({
+        department: manager.department,
+        _id: { $ne: managerId },
+        isActive: true,
+      })
+        .select("_id name email position role department branch")
+        .populate("department", "name")
+        .populate("branch", "name")
+        .sort({ name: 1 });
+
+      const users = teamMembers.map((user) => ({
+        _id: user._id.toString(),
+        fullName: user.name,
+        name: user.name,
+        email: user.email,
+        position: user.position || user.role || "Nhân viên",
+        role: user.role,
+        department: user.department?.name || null,
+        branch: user.branch?.name || null,
+      }));
+
+      res.json({ users });
+    } catch (error) {
+      console.error("[UserController] getMyTeamMembers error:", error);
       return res.status(500).json({
         message: error.message || "Lỗi server. Vui lòng thử lại sau.",
       });
