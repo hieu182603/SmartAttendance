@@ -30,6 +30,7 @@ import { Separator } from '../../ui/separator'
 import { Alert, AlertDescription, AlertTitle } from '../../ui/alert'
 import { toast } from 'sonner'
 import { getAllUsers, getUserById, updateUserByAdmin } from '../../../services/userService'
+import { getAllDepartments, type Department as DepartmentType } from '../../../services/departmentService'
 import { useAuth } from '../../../context/AuthContext'
 import { UserRole, ROLE_NAMES, canManageRole, type UserRoleType } from '../../../utils/roles'
 import type { ErrorWithMessage } from '../../../types'
@@ -143,6 +144,7 @@ const EmployeeManagementPage: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [usersList, setUsersList] = useState<User[]>([])
+  const [departments, setDepartments] = useState<DepartmentType[]>([])
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -209,6 +211,24 @@ const EmployeeManagementPage: React.FC = () => {
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
+
+  // Fetch departments when component mounts
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await getAllDepartments({ status: 'active', limit: 1000 })
+        // Filter only active departments and map to DepartmentType array
+        const activeDepartments = (response.departments || []).filter(
+          (dept: DepartmentType) => dept.status === 'active'
+        )
+        setDepartments(activeDepartments)
+      } catch (error) {
+        console.error('[EmployeeManagement] fetch departments error:', error)
+        toast.error('Không thể tải danh sách phòng ban')
+      }
+    }
+    fetchDepartments()
+  }, [])
 
   // Reset to page 1 when search or filters change
   useEffect(() => {
@@ -838,12 +858,12 @@ const EmployeeManagementPage: React.FC = () => {
                     <SelectValue placeholder="Chọn phòng ban" />
                   </SelectTrigger>
                   <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
-                    <SelectItem value="IT">IT</SelectItem>
-                    <SelectItem value="HR">HR</SelectItem>
-                    <SelectItem value="Sales">Sales</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="Finance">Finance</SelectItem>
-                    <SelectItem value="Operations">Operations</SelectItem>
+                    <SelectItem value="">N/A</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept._id} value={dept._id}>
+                        {dept.name} ({dept.code})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

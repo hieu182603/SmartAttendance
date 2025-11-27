@@ -11,6 +11,18 @@ interface UpdateUserData {
   bankName?: string
 }
 
+interface UpdateUserByAdminData {
+  name?: string
+  email?: string
+  phone?: string
+  role?: string
+  department?: string // ObjectId or empty string for null
+  branch?: string // ObjectId or empty string for null
+  isActive?: boolean
+  avatar?: string
+  avatarUrl?: string
+}
+
 interface UpdateUserResponse {
   user: User
 }
@@ -62,7 +74,7 @@ export const getUserById = async (id: string): Promise<unknown> => {
   }
 }
 
-export const updateUserByAdmin = async (id: string, userData: UpdateUserData): Promise<unknown> => {
+export const updateUserByAdmin = async (id: string, userData: UpdateUserByAdminData): Promise<unknown> => {
   try {
     const { data } = await api.put(`/users/${id}`, userData)
     return data
