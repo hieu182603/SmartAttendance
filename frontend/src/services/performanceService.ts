@@ -128,4 +128,10 @@ export const performanceService = {
     const response = await api.get("/performance/export", { params });
     return response.data;
   },
+
+  // Lấy danh sách periods có trong database
+  getAvailablePeriods: async (): Promise<{ periods: string[] }> => {
+    const response = await api.get("/performance/periods");
+    return response.data;
+  },
 };
