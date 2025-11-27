@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Award,
@@ -68,20 +68,18 @@ export default function PerformanceReviewPage() {
   const isManager = userRole === "MANAGER";
   const isHROrAbove = ["HR_MANAGER", "ADMIN", "SUPER_ADMIN"].includes(userRole);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     try {
       let data: any;
       
-      // Manager gọi endpoint riêng để lấy team members
       if (isManager) {
         const response = await api.get("/users/my-team");
         data = response.data;
       } else {
-        // HR/Admin gọi endpoint getAllUsers
         data = await getAllUsers();
       }
       
-      // Map data to ensure fullName and position are available
+      // Map data to ensure fullName and position are availabe
       const mappedEmployees = (data.users || []).map((user: any) => ({
         _id: user._id,
         fullName: user.fullName || user.name,
@@ -92,9 +90,9 @@ export default function PerformanceReviewPage() {
       console.error("Error fetching employees:", error);
       setEmployees([]);
     }
-  };
+  }, [isManager]);
 
-  const fetchAvailablePeriods = async () => {
+  const fetchAvailablePeriods = useCallback(async () => {
     try {
       const data = await performanceService.getAvailablePeriods();
       setAvailablePeriods(data.periods || []);
@@ -102,9 +100,9 @@ export default function PerformanceReviewPage() {
       console.error("Error fetching periods:", error);
       setAvailablePeriods([]);
     }
-  };
+  }, []);
 
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     try {
       setLoading(true);
       const data = await performanceService.getReviews({
@@ -119,28 +117,25 @@ export default function PerformanceReviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterPeriod, filterStatus]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const data = await performanceService.getStats();
       setStats(data);
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
-  };
+  }, []);
 
-  // Fetch employees and periods once on mount
   useEffect(() => {
     fetchEmployees();
     fetchAvailablePeriods();
   }, []);
 
-  // Fetch reviews and stats when filters change
   useEffect(() => {
     fetchReviews();
     fetchStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterPeriod, filterStatus]);
 
   // Search with debounce
@@ -149,19 +144,17 @@ export default function PerformanceReviewPage() {
       fetchReviews();
     }, 500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-dep
   }, [searchQuery]);
 
-  const filteredReviews = reviews;
-
-  const getScoreColor = (score: number) => {
+  const getScoreColor = useCallback((score: number) => {
     if (score >= 90) return "text-[var(--success)]";
     if (score >= 75) return "text-[var(--warning)]";
     if (score >= 60) return "text-[var(--accent-cyan)]";
     return "text-[var(--error)]";
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case "completed":
         return "bg-[var(--success)]/20 text-[var(--success)]";
@@ -174,9 +167,9 @@ export default function PerformanceReviewPage() {
       default:
         return "bg-gray-500/20 text-gray-500";
     }
-  };
+  }, []);
 
-  const getStatusText = (status: string) => {
+  const getStatusText = useCallback((status: string) => {
     switch (status) {
       case "completed":
         return "Hoàn thành";
@@ -189,23 +182,22 @@ export default function PerformanceReviewPage() {
       default:
         return status;
     }
-  };
+  }, []);
 
-  const handleOpenReview = (review: PerformanceReview) => {
-    // Không cần fetch lại vì data đã đầy đủ từ list
+  const handleOpenReview = useCallback((review: PerformanceReview) => {
     setSelectedReview(review);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleCreateReview = () => {
+  const handleCreateReview = useCallback(() => {
     setSelectedReview(null);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleModalSuccess = () => {
+  const handleModalSuccess = useCallback(() => {
     fetchReviews();
     fetchStats();
-  };
+  }, [fetchReviews, fetchStats]);
 
   const handleExport = async () => {
     try {
@@ -442,13 +434,13 @@ export default function PerformanceReviewPage() {
           <div className="text-center py-12 select-none">
             <p className="text-[var(--text-sub)]">Đang tải...</p>
           </div>
-        ) : filteredReviews.length === 0 ? (
+        ) : reviews.length === 0 ? (
           <div className="text-center py-12 select-none">
             <FileText className="h-16 w-16 text-[var(--text-sub)] mx-auto mb-4" />
             <p className="text-[var(--text-sub)]">Không có đánh giá nào</p>
           </div>
         ) : (
-          filteredReviews.map((review, index) => (
+          reviews.map((review, index) => (
             <motion.div
               key={review._id}
               initial={{ opacity: 0, y: 20 }}
