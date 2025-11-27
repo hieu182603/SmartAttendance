@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import {
   DollarSign,
   Download,
-  Filter,
   Search,
   Calendar,
   TrendingUp,
@@ -29,7 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import { toast } from "sonner";
 
 interface PayrollRecord {
   id: string;
@@ -390,75 +388,49 @@ export default function PayrollPage() {
       >
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-6 mt-4">
-            <div className="grid md:grid-cols-4 gap-4">
-              {/* Month Selector */}
-              <div className="space-y-2">
-                <label className="text-sm text-[var(--text-sub)] flex items-center space-x-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>Tháng</span>
-                </label>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
+                  <Input
+                    placeholder="Tìm kiếm theo tên hoặc mã nhân viên..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
+                  />
+                </div>
+              </div>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white pointer-events-none z-10" />
                 <Input
                   type="month"
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                  className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
                 />
               </div>
-
-              {/* Search */}
-              <div className="space-y-2">
-                <label className="text-sm text-[var(--text-sub)] flex items-center space-x-2">
-                  <Search className="h-4 w-4" />
-                  <span>Tìm kiếm</span>
-                </label>
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tên hoặc mã NV..."
-                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                />
-              </div>
-
-              {/* Department Filter */}
-              <div className="space-y-2">
-                <label className="text-sm text-[var(--text-sub)] flex items-center space-x-2">
-                  <Filter className="h-4 w-4" />
-                  <span>Phòng ban</span>
-                </label>
-                <Select
-                  value={filterDepartment}
-                  onValueChange={setFilterDepartment}
-                >
-                  <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="IT">IT</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="HR">HR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Status Filter */}
-              <div className="space-y-2">
-                <label className="text-sm text-[var(--text-sub)] flex items-center space-x-2">
-                  <Filter className="h-4 w-4" />
-                  <span>Trạng thái</span>
-                </label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="pending">Chờ duyệt</SelectItem>
-                    <SelectItem value="approved">Đã duyệt</SelectItem>
-                    <SelectItem value="paid">Đã thanh toán</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                  <SelectValue placeholder="Phòng ban" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả phòng ban</SelectItem>
+                  <SelectItem value="IT">IT</SelectItem>
+                  <SelectItem value="Marketing">Marketing</SelectItem>
+                  <SelectItem value="HR">HR</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="pending">Chờ duyệt</SelectItem>
+                  <SelectItem value="approved">Đã duyệt</SelectItem>
+                  <SelectItem value="paid">Đã thanh toán</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
