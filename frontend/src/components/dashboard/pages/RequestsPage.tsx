@@ -324,7 +324,7 @@ const RequestsPage: React.FC = () => {
           key={request.id}
           className="bg-[var(--shell)] border border-[var(--border)] transition-all hover:border-[var(--accent-cyan)]"
         >
-          <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between">
+          <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between mt-4">
             <div className="flex flex-1 flex-col gap-3">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white flex items-center justify-center">

@@ -194,7 +194,7 @@ const HistoryPage: React.FC = () => {
 
       {/* Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardContent className="p-6">
+        <CardContent className="p-6 mt-4">
           <div className="flex flex-col gap-4">
             {/* Row 1: Quick Filter và Search */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
