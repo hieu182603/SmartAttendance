@@ -4,7 +4,6 @@ import {
   Download,
   Eye,
   Edit,
-  Trash2,
   MapPin,
   ChevronLeft,
   ChevronRight,
@@ -37,8 +36,8 @@ import { useAuth } from "../../../context/AuthContext";
 import {
   getAllAttendance,
   updateAttendanceRecord as updateAttendanceRecordApi,
-  deleteAttendanceRecord as deleteAttendanceRecordApi,
 } from "../../../services/attendanceService";
+import { getAllLocations } from "../../../services/locationService";
 import {
   Select,
   SelectContent,
@@ -47,7 +46,7 @@ import {
   SelectValue,
 } from "../../ui/select";
 
-type AttendanceStatus = "ontime" | "late" | "absent" | string;
+type AttendanceStatus = "ontime" | "late" | "absent" | "overtime" | "weekend";
 
 interface AttendanceRecordItem {
   id: string;
@@ -71,7 +70,17 @@ interface AttendanceSummary {
 }
 
 const DEFAULT_PAGE_SIZE = 25;
-const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 50];
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 25];
+const STATUS_FILTER_OPTIONS = [
+  { label: "Tất cả trạng thái", value: "all" },
+  { label: "Đúng giờ", value: "ontime" },
+  { label: "Đi muộn", value: "late" },
+  { label: "Vắng", value: "absent" },
+  { label: "Tăng ca", value: "overtime" },
+  { label: "Cuối tuần", value: "weekend" },
+] as const;
+
+type StatusFilterValue = (typeof STATUS_FILTER_OPTIONS)[number]["value"];
 
 const adminRoleOrder = [
   UserRole.MANAGER,
@@ -174,9 +183,15 @@ const getStatusBadge = (status: string) => {
           Vắng
         </Badge>
       );
+    case "overtime":
+      return (
+        <Badge className="bg-purple-500/20 text-purple-600 border-purple-500/30">
+          Tăng ca
+        </Badge>
+      );
     case "weekend":
       return (
-        <Badge className="bg-[var(--shell)] text-[var(--text-main)] border-[var(--border)]">
+        <Badge className="bg-[var(--text-sub)]/20 text-[var(--text-sub)] border-[var(--text-sub)]/30">
           Cuối tuần
         </Badge>
       );
@@ -203,6 +218,7 @@ export default function AdminAttendancePage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("all");
   const [paginationInfo, setPaginationInfo] = useState({
     page: 1,
     limit: DEFAULT_PAGE_SIZE,
@@ -213,15 +229,15 @@ export default function AdminAttendancePage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecordItem | null>(null);
   const [formData, setFormData] = useState({
     checkIn: "",
     checkOut: "",
-    location: "",
+    locationId: "",
   });
+  const [locations, setLocations] = useState<Array<{ _id: string; name: string }>>([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const checkInInputRef = useRef<HTMLInputElement>(null);
   const checkOutInputRef = useRef<HTMLInputElement>(null);
 
@@ -304,6 +320,7 @@ export default function AdminAttendancePage() {
         limit: pageSize,
         date: selectedDate || undefined,
         search: debouncedSearchTerm || undefined,
+        status: statusFilter === "all" ? undefined : statusFilter,
       });
 
       const normalized: AttendanceRecordItem[] = (response?.records ?? []).map(
@@ -377,11 +394,32 @@ export default function AdminAttendancePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearchTerm, page, pageSize, selectedDate]);
+  }, [debouncedSearchTerm, page, pageSize, selectedDate, statusFilter]);
 
   useEffect(() => {
     void fetchAttendance();
   }, [fetchAttendance]);
+
+  // Fetch locations when component mounts
+  useEffect(() => {
+    const loadLocations = async () => {
+      setIsLoadingLocations(true);
+      try {
+        const locationList = await getAllLocations();
+        setLocations(locationList.map((loc) => ({ _id: loc._id, name: loc.name })));
+      } catch (error) {
+        console.error("[AdminAttendance] Failed to load locations", error);
+        toast.error("Không thể tải danh sách địa điểm");
+      } finally {
+        setIsLoadingLocations(false);
+      }
+    };
+    void loadLocations();
+  }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
 
   const handleViewRecord = (record: AttendanceRecordItem) => {
     setSelectedRecord(record);
@@ -390,54 +428,67 @@ export default function AdminAttendancePage() {
 
   const handleEditRecord = (record: AttendanceRecordItem) => {
     setSelectedRecord(record);
+    // Tìm locationId từ location name
+    const matchedLocation = locations.find((loc) => loc.name === record.location);
     setFormData({
       checkIn: record.checkIn === "-" ? "" : record.checkIn,
       checkOut: record.checkOut === "-" ? "" : record.checkOut,
-      location: record.location === "-" ? "" : record.location,
+      locationId: matchedLocation?._id || "",
     });
     setIsEditDialogOpen(true);
-  };
-
-  const handleDeleteRecord = (record: AttendanceRecordItem) => {
-    setSelectedRecord(record);
-    setIsDeleteDialogOpen(true);
   };
 
   const handleSubmitEdit = async () => {
     if (!selectedRecord) return;
     setIsSaving(true);
     try {
-      await updateAttendanceRecordApi(selectedRecord.id, {
+      // Nếu là record vắng (ID bắt đầu bằng "absent-"), cần gửi thêm date
+      const updatePayload: {
+        checkIn?: string | null;
+        checkOut?: string | null;
+        locationId?: string | null;
+        locationName?: string | null;
+        date?: string;
+      } = {
         checkIn: formData.checkIn ? formData.checkIn : null,
         checkOut: formData.checkOut ? formData.checkOut : null,
-        locationName: formData.location.trim() ? formData.location.trim() : null,
-      });
+        locationId: formData.locationId ? formData.locationId : null,
+      };
+
+      // Nếu là record vắng, gửi thêm date để backend có thể tạo record mới
+      if (selectedRecord.id.startsWith("absent-")) {
+        // Ưu tiên dùng selectedDate (format: YYYY-MM-DD)
+        if (selectedDate) {
+          updatePayload.date = selectedDate;
+        } else {
+          // Parse date từ selectedRecord.date (format: DD/MM/YYYY)
+          const dateParts = selectedRecord.date.split("/");
+          if (dateParts.length === 3) {
+            const [day, month, year] = dateParts;
+            updatePayload.date = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+          } else {
+            // Fallback: dùng ngày hôm nay
+            const today = new Date();
+            updatePayload.date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+          }
+        }
+      }
+
+      await updateAttendanceRecordApi(selectedRecord.id, updatePayload);
       toast.success("✅ Đã cập nhật thông tin chấm công");
       setIsEditDialogOpen(false);
       setSelectedRecord(null);
       await fetchAttendance();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("[AdminAttendance] update error", error);
-      toast.error("Không thể cập nhật bản ghi");
+      const errorMessage =
+        error && typeof error === "object" && "response" in error
+          ? (error.response as { data?: { message?: string } })?.data?.message ||
+          "Không thể cập nhật bản ghi"
+          : "Không thể cập nhật bản ghi";
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!selectedRecord) return;
-    setIsDeleting(true);
-    try {
-      await deleteAttendanceRecordApi(selectedRecord.id);
-      toast.success("🗑️ Đã xóa bản ghi chấm công");
-      setIsDeleteDialogOpen(false);
-      setSelectedRecord(null);
-      await fetchAttendance();
-    } catch (error) {
-      console.error("[AdminAttendance] delete error", error);
-      toast.error("Không thể xóa bản ghi");
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -495,7 +546,7 @@ export default function AdminAttendancePage() {
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="mt-4 flex flex-col gap-6 p-6">
           <div className="flex flex-col gap-4 md:flex-row">
-            <div className="flex-1 relative">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
                 placeholder="Tìm theo tên nhân viên..."
@@ -510,6 +561,21 @@ export default function AdminAttendancePage() {
               onChange={(e) => setSelectedDate(e.target.value)}
               className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
             />
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as StatusFilterValue)}
+            >
+              <SelectTrigger className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+                {STATUS_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="outline"
               disabled={!roleConfig.canExport}
@@ -577,28 +643,28 @@ export default function AdminAttendancePage() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[var(--shell)]">
-                  <th className="text-left py-4 px-6 text-sm font-semibold text-[var(--text-main)] first:rounded-tl-lg">
-                    Nhânviên
+                  <th className="text-left py-4 px-6 text-sm font-semibold text-[var(--text-main)] first:rounded-tl-lg w-[22%]">
+                    Nhân viên
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
+                  <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap w-[11%]">
                     Ngày
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
+                  <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap w-[9%]">
                     Giờ vào
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
+                  <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap w-[9%]">
                     Giờ ra
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
+                  <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap w-[9%]">
                     Tổng giờ
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)]">
+                  <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] w-[18%]">
                     Địa điểm
                   </th>
-                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)]">
+                  <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] w-[12%]">
                     Trạng thái
                   </th>
-                  <th className="text-center py-4 px-6 text-sm font-semibold text-[var(--text-main)] last:rounded-tr-lg whitespace-nowrap">
+                  <th className="text-center py-4 px-4 text-sm font-semibold text-[var(--text-main)] last:rounded-tr-lg whitespace-nowrap w-[10%]">
                     Thao tác
                   </th>
                 </tr>
@@ -645,25 +711,25 @@ export default function AdminAttendancePage() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-sm text-[var(--text-main)] whitespace-nowrap">
+                      <td className="py-4 px-3 text-sm text-[var(--text-main)] whitespace-nowrap">
                         {record.date}
                       </td>
-                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                      <td className="py-4 px-3 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
                         {record.checkIn}
                       </td>
-                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                      <td className="py-4 px-3 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
                         {record.checkOut}
                       </td>
-                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                      <td className="py-4 px-3 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
                         {record.hours}
                       </td>
-                      <td className="py-4 px-4 text-sm text-[var(--text-sub)]">
+                      <td className="py-4 px-3 text-sm text-[var(--text-sub)]">
                         {record.location}
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-3">
                         {getStatusBadge(record.status)}
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-4">
                         <div className="flex items-center justify-center space-x-1">
                           <button
                             onClick={() => handleViewRecord(record)}
@@ -679,14 +745,6 @@ export default function AdminAttendancePage() {
                             title="Chỉnh sửa"
                           >
                             <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRecord(record)}
-                            disabled={!roleConfig.canDelete}
-                            className="rounded-md p-2 text-[var(--error)] hover:bg-[var(--error)]/10 disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40 transition-colors"
-                            title="Xóa"
-                          >
-                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -920,14 +978,34 @@ export default function AdminAttendancePage() {
 
             <div className="space-y-2">
               <Label>Địa điểm</Label>
-              <Input
-                placeholder="Văn phòng HN"
-                className="bg-[var(--input-bg)] border-[var(--border)]"
-                value={formData.location}
-                onChange={(e) =>
-                  setFormData({ ...formData, location: e.target.value })
+              <Select
+                value={formData.locationId}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, locationId: value })
                 }
-              />
+                disabled={isLoadingLocations}
+              >
+                <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
+                  <SelectValue placeholder={isLoadingLocations ? "Đang tải..." : "Chọn địa điểm"} />
+                </SelectTrigger>
+                <SelectContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+                  {isLoadingLocations ? (
+                    <div className="px-2 py-1.5 text-sm text-[var(--text-sub)]">
+                      Đang tải...
+                    </div>
+                  ) : locations.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-[var(--text-sub)]">
+                      Không có địa điểm nào
+                    </div>
+                  ) : (
+                    locations.map((location) => (
+                      <SelectItem key={location._id} value={location._id}>
+                        {location.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
@@ -950,59 +1028,6 @@ export default function AdminAttendancePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
-          <DialogHeader>
-            <DialogTitle>Xác nhận xóa bản ghi</DialogTitle>
-            <DialogDescription className="text-[var(--text-sub)]">
-              Bạn có chắc chắn muốn xóa bản ghi chấm công này?
-            </DialogDescription>
-          </DialogHeader>
-          {selectedRecord && (
-            <div className="py-4">
-              <div className="flex items-center space-x-3 p-4 bg-[var(--shell)] rounded-lg">
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-[var(--error)] text-white">
-                    {selectedRecord.avatar}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-[var(--text-main)]">
-                    {selectedRecord.name}
-                  </p>
-                  <p className="text-sm text-[var(--text-sub)]">
-                    {selectedRecord.date}
-                  </p>
-                  <p className="text-xs text-[var(--text-sub)]">
-                    {selectedRecord.checkIn} - {selectedRecord.checkOut}
-                  </p>
-                </div>
-              </div>
-              <p className="text-[var(--error)] text-sm mt-4">
-                ⚠️ Hành động này không thể hoàn tác. Bản ghi chấm công sẽ bị xóa
-                vĩnh viễn.
-              </p>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              className="border-[var(--border)] text-[var(--text-main)]"
-            >
-              Hủy
-            </Button>
-            <Button
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="bg-[var(--error)] hover:bg-[var(--error)]/90 text-white disabled:opacity-60"
-            >
-              {isDeleting ? "Đang xóa..." : "Xóa bản ghi"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

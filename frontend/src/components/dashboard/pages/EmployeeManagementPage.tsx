@@ -212,9 +212,19 @@ const EmployeeManagementPage: React.FC = () => {
     fetchUsers()
   }, [fetchUsers])
 
-  // Fetch departments when component mounts
+  // Fetch departments when component mounts (only if user has permission)
   useEffect(() => {
     const fetchDepartments = async () => {
+      // Check if user has permission to access departments API
+      const userRole = currentUser?.role as UserRoleType
+      const hasPermission = userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN
+      
+      if (!hasPermission) {
+        // User doesn't have permission, skip fetching
+        console.log('[EmployeeManagement] User does not have permission to fetch departments')
+        return
+      }
+
       try {
         const response = await getAllDepartments({ status: 'active', limit: 1000 })
         // Filter only active departments and map to DepartmentType array
@@ -223,12 +233,21 @@ const EmployeeManagementPage: React.FC = () => {
         )
         setDepartments(activeDepartments)
       } catch (error) {
-        console.error('[EmployeeManagement] fetch departments error:', error)
-        toast.error('Không thể tải danh sách phòng ban')
+        const err = error as ErrorWithMessage
+        const errorMessage = err.message || ''
+        
+        // Only show toast if it's not a permission error
+        if (!errorMessage.includes('Insufficient permissions') && !errorMessage.includes('403')) {
+          console.error('[EmployeeManagement] fetch departments error:', error)
+          toast.error('Không thể tải danh sách phòng ban')
+        } else {
+          // Permission error - just log, don't show toast
+          console.log('[EmployeeManagement] No permission to fetch departments')
+        }
       }
     }
     fetchDepartments()
-  }, [])
+  }, [currentUser?.role])
 
   // Reset to page 1 when search or filters change
   useEffect(() => {
@@ -328,10 +347,10 @@ const EmployeeManagementPage: React.FC = () => {
       fetchUsers()
     } catch (error) {
       console.error('[EmployeeManagement] update error:', error)
-      const err = error as ErrorWithMessage & { fieldErrors?: FieldErrors }
+      const err = error as ErrorWithMessage & { fieldErrors?: FieldErrors; response?: { status?: number } }
       
       // Xử lý 403 Forbidden - không có quyền
-      if ((err.response?.status as number) === 403) {
+      if (err.response?.status === 403 || err.message?.includes('Insufficient permissions') || err.message?.includes('403')) {
         const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Bạn không có quyền thực hiện thao tác này'
         toast.error(errorMessage)
         return
@@ -410,36 +429,6 @@ const EmployeeManagementPage: React.FC = () => {
           </h1>
         </div>
       </div>
-
-      {/* Role Permission Info Alert */}
-      <Alert className="bg-[var(--primary)]/10 border-[var(--primary)]/30">
-        <div className="flex items-center gap-2">
-          <Info className="h-4 w-4 text-[var(--primary)]" />
-          <AlertTitle className="text-[var(--primary)] font-size-lg"><strong>Hệ thống phân quyền tự động</strong></AlertTitle>
-        </div>
-        <AlertDescription className="text-[var(--text-sub)] mt-2">
-          <div className="space-y-2">
-            <p>
-              🔐 <strong>Người đăng ký mới mặc định có role EMPLOYEE</strong>. Chỉ có các admin có quyền phân quyền mới có thể thay đổi role.
-            </p>
-            <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
-              <div>
-                <strong className="text-[var(--error)]">• Super Admin:</strong> Phân quyền TẤT CẢ roles
-              </div>
-              <div>
-                <strong className="text-[var(--primary)]">• Admin:</strong> Phân quyền Manager, Employee
-              </div>
-              <div>
-                <strong className="text-[var(--warning)]">• HR Manager:</strong> Phân quyền Employee
-              </div>
-              <div>
-                <strong className="text-[var(--text-sub)]">• Manager,Employee:</strong> Không có quyền phân quyền
-              </div>
-            </div>
-          </div>
-        </AlertDescription>
-      </Alert>
-
       {/* Search & Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6 mt-4">

@@ -8,7 +8,9 @@ interface AttendanceParams {
   endDate?: string
   from?: string
   to?: string
+  date?: string
   search?: string
+  status?: string
   [key: string]: unknown
 }
 
@@ -22,6 +24,7 @@ interface UpdateAttendancePayload {
   locationId?: string | null
   locationName?: string | null
   notes?: string | null
+  date?: string
 }
 
 interface AnalyticsSummary {

@@ -769,94 +769,179 @@ export const getAttendanceAnalytics = async (req, res) => {
 
 export const getAllAttendance = async (req, res) => {
   try {
-    const { date, search, page = 1, limit = 20 } = req.query
+    const { date, search, status, page = 1, limit = 20 } = req.query;
 
-    const query = {}
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 20;
+    const skip = (pageNum - 1) * limitNum;
 
-    if (date) {
-      const dateOnly = new Date(date)
-      dateOnly.setHours(0, 0, 0, 0)
-      const nextDay = new Date(dateOnly)
-      nextDay.setDate(nextDay.getDate() + 1)
-      query.date = { $gte: dateOnly, $lt: nextDay }
-    } else {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      query.date = { $gte: today, $lt: tomorrow }
-    }
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
 
-    const UserModel = (await import('../users/user.model.js')).UserModel
+    const dateQuery = { $gte: targetDate, $lt: nextDay };
 
-    let userQuery = {}
+    const UserModel = (await import("../users/user.model.js")).UserModel;
+
+    const userQuery = {};
     if (search) {
-      userQuery = {
-        $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } }
-        ]
-      }
+      userQuery.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
     }
 
-    const users = await UserModel.find(userQuery).select('_id name email department role')
-    const userIds = users.map(u => u._id)
+    const usersForScope = await UserModel.find(userQuery)
+      .select("_id name email department role")
+      .sort({ name: 1 });
+    const totalUsers = usersForScope.length;
 
-    if (userIds.length > 0) {
-      query.userId = { $in: userIds }
-    } else if (search) {
+    if (totalUsers === 0) {
       return res.json({
         records: [],
         summary: { total: 0, present: 0, late: 0, absent: 0 },
-        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
-      })
+        pagination: { page: 1, limit: limitNum, total: 0, totalPages: 0 },
+      });
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const allUserIds = usersForScope.map((u) => u._id);
 
-    const [docs, total] = await Promise.all([
-      AttendanceModel.find(query)
-        .populate('userId', 'name email department role')
-        .populate('locationId', 'name')
-        .sort({ checkIn: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
-      AttendanceModel.countDocuments(query)
-    ])
+    const attendanceDocs = await AttendanceModel.find({
+      userId: { $in: allUserIds },
+      date: dateQuery,
+    })
+      .populate("userId", "name email department role")
+      .populate("locationId", "name")
+      .sort({ checkIn: -1 });
 
-    const records = docs.map(buildAttendanceRecordResponse)
+    const attendanceMap = new Map();
+    attendanceDocs.forEach((doc) => {
+      const populatedUser =
+        doc.userId && typeof doc.userId === "object" ? doc.userId : null;
+      const key = populatedUser?._id?.toString() || doc.userId?.toString();
+      if (key && !attendanceMap.has(key)) {
+        attendanceMap.set(key, doc);
+      }
+    });
+
+    const formatDepartment = (department) => {
+      if (!department) return "N/A";
+      if (typeof department === "object" && department.name) {
+        return department.name;
+      }
+      return department.toString();
+    };
+
+    const allRecords = usersForScope.map((user) => {
+      const userId = user._id.toString();
+      const attendance = attendanceMap.get(userId);
+      if (attendance) {
+        return buildAttendanceRecordResponse(attendance);
+      }
+      return {
+        id: `absent-${userId}`,
+        userId,
+        name: user.name || "N/A",
+        role: user.role || "N/A",
+        email: user.email || "N/A",
+        department: formatDepartment(user.department),
+        date: formatDateLabel(targetDate),
+        checkIn: "-",
+        checkOut: "-",
+        hours: "-",
+        status: "absent",
+        location: "-",
+        notes: "",
+      };
+    });
+
+    const statusFilter =
+      typeof status === "string" ? status.toLowerCase() : "all";
+
+    const filteredRecords =
+      statusFilter && statusFilter !== "all"
+        ? allRecords.filter((record) => record.status === statusFilter)
+        : allRecords;
+
+    const paginatedRecords = filteredRecords.slice(
+      skip,
+      skip + limitNum
+    );
 
     const summary = {
-      total: total,
-      present: records.filter(r => r.status === 'ontime').length,
-      late: records.filter(r => r.status === 'late').length,
-      absent: records.filter(r => r.status === 'absent').length
-    }
+      total: totalUsers,
+      present: allRecords.filter((record) => record.status === "ontime").length,
+      late: allRecords.filter((record) => record.status === "late").length,
+      absent: allRecords.filter((record) => record.status === "absent").length,
+    };
 
     res.json({
-      records,
+      records: paginatedRecords,
       summary,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        totalPages: Math.ceil(total / parseInt(limit))
-      }
-    })
+        page: pageNum,
+        limit: limitNum,
+        total: filteredRecords.length,
+        totalPages: Math.ceil(filteredRecords.length / limitNum),
+      },
+    });
   } catch (error) {
-    console.error('[attendance] getAllAttendance error', error)
-    res.status(500).json({ message: 'Không lấy được danh sách chấm công' })
+    console.error("[attendance] getAllAttendance error", error);
+    res.status(500).json({ message: "Không lấy được danh sách chấm công" });
   }
-}
+};
 
 export const updateAttendanceRecord = async (req, res) => {
   try {
     const { id } = req.params;
-    const { checkIn, checkOut, locationId, locationName, notes } = req.body || {};
+    const { checkIn, checkOut, locationId, locationName, notes, date } = req.body || {};
 
-    const attendance = await AttendanceModel.findById(id);
-    if (!attendance) {
-      return res.status(404).json({ message: "Không tìm thấy bản ghi chấm công" });
+    let attendance = null;
+
+    // Kiểm tra xem ID có bắt đầu bằng "absent-" không (record vắng chưa có trong DB)
+    if (id.startsWith("absent-")) {
+      const userIdStr = id.replace("absent-", "");
+
+      // Validate ObjectId
+      const mongoose = (await import("mongoose")).default;
+      if (!mongoose.Types.ObjectId.isValid(userIdStr)) {
+        return res.status(400).json({ message: "ID nhân viên không hợp lệ" });
+      }
+
+      const userId = new mongoose.Types.ObjectId(userIdStr);
+
+      // Lấy thông tin user
+      const UserModel = (await import("../users/user.model.js")).UserModel;
+      const user = await UserModel.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Không tìm thấy nhân viên" });
+      }
+
+      // Xác định ngày (từ body hoặc từ query date nếu có)
+      let targetDate = date ? new Date(date) : new Date();
+      targetDate.setHours(0, 0, 0, 0);
+
+      // Kiểm tra xem đã có record cho ngày này chưa
+      attendance = await AttendanceModel.findOne({
+        userId: userId,
+        date: targetDate,
+      });
+
+      // Nếu chưa có, tạo mới
+      if (!attendance) {
+        attendance = new AttendanceModel({
+          userId: userId,
+          date: targetDate,
+          status: "absent",
+        });
+      }
+    } else {
+      // ID là ObjectId hợp lệ, tìm record trong DB
+      attendance = await AttendanceModel.findById(id);
+      if (!attendance) {
+        return res.status(404).json({ message: "Không tìm thấy bản ghi chấm công" });
+      }
     }
 
     if (checkIn !== undefined) {
@@ -909,8 +994,9 @@ export const updateAttendanceRecord = async (req, res) => {
 
     await attendance.save();
 
-    const updated = await AttendanceModel.findById(id)
-      .populate("userId", "name email department")
+    // Lấy lại record đã được cập nhật (có thể là record mới được tạo)
+    const updated = await AttendanceModel.findById(attendance._id)
+      .populate("userId", "name email department role")
       .populate("locationId", "name");
 
     res.json({
