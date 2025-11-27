@@ -48,6 +48,7 @@ const buildAttendanceRecordResponse = (doc) => {
     id: doc._id.toString(),
     userId: populatedUser?._id?.toString() || doc.userId?.toString(),
     name,
+    role: populatedUser?.role || "N/A",
     email: populatedUser?.email || "N/A",
     department: departmentValue,
     date: formatDateLabel(doc.date),
@@ -798,7 +799,7 @@ export const getAllAttendance = async (req, res) => {
       }
     }
 
-    const users = await UserModel.find(userQuery).select('_id name email department')
+    const users = await UserModel.find(userQuery).select('_id name email department role')
     const userIds = users.map(u => u._id)
 
     if (userIds.length > 0) {
@@ -815,7 +816,7 @@ export const getAllAttendance = async (req, res) => {
 
     const [docs, total] = await Promise.all([
       AttendanceModel.find(query)
-        .populate('userId', 'name email department')
+        .populate('userId', 'name email department role')
         .populate('locationId', 'name')
         .sort({ checkIn: -1 })
         .skip(skip)
@@ -1141,7 +1142,7 @@ export const getDepartmentAttendance = async (req, res) => {
 
     const [docs, total] = await Promise.all([
       AttendanceModel.find(query)
-        .populate('userId', 'name email')
+        .populate('userId', 'name email role')
         .populate('locationId', 'name')
         .sort({ checkIn: -1 })
         .skip(skip)
@@ -1149,24 +1150,10 @@ export const getDepartmentAttendance = async (req, res) => {
       AttendanceModel.countDocuments(query)
     ]);
 
-    const records = docs.map(doc => {
-      const status = deriveStatus(doc);
-      return {
-        id: doc._id.toString(),
-        userId: doc.userId?._id?.toString(),
-        name: doc.userId?.name || 'N/A',
-        email: doc.userId?.email || 'N/A',
-        employeeId: doc.userId?._id?.toString().slice(-3) || 'N/A',
-        date: formatDateLabel(doc.date),
-        checkIn: formatTime(doc.checkIn),
-        checkOut: formatTime(doc.checkOut),
-        hours: doc.workHours
-          ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m`
-          : '-',
-        status,
-        location: doc.locationId?.name || '-'
-      };
-    });
+    const records = docs.map(doc => ({
+      ...buildAttendanceRecordResponse(doc),
+      employeeId: doc.userId?._id?.toString().slice(-3) || 'N/A'
+    }));
 
     // Tính summary từ tất cả records trong ngày (không chỉ trang hiện tại)
     const allDocs = await AttendanceModel.find(query)

@@ -196,4 +196,16 @@ input[type="month"]::-moz-calendar-picker-indicator {
   opacity: 0.9;
 }
 
+/* Time Input Styling */
+.time-input {
+  color-scheme: dark;
+}
 
+.time-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+
+.time-input::-moz-focus-inner {
+  border: 0;
+}
