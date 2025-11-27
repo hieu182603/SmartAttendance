@@ -59,7 +59,8 @@ export const getReviews = async (req, res) => {
         .populate("reviewerId", "name")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(parseInt(limit))
+        .lean(), // Lean for better performance
       PerformanceReviewModel.countDocuments(filter),
     ]);
 

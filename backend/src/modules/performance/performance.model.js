@@ -75,9 +75,12 @@ const performanceReviewSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index để tìm kiếm nhanh
-performanceReviewSchema.index({ employeeId: 1, period: 1 });
-performanceReviewSchema.index({ status: 1 });
+// Indexes để tìm kiếm nhanh
+performanceReviewSchema.index({ employeeId: 1, period: 1 }, { unique: true }); // Unique constraint
+performanceReviewSchema.index({ status: 1, createdAt: -1 }); // Filter by status + sort
+performanceReviewSchema.index({ reviewerId: 1, status: 1 }); // Manager queries
+performanceReviewSchema.index({ period: 1 }); // Filter by period
+performanceReviewSchema.index({ createdAt: -1 }); // Sort by date
 
 // Method để tính điểm tổng quan
 performanceReviewSchema.methods.calculateOverallScore = function () {
