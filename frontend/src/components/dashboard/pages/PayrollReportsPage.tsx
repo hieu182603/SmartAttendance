@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   DollarSign,
@@ -29,110 +29,14 @@ import { Button } from "../../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Badge } from "../../ui/badge";
 import { Input } from "../../ui/input";
-
-interface PayrollSummary {
-  month: string;
-  totalEmployees: number;
-  totalSalary: number;
-  totalBonuses: number;
-  totalDeductions: number;
-  netPay: number;
-  avgSalary: number;
-}
-
-interface DepartmentPayroll {
-  department: string;
-  employees: number;
-  totalSalary: number;
-  avgSalary: number;
-  percentage: number;
-}
-
-interface TrendPoint {
-  month: string;
-  total: number;
-  employees: number;
-}
+import {
+  getPayrollReports,
+  type PayrollSummary,
+  type DepartmentPayroll,
+  type MonthlyTrendPoint,
+} from "../../../services/payrollService";
 
 const COLORS = ["#8B5CF6", "#06B6D4", "#F59E0B", "#10B981", "#EF4444"];
-
-const MOCK_SUMMARY: PayrollSummary[] = [
-  {
-    month: "Tháng 10/2025",
-    totalEmployees: 150,
-    totalSalary: 3500000000,
-    totalBonuses: 500000000,
-    totalDeductions: 350000000,
-    netPay: 3650000000,
-    avgSalary: 24333333,
-  },
-  {
-    month: "Tháng 9/2025",
-    totalEmployees: 148,
-    totalSalary: 3450000000,
-    totalBonuses: 450000000,
-    totalDeductions: 345000000,
-    netPay: 3555000000,
-    avgSalary: 24020270,
-  },
-  {
-    month: "Tháng 8/2025",
-    totalEmployees: 145,
-    totalSalary: 3400000000,
-    totalBonuses: 400000000,
-    totalDeductions: 340000000,
-    netPay: 3460000000,
-    avgSalary: 23862069,
-  },
-];
-
-const MOCK_DEPARTMENTS: Record<string, DepartmentPayroll[]> = {
-  "Tháng 10/2025": [
-    { department: "IT", employees: 45, totalSalary: 1350000000, avgSalary: 30000000, percentage: 37 },
-    { department: "Sales", employees: 40, totalSalary: 960000000, avgSalary: 24000000, percentage: 27 },
-    { department: "HR", employees: 15, totalSalary: 420000000, avgSalary: 28000000, percentage: 12 },
-    { department: "Marketing", employees: 25, totalSalary: 500000000, avgSalary: 20000000, percentage: 14 },
-    { department: "Operations", employees: 25, totalSalary: 370000000, avgSalary: 14800000, percentage: 10 },
-  ],
-  "Tháng 9/2025": [
-    { department: "IT", employees: 44, totalSalary: 1330000000, avgSalary: 30227272, percentage: 38 },
-    { department: "Sales", employees: 38, totalSalary: 930000000, avgSalary: 24473684, percentage: 27 },
-    { department: "HR", employees: 15, totalSalary: 410000000, avgSalary: 27333333, percentage: 12 },
-    { department: "Marketing", employees: 26, totalSalary: 480000000, avgSalary: 18461538, percentage: 14 },
-    { department: "Operations", employees: 25, totalSalary: 360000000, avgSalary: 14400000, percentage: 9 },
-  ],
-  "Tháng 8/2025": [
-    { department: "IT", employees: 43, totalSalary: 1310000000, avgSalary: 30465116, percentage: 38 },
-    { department: "Sales", employees: 37, totalSalary: 920000000, avgSalary: 24864864, percentage: 27 },
-    { department: "HR", employees: 15, totalSalary: 405000000, avgSalary: 27000000, percentage: 12 },
-    { department: "Marketing", employees: 25, totalSalary: 470000000, avgSalary: 18800000, percentage: 14 },
-    { department: "Operations", employees: 25, totalSalary: 350000000, avgSalary: 14000000, percentage: 9 },
-  ],
-};
-
-const MOCK_TREND: Record<string, TrendPoint[]> = {
-  "Tháng 10/2025": [
-    { month: "T6", total: 3300, employees: 142 },
-    { month: "T7", total: 3350, employees: 143 },
-    { month: "T8", total: 3400, employees: 145 },
-    { month: "T9", total: 3450, employees: 148 },
-    { month: "T10", total: 3500, employees: 150 },
-  ],
-  "Tháng 9/2025": [
-    { month: "T5", total: 3280, employees: 140 },
-    { month: "T6", total: 3300, employees: 142 },
-    { month: "T7", total: 3350, employees: 143 },
-    { month: "T8", total: 3400, employees: 145 },
-    { month: "T9", total: 3450, employees: 148 },
-  ],
-  "Tháng 8/2025": [
-    { month: "T4", total: 3260, employees: 138 },
-    { month: "T5", total: 3280, employees: 140 },
-    { month: "T6", total: 3300, employees: 142 },
-    { month: "T7", total: 3350, employees: 143 },
-    { month: "T8", total: 3400, employees: 145 },
-  ],
-};
 
 const formatCompactCurrency = (amount: number): string => {
   if (!amount) return "0";
@@ -147,17 +51,55 @@ const formatFullCurrency = (amount: number): string => {
   }).format(amount || 0);
 };
 
-const summary = MOCK_SUMMARY;
-
 const PayrollReportsPage: React.FC = () => {
-  const [selectedMonth, setSelectedMonth] = useState<string>(
-    MOCK_SUMMARY[0].month
-  );
+  const [summary, setSummary] = useState<PayrollSummary[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [departmentData, setDepartmentData] = useState<DepartmentPayroll[]>([]);
+  const [trendData, setTrendData] = useState<MonthlyTrendPoint[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchReports = useCallback(
+    async (monthFilter?: string, shouldInitializeMonth = false) => {
+      setLoading(true);
+      try {
+        const result = await getPayrollReports(
+          monthFilter ? { month: monthFilter } : {}
+        );
+        setSummary(result.summary || []);
+        setDepartmentData(result.departments || []);
+        setTrendData(result.monthlyTrend || []);
+
+        if (
+          shouldInitializeMonth &&
+          !selectedMonth &&
+          result.summary &&
+          result.summary.length > 0
+        ) {
+          setSelectedMonth(result.summary[0].month);
+        }
+      } catch (error) {
+        console.error("[PayrollReports] fetch error:", error);
+        toast.error("Không thể tải báo cáo lương");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedMonth]
+  );
+
+  useEffect(() => {
+    fetchReports(undefined, true);
+  }, [fetchReports]);
+
+  useEffect(() => {
+    if (selectedMonth) {
+      fetchReports(selectedMonth);
+    }
+  }, [selectedMonth, fetchReports]);
 
   const currentPayroll =
-    MOCK_SUMMARY.find((item) => item.month === selectedMonth) ||
-    MOCK_SUMMARY[0];
+    summary.find((item) => item.month === selectedMonth) || summary[0];
 
   const currentIndex = summary.findIndex(
     (item) => item.month === currentPayroll?.month
@@ -178,9 +120,6 @@ const PayrollReportsPage: React.FC = () => {
     currentPayroll && previousPayroll
       ? currentPayroll.totalEmployees - previousPayroll.totalEmployees
       : 0;
-
-  const departmentData = MOCK_DEPARTMENTS[selectedMonth] || [];
-  const trendData = MOCK_TREND[selectedMonth] || [];
 
   const filteredDepartments = useMemo(() => {
     if (!searchQuery) return departmentData;
@@ -208,12 +147,13 @@ const PayrollReportsPage: React.FC = () => {
           <Select
             value={selectedMonth}
             onValueChange={(value) => setSelectedMonth(value)}
+            disabled={!summary.length}
           >
             <SelectTrigger className="w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
               <SelectValue placeholder="Chọn tháng" />
             </SelectTrigger>
             <SelectContent>
-              {MOCK_SUMMARY.map((item) => (
+              {summary.map((item) => (
                 <SelectItem key={item.month} value={item.month}>
                   {item.month}
                 </SelectItem>
@@ -394,12 +334,16 @@ const PayrollReportsPage: React.FC = () => {
                 <ResponsiveContainer width="100%" height={300}>
                   <RePieChart>
                     <Pie
-                      data={departmentData as unknown as Record<string, unknown>[]}
+                      data={
+                        departmentData as unknown as Record<string, unknown>[]
+                      }
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       label={({ payload }) =>
-                        `${payload?.department ?? ""} ${payload?.percentage ?? 0}%`
+                        `${payload?.department ?? ""} ${
+                          payload?.percentage ?? 0
+                        }%`
                       }
                       outerRadius={110}
                       fill="#8884d8"
@@ -564,6 +508,11 @@ const PayrollReportsPage: React.FC = () => {
         </>
       )}
 
+      {loading && (
+        <div className="text-center text-sm text-[var(--text-sub)]">
+          Đang tải dữ liệu...
+        </div>
+      )}
     </div>
   );
 };
