@@ -1,5 +1,6 @@
 import { AuthService } from "./auth.service.js";
 import { z } from "zod";
+import { logActivity } from "../../utils/logger.util.js";
 
 // Validation schemas
 export const registerSchema = z.object({
@@ -99,8 +100,38 @@ export class AuthController {
             // Register user
             const result = await AuthService.register(parse.data);
 
+            // Log successful registration
+            await logActivity(req, {
+                action: "register",
+                entityType: "auth",
+                entityId: result.user?.id || null,
+                details: {
+                    description: `Đăng ký tài khoản mới: ${result.user?.email || parse.data.email}`,
+                    userEmail: result.user?.email,
+                    userName: result.user?.name,
+                },
+                status: "success",
+            });
+
+            // Set userId trong req để logActivity có thể sử dụng
+            if (result.user?.id) {
+                req.user = { userId: result.user.id };
+            }
+
             return res.status(201).json(result);
         } catch (error) {
+            // Log failed registration
+            await logActivity(req, {
+                action: "register",
+                entityType: "auth",
+                details: {
+                    description: `Đăng ký thất bại: ${parse.data?.email || "Unknown email"}`,
+                    reason: error.message,
+                },
+                status: "failed",
+                errorMessage: error.message,
+            });
+
             if (error.message === "Email already registered") {
                 return res.status(409).json({ message: "Email đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập." });
             }
@@ -160,8 +191,36 @@ export class AuthController {
             // Login user
             const result = await AuthService.login(parse.data);
 
+            // Log successful login
+            await logActivity(req, {
+                action: "login",
+                entityType: "auth",
+                entityId: result.user?.id || null,
+                details: {
+                    description: `Đăng nhập thành công: ${result.user?.email || parse.data.email}`,
+                    userEmail: result.user?.email,
+                    userName: result.user?.name,
+                },
+                status: "success",
+            });
+
+            // Set userId trong req để logActivity có thể sử dụng
+            req.user = { userId: result.user?.id };
+
             return res.status(200).json(result);
         } catch (error) {
+            // Log failed login attempt
+            await logActivity(req, {
+                action: "login",
+                entityType: "auth",
+                details: {
+                    description: `Đăng nhập thất bại: ${parse.data?.email || "Unknown email"}`,
+                    reason: error.message,
+                },
+                status: "failed",
+                errorMessage: error.message,
+            });
+
             if (error.message === "Invalid credentials") {
                 return res.status(401).json({ message: "Invalid email or password" });
             }
@@ -376,8 +435,8 @@ export class AuthController {
                 return res.status(400).json({ message: "Email not verified. Please verify your email first." });
             }
             console.error("Forgot password error:", error);
-            return res.status(500).json({ 
-                message: error.message || "Internal server error" 
+            return res.status(500).json({
+                message: error.message || "Internal server error"
             });
         }
     }
@@ -492,8 +551,8 @@ export class AuthController {
                 return res.status(400).json({ message: "Reset token expired. Please request a new OTP." });
             }
             console.error("Reset password error:", error);
-            return res.status(500).json({ 
-                message: error.message || "Internal server error" 
+            return res.status(500).json({
+                message: error.message || "Internal server error"
             });
         }
     }
