@@ -9,6 +9,11 @@ import { AttendanceModel } from '../src/modules/attendance/attendance.model.js';
 import { RequestModel } from '../src/modules/requests/request.model.js';
 import { ReportModel } from '../src/modules/reports/report.model.js';
 import { LogModel } from '../src/modules/logs/log.model.js';
+import { PayrollRecordModel } from '../src/modules/payroll/payroll.model.js';
+import { PerformanceReviewModel } from '../src/modules/performance/performance.model.js';
+import { CalendarEventModel } from '../src/modules/calendar/calendar.model.js';
+import { EmployeeScheduleModel } from '../src/modules/schedule/schedule.model.js';
+import { SystemConfigModel } from '../src/modules/config/config.model.js';
 import { hashPassword } from '../src/utils/bcrypt.util.js';
 
 dotenv.config();
@@ -36,6 +41,11 @@ async function seed() {
         await RequestModel.deleteMany({});
         await ReportModel.deleteMany({});
         await LogModel.deleteMany({});
+        await PayrollRecordModel.deleteMany({});
+        await PerformanceReviewModel.deleteMany({});
+        await CalendarEventModel.deleteMany({});
+        await EmployeeScheduleModel.deleteMany({});
+        await SystemConfigModel.deleteMany({});
 
         // Xóa collection UserShift nếu tồn tại
         try {
@@ -351,7 +361,7 @@ async function seed() {
         // Set để track các tên đầy đủ đã tạo (để hạn chế trùng tên)
         const usedFullNames = new Set();
 
-        for (let i = 1; i <= 146; i++) {
+        for (let i = 1; i <= 180; i++) {
             let firstName, middleName, lastName, name;
             let attempts = 0;
             const maxAttempts = 50; // Giới hạn số lần thử để tránh vòng lặp vô hạn
@@ -501,7 +511,7 @@ async function seed() {
         ];
 
         const requests = [];
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 150; i++) {
             const employee = employeeUsers[randomInt(0, employeeUsers.length - 1)];
             const type = requestTypes[randomInt(0, requestTypes.length - 1)];
             const status = requestStatuses[randomInt(0, requestStatuses.length - 1)];
@@ -760,6 +770,363 @@ async function seed() {
         const createdLogs = await LogModel.insertMany(logs);
         console.log(`✅ Created ${createdLogs.length} logs\n`);
 
+        // ========== 8. TẠO PAYROLL RECORDS (Bảng lương chi tiết) ==========
+        console.log('💰 Creating payroll records...');
+        const payrollRecords = [];
+        const positions = ['Senior Developer', 'Frontend Developer', 'Backend Developer', 'Marketing Manager', 'HR Specialist', 'Designer', 'QA Engineer', 'Product Manager'];
+
+        // Tạo payroll records cho 6 tháng gần nhất
+        for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
+            const monthDate = new Date(today);
+            monthDate.setMonth(monthDate.getMonth() - monthOffset);
+            const monthStr = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+
+            const periodStart = new Date(monthDate);
+            periodStart.setDate(1);
+            const periodEnd = new Date(monthDate);
+            periodEnd.setMonth(periodEnd.getMonth() + 1);
+            periodEnd.setDate(0); // Ngày cuối tháng
+
+            // Tạo payroll cho mỗi employee
+            for (const employee of employeeUsers) { // Tất cả nhân viên
+                const monthAttendances = createdAttendances.filter(
+                    (a) => a.userId.equals(employee._id) &&
+                        a.date >= periodStart && a.date <= periodEnd
+                );
+
+                if (monthAttendances.length === 0) continue;
+
+                const workDays = monthAttendances.filter(a => a.status === 'present' || a.status === 'late').length;
+                const lateDays = monthAttendances.filter(a => a.status === 'late').length;
+                const totalDays = 22; // ~22 ngày làm việc/tháng
+                const leaveDays = totalDays - workDays;
+
+                // Tính overtime hours từ attendance
+                const overtimeHours = monthAttendances.reduce((sum, a) => {
+                    if (a.workHours > 8) return sum + (a.workHours - 8);
+                    return sum;
+                }, 0);
+
+                // Base salary theo department và vị trí
+                const dept = departments.find(d => d._id.equals(employee.department));
+                let baseSalary = 15000000; // Default
+                if (dept?.code === 'DEV') baseSalary = 20000000 + randomInt(0, 10000000);
+                else if (dept?.code === 'DESIGN') baseSalary = 18000000 + randomInt(0, 8000000);
+                else if (dept?.code === 'MKT') baseSalary = 16000000 + randomInt(0, 9000000);
+                else if (dept?.code === 'SALES') baseSalary = 17000000 + randomInt(0, 10000000);
+                else baseSalary = 15000000 + randomInt(0, 5000000);
+
+                const overtimePay = Math.round(overtimeHours * (baseSalary / (22 * 8)) * 1.5);
+                const bonus = Math.random() > 0.7 ? randomInt(2000000, 5000000) : 0;
+                const deductions = lateDays * 200000 + (Math.random() > 0.8 ? randomInt(100000, 500000) : 0);
+                const totalSalary = baseSalary + overtimePay + bonus - deductions;
+
+                const statuses = ['pending', 'approved', 'paid'];
+                const status = statuses[randomInt(0, 2)];
+
+                const payrollRecord = {
+                    userId: employee._id,
+                    month: monthStr,
+                    periodStart: periodStart,
+                    periodEnd: periodEnd,
+                    workDays: workDays,
+                    totalDays: totalDays,
+                    overtimeHours: Math.round(overtimeHours * 10) / 10,
+                    leaveDays: leaveDays,
+                    lateDays: lateDays,
+                    baseSalary: baseSalary,
+                    overtimePay: overtimePay,
+                    bonus: bonus,
+                    deductions: deductions,
+                    totalSalary: totalSalary,
+                    status: status,
+                    department: dept?.name || 'N/A',
+                    position: positions[randomInt(0, positions.length - 1)],
+                    employeeId: `EMP${String(createdUsers.indexOf(employee) + 1).padStart(3, '0')}`,
+                };
+
+                if (status === 'approved' || status === 'paid') {
+                    payrollRecord.approvedBy = Math.random() > 0.5 ? adminUser._id : hrUser._id;
+                    payrollRecord.approvedAt = new Date(periodEnd);
+                    payrollRecord.approvedAt.setDate(payrollRecord.approvedAt.getDate() + 2);
+                }
+
+                if (status === 'paid') {
+                    payrollRecord.paidAt = new Date(payrollRecord.approvedAt);
+                    payrollRecord.paidAt.setDate(payrollRecord.paidAt.getDate() + randomInt(1, 5));
+                }
+
+                payrollRecords.push(payrollRecord);
+            }
+        }
+
+        const createdPayrollRecords = await PayrollRecordModel.insertMany(payrollRecords);
+        console.log(`✅ Created ${createdPayrollRecords.length} payroll records\n`);
+
+        // ========== 9. TẠO PERFORMANCE REVIEWS (Đánh giá hiệu suất) ==========
+        console.log('⭐ Creating performance reviews...');
+        const performanceReviews = [];
+        const periods = ['Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024', 'Q1 2025', 'Q2 2025'];
+
+        // Tạo reviews cho nhiều nhân viên hơn
+        for (let i = 0; i < 150; i++) {
+            const employee = employeeUsers[randomInt(0, employeeUsers.length - 1)];
+            const reviewer = Math.random() > 0.5 ? adminUser : (Math.random() > 0.5 ? hrUser : managerUser);
+            const period = periods[randomInt(0, periods.length - 1)];
+            const status = Math.random() > 0.3 ? 'completed' : (Math.random() > 0.5 ? 'pending' : 'draft');
+
+            const technical = randomInt(70, 95);
+            const communication = randomInt(75, 95);
+            const teamwork = randomInt(80, 95);
+            const leadership = randomInt(60, 90);
+            const problemSolving = randomInt(75, 95);
+
+            const achievements = [
+                'Hoàn thành xuất sắc các task được giao',
+                'Đóng góp tích cực cho team',
+                'Cải thiện đáng kể kỹ năng chuyên môn',
+            ].slice(0, randomInt(1, 3));
+
+            const improvements = [
+                'Cần cải thiện kỹ năng giao tiếp',
+                'Nên tham gia nhiều hơn các hoạt động team',
+            ].slice(0, randomInt(0, 2));
+
+            const review = {
+                employeeId: employee._id,
+                reviewerId: reviewer._id,
+                period: period,
+                reviewDate: (() => {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - randomInt(1, 180));
+                    return d;
+                })(),
+                categories: {
+                    technical: technical,
+                    communication: communication,
+                    teamwork: teamwork,
+                    leadership: leadership,
+                    problemSolving: problemSolving,
+                },
+                achievements: achievements,
+                improvements: improvements,
+                comments: 'Nhân viên có tiềm năng phát triển tốt, cần tiếp tục nỗ lực.',
+                status: status,
+            };
+
+            if (status === 'completed') {
+                review.completedAt = new Date(review.reviewDate);
+                review.completedAt.setDate(review.completedAt.getDate() + randomInt(1, 7));
+            }
+
+            performanceReviews.push(review);
+        }
+
+        const createdPerformanceReviews = await PerformanceReviewModel.insertMany(performanceReviews);
+        console.log(`✅ Created ${createdPerformanceReviews.length} performance reviews\n`);
+
+        // ========== 10. TẠO CALENDAR EVENTS (Sự kiện công ty) ==========
+        console.log('📅 Creating calendar events...');
+        const calendarEvents = [];
+
+        const eventTypes = ['holiday', 'meeting', 'event', 'deadline', 'training'];
+        const eventTitles = [
+            'Họp tổng kết quý 4',
+            'Ngày lễ Nhà giáo Việt Nam',
+            'Deadline dự án ABC',
+            'Team Building',
+            'Đào tạo React Advanced',
+            'Sinh nhật công ty',
+            'Họp giao ban tuần',
+            'Ngày Quốc khánh',
+            'Hội thảo công nghệ',
+            'Training Python',
+        ];
+
+        // Tạo events cho 6 tháng (3 tháng trước và 3 tháng tới)
+        for (let monthOffset = -3; monthOffset < 3; monthOffset++) {
+            const monthDate = new Date(today);
+            monthDate.setMonth(monthDate.getMonth() + monthOffset);
+
+            // Tạo 5-8 events mỗi tháng
+            for (let i = 0; i < randomInt(5, 8); i++) {
+                const eventDate = new Date(monthDate);
+                eventDate.setDate(randomInt(1, 28));
+
+                const title = eventTitles[randomInt(0, eventTitles.length - 1)];
+                const type = eventTypes[randomInt(0, eventTypes.length - 1)];
+                const isAllDay = type === 'holiday' || Math.random() > 0.7;
+
+                const startHour = randomInt(8, 14);
+                const startMinute = randomInt(0, 1) * 30;
+                const endHour = randomInt(15, 18);
+                const endMinute = randomInt(0, 1) * 30;
+
+                const event = {
+                    title: title,
+                    description: `Mô tả chi tiết cho sự kiện: ${title}`,
+                    date: eventDate,
+                    startTime: isAllDay ? '00:00' : `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`,
+                    endTime: isAllDay ? '23:59' : `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`,
+                    isAllDay: isAllDay,
+                    type: type,
+                    location: type === 'meeting' ? 'Phòng họp tầng 3' : (type === 'training' ? 'Phòng đào tạo' : undefined),
+                    attendeeCount: type === 'meeting' ? randomInt(10, 50) : (type === 'event' ? randomInt(50, 200) : 0),
+                    color: type === 'holiday' ? '#EF4444' : type === 'meeting' ? '#3B82F6' : type === 'event' ? '#10B981' : type === 'deadline' ? '#F59E0B' : '#8B5CF6',
+                    visibility: 'public',
+                    createdBy: Math.random() > 0.5 ? adminUser._id : hrUser._id,
+                    isActive: true,
+                };
+
+                if (type === 'meeting' && event.attendeeCount > 0) {
+                    const numAttendees = Math.min(event.attendeeCount, 10);
+                    event.attendees = employeeUsers.slice(0, numAttendees).map(u => u._id);
+                }
+
+                calendarEvents.push(event);
+            }
+        }
+
+        const createdCalendarEvents = await CalendarEventModel.insertMany(calendarEvents);
+        console.log(`✅ Created ${createdCalendarEvents.length} calendar events\n`);
+
+        // ========== 11. TẠO EMPLOYEE SCHEDULES (Lịch làm việc) ==========
+        console.log('📋 Creating employee schedules...');
+        const employeeSchedules = [];
+        const scheduleStatuses = ['scheduled', 'completed', 'missed', 'off'];
+
+        // Tạo schedule cho 2 tháng (60 ngày - 1 tháng trước + 1 tháng tới)
+        for (let dayOffset = -30; dayOffset < 30; dayOffset++) {
+            const scheduleDate = new Date(today);
+            scheduleDate.setDate(scheduleDate.getDate() + dayOffset);
+
+            // Bỏ qua cuối tuần
+            const dayOfWeek = scheduleDate.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                // Vẫn tạo schedule nhưng status = 'off'
+                for (const employee of employeeUsers) {
+                    employeeSchedules.push({
+                        userId: employee._id,
+                        date: new Date(scheduleDate),
+                        shiftId: shifts[0]._id,
+                        shiftName: shifts[0].name,
+                        startTime: shifts[0].startTime,
+                        endTime: shifts[0].endTime,
+                        status: 'off',
+                        location: locations[0].name,
+                    });
+                }
+                continue;
+            }
+
+            // Tạo schedule cho tất cả employees
+            for (const employee of employeeUsers) {
+                if (Math.random() < 0.05) continue; // 5% nghỉ
+
+                const shift = shifts[0]; // Full time shift
+                const status = scheduleDate < today ? (Math.random() > 0.1 ? 'completed' : 'missed') : 'scheduled';
+
+                const schedule = {
+                    userId: employee._id,
+                    date: new Date(scheduleDate),
+                    shiftId: shift._id,
+                    shiftName: shift.name,
+                    startTime: shift.startTime,
+                    endTime: shift.endTime,
+                    status: status,
+                    location: locations.find(loc => employee.branch?.toString() === loc._id.toString())?.name || locations[0].name,
+                };
+
+                // Liên kết với attendance nếu đã completed
+                if (status === 'completed' && scheduleDate < today) {
+                    const attendance = createdAttendances.find(
+                        a => a.userId.equals(employee._id) &&
+                            a.date.toDateString() === scheduleDate.toDateString()
+                    );
+                    if (attendance) {
+                        schedule.attendanceId = attendance._id;
+                    }
+                }
+
+                employeeSchedules.push(schedule);
+            }
+        }
+
+        const createdEmployeeSchedules = await EmployeeScheduleModel.insertMany(employeeSchedules);
+        console.log(`✅ Created ${createdEmployeeSchedules.length} employee schedules\n`);
+
+        // ========== 12. TẠO SYSTEM CONFIGS (Cấu hình hệ thống) ==========
+        console.log('⚙️  Creating system configs...');
+        const systemConfigs = [
+            {
+                key: 'ATTENDANCE_LATE_TOLERANCE_MINUTES',
+                category: 'attendance',
+                value: 30,
+                description: 'Số phút cho phép đi muộn (phút)',
+                editableBy: ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER'],
+                updatedBy: adminUser._id,
+            },
+            {
+                key: 'ATTENDANCE_WORK_HOURS_PER_DAY',
+                category: 'attendance',
+                value: 8,
+                description: 'Số giờ làm việc tiêu chuẩn mỗi ngày',
+                editableBy: ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER'],
+                updatedBy: adminUser._id,
+            },
+            {
+                key: 'PAYROLL_OVERTIME_RATE',
+                category: 'payroll',
+                value: 1.5,
+                description: 'Hệ số lương tăng ca (1.5 = 150%)',
+                editableBy: ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER'],
+                updatedBy: adminUser._id,
+            },
+            {
+                key: 'PAYROLL_LATE_DEDUCTION_PER_DAY',
+                category: 'payroll',
+                value: 200000,
+                description: 'Số tiền khấu trừ cho mỗi ngày đi muộn (VND)',
+                editableBy: ['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER'],
+                updatedBy: adminUser._id,
+            },
+            {
+                key: 'GENERAL_COMPANY_NAME',
+                category: 'general',
+                value: 'Smart Attendance Company',
+                description: 'Tên công ty',
+                editableBy: ['SUPER_ADMIN', 'ADMIN'],
+                updatedBy: adminUser._id,
+            },
+            {
+                key: 'GENERAL_TIMEZONE',
+                category: 'general',
+                value: 'GMT+7',
+                description: 'Múi giờ của công ty',
+                editableBy: ['SUPER_ADMIN', 'ADMIN'],
+                updatedBy: adminUser._id,
+            },
+            {
+                key: 'NOTIFICATION_EMAIL_ENABLED',
+                category: 'notification',
+                value: true,
+                description: 'Bật/tắt gửi email thông báo',
+                editableBy: ['SUPER_ADMIN', 'ADMIN'],
+                updatedBy: adminUser._id,
+            },
+            {
+                key: 'SECURITY_SESSION_TIMEOUT_MINUTES',
+                category: 'security',
+                value: 30,
+                description: 'Thời gian timeout phiên đăng nhập (phút)',
+                editableBy: ['SUPER_ADMIN', 'ADMIN'],
+                updatedBy: adminUser._id,
+            },
+        ];
+
+        const createdSystemConfigs = await SystemConfigModel.insertMany(systemConfigs);
+        console.log(`✅ Created ${createdSystemConfigs.length} system configs\n`);
+
         // ========== TỔNG KẾT ==========
         console.log('🎉 Seed completed successfully!\n');
         console.log('📊 Summary:');
@@ -769,7 +1136,12 @@ async function seed() {
         console.log(`   - Attendances: ${createdAttendances.length}`);
         console.log(`   - Requests: ${createdRequests.length}`);
         console.log(`   - Reports: ${createdReports.length}`);
-        console.log(`   - Logs: ${createdLogs.length}\n`);
+        console.log(`   - Logs: ${createdLogs.length}`);
+        console.log(`   - Payroll Records: ${createdPayrollRecords.length}`);
+        console.log(`   - Performance Reviews: ${createdPerformanceReviews.length}`);
+        console.log(`   - Calendar Events: ${createdCalendarEvents.length}`);
+        console.log(`   - Employee Schedules: ${createdEmployeeSchedules.length}`);
+        console.log(`   - System Configs: ${createdSystemConfigs.length}\n`);
 
 
 
