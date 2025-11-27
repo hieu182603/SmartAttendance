@@ -20,13 +20,34 @@ export class LogService {
 
     const query = {};
 
-    // Search filter - search in action, entityType, details
+    // Search filter - search in action, entityType, details, và userName
     if (search) {
-      query.$or = [
-        { action: { $regex: search, $options: "i" } },
-        { entityType: { $regex: search, $options: "i" } },
-        { "details.description": { $regex: search, $options: "i" } },
-      ];
+      // Tìm users có name/email match với search
+      try {
+        const users = await UserModel.find({
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } }
+          ]
+        }).select('_id');
+
+        const userIds = users.map(u => u._id);
+
+        query.$or = [
+          { action: { $regex: search, $options: "i" } },
+          { entityType: { $regex: search, $options: "i" } },
+          { "details.description": { $regex: search, $options: "i" } },
+          ...(userIds.length > 0 ? [{ userId: { $in: userIds } }] : [])
+        ];
+      } catch (err) {
+        // Nếu có lỗi khi tìm users, chỉ search trong các fields khác
+        console.warn('[LogService] Error searching users:', err.message);
+        query.$or = [
+          { action: { $regex: search, $options: "i" } },
+          { entityType: { $regex: search, $options: "i" } },
+          { "details.description": { $regex: search, $options: "i" } },
+        ];
+      }
     }
 
     // Action filter
@@ -111,7 +132,7 @@ export class LogService {
    */
   static mapEntityTypeToCategory(entityType) {
     if (!entityType) return "system";
-    
+
     const categoryMap = {
       attendance: "attendance",
       request: "request",
@@ -125,13 +146,84 @@ export class LogService {
   }
 
   /**
+   * Lấy chi tiết một log entry theo ID
+   */
+  static async getLogById(logId) {
+    const log = await LogModel.findById(logId)
+      .populate("userId", "name email role");
+
+    if (!log) {
+      throw new Error("Log not found");
+    }
+
+    const user = log.userId;
+
+    return {
+      id: log._id.toString(),
+      timestamp: log.createdAt.toISOString(),
+      userId: user?._id?.toString() || "SYSTEM",
+      userName: user?.name || "System",
+      userEmail: user?.email || null,
+      userRole: user?.role || "SYSTEM",
+      action: log.action,
+      category: this.mapEntityTypeToCategory(log.entityType),
+      resource: log.entityType || "Unknown",
+      description: log.details?.description || log.action || "Action performed",
+      ipAddress: log.ipAddress || "N/A",
+      userAgent: log.userAgent || "N/A",
+      status: log.status || "success",
+      errorMessage: log.errorMessage || null,
+      entityId: log.entityId?.toString() || null,
+      metadata: log.details || {},
+      createdAt: log.createdAt,
+      updatedAt: log.updatedAt,
+    };
+  }
+
+  /**
+   * Helper function để tạo log entry
+   * @param {Object} options
+   * @param {string} options.userId - User ID thực hiện action (optional)
+   * @param {string} options.action - Tên action (VD: "update_user", "login")
+   * @param {string} options.entityType - Loại entity (VD: "user", "attendance")
+   * @param {string} options.entityId - ID của entity (optional)
+   * @param {Object} options.details - Thông tin chi tiết (optional)
+   * @param {string} options.ipAddress - IP address (optional)
+   * @param {string} options.userAgent - User agent (optional)
+   * @param {string} options.status - "success" | "failed" (default: "success")
+   * @param {string} options.errorMessage - Error message nếu failed (optional)
+   * @returns {Promise<Object|null>} Log entry hoặc null nếu có lỗi
+   */
+  static async createLog(options) {
+    try {
+      const log = await LogModel.create({
+        userId: options.userId || null,
+        action: options.action,
+        entityType: options.entityType || null,
+        entityId: options.entityId || null,
+        details: options.details || {},
+        ipAddress: options.ipAddress || null,
+        userAgent: options.userAgent || null,
+        status: options.status || "success",
+        errorMessage: options.errorMessage || null,
+      });
+
+      return log;
+    } catch (error) {
+      // Không throw error khi log fail để không ảnh hưởng business logic
+      console.error("[LogService] Create log error:", error);
+      return null;
+    }
+  }
+
+  /**
    * Lấy thống kê audit logs
    */
   static async getLogStats(options = {}) {
     const { startDate = "", endDate = "" } = options;
-    
+
     const query = {};
-    
+
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) {

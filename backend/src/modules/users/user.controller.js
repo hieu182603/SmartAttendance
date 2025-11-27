@@ -1,6 +1,7 @@
 import { UserService } from "./user.service.js";
 import { UserModel } from "./user.model.js";
 import { z } from "zod";
+import { logActivity } from "../../utils/logger.util.js";
 
 const updateUserSchema = z.object({
   name: z.string().min(1, "Tên không được để trống").optional(),
@@ -391,11 +392,38 @@ export class UserController {
         userRole
       );
 
+      // Log successful action
+      await logActivity(req, {
+        action: "update_user",
+        entityType: "user",
+        entityId: id,
+        details: {
+          description: `Đã cập nhật thông tin user: ${updatedUser.name}`,
+          changes: Object.keys(parse.data),
+          targetUserId: id,
+          updatedFields: parse.data,
+        },
+        status: "success",
+      });
+
       return res.status(200).json({
         message: "Cập nhật thông tin user thành công",
         user: updatedUser,
       });
     } catch (error) {
+      // Log failed action
+      await logActivity(req, {
+        action: "update_user",
+        entityType: "user",
+        entityId: req.params.id,
+        details: {
+          description: "Cập nhật user thất bại",
+          error: error.message,
+        },
+        status: "failed",
+        errorMessage: error.message,
+      });
+
       if (error.message === "User not found") {
         return res.status(404).json({ message: "Không tìm thấy user" });
       }
@@ -481,7 +509,7 @@ export class UserController {
   static async getManagers(req, res) {
     try {
       const { branchId } = req.query;
-      
+
       // Query để lấy managers
       const query = {
         role: { $in: ["ADMIN", "HR_MANAGER", "MANAGER", "SUPER_ADMIN"] },
