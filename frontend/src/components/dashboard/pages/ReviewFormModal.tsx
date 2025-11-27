@@ -69,34 +69,82 @@ export default function ReviewFormModal({
   const [achievementInput, setAchievementInput] = useState("");
   const [improvementInput, setImprovementInput] = useState("");
 
+  const generatePeriodOptions = () => {
+    const currentYear = new Date().getFullYear();
+
+    const options: Array<{ value: string; label: string }> = [];
+
+    // Add quarters for current year (Q1 -> Q4)
+    for (let q = 1; q <= 4; q++) {
+      const value = `Q${q} ${currentYear}`;
+      const label = `Q${q} ${currentYear} (Quý ${q})`;
+      options.push({ value, label });
+    }
+
+    // Nếu đang sửa và period không có trong list, thêm vào
+    if (review?.period && !options.find(opt => opt.value === review.period)) {
+      options.push({
+        value: review.period,
+        label: review.period,
+      });
+    }
+
+    return options;
+  };
+
+  // Calculate overall score real-time
+  const calculateOverallScore = () => {
+    const {
+      technical = 0,
+      communication = 0,
+      teamwork = 0,
+      leadership = 0,
+      problemSolving = 0,
+    } = formData.categories || {};
+    return Math.round(
+      (technical + communication + teamwork + leadership + problemSolving) / 5
+    );
+  };
+
+  const overallScore = calculateOverallScore();
+
   useEffect(() => {
-    if (review) {
-      setFormData({
-        employeeId: review.employeeId._id,
-        period: review.period,
-        status: review.status,
-        categories: review.categories,
-        achievements: review.achievements,
-        improvements: review.improvements,
-        comments: review.comments,
-      });
-    } else {
-      // Reset form
-      setFormData({
-        employeeId: "",
-        period: "",
-        status: "draft",
-        categories: {
-          technical: 0,
-          communication: 0,
-          teamwork: 0,
-          leadership: 0,
-          problemSolving: 0,
-        },
-        achievements: [],
-        improvements: [],
-        comments: "",
-      });
+    if (isOpen) {
+      if (review) {
+        setFormData({
+          employeeId: review.employeeId?._id || "",
+          period: review.period || "",
+          status: review.status || "draft",
+          categories: review.categories || {
+            technical: 0,
+            communication: 0,
+            teamwork: 0,
+            leadership: 0,
+            problemSolving: 0,
+          },
+          achievements: review.achievements || [],
+          improvements: review.improvements || [],
+          comments: review.comments || "",
+        });
+      } else {
+        setFormData({
+          employeeId: "",
+          period: "",
+          status: "draft",
+          categories: {
+            technical: 0,
+            communication: 0,
+            teamwork: 0,
+            leadership: 0,
+            problemSolving: 0,
+          },
+          achievements: [],
+          improvements: [],
+          comments: "",
+        });
+      }
+      setAchievementInput("");
+      setImprovementInput("");
     }
   }, [review, isOpen]);
 
@@ -158,29 +206,45 @@ export default function ReviewFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[var(--surface)] rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-[var(--surface)] rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] p-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl text-[var(--text-main)]">
+          <div className="flex-1">
+            <h2 className="text-2xl text-[var(--text-main)] select-none">
               {isViewOnly
                 ? "Chi tiết đánh giá"
                 : review
                 ? "Chỉnh sửa đánh giá"
                 : "Tạo đánh giá mới"}
             </h2>
+            {review && (
+              <div className="flex items-center gap-4 mt-2 text-sm text-[var(--text-sub)] select-none">
+                <span>
+                  👤 Người đánh giá:{" "}
+                  <strong className="text-[var(--text-main)]">
+                    {review.reviewerId?.fullName || review.reviewerId?.name || "N/A"}
+                  </strong>
+                </span>
+                {review.createdAt && (
+                  <span>
+                    📅 Tạo lúc:{" "}
+                    {new Date(review.createdAt).toLocaleString("vi-VN")}
+                  </span>
+                )}
+              </div>
+            )}
             {isViewOnly && (
-              <p className="text-sm text-[var(--text-sub)] mt-1">
+              <p className="text-sm text-[var(--text-sub)] mt-1 select-none">
                 👁️ Chế độ xem - Không thể chỉnh sửa
               </p>
             )}
             {!isViewOnly && isManager && (
-              <p className="text-sm text-[var(--text-sub)] mt-1">
+              <p className="text-sm text-[var(--text-sub)] mt-1 select-none">
                 👤 Manager - Tạo và gửi đánh giá
               </p>
             )}
             {!isViewOnly && isHROrAbove && (
-              <p className="text-sm text-[var(--text-sub)] mt-1">
+              <p className="text-sm text-[var(--text-sub)] mt-1 select-none">
                 ✅ HR - Phê duyệt và hoàn thiện đánh giá
               </p>
             )}
@@ -195,78 +259,119 @@ export default function ReviewFormModal({
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6" autoComplete="off">
           {/* Employee & Period */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Nhân viên</Label>
-              <Select
-                value={formData.employeeId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, employeeId: value })
-                }
-                disabled={!!review || isViewOnly}
-              >
-                <SelectTrigger className="bg-[var(--shell)] border-[var(--border)]">
-                  <SelectValue placeholder="Chọn nhân viên" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp._id} value={emp._id}>
-                      {emp.fullName} - {emp.position}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isViewOnly || !!review ? (
+                <div className="bg-[var(--shell)] border border-[var(--border)] rounded-md px-3 py-2 text-[var(--text-main)] select-none">
+                  {review?.employeeId?.fullName || review?.employeeId?.name || "N/A"}
+                  {review?.employeeId?.position && ` - ${review.employeeId.position}`}
+                </div>
+              ) : (
+                <Select
+                  value={formData.employeeId || undefined}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, employeeId: value })
+                  }
+                >
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)]" autoFocus={false}>
+                    <SelectValue placeholder="Chọn nhân viên" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.length === 0 ? (
+                      <div className="p-2 text-sm text-[var(--text-sub)]">
+                        Không có nhân viên
+                      </div>
+                    ) : (
+                      employees.map((emp) => (
+                        <SelectItem key={emp._id} value={emp._id}>
+                          {emp.fullName} - {emp.position}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <div>
               <Label>Kỳ đánh giá</Label>
-              <Input
-                value={formData.period}
-                onChange={(e) =>
-                  setFormData({ ...formData, period: e.target.value })
-                }
-                placeholder="VD: Q3 2025"
-                className="bg-[var(--shell)] border-[var(--border)]"
-                disabled={isViewOnly}
-              />
+              {isViewOnly ? (
+                <div className="bg-[var(--shell)] border border-[var(--border)] rounded-md px-3 py-2 text-[var(--text-main)] select-none">
+                  {formData.period || "N/A"}
+                </div>
+              ) : (
+                <Select
+                  key={`period-${review?._id || 'new'}`}
+                  value={formData.period || undefined}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, period: value });
+                  }}
+                >
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)]">
+                    <SelectValue placeholder="Chọn kỳ đánh giá" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {generatePeriodOptions().map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
           {/* Status */}
           <div>
             <Label>Trạng thái</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value: any) =>
-                setFormData({ ...formData, status: value })
-              }
-              disabled={isViewOnly}
-            >
-              <SelectTrigger className="bg-[var(--shell)] border-[var(--border)]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="draft">Nháp</SelectItem>
-                <SelectItem value="pending">
-                  {isManager ? "Gửi đánh giá" : "Chờ phê duyệt"}
-                </SelectItem>
-                {isHROrAbove && (
-                  <>
-                    <SelectItem value="completed">Hoàn thành</SelectItem>
-                    <SelectItem value="rejected">Từ chối</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
+            {isViewOnly ? (
+              <div className="bg-[var(--shell)] border border-[var(--border)] rounded-md px-3 py-2 text-[var(--text-main)] select-none">
+                {formData.status === "completed"
+                  ? "Hoàn thành"
+                  : formData.status === "pending"
+                  ? "Chờ phê duyệt"
+                  : formData.status === "rejected"
+                  ? "Từ chối"
+                  : formData.status === "draft"
+                  ? "Nháp"
+                  : "N/A"}
+              </div>
+            ) : (
+              <Select
+                key={`status-${review?._id || 'new'}`}
+                value={formData.status || undefined}
+                onValueChange={(value: any) => {
+                  setFormData({ ...formData, status: value });
+                }}
+              >
+                <SelectTrigger className="bg-[var(--shell)] border-[var(--border)]">
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Nháp</SelectItem>
+                  <SelectItem value="pending">
+                    {isManager ? "Gửi đánh giá" : "Chờ phê duyệt"}
+                  </SelectItem>
+                  {isHROrAbove && (
+                    <>
+                      <SelectItem value="completed">Hoàn thành</SelectItem>
+                      <SelectItem value="rejected">Từ chối</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
             {isManager && formData.status === "pending" && (
-              <p className="text-xs text-[var(--text-sub)] mt-1">
+              <p className="text-xs text-[var(--text-sub)] mt-1 select-none">
                 💡 Đánh giá sẽ được gửi đến HR để phê duyệt
               </p>
             )}
             {isHROrAbove && formData.status === "completed" && (
-              <p className="text-xs text-[var(--success)] mt-1">
+              <p className="text-xs text-[var(--success)] mt-1 select-none">
                 ✅ Đánh giá đã được phê duyệt và hoàn thành
               </p>
             )}
@@ -274,11 +379,20 @@ export default function ReviewFormModal({
 
           {/* Categories */}
           <div>
-            <Label className="mb-3 block">Điểm đánh giá (0-100)</Label>
+            <div className="flex items-center justify-between mb-3">
+              <Label>Điểm đánh giá (0-100)</Label>
+              <div className="text-right select-none">
+                <p className="text-xs text-[var(--text-sub)]">Điểm tổng quan</p>
+                <p className="text-2xl font-bold text-[var(--primary)]">
+                  {overallScore}
+                  <span className="text-sm text-[var(--text-sub)]">/100</span>
+                </p>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               {Object.entries(formData.categories || {}).map(([key, value]) => (
                 <div key={key}>
-                  <Label className="text-sm text-[var(--text-sub)]">
+                  <Label className="text-sm text-[var(--text-sub)] select-none">
                     {key === "technical"
                       ? "Kỹ thuật"
                       : key === "communication"
@@ -321,9 +435,12 @@ export default function ReviewFormModal({
                   onChange={(e) => setAchievementInput(e.target.value)}
                   placeholder="Nhập thành tích..."
                   className="bg-[var(--shell)] border-[var(--border)]"
-                  onKeyPress={(e) =>
-                    e.key === "Enter" && (e.preventDefault(), addAchievement())
-                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addAchievement();
+                    }
+                  }}
                 />
                 <Button type="button" onClick={addAchievement}>
                   Thêm
@@ -336,7 +453,7 @@ export default function ReviewFormModal({
                   key={i}
                   className="flex items-center justify-between bg-[var(--shell)] p-2 rounded"
                 >
-                  <span className="text-sm text-[var(--text-main)]">
+                  <span className="text-sm text-[var(--text-main)] select-none">
                     {achievement}
                   </span>
                   {!isViewOnly && (
@@ -364,9 +481,12 @@ export default function ReviewFormModal({
                   onChange={(e) => setImprovementInput(e.target.value)}
                   placeholder="Nhập điểm cần cải thiện..."
                   className="bg-[var(--shell)] border-[var(--border)]"
-                  onKeyPress={(e) =>
-                    e.key === "Enter" && (e.preventDefault(), addImprovement())
-                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addImprovement();
+                    }
+                  }}
                 />
                 <Button type="button" onClick={addImprovement}>
                   Thêm
@@ -379,7 +499,7 @@ export default function ReviewFormModal({
                   key={i}
                   className="flex items-center justify-between bg-[var(--shell)] p-2 rounded"
                 >
-                  <span className="text-sm text-[var(--text-main)]">
+                  <span className="text-sm text-[var(--text-main)] select-none">
                     {improvement}
                   </span>
                   {!isViewOnly && (

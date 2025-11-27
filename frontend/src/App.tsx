@@ -86,7 +86,9 @@ export default function App() {
               <Route path="approve-requests" element={<ApproveRequestsPage />} />
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="department-attendance" element={<DepartmentAttendancePage />} />
+              <Route path="performance-review" element={<PerformanceReviewPage />} />
               <Route path="shifts" element={<ShiftsPage />} />
+              <Route path="admin-attendance" element={<AdminAttendancePage />} />
               {/* Catch-all: redirect invalid manager routes to 404 */}
               <Route path="*" element={<Navigate to="/not-found" replace />} />
             </Route>
@@ -133,6 +135,7 @@ export default function App() {
               <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
               <Route path="payroll-reports" element={<PayrollReportsPage />} />
               <Route path="payroll" element={<PayrollPage />} />
+              <Route path="admin-attendance" element={<AdminAttendancePage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="system-settings" element={<SystemSettingsPage />} />
               {/* Catch-all: redirect invalid admin routes to 404 */}

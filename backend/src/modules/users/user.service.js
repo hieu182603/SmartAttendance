@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { UserModel } from "./user.model.js";
 import { DepartmentModel } from "../departments/department.model.js";
+import { BranchModel } from "../branches/branch.model.js";
 
 export class UserService {
   /**
@@ -309,6 +310,64 @@ export class UserService {
         throw new Error("Số điện thoại phải có 10-11 chữ số");
       }
       updateFields.phone = cleanPhone;
+    }
+
+    // Convert department từ string (code/name) sang ObjectId nếu cần
+    if (updateFields.department !== undefined) {
+      // Nếu là string rỗng hoặc null, set thành null để xóa department
+      if (updateFields.department === null || (typeof updateFields.department === "string" && updateFields.department.trim() === "")) {
+        updateFields.department = null;
+      } else if (updateFields.department) {
+        // Kiểm tra xem có phải là ObjectId hợp lệ không
+        if (mongoose.Types.ObjectId.isValid(updateFields.department)) {
+          // Đã là ObjectId hợp lệ, convert sang ObjectId type để Mongoose xử lý đúng reference
+          updateFields.department = new mongoose.Types.ObjectId(updateFields.department);
+        } else {
+          // Không phải ObjectId, tìm Department theo name hoặc code (fallback cho các API khác)
+          const searchValue = String(updateFields.department).trim().toUpperCase();
+          const department = await DepartmentModel.findOne({
+            $or: [
+              { name: { $regex: new RegExp(`^${String(updateFields.department).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+              { code: searchValue }
+            ],
+            status: "active"
+          }).select("_id");
+
+          if (!department) {
+            throw new Error(`Không tìm thấy phòng ban với mã/tên: ${updateFields.department}`);
+          }
+          updateFields.department = department._id;
+        }
+      }
+    }
+
+    // Convert branch từ string (code/name) sang ObjectId nếu cần
+    if (updateFields.branch !== undefined) {
+      // Nếu là string rỗng hoặc null, set thành null để xóa branch
+      if (updateFields.branch === null || (typeof updateFields.branch === "string" && updateFields.branch.trim() === "")) {
+        updateFields.branch = null;
+      } else if (updateFields.branch) {
+        // Kiểm tra xem có phải là ObjectId hợp lệ không
+        if (mongoose.Types.ObjectId.isValid(updateFields.branch)) {
+          // Đã là ObjectId hợp lệ, convert sang ObjectId type để Mongoose xử lý đúng reference
+          updateFields.branch = new mongoose.Types.ObjectId(updateFields.branch);
+        } else {
+          // Không phải ObjectId, tìm Branch theo name hoặc code (fallback cho các API khác)
+          const searchValue = String(updateFields.branch).trim().toUpperCase();
+          const branch = await BranchModel.findOne({
+            $or: [
+              { name: { $regex: new RegExp(`^${String(updateFields.branch).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+              { code: searchValue }
+            ],
+            status: "active"
+          }).select("_id");
+
+          if (!branch) {
+            throw new Error(`Không tìm thấy chi nhánh với mã/tên: ${updateFields.branch}`);
+          }
+          updateFields.branch = branch._id;
+        }
+      }
     }
 
     // Validate name nếu có thay đổi

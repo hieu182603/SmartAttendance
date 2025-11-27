@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
     FileText,
@@ -455,11 +455,15 @@ export default function AuditLogsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tất cả</SelectItem>
-                                <SelectItem value="create">Tạo mới</SelectItem>
-                                <SelectItem value="update">Cập nhật</SelectItem>
-                                <SelectItem value="delete">Xóa</SelectItem>
                                 <SelectItem value="login">Đăng nhập</SelectItem>
-                                <SelectItem value="approve">Phê duyệt</SelectItem>
+                                <SelectItem value="register">Đăng ký</SelectItem>
+                                <SelectItem value="update_user">Cập nhật user</SelectItem>
+                                <SelectItem value="create_user">Tạo user</SelectItem>
+                                <SelectItem value="checkin">Check in</SelectItem>
+                                <SelectItem value="checkout">Check out</SelectItem>
+                                <SelectItem value="create_request">Tạo yêu cầu</SelectItem>
+                                <SelectItem value="approve_request">Duyệt yêu cầu</SelectItem>
+                                <SelectItem value="reject_request">Từ chối yêu cầu</SelectItem>
                             </SelectContent>
                         </Select>
                         <Select value={filterCategory} onValueChange={setFilterCategory}>
@@ -502,9 +506,7 @@ export default function AuditLogsPage() {
                                             <TableHead className="text-gray-600 dark:text-gray-400">Thời gian</TableHead>
                                             <TableHead className="text-gray-600 dark:text-gray-400">Người dùng</TableHead>
                                             <TableHead className="text-gray-600 dark:text-gray-400">Hành động</TableHead>
-                                            <TableHead className="text-gray-600 dark:text-gray-400">Danh mục</TableHead>
                                             <TableHead className="text-gray-600 dark:text-gray-400">Mô tả</TableHead>
-                                            <TableHead className="text-gray-600 dark:text-gray-400">IP</TableHead>
                                             <TableHead className="text-gray-600 dark:text-gray-400">Trạng thái</TableHead>
                                             <TableHead className="text-gray-600 dark:text-gray-400 text-center">Chi tiết</TableHead>
                                         </TableRow>
@@ -512,23 +514,20 @@ export default function AuditLogsPage() {
                                     <TableBody>
                                         {loading ? (
                                             <TableRow>
-                                                <TableCell colSpan={9} className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                                <TableCell colSpan={6} className="text-center py-8 text-gray-600 dark:text-gray-400">
                                                     Đang tải dữ liệu...
                                                 </TableCell>
                                             </TableRow>
                                         ) : filteredLogs.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={9} className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                                <TableCell colSpan={6} className="text-center py-8 text-gray-600 dark:text-gray-400">
                                                     Không tìm thấy nhật ký nào
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
                                             filteredLogs.map((log, index) => (
-                                                <motion.tr
+                                                <TableRow
                                                     key={log.id}
-                                                    initial={{ opacity: 0, x: -20 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    transition={{ delay: index * 0.05 }}
                                                     className={`border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/50 cursor-pointer ${log.status === 'failed' ? 'bg-red-500/5' :
                                                         log.status === 'warning' ? 'bg-yellow-500/5' : ''
                                                         }`}
@@ -552,16 +551,8 @@ export default function AuditLogsPage() {
                                                             {log.action}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
-                                                            {log.category}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-gray-900 dark:text-gray-100 max-w-xs truncate">
+                                                    <TableCell className="text-gray-900 dark:text-gray-100 max-w-md truncate">
                                                         {log.description}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                                                        {log.ipAddress}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge className={getStatusColor(log.status)}>
@@ -576,12 +567,12 @@ export default function AuditLogsPage() {
                                                                 e.stopPropagation();
                                                                 handleViewDetails(log);
                                                             }}
-                                                            className="h-8 w-8 text-cyan-500"
+                                                            className="h-8 w-8 text-cyan-500 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950"
                                                         >
-                                                            <Info className="h-4 w-4" />
+                                                            <Eye className="h-4 w-4" />
                                                         </Button>
                                                     </TableCell>
-                                                </motion.tr>
+                                                </TableRow>
                                             ))
                                         )}
                                     </TableBody>
@@ -604,9 +595,9 @@ export default function AuditLogsPage() {
                                                 </SelectTrigger>
                                                 <SelectContent side="top">
                                                     <SelectItem value="10">10</SelectItem>
+                                                    <SelectItem value="15">15</SelectItem>
+                                                    <SelectItem value="20">20</SelectItem>
                                                     <SelectItem value="25">25</SelectItem>
-                                                    <SelectItem value="50">50</SelectItem>
-                                                    <SelectItem value="100">100</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -662,81 +653,93 @@ export default function AuditLogsPage() {
                 </CardContent>
             </Card>
 
-            {/* Log Details Modal */}
+            {/* Log Details Dialog */}
             <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-                <DialogContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 max-w-2xl">
+                <DialogContent className="max-w-3xl bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Info className="h-5 w-5 text-cyan-500" />
-                            Chi tiết nhật ký
-                        </DialogTitle>
+                        <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chi tiết nhật ký hệ thống</DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">
-                            Thông tin đầy đủ về hoạt động được ghi lại
+                            Thông tin chi tiết về hoạt động này
                         </DialogDescription>
                     </DialogHeader>
 
                     {selectedLog && (
-                        <div className="space-y-4 py-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label className="text-gray-600 dark:text-gray-400">ID</Label>
-                                    <p className="text-gray-900 dark:text-gray-100 font-mono mt-1">{selectedLog.id}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-gray-600 dark:text-gray-400">Thời gian</Label>
-                                    <p className="text-gray-900 dark:text-gray-100 mt-1">{selectedLog.timestamp}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-gray-600 dark:text-gray-400">Người dùng</Label>
-                                    <p className="text-gray-900 dark:text-gray-100 mt-1">{selectedLog.userName}</p>
-                                    <p className="text-xs text-gray-600 dark:text-gray-400">({selectedLog.userRole})</p>
-                                </div>
-                                <div>
-                                    <Label className="text-gray-600 dark:text-gray-400">User ID</Label>
-                                    <p className="text-gray-900 dark:text-gray-100 font-mono mt-1">{selectedLog.userId}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-gray-600 dark:text-gray-400">Hành động</Label>
-                                    <div className="mt-1">
-                                        <Badge className={getActionColor(selectedLog.action)}>
-                                            {getActionIcon(selectedLog.action)}
-                                            <span className="ml-1">{selectedLog.action}</span>
-                                        </Badge>
+                        <div className="space-y-5 py-2">
+                            {/* Status Banner */}
+                            <div className={`p-4 rounded-xl border-2 ${selectedLog.status === 'success' ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900' :
+                                    selectedLog.status === 'failed' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' :
+                                        'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900'
+                                }`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <Badge className={getActionColor(selectedLog.action)}>
+                                                <span className="mr-1">{getActionIcon(selectedLog.action)}</span>
+                                                {selectedLog.action}
+                                            </Badge>
+                                            <Badge className={getStatusColor(selectedLog.status)}>
+                                                {selectedLog.status}
+                                            </Badge>
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <Label className="text-gray-600 dark:text-gray-400">Trạng thái</Label>
-                                    <div className="mt-1">
-                                        <Badge className={getStatusColor(selectedLog.status)}>
-                                            {selectedLog.status}
-                                        </Badge>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                        <Clock className="h-4 w-4" />
+                                        {selectedLog.timestamp}
                                     </div>
-                                </div>
-                                <div>
-                                    <Label className="text-gray-600 dark:text-gray-400">Danh mục</Label>
-                                    <p className="text-gray-900 dark:text-gray-100 mt-1">{selectedLog.category}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-gray-600 dark:text-gray-400">Resource</Label>
-                                    <p className="text-gray-900 dark:text-gray-100 mt-1">{selectedLog.resource}</p>
-                                </div>
-                                <div className="col-span-2">
-                                    <Label className="text-gray-600 dark:text-gray-400">IP Address</Label>
-                                    <p className="text-gray-900 dark:text-gray-100 font-mono mt-1">{selectedLog.ipAddress}</p>
-                                </div>
-                                <div className="col-span-2">
-                                    <Label className="text-gray-600 dark:text-gray-400">Mô tả</Label>
-                                    <p className="text-gray-900 dark:text-gray-100 mt-1">{selectedLog.description}</p>
                                 </div>
                             </div>
 
+                            <Separator />
+
+                            {/* User Information */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">
+                                    Thông tin người dùng
+                                </h4>
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Tên người dùng</Label>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedLog.userName}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Vai trò</Label>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedLog.userRole}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Địa chỉ IP</Label>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">{selectedLog.ipAddress || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Action Details */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">
+                                    Chi tiết hoạt động
+                                </h4>
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Mô tả</Label>
+                                        <p className="text-sm text-gray-900 dark:text-gray-100 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                                            {selectedLog.description}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Metadata Section - Only show if exists */}
                             {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
                                 <>
-                                    <Separator className="bg-gray-200 dark:bg-gray-700" />
+                                    <Separator />
                                     <div>
-                                        <Label className="text-gray-600 dark:text-gray-400">Metadata</Label>
-                                        <div className="mt-2 p-4 bg-gray-100 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                                            <pre className="text-sm text-gray-900 dark:text-gray-100 font-mono overflow-x-auto">
+                                        <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                            <Info className="h-4 w-4" />
+                                            Dữ liệu bổ sung
+                                        </h4>
+                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 overflow-auto max-h-64">
+                                            <pre className="text-xs text-gray-900 dark:text-gray-100 font-mono">
                                                 {JSON.stringify(selectedLog.metadata, null, 2)}
                                             </pre>
                                         </div>
@@ -750,7 +753,7 @@ export default function AuditLogsPage() {
                         <Button
                             variant="outline"
                             onClick={() => setIsDetailsOpen(false)}
-                            className="border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                            className="border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                             Đóng
                         </Button>

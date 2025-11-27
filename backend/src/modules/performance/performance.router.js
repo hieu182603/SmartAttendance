@@ -10,6 +10,7 @@ import {
   getMyReviews,
   rejectReview,
   exportReviews,
+  getAvailablePeriods,
 } from "./performance.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 
@@ -107,3 +108,12 @@ performanceRouter.put("/reviews/:id/reject", rejectReview);
  *     tags: [Performance]
  */
 performanceRouter.get("/export", exportReviews);
+
+/**
+ * @swagger
+ * /api/performance/periods:
+ *   get:
+ *     summary: Lấy danh sách periods có trong database
+ *     tags: [Performance]
+ */
+performanceRouter.get("/periods", getAvailablePeriods);

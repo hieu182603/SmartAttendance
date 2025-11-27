@@ -77,6 +77,16 @@ export const getLogStats = async (params: { startDate?: string; endDate?: string
   }
 }
 
+export const getLogById = async (id: string): Promise<{ log: AuditLog }> => {
+  try {
+    const { data } = await api.get(`/logs/${id}`)
+    return data as { log: AuditLog }
+  } catch (error) {
+    console.error('[logService] getLogById error:', error)
+    throw error
+  }
+}
+
 export type { AuditLog, LogParams, LogsResponse, LogStats }
 
 

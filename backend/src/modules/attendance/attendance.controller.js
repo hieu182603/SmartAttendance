@@ -27,6 +27,51 @@ const deriveStatus = (doc) => {
   return "ontime";
 };
 
+const formatWorkHours = (hours) => {
+  if (!hours && hours !== 0) return "-";
+  const whole = Math.floor(hours);
+  const minutes = Math.round((hours - whole) * 60);
+  return `${whole}h ${minutes}m`;
+};
+
+const buildAttendanceRecordResponse = (doc) => {
+  if (!doc) return null;
+  const populatedUser =
+    doc.userId && typeof doc.userId === "object" ? doc.userId : null;
+  const name = populatedUser?.name || "N/A";
+  const departmentValue =
+    populatedUser?.department && typeof populatedUser.department === "object"
+      ? populatedUser.department.name || "N/A"
+      : populatedUser?.department || "N/A";
+
+  return {
+    id: doc._id.toString(),
+    userId: populatedUser?._id?.toString() || doc.userId?.toString(),
+    name,
+    role: populatedUser?.role || "N/A",
+    email: populatedUser?.email || "N/A",
+    department: departmentValue,
+    date: formatDateLabel(doc.date),
+    checkIn: formatTime(doc.checkIn),
+    checkOut: formatTime(doc.checkOut),
+    hours: formatWorkHours(doc.workHours),
+    status: deriveStatus(doc),
+    location: doc.locationId?.name || "-",
+    notes: doc.notes || "",
+  };
+};
+
+const applyTimeToDate = (baseDate, timeString) => {
+  if (!timeString || typeof timeString !== "string") return null;
+  const [hourStr, minuteStr] = timeString.split(":");
+  const hour = Number(hourStr);
+  const minute = Number(minuteStr);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  const result = new Date(baseDate);
+  result.setHours(hour, minute, 0, 0);
+  return result;
+};
+
 export const getRecentAttendance = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -327,7 +372,7 @@ export const checkIn = async (req, res) => {
         checkInTime,
         checkInDate,
         location: validLocation.name,
-        validationMethod: validationResult.method, 
+        validationMethod: validationResult.method,
         distance: validationResult.distance
           ? `${validationResult.distance}m`
           : null,
@@ -449,15 +494,15 @@ export const checkOut = async (req, res) => {
     // Kiểm tra thời gian làm việc tối thiểu
     const now = new Date();
     const checkInTime = new Date(attendance.checkIn);
-    const hoursWorked = (now - checkInTime) / (1000 * 60 * 60); 
-    
-    const MIN_WORK_HOURS = 8; 
+    const hoursWorked = (now - checkInTime) / (1000 * 60 * 60);
+
+    const MIN_WORK_HOURS = 8;
     if (hoursWorked < MIN_WORK_HOURS) {
       const remainingMinutes = Math.ceil((MIN_WORK_HOURS - hoursWorked) * 60);
       const hours = Math.floor(remainingMinutes / 60);
       const minutes = remainingMinutes % 60;
       const timeStr = hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
-      
+
       return res.status(400).json({
         success: false,
         message: `Bạn cần làm việc ít nhất ${MIN_WORK_HOURS} giờ. Vui lòng chờ thêm ${timeStr} nữa.`,
@@ -492,7 +537,7 @@ export const checkOut = async (req, res) => {
     // Format response
     const checkOutTime = formatTime(attendance.checkOut);
     const checkOutDate = formatDateLabel(attendance.date);
-    const workHours = attendance.workHours 
+    const workHours = attendance.workHours
       ? `${Math.floor(attendance.workHours)}h ${Math.round((attendance.workHours % 1) * 60)}m`
       : '0h';
 
@@ -754,7 +799,7 @@ export const getAllAttendance = async (req, res) => {
       }
     }
 
-    const users = await UserModel.find(userQuery).select('_id name email department')
+    const users = await UserModel.find(userQuery).select('_id name email department role')
     const userIds = users.map(u => u._id)
 
     if (userIds.length > 0) {
@@ -771,7 +816,7 @@ export const getAllAttendance = async (req, res) => {
 
     const [docs, total] = await Promise.all([
       AttendanceModel.find(query)
-        .populate('userId', 'name email department')
+        .populate('userId', 'name email department role')
         .populate('locationId', 'name')
         .sort({ checkIn: -1 })
         .skip(skip)
@@ -779,22 +824,7 @@ export const getAllAttendance = async (req, res) => {
       AttendanceModel.countDocuments(query)
     ])
 
-    const records = docs.map(doc => {
-      const status = deriveStatus(doc)
-      return {
-        id: doc._id.toString(),
-        userId: doc.userId?._id?.toString(),
-        name: doc.userId?.name || 'N/A',
-        email: doc.userId?.email || 'N/A',
-        department: doc.userId?.department || 'N/A',
-        date: formatDateLabel(doc.date),
-        checkIn: formatTime(doc.checkIn),
-        checkOut: formatTime(doc.checkOut),
-        hours: doc.workHours ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m` : '-',
-        status,
-        location: doc.locationId?.name || '-'
-      }
-    })
+    const records = docs.map(buildAttendanceRecordResponse)
 
     const summary = {
       total: total,
@@ -818,6 +848,94 @@ export const getAllAttendance = async (req, res) => {
     res.status(500).json({ message: 'Không lấy được danh sách chấm công' })
   }
 }
+
+export const updateAttendanceRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { checkIn, checkOut, locationId, locationName, notes } = req.body || {};
+
+    const attendance = await AttendanceModel.findById(id);
+    if (!attendance) {
+      return res.status(404).json({ message: "Không tìm thấy bản ghi chấm công" });
+    }
+
+    if (checkIn !== undefined) {
+      if (!checkIn) {
+        attendance.checkIn = null;
+      } else {
+        const parsedCheckIn = applyTimeToDate(attendance.date, checkIn);
+        if (!parsedCheckIn) {
+          return res.status(400).json({ message: "Giờ vào không hợp lệ" });
+        }
+        attendance.checkIn = parsedCheckIn;
+      }
+    }
+
+    if (checkOut !== undefined) {
+      if (!checkOut) {
+        attendance.checkOut = null;
+      } else {
+        const parsedCheckOut = applyTimeToDate(attendance.date, checkOut);
+        if (!parsedCheckOut) {
+          return res.status(400).json({ message: "Giờ ra không hợp lệ" });
+        }
+        attendance.checkOut = parsedCheckOut;
+      }
+    }
+
+    if (notes !== undefined) {
+      attendance.notes = notes;
+    }
+
+    if (locationId !== undefined || locationName !== undefined) {
+      if (locationId === null || locationName === null || locationName === "") {
+        attendance.locationId = undefined;
+      } else {
+        let resolvedLocation = null;
+        if (locationId) {
+          resolvedLocation = await LocationModel.findById(locationId);
+        } else if (locationName) {
+          resolvedLocation = await LocationModel.findOne({
+            name: { $regex: `^${locationName}$`, $options: "i" },
+          });
+        }
+
+        if (!resolvedLocation) {
+          return res.status(404).json({ message: "Không tìm thấy địa điểm phù hợp" });
+        }
+        attendance.locationId = resolvedLocation._id;
+      }
+    }
+
+    await attendance.save();
+
+    const updated = await AttendanceModel.findById(id)
+      .populate("userId", "name email department")
+      .populate("locationId", "name");
+
+    res.json({
+      message: "Đã cập nhật bản ghi chấm công",
+      record: buildAttendanceRecordResponse(updated),
+    });
+  } catch (error) {
+    console.error("[attendance] update error", error);
+    res.status(500).json({ message: "Không thể cập nhật bản ghi chấm công" });
+  }
+};
+
+export const deleteAttendanceRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await AttendanceModel.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Không tìm thấy bản ghi chấm công" });
+    }
+    res.json({ message: "Đã xóa bản ghi chấm công" });
+  } catch (error) {
+    console.error("[attendance] delete error", error);
+    res.status(500).json({ message: "Không thể xóa bản ghi chấm công" });
+  }
+};
 
 export const exportAttendanceAnalytics = async (req, res) => {
   try {
@@ -1024,7 +1142,7 @@ export const getDepartmentAttendance = async (req, res) => {
 
     const [docs, total] = await Promise.all([
       AttendanceModel.find(query)
-        .populate('userId', 'name email')
+        .populate('userId', 'name email role')
         .populate('locationId', 'name')
         .sort({ checkIn: -1 })
         .skip(skip)
@@ -1032,24 +1150,10 @@ export const getDepartmentAttendance = async (req, res) => {
       AttendanceModel.countDocuments(query)
     ]);
 
-    const records = docs.map(doc => {
-      const status = deriveStatus(doc);
-      return {
-        id: doc._id.toString(),
-        userId: doc.userId?._id?.toString(),
-        name: doc.userId?.name || 'N/A',
-        email: doc.userId?.email || 'N/A',
-        employeeId: doc.userId?._id?.toString().slice(-3) || 'N/A',
-        date: formatDateLabel(doc.date),
-        checkIn: formatTime(doc.checkIn),
-        checkOut: formatTime(doc.checkOut),
-        hours: doc.workHours
-          ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m`
-          : '-',
-        status,
-        location: doc.locationId?.name || '-'
-      };
-    });
+    const records = docs.map(doc => ({
+      ...buildAttendanceRecordResponse(doc),
+      employeeId: doc.userId?._id?.toString().slice(-3) || 'N/A'
+    }));
 
     // Tính summary từ tất cả records trong ngày (không chỉ trang hiện tại)
     const allDocs = await AttendanceModel.find(query)
@@ -1057,7 +1161,7 @@ export const getDepartmentAttendance = async (req, res) => {
       .select('status checkIn checkOut');
 
     const summary = {
-      total: users.length, 
+      total: users.length,
       present: allDocs.filter(d => {
         const s = deriveStatus(d);
         return s === 'ontime';
@@ -1066,7 +1170,7 @@ export const getDepartmentAttendance = async (req, res) => {
         const s = deriveStatus(d);
         return s === 'late';
       }).length,
-      absent: users.length - allDocs.length 
+      absent: users.length - allDocs.length
     };
 
     res.json({

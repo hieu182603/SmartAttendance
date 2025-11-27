@@ -26,6 +26,13 @@ userRouter.get(
     UserController.getManagers
 );
 
+// Route /my-team cho Manager lấy danh sách nhân viên trong team
+userRouter.get(
+    "/my-team",
+    requireRole([ROLES.MANAGER]),
+    UserController.getMyTeamMembers
+);
+
 userRouter.get(
     "/:id",
     requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),

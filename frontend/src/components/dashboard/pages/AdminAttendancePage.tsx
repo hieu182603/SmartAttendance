@@ -1,5 +1,17 @@
-import { useState } from "react";
-import { Search, Download, Eye, Edit, Trash2, MapPin } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Search,
+  Download,
+  Eye,
+  Edit,
+  Trash2,
+  MapPin,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Clock,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
@@ -16,69 +28,131 @@ import {
 import { Label } from "../../ui/label";
 import { Separator } from "../../ui/separator";
 import { toast } from "sonner";
+import {
+  UserRole,
+  type UserRoleType,
+  ROLE_NAMES,
+} from "../../../utils/roles";
+import { useAuth } from "../../../context/AuthContext";
+import {
+  getAllAttendance,
+  updateAttendanceRecord as updateAttendanceRecordApi,
+  deleteAttendanceRecord as deleteAttendanceRecordApi,
+} from "../../../services/attendanceService";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../ui/select";
 
-const initialRecords = [
+type AttendanceStatus = "ontime" | "late" | "absent" | string;
+
+interface AttendanceRecordItem {
+  id: string;
+  userId: string | number;
+  name: string;
+  role: string;
+  avatar: string;
+  date: string;
+  checkIn: string;
+  checkOut: string;
+  hours: string;
+  status: AttendanceStatus;
+  location: string;
+}
+
+interface AttendanceSummary {
+  total: number;
+  present: number;
+  late: number;
+  absent: number;
+}
+
+const DEFAULT_PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 50];
+
+const adminRoleOrder = [
+  UserRole.MANAGER,
+  UserRole.HR_MANAGER,
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+] as const;
+
+type AdminRoleType = (typeof adminRoleOrder)[number];
+
+const ROLE_ACCESS_CONFIG: Record<
+  AdminRoleType,
   {
-    id: 1,
-    userId: 101,
-    name: "Nguyễn Văn A",
-    avatar: "NVA",
-    date: "27/10/2024",
-    checkIn: "08:45",
-    checkOut: "17:30",
-    hours: "8h 45m",
-    status: "ontime",
-    location: "Văn phòng HN",
+    scope: string;
+    description: string;
+    actions: string[];
+    limitations: string[];
+    canEdit: boolean;
+    canDelete: boolean;
+    canExport: boolean;
+  }
+> = {
+  [UserRole.MANAGER]: {
+    scope: "Phòng ban phụ trách",
+    description: "Theo dõi và xác nhận chấm công cho đội nhóm trực thuộc.",
+    actions: [
+      "Xem trạng thái chấm công phòng ban",
+      "Gửi nhắc nhở đi muộn",
+      "Xuất báo cáo bộ phận",
+    ],
+    limitations: [
+      "Không chỉnh sửa thủ công bản ghi hệ thống",
+      "Không xóa lịch sử chấm công",
+    ],
+    canEdit: false,
+    canDelete: false,
+    canExport: true,
   },
-  {
-    id: 2,
-    userId: 102,
-    name: "Trần Thị B",
-    avatar: "TTB",
-    date: "27/10/2024",
-    checkIn: "09:15",
-    checkOut: "17:35",
-    hours: "8h 20m",
-    status: "late",
-    location: "Văn phòng HN",
+  [UserRole.HR_MANAGER]: {
+    scope: "Toàn công ty",
+    description:
+      "Điều phối chính sách chấm công & hỗ trợ cập nhật thông tin cho nhân sự.",
+    actions: [
+      "Chỉnh sửa thời gian vào/ra thủ công",
+      "Đăng ký chấm công hộ cho nhân viên",
+      "Xuất Excel tổng hợp",
+    ],
+    limitations: ["Không xóa bản ghi đã khóa bởi Admin"],
+    canEdit: true,
+    canDelete: false,
+    canExport: true,
   },
-  {
-    id: 3,
-    userId: 103,
-    name: "Lê Văn C",
-    avatar: "LVC",
-    date: "27/10/2024",
-    checkIn: "08:30",
-    checkOut: "17:20",
-    hours: "8h 50m",
-    status: "ontime",
-    location: "Văn phòng HN",
+  [UserRole.ADMIN]: {
+    scope: "Toàn bộ tổ chức",
+    description:
+      "Đảm bảo dữ liệu chấm công chính xác, đồng bộ với bảng lương & báo cáo.",
+    actions: [
+      "Quản trị trạng thái chấm công",
+      "Khóa/mở khóa bản ghi",
+      "Tích hợp báo cáo với payroll",
+    ],
+    limitations: ["Xóa bản ghi cần xác nhận từ Super Admin"],
+    canEdit: true,
+    canDelete: true,
+    canExport: true,
   },
-  {
-    id: 4,
-    userId: 104,
-    name: "Phạm Thị D",
-    avatar: "PTD",
-    date: "27/10/2024",
-    checkIn: "-",
-    checkOut: "-",
-    hours: "-",
-    status: "absent",
-    location: "-",
+  [UserRole.SUPER_ADMIN]: {
+    scope: "Toàn hệ thống",
+    description:
+      "Kiểm soát bảo mật & tuân thủ, xử lý sự cố hoặc override dữ liệu.",
+    actions: [
+      "Xóa/khôi phục bản ghi",
+      "Quản lý phân quyền truy cập",
+      "Đồng bộ dữ liệu đa chi nhánh",
+    ],
+    limitations: ["Cần ghi nhật ký hoạt động khi thao tác đặc biệt"],
+    canEdit: true,
+    canDelete: true,
+    canExport: true,
   },
-  {
-    id: 5,
-    userId: 105,
-    name: "Hoàng Văn E",
-    avatar: "HVE",
-    date: "27/10/2024",
-    checkIn: "08:50",
-    checkOut: "17:25",
-    hours: "8h 35m",
-    status: "ontime",
-    location: "Văn phòng HN",
-  },
-];
+};
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -100,46 +174,71 @@ const getStatusBadge = (status: string) => {
           Vắng
         </Badge>
       );
+    case "weekend":
+      return (
+        <Badge className="bg-[var(--shell)] text-[var(--text-main)] border-[var(--border)]">
+          Cuối tuần
+        </Badge>
+      );
     default:
       return null;
   }
 };
 
 export default function AdminAttendancePage() {
-  const [records, setRecords] = useState(initialRecords);
+  const { user } = useAuth();
+  const resolvedRole = useMemo<UserRoleType>(() => {
+    return (user?.role as UserRoleType) || UserRole.MANAGER;
+  }, [user?.role]);
+
+  const [records, setRecords] = useState<AttendanceRecordItem[]>([]);
+  const [summaryCounts, setSummaryCounts] = useState<AttendanceSummary>({
+    total: 0,
+    present: 0,
+    late: 0,
+    absent: 0,
+  });
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [paginationInfo, setPaginationInfo] = useState({
+    page: 1,
+    limit: DEFAULT_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<
-    (typeof initialRecords)[0] | null
-  >(null);
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecordItem | null>(null);
   const [formData, setFormData] = useState({
     checkIn: "",
     checkOut: "",
     location: "",
   });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const checkInInputRef = useRef<HTMLInputElement>(null);
+  const checkOutInputRef = useRef<HTMLInputElement>(null);
 
-  const handleViewRecord = (record: (typeof initialRecords)[0]) => {
-    setSelectedRecord(record);
-    setIsViewDialogOpen(true);
-  };
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
-  const handleEditRecord = (record: (typeof initialRecords)[0]) => {
-    setSelectedRecord(record);
-    setFormData({
-      checkIn: record.checkIn === "-" ? "" : record.checkIn,
-      checkOut: record.checkOut === "-" ? "" : record.checkOut,
-      location: record.location === "-" ? "" : record.location,
-    });
-    setIsEditDialogOpen(true);
-  };
+  useEffect(() => {
+    setPage(1);
+  }, [selectedDate, debouncedSearchTerm]);
 
-  const handleDeleteRecord = (record: (typeof initialRecords)[0]) => {
-    setSelectedRecord(record);
-    setIsDeleteDialogOpen(true);
-  };
+  useEffect(() => {
+    setPage(1);
+  }, [pageSize]);
 
   const calculateHours = (checkIn: string, checkOut: string) => {
     if (!checkIn || !checkOut || checkIn === "-" || checkOut === "-")
@@ -157,61 +256,245 @@ export default function AdminAttendancePage() {
     return `${hours}h ${minutes}m`;
   };
 
-  const handleSubmitEdit = () => {
-    if (!selectedRecord) return;
-
-    const hours = calculateHours(formData.checkIn, formData.checkOut);
-    let status = "ontime";
-
-    if (!formData.checkIn || !formData.checkOut) {
-      status = "absent";
-    } else {
-      const [inH, inM] = formData.checkIn.split(":").map(Number);
-      if (inH > 8 || (inH === 8 && inM > 0)) status = "late";
-    }
-
-    setRecords(
-      records.map((r) =>
-        r.id === selectedRecord.id
-          ? {
-              ...r,
-              checkIn: formData.checkIn || "-",
-              checkOut: formData.checkOut || "-",
-              location: formData.location || "-",
-              hours,
-              status,
-            }
-          : r
-      )
-    );
-
-    toast.success(`✅ Đã cập nhật thông tin chấm công`);
-    setIsEditDialogOpen(false);
-    setSelectedRecord(null);
+  const formatTimeValue = (value: unknown): string => {
+    if (!value) return "-";
+    if (typeof value === "string" && value.includes(":")) return value;
+    const date = new Date(value as string);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
   };
 
-  const confirmDelete = () => {
-    if (!selectedRecord) return;
+  const formatHoursValue = (value: unknown, checkIn: string, checkOut: string): string => {
+    if (typeof value === "string" && value.trim().length > 0) return value;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      const hours = Math.floor(value);
+      const minutes = Math.round((value - hours) * 60);
+      return `${hours}h ${minutes}m`;
+    }
+    if (checkIn !== "-" && checkOut !== "-") {
+      return calculateHours(checkIn, checkOut);
+    }
+    return "-";
+  };
 
-    setRecords(records.filter((r) => r.id !== selectedRecord.id));
-    toast.success(`🗑️ Đã xóa bản ghi chấm công`);
-    setIsDeleteDialogOpen(false);
-    setSelectedRecord(null);
+  const buildAvatar = (name: string) => {
+    if (!name) return "NA";
+    const initials = name
+      .split(" ")
+      .filter(Boolean)
+      .map((segment) => segment[0])
+      .join("")
+      .slice(-2);
+    return initials.toUpperCase() || "NA";
+  };
+
+  const pickString = (value: unknown): string | undefined => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+    return undefined;
+  };
+
+  const fetchAttendance = useCallback(async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const response = await getAllAttendance({
+        page,
+        limit: pageSize,
+        date: selectedDate || undefined,
+        search: debouncedSearchTerm || undefined,
+      });
+
+      const normalized: AttendanceRecordItem[] = (response?.records ?? []).map(
+        (item: Record<string, unknown>, index: number) => {
+          const safeName =
+            pickString(item.name) ??
+            pickString(item.userName) ??
+            pickString(item.employeeName) ??
+            "Không rõ";
+          const checkInValue = formatTimeValue(item.checkIn);
+          const checkOutValue = formatTimeValue(item.checkOut);
+          const statusValue =
+            typeof item.status === "string"
+              ? (item.status as AttendanceStatus)
+              : "ontime";
+
+          return {
+            id: (item.id as string) ?? `attendance-${index}`,
+            userId:
+              pickString(item.userId) ??
+              pickString(item.employeeId) ??
+              pickString(item.employeeCode) ??
+              "N/A",
+            name: safeName,
+            role: pickString(item.role) ?? pickString(item.userRole) ?? "N/A",
+            avatar: buildAvatar(safeName),
+            date: pickString(item.date) ?? "-",
+            checkIn: checkInValue,
+            checkOut: checkOutValue,
+            hours: formatHoursValue(item.hours, checkInValue, checkOutValue),
+            status: statusValue,
+            location: pickString(item.location) ?? "-",
+          };
+        }
+      );
+
+      setRecords(normalized);
+
+      const fallbackSummary = {
+        total: normalized.length,
+        present: normalized.filter((r) => r.status === "ontime").length,
+        late: normalized.filter((r) => r.status === "late").length,
+        absent: normalized.filter((r) => r.status === "absent").length,
+      };
+
+      setSummaryCounts({
+        total: response?.summary?.total ?? fallbackSummary.total,
+        present: response?.summary?.present ?? fallbackSummary.present,
+        late: response?.summary?.late ?? fallbackSummary.late,
+        absent: response?.summary?.absent ?? fallbackSummary.absent,
+      });
+
+      setPaginationInfo({
+        page: response?.pagination?.page ?? page,
+        limit: response?.pagination?.limit ?? pageSize,
+        total: response?.pagination?.total ?? normalized.length,
+        totalPages: response?.pagination?.totalPages ?? 1,
+      });
+    } catch (error) {
+      console.warn("[AdminAttendance] getAllAttendance failed", error);
+      setFetchError("Không thể tải dữ liệu chấm công");
+      setRecords([]);
+      toast.error("Không thể tải dữ liệu chấm công");
+      setSummaryCounts({ total: 0, present: 0, late: 0, absent: 0 });
+      setPaginationInfo({
+        page: 1,
+        limit: pageSize,
+        total: 0,
+        totalPages: 1,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [debouncedSearchTerm, page, pageSize, selectedDate]);
+
+  useEffect(() => {
+    void fetchAttendance();
+  }, [fetchAttendance]);
+
+  const handleViewRecord = (record: AttendanceRecordItem) => {
+    setSelectedRecord(record);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleEditRecord = (record: AttendanceRecordItem) => {
+    setSelectedRecord(record);
+    setFormData({
+      checkIn: record.checkIn === "-" ? "" : record.checkIn,
+      checkOut: record.checkOut === "-" ? "" : record.checkOut,
+      location: record.location === "-" ? "" : record.location,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteRecord = (record: AttendanceRecordItem) => {
+    setSelectedRecord(record);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleSubmitEdit = async () => {
+    if (!selectedRecord) return;
+    setIsSaving(true);
+    try {
+      await updateAttendanceRecordApi(selectedRecord.id, {
+        checkIn: formData.checkIn ? formData.checkIn : null,
+        checkOut: formData.checkOut ? formData.checkOut : null,
+        locationName: formData.location.trim() ? formData.location.trim() : null,
+      });
+      toast.success("✅ Đã cập nhật thông tin chấm công");
+      setIsEditDialogOpen(false);
+      setSelectedRecord(null);
+      await fetchAttendance();
+    } catch (error) {
+      console.error("[AdminAttendance] update error", error);
+      toast.error("Không thể cập nhật bản ghi");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    setIsDeleting(true);
+    try {
+      await deleteAttendanceRecordApi(selectedRecord.id);
+      toast.success("🗑️ Đã xóa bản ghi chấm công");
+      setIsDeleteDialogOpen(false);
+      setSelectedRecord(null);
+      await fetchAttendance();
+    } catch (error) {
+      console.error("[AdminAttendance] delete error", error);
+      toast.error("Không thể xóa bản ghi");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const adminRole = (resolvedRole === UserRole.EMPLOYEE ? UserRole.MANAGER : resolvedRole) as AdminRoleType;
+  const roleConfig = ROLE_ACCESS_CONFIG[adminRole];
+
+  const hasRecords = paginationInfo.total > 0;
+  const paginationStart = hasRecords
+    ? (paginationInfo.page - 1) * paginationInfo.limit + 1
+    : 0;
+  const paginationEnd = hasRecords
+    ? Math.min(paginationInfo.page * paginationInfo.limit, paginationInfo.total)
+    : 0;
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > (paginationInfo?.totalPages ?? 1)) {
+      return;
+    }
+    setPage(nextPage);
+  };
+
+  const handlePageSizeChange = (value: number) => {
+    if (value === pageSize) return;
+    setPageSize(value);
+    setPage(1);
+  };
+
+  const openCheckInPicker = () => {
+    if (!checkInInputRef.current) return;
+    if (checkInInputRef.current.showPicker) {
+      checkInInputRef.current.showPicker();
+    } else {
+      checkInInputRef.current.focus();
+    }
+  };
+
+  const openCheckOutPicker = () => {
+    if (!checkOutInputRef.current) return;
+    if (checkOutInputRef.current.showPicker) {
+      checkOutInputRef.current.showPicker();
+    } else {
+      checkOutInputRef.current.focus();
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-2">
         <h1 className="text-3xl text-[var(--text-main)]">Quản lý chấm công</h1>
-        <p className="text-[var(--text-sub)]">
-          Xem và quản lý chấm công của nhân viên
+        <p className="text-sm text-[var(--text-sub)]">
+          Vai trò hiện tại:{" "}
+          <span className="font-semibold text-[var(--text-main)]">{ROLE_NAMES[resolvedRole]}</span>
         </p>
       </div>
-
-      {/* Filters & Actions */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardContent className="p-6 mt-4">
-          <div className="flex flex-col md:flex-row gap-4">
+        <CardContent className="mt-4 flex flex-col gap-6 p-6">
+          <div className="flex flex-col gap-4 md:flex-row">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
@@ -229,8 +512,15 @@ export default function AdminAttendancePage() {
             />
             <Button
               variant="outline"
-              className="border-[var(--border)] text-[var(--text-main)]"
-              onClick={() => toast.success("📊 Đang xuất file Excel...")}
+              disabled={!roleConfig.canExport}
+              className="border-[var(--border)] text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() =>
+                toast.success(
+                  roleConfig.canExport
+                    ? "📊 Đang xuất file Excel..."
+                    : "⚠️ Vai trò hiện tại không được phép xuất Excel"
+                )
+              }
             >
               <Download className="h-4 w-4 mr-2" />
               Xuất Excel
@@ -244,25 +534,33 @@ export default function AdminAttendancePage() {
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center mt-4">
             <p className="text-sm text-[var(--text-sub)]">Tổng NV</p>
-            <p className="text-2xl text-[var(--text-main)] mt-1">52</p>
+            <p className="text-2xl text-[var(--text-main)] mt-1">
+              {summaryCounts.total}
+            </p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center mt-4">
             <p className="text-sm text-[var(--text-sub)]">Có mặt</p>
-            <p className="text-2xl text-[var(--success)] mt-1">47</p>
+            <p className="text-2xl text-[var(--success)] mt-1">
+              {summaryCounts.present}
+            </p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center mt-4">
             <p className="text-sm text-[var(--text-sub)]">Đi muộn</p>
-            <p className="text-2xl text-[var(--warning)] mt-1">3</p>
+            <p className="text-2xl text-[var(--warning)] mt-1">
+              {summaryCounts.late}
+            </p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center mt-4">
             <p className="text-sm text-[var(--text-sub)]">Vắng</p>
-            <p className="text-2xl text-[var(--error)] mt-1">2</p>
+            <p className="text-2xl text-[var(--error)] mt-1">
+              {summaryCounts.absent}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -275,197 +573,277 @@ export default function AdminAttendancePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto rounded-lg">
+            <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[var(--shell)]">
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                    Nhân viên
+                  <th className="text-left py-4 px-6 text-sm font-semibold text-[var(--text-main)] first:rounded-tl-lg">
+                    Nhânviên
                   </th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
                     Ngày
                   </th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
                     Giờ vào
                   </th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
                     Giờ ra
                   </th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap">
                     Tổng giờ
                   </th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)]">
                     Địa điểm
                   </th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
+                  <th className="text-left py-4 px-4 text-sm font-semibold text-[var(--text-main)]">
                     Trạng thái
                   </th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">
+                  <th className="text-center py-4 px-6 text-sm font-semibold text-[var(--text-main)] last:rounded-tr-lg whitespace-nowrap">
                     Thao tác
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {records.map((record, index) => (
-                  <tr
-                    key={record.id}
-                    className={`border-b border-[var(--border)] hover:bg-[var(--shell)] transition-colors ${
-                      index % 2 === 0 ? "bg-[var(--shell)]/50" : ""
-                    }`}
-                  >
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-[var(--primary)] text-white text-xs">
-                            {record.avatar}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-[var(--text-main)]">
-                            {record.name}
-                          </p>
-                          <p className="text-xs text-[var(--text-sub)]">
-                            ID: {record.userId}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-[var(--text-main)]">
-                      {record.date}
-                    </td>
-                    <td className="py-3 px-4 text-[var(--text-main)]">
-                      {record.checkIn}
-                    </td>
-                    <td className="py-3 px-4 text-[var(--text-main)]">
-                      {record.checkOut}
-                    </td>
-                    <td className="py-3 px-4 text-[var(--text-main)]">
-                      {record.hours}
-                    </td>
-                    <td className="py-3 px-4 text-[var(--text-sub)]">
-                      {record.location}
-                    </td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(record.status)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button
-                          onClick={() => handleViewRecord(record)}
-                          className="p-1 hover:bg-[var(--shell)] rounded text-[var(--accent-cyan)]"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEditRecord(record)}
-                          className="p-1 hover:bg-[var(--shell)] rounded text-[var(--primary)]"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRecord(record)}
-                          className="p-1 hover:bg-[var(--shell)] rounded text-[var(--error)]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-[var(--text-sub)]">
+                      Đang tải dữ liệu...
                     </td>
                   </tr>
-                ))}
+                ) : fetchError ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-[var(--error)]">
+                      {fetchError}
+                    </td>
+                  </tr>
+                ) : records.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-[var(--text-sub)]">
+                      Không có bản ghi nào phù hợp với bộ lọc hiện tại.
+                    </td>
+                  </tr>
+                ) : (
+                  records.map((record) => (
+                    <tr
+                      key={record.id}
+                      className="border-b border-[var(--border)] hover:bg-[var(--shell)]/70 transition-all duration-150"
+                    >
+                      <td className="py-4 px-6">
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] text-white text-xs font-semibold">
+                              {record.avatar}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium text-[var(--text-main)]">
+                              {record.name}
+                            </p>
+                            <p className="text-xs text-[var(--text-sub)]">
+                              Role: {record.role}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-sm text-[var(--text-main)] whitespace-nowrap">
+                        {record.date}
+                      </td>
+                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                        {record.checkIn}
+                      </td>
+                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                        {record.checkOut}
+                      </td>
+                      <td className="py-4 px-4 text-sm font-medium text-[var(--text-main)] whitespace-nowrap">
+                        {record.hours}
+                      </td>
+                      <td className="py-4 px-4 text-sm text-[var(--text-sub)]">
+                        {record.location}
+                      </td>
+                      <td className="py-4 px-4">
+                        {getStatusBadge(record.status)}
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center justify-center space-x-1">
+                          <button
+                            onClick={() => handleViewRecord(record)}
+                            className="rounded-md p-2 text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-colors"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEditRecord(record)}
+                            disabled={!roleConfig.canEdit}
+                            className="rounded-md p-2 text-[var(--primary)] hover:bg-[var(--primary)]/10 disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40 transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRecord(record)}
+                            disabled={!roleConfig.canDelete}
+                            className="rounded-md p-2 text-[var(--error)] hover:bg-[var(--error)]/10 disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40 transition-colors"
+                            title="Xóa"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4 text-[var(--text-sub)]">
+            <div className="flex items-center gap-2 text-sm">
+              <span>
+                Hiển thị {paginationStart} - {paginationEnd} /{" "}
+                {paginationInfo.total.toLocaleString("vi-VN")}
+              </span>
+              <span className="hidden sm:inline">•</span>
+              <div className="flex items-center gap-2">
+                <span>Số dòng:</span>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(v) => handlePageSizeChange(Number(v))}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="w-24 h-9 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent side="top" className="bg-[var(--surface)] border-[var(--border)]">
+                    {PAGE_SIZE_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option.toString()}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 border-[var(--border)] text-[var(--text-main)]"
+                disabled={paginationInfo.page === 1 || isLoading}
+                onClick={() => handlePageChange(1)}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 border-[var(--border)] text-[var(--text-main)]"
+                disabled={paginationInfo.page === 1 || isLoading}
+                onClick={() => handlePageChange(paginationInfo.page - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="px-4 text-sm text-[var(--text-main)]">
+                Trang {paginationInfo.page} / {paginationInfo.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 border-[var(--border)] text-[var(--text-main)]"
+                disabled={
+                  paginationInfo.page >= paginationInfo.totalPages || isLoading
+                }
+                onClick={() => handlePageChange(paginationInfo.page + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 border-[var(--border)] text-[var(--text-main)]"
+                disabled={
+                  paginationInfo.page >= paginationInfo.totalPages || isLoading
+                }
+                onClick={() => handlePageChange(paginationInfo.totalPages)}
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-2xl">
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Chi tiết chấm công</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">Chi tiết chấm công</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
               Thông tin chi tiết về bản ghi chấm công
             </DialogDescription>
           </DialogHeader>
           {selectedRecord && (
-            <div className="space-y-6">
-              <div className="flex items-center space-x-4">
+            <div className="space-y-5 py-2">
+              {/* Employee Info Section */}
+              <div className="flex items-center space-x-4 p-4 bg-[var(--shell)] rounded-xl">
                 <Avatar className="h-16 w-16">
-                  <AvatarFallback className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white text-lg">
+                  <AvatarFallback className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white text-lg font-semibold">
                     {selectedRecord.avatar}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <h3 className="text-lg text-[var(--text-main)]">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-[var(--text-main)]">
                     {selectedRecord.name}
                   </h3>
-                  <p className="text-[var(--text-sub)]">
-                    ID: {selectedRecord.userId}
+                  <p className="text-sm text-[var(--text-sub)]">
+                    Mã nhân viên: {selectedRecord.userId}
                   </p>
+                </div>
+                <div>
                   {getStatusBadge(selectedRecord.status)}
                 </div>
               </div>
 
               <Separator className="bg-[var(--border)]" />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-[var(--text-sub)]">Ngày</Label>
-                  <p className="text-[var(--text-main)] mt-1">
-                    {selectedRecord.date}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-[var(--text-sub)]">Giờ vào</Label>
-                  <p className="text-[var(--text-main)] mt-1">
-                    {selectedRecord.checkIn}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-[var(--text-sub)]">Giờ ra</Label>
-                  <p className="text-[var(--text-main)] mt-1">
-                    {selectedRecord.checkOut}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-[var(--text-sub)]">Tổng giờ làm</Label>
-                  <p className="text-[var(--text-main)] mt-1">
-                    {selectedRecord.hours}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-[var(--text-sub)] flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Địa điểm
-                  </Label>
-                  <p className="text-[var(--text-main)] mt-1">
-                    {selectedRecord.location}
-                  </p>
-                </div>
-              </div>
-
-              <Separator className="bg-[var(--border)]" />
-
+              {/* Attendance Details */}
               <div>
-                <Label className="text-[var(--text-sub)]">
-                  Thông tin bổ sung
-                </Label>
-                <div className="mt-3 p-4 bg-[var(--shell)] rounded-lg space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[var(--text-sub)]">
-                      Phương thức chấm công:
-                    </span>
-                    <span className="text-[var(--text-main)]">QR Code</span>
+                <h4 className="text-sm font-semibold text-[var(--text-sub)] uppercase tracking-wide mb-3">
+                  Thông tin chấm công
+                </h4>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)]">Ngày làm việc</Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.date}
+                    </p>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[var(--text-sub)]">Tọa độ GPS:</span>
-                    <span className="text-[var(--text-main)]">
-                      21.0285° N, 105.8542° E
-                    </span>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)]">Tổng giờ làm</Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.hours}
+                    </p>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[var(--text-sub)]">Thiết bị:</span>
-                    <span className="text-[var(--text-main)]">Mobile App</span>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)]">Giờ vào</Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.checkIn}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)]">Giờ ra</Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.checkOut}
+                    </p>
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs text-[var(--text-sub)] flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Địa điểm làm việc
+                    </Label>
+                    <p className="text-[var(--text-main)] font-medium">
+                      {selectedRecord.location}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -475,7 +853,7 @@ export default function AdminAttendancePage() {
             <Button
               variant="outline"
               onClick={() => setIsViewDialogOpen(false)}
-              className="border-[var(--border)] text-[var(--text-main)]"
+              className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
             >
               Đóng
             </Button>
@@ -496,25 +874,47 @@ export default function AdminAttendancePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Giờ vào</Label>
-                <Input
-                  type="time"
-                  className="bg-[var(--input-bg)] border-[var(--border)]"
-                  value={formData.checkIn}
-                  onChange={(e) =>
-                    setFormData({ ...formData, checkIn: e.target.value })
-                  }
-                />
+                <div className="relative">
+                  <Input
+                    ref={checkInInputRef}
+                    type="time"
+                    className="time-input bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pl-4 pr-10"
+                    value={formData.checkIn}
+                    onChange={(e) =>
+                      setFormData({ ...formData, checkIn: e.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={openCheckInPicker}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
+                    aria-label="Chọn giờ vào"
+                  >
+                    <Clock className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Giờ ra</Label>
-                <Input
-                  type="time"
-                  className="bg-[var(--input-bg)] border-[var(--border)]"
-                  value={formData.checkOut}
-                  onChange={(e) =>
-                    setFormData({ ...formData, checkOut: e.target.value })
-                  }
-                />
+                <div className="relative">
+                  <Input
+                    ref={checkOutInputRef}
+                    type="time"
+                    className="time-input bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pl-4 pr-10"
+                    value={formData.checkOut}
+                    onChange={(e) =>
+                      setFormData({ ...formData, checkOut: e.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={openCheckOutPicker}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
+                    aria-label="Chọn giờ ra"
+                  >
+                    <Clock className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -540,9 +940,10 @@ export default function AdminAttendancePage() {
               </Button>
               <Button
                 onClick={handleSubmitEdit}
-                className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
+                disabled={isSaving}
+                className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] disabled:opacity-60"
               >
-                Cập nhật
+                {isSaving ? "Đang lưu..." : "Cập nhật"}
               </Button>
             </div>
           </div>
@@ -594,9 +995,10 @@ export default function AdminAttendancePage() {
             </Button>
             <Button
               onClick={confirmDelete}
-              className="bg-[var(--error)] hover:bg-[var(--error)]/90 text-white"
+              disabled={isDeleting}
+              className="bg-[var(--error)] hover:bg-[var(--error)]/90 text-white disabled:opacity-60"
             >
-              Xóa bản ghi
+              {isDeleting ? "Đang xóa..." : "Xóa bản ghi"}
             </Button>
           </DialogFooter>
         </DialogContent>

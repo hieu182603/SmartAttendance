@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema(
     avatarUrl: { type: String },
     bankAccount: { type: String },
     bankName: { type: String },
+    position: { type: String }, 
     isActive: { type: Boolean, default: true },
 
     // Số ngày phép
@@ -72,8 +73,17 @@ const userSchema = new mongoose.Schema(
       },
     },
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+// Virtual field: fullName (alias cho name)
+userSchema.virtual('fullName').get(function() {
+  return this.name;
+});
 
 // Hash password trước khi lưu
 userSchema.pre("save", async function (next) {
