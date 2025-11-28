@@ -20,6 +20,9 @@ import { Calendar } from "../../ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { toast } from "sonner";
 import eventService, { Event } from "../../../services/eventService";
+import { CreateEventDialog } from "../dialogs/CreateEventDialog";
+import { useAuth } from "../../../context/AuthContext";
+import { hasMinimumLevel, UserRole } from "../../../utils/roles";
 
 type EventType = "holiday" | "meeting" | "event" | "deadline" | "training";
 
@@ -68,6 +71,7 @@ interface StatCard {
 }
 
 const CompanyCalendarPage: React.FC = () => {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filterType, setFilterType] = useState<string>("all");
   const [events, setEvents] = useState<ReturnType<typeof mapEvent>[]>([]);
@@ -84,6 +88,10 @@ const CompanyCalendarPage: React.FC = () => {
     meetingsAndTraining: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  // Check if user can create events (HR_MANAGER and above)
+  const canCreateEvent = user ? hasMinimumLevel(user.role, UserRole.HR_MANAGER) : false;
 
   // Fetch data on mount and when month changes
   useEffect(() => {
@@ -171,8 +179,24 @@ const CompanyCalendarPage: React.FC = () => {
   };
 
   const handleCreateEvent = (): void => {
-    toast.success("📅 Tạo sự kiện mới");
-    // TODO: Open create event modal/dialog
+    setIsCreateDialogOpen(true);
+  };
+
+  const handleCreateSuccess = (): void => {
+    // Refresh data after creating event
+    const currentMonth = selectedDate.getMonth() + 1;
+    const currentYear = selectedDate.getFullYear();
+    
+    Promise.all([
+      eventService.getUpcomingEvents(),
+      eventService.getMonthEvents(currentMonth, currentYear),
+      eventService.getEventStats(currentMonth, currentYear),
+    ]).then(([upcoming, month, eventStats]) => {
+      setUpcomingEvents(upcoming.map(mapEvent));
+      setMonthEvents(month.map(mapEvent));
+      setEvents(month.map(mapEvent));
+      setStats(eventStats);
+    });
   };
 
   const handleViewEvent = (event: ReturnType<typeof mapEvent>): void => {
@@ -223,13 +247,15 @@ const CompanyCalendarPage: React.FC = () => {
             Theo dõi các sự kiện, cuộc họp và ngày lễ
           </p>
         </div>
-        <Button
-          onClick={handleCreateEvent}
-          className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Tạo sự kiện
-        </Button>
+        {canCreateEvent && (
+          <Button
+            onClick={handleCreateEvent}
+            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Tạo sự kiện
+          </Button>
+        )}
       </div>
 
       {/* Filter Tabs */}
@@ -360,13 +386,32 @@ const CompanyCalendarPage: React.FC = () => {
                     })}
                   </p>
                   {selectedDateEvents.length > 0 ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-3 text-xs border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
-                    >
-                      {selectedDateEvents.length} SỰ KIỆN
-                    </Button>
+                    <div className="space-y-2">
+                      <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border-[var(--accent-cyan)]/40">
+                        {selectedDateEvents.length} sự kiện
+                      </Badge>
+                      <div className="space-y-1">
+                        {selectedDateEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            className="text-xs p-2 rounded bg-[var(--surface)] border border-[var(--border)] cursor-pointer hover:border-[var(--accent-cyan)] transition-colors"
+                            onClick={() => handleViewEvent(event)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${event.color}`} />
+                              <span className="text-[var(--text-main)] font-medium truncate">
+                                {event.title}
+                              </span>
+                            </div>
+                            {!event.isAllDay && (
+                              <div className="text-[var(--text-sub)] ml-4 mt-1">
+                                {event.startTime} - {event.endTime}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ) : (
                     <p className="text-xs text-[var(--text-sub)]">
                       Không có sự kiện
@@ -621,6 +666,14 @@ const CompanyCalendarPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Event Dialog */}
+      <CreateEventDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSuccess={handleCreateSuccess}
+        initialDate={selectedDate}
+      />
     </div>
   );
 };
