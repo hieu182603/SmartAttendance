@@ -29,3 +29,4 @@ export const getAllLocations = async (): Promise<Location[]> => {
   }
 }
 
+
