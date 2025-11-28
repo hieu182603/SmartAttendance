@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
+
 import { toast } from "sonner";
 import {
   performanceService,
@@ -61,7 +61,7 @@ export default function PerformanceReviewPage() {
     Array<{ _id: string; fullName: string; position: string }>
   >([]);
   const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
-  
+
   // Get user role from auth context
   const { user } = useAuth();
   const userRole = user?.role || "EMPLOYEE";
@@ -71,14 +71,14 @@ export default function PerformanceReviewPage() {
   const fetchEmployees = useCallback(async () => {
     try {
       let data: any;
-      
+
       if (isManager) {
         const response = await api.get("/users/my-team");
         data = response.data;
       } else {
         data = await getAllUsers();
       }
-      
+
       // Map data to ensure fullName and position are availabe
       const mappedEmployees = (data.users || []).map((user: any) => ({
         _id: user._id,
@@ -144,7 +144,7 @@ export default function PerformanceReviewPage() {
       fetchReviews();
     }, 500);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-dep
+    // eslint-disable-next-line react-hooks/exhaustive-dep
   }, [searchQuery]);
 
   const getScoreColor = useCallback((score: number) => {
@@ -162,10 +162,6 @@ export default function PerformanceReviewPage() {
         return "bg-[var(--warning)]/20 text-[var(--warning)]";
       case "rejected":
         return "bg-[var(--error)]/20 text-[var(--error)]";
-      case "draft":
-        return "bg-gray-500/20 text-gray-500";
-      default:
-        return "bg-gray-500/20 text-gray-500";
     }
   }, []);
 
@@ -177,10 +173,7 @@ export default function PerformanceReviewPage() {
         return "Chờ đánh giá";
       case "rejected":
         return "Bị từ chối";
-      case "draft":
-        return "Nháp";
-      default:
-        return status;
+
     }
   }, []);
 
@@ -209,7 +202,7 @@ export default function PerformanceReviewPage() {
       // Convert to CSV and download
       const csvContent = convertToCSV(data.data);
       downloadCSV(csvContent, `performance-reviews-${new Date().toISOString().split('T')[0]}.csv`);
-      
+
       toast.success(`📥 Đã xuất ${data.total} đánh giá`);
     } catch (error) {
       toast.error("Lỗi khi xuất báo cáo");
@@ -218,7 +211,7 @@ export default function PerformanceReviewPage() {
 
   const convertToCSV = (data: any[]) => {
     if (data.length === 0) return "";
-    
+
     const headers = Object.keys(data[0]);
     const csvRows = [
       headers.join(","),
@@ -229,7 +222,7 @@ export default function PerformanceReviewPage() {
         }).join(",")
       ),
     ];
-    
+
     return csvRows.join("\n");
   };
 
@@ -412,18 +405,17 @@ export default function PerformanceReviewPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Tabs
-              value={filterStatus}
-              onValueChange={(v) => setFilterStatus(v as any)}
-              className="w-auto"
-            >
-              <TabsList>
-                <TabsTrigger value="all">Tất cả</TabsTrigger>
-                <TabsTrigger value="completed">Hoàn thành</TabsTrigger>
-                <TabsTrigger value="pending">Chờ duyệt</TabsTrigger>
-                <TabsTrigger value="rejected">Bị từ chối</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
+              <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="completed">Hoàn thành</SelectItem>
+                <SelectItem value="pending">Chờ duyệt</SelectItem>
+                <SelectItem value="rejected">Bị từ chối</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -458,7 +450,7 @@ export default function PerformanceReviewPage() {
                             {(review.employeeId.fullName || review.employeeId.name || "?").charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
+                        <div className="flex-1">
                           <h3 className="text-lg text-[var(--text-main)] select-none">
                             {review.employeeId.fullName || review.employeeId.name}
                           </h3>
@@ -466,212 +458,169 @@ export default function PerformanceReviewPage() {
                             {review.employeeId.position || "Nhân viên"}
                           </p>
                         </div>
-                        <Badge
-                          className={getStatusColor(review.status)}
-                          style={{ marginLeft: "auto" }}
-                        >
-                          {getStatusText(review.status)}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getStatusColor(review.status)}>
+                            {getStatusText(review.status)}
+                          </Badge>
+
+                          {/* Action Buttons */}
+                          {(isHROrAbove ||
+                            (isManager &&
+                              ["draft", "pending", "rejected"].includes(
+                                review.status
+                              ))) ? (
+                            <Button
+                              onClick={() => handleOpenReview(review)}
+                              variant="outline"
+                              size="sm"
+                              className="border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              {review.status === "pending" && isHROrAbove
+                                ? "Phê duyệt"
+                                : "Sửa"}
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => handleOpenReview(review)}
+                              variant="outline"
+                              size="sm"
+                              className="border-[var(--border)] text-[var(--text-main)]"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Xem
+                            </Button>
+                          )}
+
+                          {isHROrAbove && review.status === "pending" && (
+                            <Button
+                              onClick={() => handleReject(review)}
+                              variant="outline"
+                              size="sm"
+                              className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Từ chối
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
-                    {review.status === "completed" && (
-                      <>
-                        {/* Overall Score */}
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm text-[var(--text-sub)] select-none">
-                              Điểm tổng quan
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <Star
-                                className={`h-5 w-5 ${getScoreColor(
-                                  review.overallScore
-                                )}`}
-                              />
-                              <span
-                                className={`text-2xl select-none ${getScoreColor(
-                                  review.overallScore
-                                )}`}
-                              >
-                                {review.overallScore}
-                              </span>
+                      {review.status === "completed" && (
+                        <>
+                          {/* Overall Score */}
+                          <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
                               <span className="text-sm text-[var(--text-sub)] select-none">
-                                / 100
+                                Điểm tổng quan
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Star
+                                  className={`h-5 w-5 ${getScoreColor(
+                                    review.overallScore
+                                  )}`}
+                                />
+                                <span
+                                  className={`text-2xl select-none ${getScoreColor(
+                                    review.overallScore
+                                  )}`}
+                                >
+                                  {review.overallScore}
+                                </span>
+                                <span className="text-sm text-[var(--text-sub)] select-none">
+                                  / 100
+                                </span>
+                              </div>
+                            </div>
+                            <Progress
+                              value={review.overallScore}
+                              className="h-2"
+                            />
+                          </div>
+
+                          {/* Category Scores */}
+                          <div className="grid grid-cols-5 gap-4 mb-4">
+                            {Object.entries(review.categories).map(
+                              ([key, value]) => (
+                                <div key={key} className="text-center">
+                                  <div
+                                    className={`text-xl select-none ${getScoreColor(value)}`}
+                                  >
+                                    {value}
+                                  </div>
+                                  <div className="text-xs text-[var(--text-sub)] mt-1 select-none">
+                                    {key === "technical"
+                                      ? "Kỹ thuật"
+                                      : key === "communication"
+                                        ? "Giao tiếp"
+                                        : key === "teamwork"
+                                          ? "Teamwork"
+                                          : key === "leadership"
+                                            ? "Lãnh đạo"
+                                            : "Giải quyết"}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+
+                          {/* Meta Info */}
+                          <div className="flex items-center gap-6 text-sm text-[var(--text-sub)] mb-4 select-none">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4" />
+                              <span>{review.period}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              <span>
+                                Đánh giá bởi: {review.reviewerId.fullName || review.reviewerId.name}
                               </span>
                             </div>
-                          </div>
-                          <Progress
-                            value={review.overallScore}
-                            className="h-2"
-                          />
-                        </div>
-
-                        {/* Category Scores */}
-                        <div className="grid grid-cols-5 gap-4 mb-4">
-                          {Object.entries(review.categories).map(
-                            ([key, value]) => (
-                              <div key={key} className="text-center">
-                                <div
-                                  className={`text-xl select-none ${getScoreColor(value)}`}
-                                >
-                                  {value}
-                                </div>
-                                <div className="text-xs text-[var(--text-sub)] mt-1 select-none">
-                                  {key === "technical"
-                                    ? "Kỹ thuật"
-                                    : key === "communication"
-                                    ? "Giao tiếp"
-                                    : key === "teamwork"
-                                    ? "Teamwork"
-                                    : key === "leadership"
-                                    ? "Lãnh đạo"
-                                    : "Giải quyết"}
-                                </div>
+                            {review.reviewDate && (
+                              <div>
+                                Ngày:{" "}
+                                {new Date(review.reviewDate).toLocaleDateString(
+                                  "vi-VN"
+                                )}
                               </div>
-                            )
-                          )}
-                        </div>
+                            )}
+                          </div>
 
-                        {/* Meta Info */}
-                        <div className="flex items-center gap-6 text-sm text-[var(--text-sub)] mb-4 select-none">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            <span>{review.period}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            <span>
-                              Đánh giá bởi: {review.reviewerId.fullName || review.reviewerId.name}
-                            </span>
-                          </div>
-                          {review.reviewDate && (
-                            <div>
-                              Ngày:{" "}
-                              {new Date(review.reviewDate).toLocaleDateString(
-                                "vi-VN"
-                              )}
+                          {review.comments && (
+                            <div className="p-3 rounded-lg bg-[var(--shell)] border border-[var(--border)] select-none">
+                              <p className="text-sm text-[var(--text-sub)] mb-1">
+                                💬 Nhận xét:
+                              </p>
+                              <p className="text-sm text-[var(--text-main)]">
+                                {review.comments}
+                              </p>
                             </div>
                           )}
+                        </>
+                      )}
+
+                      {review.status === "pending" && (
+                        <div className="text-center py-8 select-none">
+                          <Target className="h-12 w-12 text-[var(--warning)] mx-auto mb-3" />
+                          <p className="text-[var(--text-sub)]">
+                            Chưa có đánh giá cho kỳ này
+                          </p>
                         </div>
+                      )}
 
-                        {/* Achievements & Improvements */}
-                        {review.achievements.length > 0 && (
-                          <div className="mb-3 select-none">
-                            <p className="text-sm text-[var(--text-sub)] mb-2">
-                              ✅ Thành tích:
-                            </p>
-                            <ul className="list-disc list-inside space-y-1">
-                              {review.achievements.map((achievement, i) => (
-                                <li
-                                  key={i}
-                                  className="text-sm text-[var(--text-main)]"
-                                >
-                                  {achievement}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                      {review.status === "rejected" && review.rejectionReason && (
+                        <div className="p-4 rounded-lg bg-[var(--error)]/10 border border-[var(--error)] select-none">
+                          <p className="text-sm font-medium text-[var(--error)] mb-2">
+                            ❌ Đánh giá bị từ chối
+                          </p>
+                          <p className="text-sm text-[var(--text-main)]">
+                            <strong>Lý do:</strong> {review.rejectionReason}
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
-                        {review.improvements.length > 0 && (
-                          <div className="mb-3 select-none">
-                            <p className="text-sm text-[var(--text-sub)] mb-2">
-                              📈 Cần cải thiện:
-                            </p>
-                            <ul className="list-disc list-inside space-y-1">
-                              {review.improvements.map((improvement, i) => (
-                                <li
-                                  key={i}
-                                  className="text-sm text-[var(--text-main)]"
-                                >
-                                  {improvement}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {review.comments && (
-                          <div className="p-3 rounded-lg bg-[var(--shell)] border border-[var(--border)] select-none">
-                            <p className="text-sm text-[var(--text-sub)] mb-1">
-                              💬 Nhận xét:
-                            </p>
-                            <p className="text-sm text-[var(--text-main)]">
-                              {review.comments}
-                            </p>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {review.status === "pending" && (
-                      <div className="text-center py-8 select-none">
-                        <Target className="h-12 w-12 text-[var(--warning)] mx-auto mb-3" />
-                        <p className="text-[var(--text-sub)]">
-                          Chưa có đánh giá cho kỳ này
-                        </p>
-                      </div>
-                    )}
-
-                    {review.status === "rejected" && review.rejectionReason && (
-                      <div className="p-4 rounded-lg bg-[var(--error)]/10 border border-[var(--error)] select-none">
-                        <p className="text-sm font-medium text-[var(--error)] mb-2">
-                          ❌ Đánh giá bị từ chối
-                        </p>
-                        <p className="text-sm text-[var(--text-main)]">
-                          <strong>Lý do:</strong> {review.rejectionReason}
-                        </p>
-                      </div>
-                    )}
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-col gap-2">
-                    {/* Nút chính: Xem/Sửa (tùy quyền) */}
-                    {(isHROrAbove ||
-                      (isManager &&
-                        ["draft", "pending", "rejected"].includes(
-                          review.status
-                        ))) ? (
-                      // Có quyền sửa → Nút "Sửa" hoặc "Phê duyệt"
-                      <Button
-                        onClick={() => handleOpenReview(review)}
-                        variant="outline"
-                        size="sm"
-                        className="border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        {review.status === "pending" && isHROrAbove
-                          ? "Phê duyệt"
-                          : "Sửa"}
-                      </Button>
-                    ) : (
-                      // Không có quyền sửa → Nút "Xem"
-                      <Button
-                        onClick={() => handleOpenReview(review)}
-                        variant="outline"
-                        size="sm"
-                        className="border-[var(--border)] text-[var(--text-main)]"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Xem
-                      </Button>
-                    )}
-
-                    {/* HR có thể reject đánh giá pending */}
-                    {isHROrAbove && review.status === "pending" && (
-                      <Button
-                        onClick={() => handleReject(review)}
-                        variant="outline"
-                        size="sm"
-                        className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Từ chối
-                      </Button>
-                    )}
-                  </div>
-                </div>
                 </CardContent>
               </Card>
             </motion.div>
