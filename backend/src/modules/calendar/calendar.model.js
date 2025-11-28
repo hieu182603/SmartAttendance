@@ -102,11 +102,12 @@ calendarEventSchema.index({ branchId: 1, date: 1 });
 calendarEventSchema.index({ visibility: 1, date: 1 });
 calendarEventSchema.index({ isActive: 1, date: 1 });
 
-// Tự động cập nhật attendeeCount
+// Tự động cập nhật attendeeCount nếu có attendees array
 calendarEventSchema.pre("save", function (next) {
-  if (this.attendees && Array.isArray(this.attendees)) {
+  if (this.attendees && Array.isArray(this.attendees) && this.attendees.length > 0) {
     this.attendeeCount = this.attendees.length;
   }
+  // Nếu không có attendees array, giữ nguyên attendeeCount từ input
   next();
 });
 

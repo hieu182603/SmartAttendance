@@ -12,6 +12,8 @@ import {
   FileText,
   Tag,
   Bell,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -21,8 +23,13 @@ import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
 import { toast } from "sonner";
 import eventService, { Event } from "../../../services/eventService";
 import { CreateEventDialog } from "../dialogs/CreateEventDialog";
+import { UpdateEventDialog } from "../dialogs/UpdateEventDialog";
 import { useAuth } from "../../../context/AuthContext";
-import { hasMinimumLevel, UserRole } from "../../../utils/roles";
+import {
+  hasMinimumLevel,
+  UserRole,
+  type UserRoleType,
+} from "../../../utils/roles";
 
 type EventType = "holiday" | "meeting" | "event" | "deadline" | "training";
 
@@ -43,8 +50,26 @@ const getColorClass = (color?: string): string => {
 
 // Convert backend Event to frontend Event format
 const mapEvent = (event: Event) => {
-  const eventDate = new Date(event.date);
-  const dateStr = eventDate.toISOString().split("T")[0];
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  // Parse date correctly to avoid timezone issues
+  let dateStr: string;
+  if (typeof event.date === "string" && event.date.includes("T")) {
+    // If it's an ISO string, extract just the date part
+    dateStr = event.date.split("T")[0];
+  } else if (
+    typeof event.date === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(event.date)
+  ) {
+    // Already in YYYY-MM-DD format
+    dateStr = event.date;
+  } else {
+    // Parse as date but use local timezone
+    const eventDate = new Date(event.date);
+    dateStr = `${eventDate.getFullYear()}-${pad(
+      eventDate.getMonth() + 1
+    )}-${pad(eventDate.getDate())}`;
+  }
 
   return {
     id: event._id,
@@ -78,9 +103,6 @@ const CompanyCalendarPage: React.FC = () => {
   const [upcomingEvents, setUpcomingEvents] = useState<
     ReturnType<typeof mapEvent>[]
   >([]);
-  const [monthEvents, setMonthEvents] = useState<ReturnType<typeof mapEvent>[]>(
-    []
-  );
   const [stats, setStats] = useState({
     total: 0,
     upcoming: 0,
@@ -89,9 +111,13 @@ const CompanyCalendarPage: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Check if user can create events (HR_MANAGER and above)
-  const canCreateEvent = user ? hasMinimumLevel(user.role, UserRole.HR_MANAGER) : false;
+  const canCreateEvent = user
+    ? hasMinimumLevel(user.role as UserRoleType, UserRole.HR_MANAGER)
+    : false;
 
   // Fetch data on mount and when month changes
   useEffect(() => {
@@ -110,7 +136,6 @@ const CompanyCalendarPage: React.FC = () => {
           currentMonth,
           currentYear
         );
-        setMonthEvents(month.map(mapEvent));
 
         // Fetch stats
         const eventStats = await eventService.getEventStats(
@@ -139,9 +164,13 @@ const CompanyCalendarPage: React.FC = () => {
 
   // Get events for selected date
   const selectedDateEvents = selectedDate
-    ? events.filter(
-        (event) => event.date === selectedDate.toISOString().split("T")[0]
-      )
+    ? events.filter((event) => {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const localDateStr = `${selectedDate.getFullYear()}-${pad(
+          selectedDate.getMonth() + 1
+        )}-${pad(selectedDate.getDate())}`;
+        return event.date === localDateStr;
+      })
     : [];
 
   const getTypeLabel = (type: EventType): string => {
@@ -186,14 +215,13 @@ const CompanyCalendarPage: React.FC = () => {
     // Refresh data after creating event
     const currentMonth = selectedDate.getMonth() + 1;
     const currentYear = selectedDate.getFullYear();
-    
+
     Promise.all([
       eventService.getUpcomingEvents(),
       eventService.getMonthEvents(currentMonth, currentYear),
       eventService.getEventStats(currentMonth, currentYear),
     ]).then(([upcoming, month, eventStats]) => {
       setUpcomingEvents(upcoming.map(mapEvent));
-      setMonthEvents(month.map(mapEvent));
       setEvents(month.map(mapEvent));
       setStats(eventStats);
     });
@@ -202,6 +230,37 @@ const CompanyCalendarPage: React.FC = () => {
   const handleViewEvent = (event: ReturnType<typeof mapEvent>): void => {
     toast.success(`👁️ Xem chi tiết: ${event.title}`);
     // TODO: Open event detail modal/dialog
+  };
+
+  const handleUpdateEvent = (
+    event: ReturnType<typeof mapEvent>,
+    e: React.MouseEvent
+  ): void => {
+    e.stopPropagation(); // Prevent triggering handleViewEvent
+    setSelectedEvent(event.originalEvent);
+    setIsUpdateDialogOpen(true);
+  };
+
+  const handleDeleteEvent = async (
+    event: ReturnType<typeof mapEvent>,
+    e: React.MouseEvent
+  ): Promise<void> => {
+    e.stopPropagation(); // Prevent triggering handleViewEvent
+
+    if (
+      !window.confirm(`Bạn có chắc chắn muốn xóa sự kiện "${event.title}"?`)
+    ) {
+      return;
+    }
+
+    try {
+      await eventService.deleteEvent(event.id);
+      toast.success("🗑️ Xóa sự kiện thành công!");
+      handleCreateSuccess(); // Refresh data
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      toast.error(error.response?.data?.message || "Không thể xóa sự kiện");
+    }
   };
 
   const statCards: StatCard[] = [
@@ -363,12 +422,15 @@ const CompanyCalendarPage: React.FC = () => {
             </CardHeader>
             <CardContent className="pt-0">
               <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
+                {...({
+                  mode: "single",
+                  selected: selectedDate,
+                  onSelect: (date: Date | undefined) =>
+                    date && setSelectedDate(date),
+                  month: selectedDate,
+                  onMonthChange: (date: Date) => setSelectedDate(date),
+                } as any)}
                 className="rounded-md w-full p-0"
-                month={selectedDate}
-                onMonthChange={(date) => setSelectedDate(date)}
               />
 
               {/* Selected Date Info */}
@@ -398,7 +460,9 @@ const CompanyCalendarPage: React.FC = () => {
                             onClick={() => handleViewEvent(event)}
                           >
                             <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${event.color}`} />
+                              <div
+                                className={`w-2 h-2 rounded-full ${event.color}`}
+                              />
                               <span className="text-[var(--text-main)] font-medium truncate">
                                 {event.title}
                               </span>
@@ -455,7 +519,7 @@ const CompanyCalendarPage: React.FC = () => {
                     whileHover={{ x: 5 }}
                   >
                     <Card
-                      className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all cursor-pointer"
+                      className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all cursor-pointer relative"
                       onClick={() => handleViewEvent(event)}
                     >
                       <CardContent className="p-4 mt-4">
@@ -527,13 +591,41 @@ const CompanyCalendarPage: React.FC = () => {
                                   <span>{event.location}</span>
                                 </div>
                               )}
-                              {event.attendees && (
+                              {event.attendees > 0 && (
                                 <div className="flex items-center gap-2">
                                   <Users className="h-4 w-4 text-[var(--primary)]" />
                                   <span>{event.attendees} người</span>
                                 </div>
                               )}
                             </div>
+
+                            {/* Action Buttons for HR_MANAGER */}
+                            {canCreateEvent && (
+                              <div className="absolute bottom-3 right-3 flex gap-1.5">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateEvent(event, e);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-red-500 hover:bg-red-500/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEvent(event, e);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -587,7 +679,7 @@ const CompanyCalendarPage: React.FC = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.03 }}
-                    className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all"
+                    className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all relative"
                     onClick={() => handleViewEvent(event)}
                   >
                     <div className="flex items-start gap-4">
@@ -644,13 +736,41 @@ const CompanyCalendarPage: React.FC = () => {
                               <span>{event.location}</span>
                             </div>
                           )}
-                          {event.attendees && (
+                          {event.attendees > 0 && (
                             <div className="flex items-center gap-2">
                               <Users className="h-4 w-4" />
                               <span>{event.attendees} người tham gia</span>
                             </div>
                           )}
                         </div>
+
+                        {/* Action Buttons for HR_MANAGER */}
+                        {canCreateEvent && (
+                          <div className="absolute bottom-3 right-3 flex gap-1.5">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateEvent(event, e);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-red-500 hover:bg-red-500/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteEvent(event, e);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -673,6 +793,14 @@ const CompanyCalendarPage: React.FC = () => {
         onOpenChange={setIsCreateDialogOpen}
         onSuccess={handleCreateSuccess}
         initialDate={selectedDate}
+      />
+
+      {/* Update Event Dialog */}
+      <UpdateEventDialog
+        open={isUpdateDialogOpen}
+        onOpenChange={setIsUpdateDialogOpen}
+        onSuccess={handleCreateSuccess}
+        event={selectedEvent}
       />
     </div>
   );
