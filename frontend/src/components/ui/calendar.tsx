@@ -4,25 +4,29 @@ import { DayPicker, DayPickerProps } from "react-day-picker";
 import { cn } from "./utils";
 import "react-day-picker/dist/style.css";
 
-interface CalendarProps extends DayPickerProps {
-  className?: string
-  classNames?: Record<string, string>
-  showOutsideDays?: boolean
-}
+export type CalendarProps = DayPickerProps & {
+  className?: string;
+  classNames?: Record<string, string>;
+  showOutsideDays?: boolean;
+};
 
-function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+function Calendar({
+  className,
+  classNames,
+  showOutsideDays = true,
+  ...props
+}: CalendarProps) {
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-4", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 justify-center",
+        months:
+          "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 justify-center",
         month: "space-y-4 flex flex-col items-center",
         caption: "hidden",
         nav: "hidden",
-        nav_button: cn(
-          "hidden"
-        ),
+        nav_button: cn("hidden"),
         nav_button_previous: "hidden",
         nav_button_next: "hidden",
         caption_label: "hidden",
@@ -58,4 +62,3 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
 Calendar.displayName = "Calendar";
 
 export { Calendar };
-
