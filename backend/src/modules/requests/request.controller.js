@@ -37,12 +37,10 @@ export const getMyRequests = async (req, res) => {
 
     const query = { userId }
 
-    // Status filter
     if (status && ['pending', 'approved', 'rejected'].includes(status)) {
       query.status = status
     }
 
-    // Search filter - search in reason/description
     if (search) {
       query.$or = [
         { reason: { $regex: search, $options: 'i' } },
@@ -51,21 +49,33 @@ export const getMyRequests = async (req, res) => {
       ]
     }
 
-    // Pagination
     const pageNum = parseInt(page) || 1
     const limitNum = parseInt(limit) || 20
     const skip = (pageNum - 1) * limitNum
 
     const [docs, total] = await Promise.all([
       RequestModel.find(query)
+        .populate({
+          path: 'userId',
+          select: 'name department branch',
+          populate: [
+            { path: 'department', select: 'name' },
+            { path: 'branch', select: 'name' }
+          ]
+        })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum),
+
       RequestModel.countDocuments(query)
     ])
 
-    const data = docs.map((doc) => ({
+    const data = docs.map(doc => ({
       id: doc._id.toString(),
+      employeeName: doc.userId?.name || 'N/A',
+      department: doc.userId?.department?.name || 'N/A',
+      branch: doc.userId?.branch?.name || 'N/A',
+
       type: doc.type,
       title: getTitleByType(doc.type),
       date: formatDate(doc.startDate),
@@ -91,6 +101,7 @@ export const getMyRequests = async (req, res) => {
     res.status(500).json({ message: 'Không lấy được danh sách yêu cầu' })
   }
 }
+
 
 export const createRequest = async (req, res) => {
   try {
