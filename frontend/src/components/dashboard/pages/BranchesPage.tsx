@@ -43,7 +43,8 @@ interface Branch {
   _id?: string;
   name: string;
   code: string;
-  address: string;
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
   city: string;
   country: string;
   phone: string;
@@ -96,7 +97,8 @@ export function BranchesPage() {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
-    address: '',
+    latitude: '',
+    longitude: '',
     city: '',
     country: 'Việt Nam',
     phone: '',
@@ -143,7 +145,8 @@ export function BranchesPage() {
         _id: branch._id,
         name: branch.name,
         code: branch.code,
-        address: branch.address,
+        latitude: typeof branch.latitude === 'number' ? branch.latitude : (branch.latitude !== undefined && branch.latitude !== null ? parseFloat(branch.latitude as any) : null),
+        longitude: typeof branch.longitude === 'number' ? branch.longitude : (branch.longitude !== undefined && branch.longitude !== null ? parseFloat(branch.longitude as any) : null),
         city: branch.city,
         country: branch.country,
         phone: branch.phone || '',
@@ -203,7 +206,8 @@ export function BranchesPage() {
       setFormData({
         name: branch.name,
         code: branch.code,
-        address: branch.address,
+        latitude: (branch.latitude !== undefined && branch.latitude !== null) ? branch.latitude.toString() : '',
+        longitude: (branch.longitude !== undefined && branch.longitude !== null) ? branch.longitude.toString() : '',
         city: branch.city,
         country: branch.country,
         phone: branch.phone || '',
@@ -216,7 +220,8 @@ export function BranchesPage() {
       setFormData({
         name: '',
         code: '',
-        address: '',
+        latitude: '',
+        longitude: '',
         city: '',
         country: 'Việt Nam',
         phone: '',
@@ -229,8 +234,21 @@ export function BranchesPage() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.code || !formData.address || !formData.city || !formData.managerId) {
+    if (!formData.name || !formData.code || !formData.latitude || !formData.longitude || !formData.city || !formData.managerId) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+
+    const latitude = parseFloat(formData.latitude);
+    const longitude = parseFloat(formData.longitude);
+
+    if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+      toast.error('Vĩ độ phải là số từ -90 đến 90');
+      return;
+    }
+
+    if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+      toast.error('Kinh độ phải là số từ -180 đến 180');
       return;
     }
 
@@ -239,7 +257,8 @@ export function BranchesPage() {
         await createBranch({
           name: formData.name,
           code: formData.code,
-          address: formData.address,
+          latitude: latitude,
+          longitude: longitude,
           city: formData.city,
           country: formData.country,
           phone: formData.phone || undefined,
@@ -252,7 +271,8 @@ export function BranchesPage() {
         await updateBranch(selectedBranch._id || selectedBranch.id, {
           name: formData.name,
           code: formData.code,
-          address: formData.address,
+          latitude: latitude,
+          longitude: longitude,
           city: formData.city,
           country: formData.country,
           phone: formData.phone || undefined,
@@ -472,9 +492,17 @@ export function BranchesPage() {
                   <div className="flex items-start gap-2 text-sm">
                     <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
                     <span className="text-[var(--text-sub)]">
-                      {branch.address}, {branch.city}, {branch.country}
+                      {branch.city}, {branch.country}
                     </span>
                   </div>
+                  {(branch.latitude !== undefined && branch.latitude !== null && branch.longitude !== undefined && branch.longitude !== null) && (
+                    <div className="flex items-start gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
+                      <span className="text-[var(--text-sub)]">
+                        Tọa độ: {typeof branch.latitude === 'number' ? branch.latitude.toFixed(6) : 'N/A'}, {typeof branch.longitude === 'number' ? branch.longitude.toFixed(6) : 'N/A'}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-sm">
                     <Phone className="h-4 w-4 text-[var(--accent-cyan)]" />
                     <span className="text-[var(--text-main)]">{branch.phone}</span>
@@ -637,12 +665,26 @@ export function BranchesPage() {
               />
             </div>
 
-            <div className="space-y-2 col-span-2">
-              <Label className="text-[var(--text-main)]">Địa chỉ *</Label>
+            <div className="space-y-2">
+              <Label className="text-[var(--text-main)]">Vĩ độ (Latitude) *</Label>
               <Input
-                placeholder="Số nhà, tên đường, quận/huyện"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                type="number"
+                step="any"
+                placeholder="Ví dụ: 21.0285"
+                value={formData.latitude}
+                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[var(--text-main)]">Kinh độ (Longitude) *</Label>
+              <Input
+                type="number"
+                step="any"
+                placeholder="Ví dụ: 105.8542"
+                value={formData.longitude}
+                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
               />
             </div>
@@ -815,9 +857,13 @@ export function BranchesPage() {
                     <div className="flex items-start space-x-2 p-2 rounded-lg bg-[var(--shell)]">
                       <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5" />
                       <div>
-                        <p className="text-xs text-[var(--text-sub)]">Địa chỉ</p>
-                        <p className="text-sm text-[var(--text-main)]">{selectedBranch.address}</p>
+                        <p className="text-xs text-[var(--text-sub)]">Địa điểm</p>
                         <p className="text-sm text-[var(--text-main)]">{selectedBranch.city}, {selectedBranch.country}</p>
+                        {(selectedBranch.latitude !== undefined && selectedBranch.latitude !== null && selectedBranch.longitude !== undefined && selectedBranch.longitude !== null) && (
+                          <p className="text-xs text-[var(--text-sub)] mt-1">
+                            Tọa độ: {typeof selectedBranch.latitude === 'number' ? selectedBranch.latitude.toFixed(6) : 'N/A'}, {typeof selectedBranch.longitude === 'number' ? selectedBranch.longitude.toFixed(6) : 'N/A'}
+                          </p>
+                        )}
                       </div>
                     </div>
 
