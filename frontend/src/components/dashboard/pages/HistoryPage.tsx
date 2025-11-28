@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Input } from '../../ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
 import { getAttendanceHistory } from '../../../services/attendanceService'
 
 type AttendanceStatus = 'ontime' | 'late' | 'absent' | 'overtime' | 'weekend'
@@ -45,6 +46,7 @@ const HistoryPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [quickFilter, setQuickFilter] = useState<'all' | '7days' | 'thisMonth' | 'lastMonth'>('all')
   const [itemsPerPage] = useState(20)
@@ -64,7 +66,7 @@ const HistoryPage: React.FC = () => {
   const handleQuickFilter = (filter: 'all' | '7days' | 'thisMonth' | 'lastMonth') => {
     setQuickFilter(filter)
     const today = new Date()
-    
+
     switch (filter) {
       case '7days': {
         const sevenDaysAgo = new Date(today)
@@ -166,15 +168,18 @@ const HistoryPage: React.FC = () => {
     return () => {
       isMounted = false
     }
-  }, [dateFrom, dateTo, searchTerm, currentPage, itemsPerPage])
+  }, [dateFrom, dateTo, searchTerm, currentPage, itemsPerPage, statusFilter])
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [dateFrom, dateTo, searchTerm])
+  }, [dateFrom, dateTo, searchTerm, statusFilter])
 
-  // Server-side filtering - no client-side filtering needed
-  const filteredData = records
+  // Client-side filtering by status if needed
+  const filteredData = useMemo(() => {
+    if (statusFilter === 'all') return records
+    return records.filter(record => record.status === statusFilter)
+  }, [records, statusFilter])
 
   // Calculate summary from allRecords (not paginated data)
   const summary = useMemo(() => {
@@ -195,69 +200,44 @@ const HistoryPage: React.FC = () => {
       {/* Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6 mt-4">
-          <div className="flex flex-col gap-4">
-            {/* Row 1: Quick Filter và Search */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Quick Filter Dropdown */}
-              <div>
-                <label className="block text-sm text-[var(--text-sub)] mb-2">Lọc nhanh</label>
-                <select
-                  value={quickFilter}
-                  onChange={(e) => handleQuickFilter(e.target.value as 'all' | '7days' | 'thisMonth' | 'lastMonth')}
-                  className="w-full h-10 px-3 rounded-md bg-[var(--input-bg)] border border-[var(--border)] text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-                >
-                  <option value="all">Tất cả</option>
-                  <option value="7days">7 ngày qua</option>
-                  <option value="thisMonth">Tháng này</option>
-                  <option value="lastMonth">Tháng trước</option>
-                </select>
-              </div>
-
-              {/* Search */}
-              <div>
-                <label className="block text-sm text-[var(--text-sub)] mb-2">Tìm kiếm</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
-                  <Input
-                    placeholder="Tìm kiếm theo ngày, ghi chú..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                  />
-                </div>
-              </div>
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search Bar */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
+              <Input
+                placeholder="Tìm kiếm theo ngày, ghi chú..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+              />
             </div>
 
-            {/* Row 2: Date Range */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Date From */}
-              <div>
-                <label className="block text-sm text-[var(--text-sub)] mb-2">Từ ngày</label>
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => {
-                    setDateFrom(e.target.value)
-                    setQuickFilter('all')
-                  }}
-                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                />
-              </div>
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | AttendanceStatus)}>
+              <SelectTrigger className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="ontime">Đúng giờ</SelectItem>
+                <SelectItem value="late">Đi muộn</SelectItem>
+                <SelectItem value="absent">Vắng</SelectItem>
+                <SelectItem value="overtime">Tăng ca</SelectItem>
+                <SelectItem value="weekend">Nghỉ cuối tuần</SelectItem>
+              </SelectContent>
+            </Select>
 
-              {/* Date To */}
-              <div>
-                <label className="block text-sm text-[var(--text-sub)] mb-2">Đến ngày</label>
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => {
-                    setDateTo(e.target.value)
-                    setQuickFilter('all')
-                  }}
-                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                />
-              </div>
-            </div>
+            {/* Date Filter */}
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value)
+                setQuickFilter('all')
+              }}
+              placeholder="Chọn ngày"
+              className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+            />
           </div>
         </CardContent>
       </Card>
@@ -334,11 +314,10 @@ const HistoryPage: React.FC = () => {
                   </tr>
                 )}
                 {!loading && !error && filteredData.map((record, index) => (
-                  <tr 
-                    key={record.id || index} 
-                    className={`border-b border-[var(--border)] hover:bg-[var(--shell)] transition-colors ${
-                      index % 2 === 0 ? 'bg-[var(--shell)]/50' : ''
-                    }`}
+                  <tr
+                    key={record.id || index}
+                    className={`border-b border-[var(--border)] hover:bg-[var(--shell)] transition-colors ${index % 2 === 0 ? 'bg-[var(--shell)]/50' : ''
+                      }`}
                   >
                     <td className="py-3 px-4 text-[var(--text-main)]">{record.date}</td>
                     <td className="py-3 px-4 text-[var(--text-sub)]">{record.day}</td>
@@ -346,10 +325,10 @@ const HistoryPage: React.FC = () => {
                     <td className="py-3 px-4 text-[var(--text-main)]">{record.checkOut}</td>
                     <td className="py-3 px-4 text-[var(--text-main)]">{record.hours}</td>
                     <td className="py-3 px-4 text-[var(--text-sub)]">
-                      {record.location && !record.location.startsWith('http') 
-                        ? record.location 
-                        : record.location?.includes('attendance') 
-                          ? 'Văn phòng' 
+                      {record.location && !record.location.startsWith('http')
+                        ? record.location
+                        : record.location?.includes('attendance')
+                          ? 'Văn phòng'
                           : record.location || '-'}
                     </td>
                     <td className="py-3 px-4">{getStatusBadge(record.status)}</td>
@@ -378,7 +357,7 @@ const HistoryPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination Controls */}
           {pagination.totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-[var(--border)]">

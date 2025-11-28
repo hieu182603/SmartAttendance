@@ -41,11 +41,10 @@ export default function ReviewFormModal({
   const isManager = userRole === "MANAGER";
   const isHROrAbove = ["HR_MANAGER", "ADMIN", "SUPER_ADMIN"].includes(userRole);
 
-  // Determine if user can edit this review
   const canEdit = mode === "edit" && (
-    !review || // New review
-    isHROrAbove || // HR can edit all
-    (isManager && review && ["draft", "pending", "rejected"].includes(review.status)) // Manager can edit own draft/pending/rejected
+    !review ||
+    isHROrAbove ||
+    (isManager && review && ["draft", "pending", "rejected"].includes(review.status))
   );
 
   const isViewOnly = !canEdit;
@@ -66,22 +65,17 @@ export default function ReviewFormModal({
     comments: "",
   });
   const [loading, setLoading] = useState(false);
-  const [achievementInput, setAchievementInput] = useState("");
-  const [improvementInput, setImprovementInput] = useState("");
 
   const generatePeriodOptions = () => {
     const currentYear = new Date().getFullYear();
-
     const options: Array<{ value: string; label: string }> = [];
 
-    // Add quarters for current year (Q1 -> Q4)
     for (let q = 1; q <= 4; q++) {
       const value = `Q${q} ${currentYear}`;
       const label = `Q${q} ${currentYear} (Quý ${q})`;
       options.push({ value, label });
     }
 
-    // Nếu đang sửa và period không có trong list, thêm vào
     if (review?.period && !options.find(opt => opt.value === review.period)) {
       options.push({
         value: review.period,
@@ -92,7 +86,6 @@ export default function ReviewFormModal({
     return options;
   };
 
-  // Calculate overall score real-time
   const calculateOverallScore = () => {
     const {
       technical = 0,
@@ -143,8 +136,6 @@ export default function ReviewFormModal({
           comments: "",
         });
       }
-      setAchievementInput("");
-      setImprovementInput("");
     }
   }, [review, isOpen]);
 
@@ -169,82 +160,48 @@ export default function ReviewFormModal({
     }
   };
 
-  const addAchievement = () => {
-    if (achievementInput.trim()) {
-      setFormData({
-        ...formData,
-        achievements: [...(formData.achievements || []), achievementInput],
-      });
-      setAchievementInput("");
-    }
-  };
-
-  const removeAchievement = (index: number) => {
-    setFormData({
-      ...formData,
-      achievements: formData.achievements?.filter((_, i) => i !== index),
-    });
-  };
-
-  const addImprovement = () => {
-    if (improvementInput.trim()) {
-      setFormData({
-        ...formData,
-        improvements: [...(formData.improvements || []), improvementInput],
-      });
-      setImprovementInput("");
-    }
-  };
-
-  const removeImprovement = (index: number) => {
-    setFormData({
-      ...formData,
-      improvements: formData.improvements?.filter((_, i) => i !== index),
-    });
-  };
-
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-[var(--surface)] rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] p-6 flex items-center justify-between">
+      <div className="bg-[var(--surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="sticky top-0 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--accent-cyan)]/10 border-b border-[var(--border)] p-6 flex items-start justify-between backdrop-blur-sm z-10">
           <div className="flex-1">
-            <h2 className="text-2xl text-[var(--text-main)] select-none">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent select-none">
               {isViewOnly
                 ? "Chi tiết đánh giá"
                 : review
-                ? "Chỉnh sửa đánh giá"
-                : "Tạo đánh giá mới"}
+                  ? "Chỉnh sửa đánh giá"
+                  : "Tạo đánh giá mới"}
             </h2>
             {review && (
-              <div className="flex items-center gap-4 mt-2 text-sm text-[var(--text-sub)] select-none">
-                <span>
-                  👤 Người đánh giá:{" "}
+              <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-[var(--text-sub)] select-none">
+                <span className="flex items-center gap-1">
+                  👤{" "}
                   <strong className="text-[var(--text-main)]">
                     {review.reviewerId?.fullName || review.reviewerId?.name || "N/A"}
                   </strong>
                 </span>
                 {review.createdAt && (
-                  <span>
-                    📅 Tạo lúc:{" "}
-                    {new Date(review.createdAt).toLocaleString("vi-VN")}
+                  <span className="flex items-center gap-1">
+                    📅 {new Date(review.createdAt).toLocaleString("vi-VN")}
                   </span>
                 )}
               </div>
             )}
             {isViewOnly && (
-              <p className="text-sm text-[var(--text-sub)] mt-1 select-none">
+              <p className="text-sm text-[var(--warning)] mt-2 select-none flex items-center gap-1">
                 👁️ Chế độ xem - Không thể chỉnh sửa
               </p>
             )}
             {!isViewOnly && isManager && (
-              <p className="text-sm text-[var(--text-sub)] mt-1 select-none">
+              <p className="text-sm text-[var(--primary)] mt-2 select-none flex items-center gap-1">
                 👤 Manager - Tạo và gửi đánh giá
               </p>
             )}
             {!isViewOnly && isHROrAbove && (
-              <p className="text-sm text-[var(--text-sub)] mt-1 select-none">
+              <p className="text-sm text-[var(--success)] mt-2 select-none flex items-center gap-1">
                 ✅ HR - Phê duyệt và hoàn thiện đánh giá
               </p>
             )}
@@ -253,103 +210,116 @@ export default function ReviewFormModal({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="text-[var(--text-sub)]"
+            className="text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--shell)]"
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6" autoComplete="off">
-          {/* Employee & Period */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Nhân viên</Label>
-              {isViewOnly || !!review ? (
-                <div className="bg-[var(--shell)] border border-[var(--border)] rounded-md px-3 py-2 text-[var(--text-main)] select-none">
-                  {review?.employeeId?.fullName || review?.employeeId?.name || "N/A"}
-                  {review?.employeeId?.position && ` - ${review.employeeId.position}`}
-                </div>
-              ) : (
-                <Select
-                  value={formData.employeeId || undefined}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, employeeId: value })
-                  }
-                >
-                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)]" autoFocus={false}>
-                    <SelectValue placeholder="Chọn nhân viên" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.length === 0 ? (
-                      <div className="p-2 text-sm text-[var(--text-sub)]">
-                        Không có nhân viên
-                      </div>
-                    ) : (
-                      employees.map((emp) => (
-                        <SelectItem key={emp._id} value={emp._id}>
-                          {emp.fullName} - {emp.position}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5" autoComplete="off">
+          {/* Basic Information */}
+          <div className="bg-[var(--shell)]/50 rounded-lg p-5 border border-[var(--border)] space-y-4">
+            <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase tracking-wide">Thông tin cơ bản</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-[var(--text-main)] font-medium mb-2 block">Nhân viên</Label>
+                {isViewOnly || !!review ? (
+                  <div className="bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2.5 text-[var(--text-main)] select-none">
+                    {review?.employeeId?.fullName || review?.employeeId?.name || "N/A"}
+                    {review?.employeeId?.position && ` - ${review.employeeId.position}`}
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.employeeId || undefined}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, employeeId: value })
+                    }
+                  >
+                    <SelectTrigger className="bg-[var(--surface)] border-[var(--border)]">
+                      <SelectValue placeholder="Chọn nhân viên" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.length === 0 ? (
+                        <div className="p-2 text-sm text-[var(--text-sub)]">
+                          Không có nhân viên
+                        </div>
+                      ) : (
+                        employees.map((emp) => (
+                          <SelectItem key={emp._id} value={emp._id}>
+                            {emp.fullName} - {emp.position}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
 
-            <div>
-              <Label>Kỳ đánh giá</Label>
-              {isViewOnly ? (
-                <div className="bg-[var(--shell)] border border-[var(--border)] rounded-md px-3 py-2 text-[var(--text-main)] select-none">
-                  {formData.period || "N/A"}
-                </div>
-              ) : (
-                <Select
-                  key={`period-${review?._id || 'new'}`}
-                  value={formData.period || undefined}
-                  onValueChange={(value) => {
-                    setFormData({ ...formData, period: value });
-                  }}
-                >
-                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)]">
-                    <SelectValue placeholder="Chọn kỳ đánh giá" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {generatePeriodOptions().map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <div>
+                <Label className="text-[var(--text-main)] font-medium mb-2 block">Kỳ đánh giá</Label>
+                {isViewOnly ? (
+                  <div className="bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2.5 text-[var(--text-main)] select-none">
+                    {formData.period || "N/A"}
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.period}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, period: value });
+                    }}
+                  >
+                    <SelectTrigger className="bg-[var(--surface)] border-[var(--border)]">
+                      <SelectValue placeholder="Chọn kỳ đánh giá">
+                        {formData.period || "Chọn kỳ đánh giá"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {generatePeriodOptions().map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Status */}
-          <div>
-            <Label>Trạng thái</Label>
+          <div className="bg-[var(--shell)]/50 rounded-lg p-5 border border-[var(--border)] space-y-3">
+            <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase tracking-wide">Trạng thái</h3>
             {isViewOnly ? (
-              <div className="bg-[var(--shell)] border border-[var(--border)] rounded-md px-3 py-2 text-[var(--text-main)] select-none">
+              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2.5 text-[var(--text-main)] select-none">
                 {formData.status === "completed"
                   ? "Hoàn thành"
                   : formData.status === "pending"
-                  ? "Chờ phê duyệt"
-                  : formData.status === "rejected"
-                  ? "Từ chối"
-                  : formData.status === "draft"
-                  ? "Nháp"
-                  : "N/A"}
+                    ? "Chờ phê duyệt"
+                    : formData.status === "rejected"
+                      ? "Từ chối"
+                      : formData.status === "draft"
+                        ? "Nháp"
+                        : "N/A"}
               </div>
             ) : (
               <Select
-                key={`status-${review?._id || 'new'}`}
-                value={formData.status || undefined}
+                value={formData.status}
                 onValueChange={(value: any) => {
                   setFormData({ ...formData, status: value });
                 }}
               >
-                <SelectTrigger className="bg-[var(--shell)] border-[var(--border)]">
-                  <SelectValue placeholder="Chọn trạng thái" />
+                <SelectTrigger className="bg-[var(--surface)] border-[var(--border)]">
+                  <SelectValue placeholder="Chọn trạng thái">
+                    {formData.status === "completed"
+                      ? "Hoàn thành"
+                      : formData.status === "pending"
+                        ? "Chờ phê duyệt"
+                        : formData.status === "rejected"
+                          ? "Từ chối"
+                          : formData.status === "draft"
+                            ? "Nháp"
+                            : "Chọn trạng thái"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="draft">Nháp</SelectItem>
@@ -366,42 +336,42 @@ export default function ReviewFormModal({
               </Select>
             )}
             {isManager && formData.status === "pending" && (
-              <p className="text-xs text-[var(--text-sub)] mt-1 select-none">
+              <p className="text-xs text-[var(--warning)] p-2.5 bg-[var(--warning)]/10 rounded select-none">
                 💡 Đánh giá sẽ được gửi đến HR để phê duyệt
               </p>
             )}
             {isHROrAbove && formData.status === "completed" && (
-              <p className="text-xs text-[var(--success)] mt-1 select-none">
+              <p className="text-xs text-[var(--success)] p-2.5 bg-[var(--success)]/10 rounded select-none">
                 ✅ Đánh giá đã được phê duyệt và hoàn thành
               </p>
             )}
           </div>
 
           {/* Categories */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <Label>Điểm đánh giá (0-100)</Label>
-              <div className="text-right select-none">
-                <p className="text-xs text-[var(--text-sub)]">Điểm tổng quan</p>
-                <p className="text-2xl font-bold text-[var(--primary)]">
+          <div className="bg-[var(--shell)]/50 rounded-lg p-5 border border-[var(--border)] space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase tracking-wide">Điểm đánh giá</h3>
+              <div className="text-right select-none bg-gradient-to-r from-[var(--primary)]/20 to-[var(--accent-cyan)]/20 px-4 py-2 rounded-lg border border-[var(--primary)]/30">
+                <p className="text-xs text-[var(--text-sub)] mb-1">Điểm tổng quan</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
                   {overallScore}
                   <span className="text-sm text-[var(--text-sub)]">/100</span>
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {Object.entries(formData.categories || {}).map(([key, value]) => (
-                <div key={key}>
-                  <Label className="text-sm text-[var(--text-sub)] select-none">
+                <div key={key} className="space-y-1.5">
+                  <Label className="text-xs text-[var(--text-sub)] select-none block text-center">
                     {key === "technical"
-                      ? "Kỹ thuật"
+                      ? "🔧 Kỹ thuật"
                       : key === "communication"
-                      ? "Giao tiếp"
-                      : key === "teamwork"
-                      ? "Teamwork"
-                      : key === "leadership"
-                      ? "Lãnh đạo"
-                      : "Giải quyết vấn đề"}
+                        ? "💬 Giao tiếp"
+                        : key === "teamwork"
+                          ? "👥 Teamwork"
+                          : key === "leadership"
+                            ? "⭐ Lãnh đạo"
+                            : "🧩 Giải quyết vấn đề"}
                   </Label>
                   <Input
                     type="number"
@@ -417,7 +387,7 @@ export default function ReviewFormModal({
                         },
                       })
                     }
-                    className="bg-[var(--shell)] border-[var(--border)]"
+                    className="bg-[var(--surface)] border-[var(--border)] text-xl font-bold text-center h-14"
                     disabled={isViewOnly}
                   />
                 </div>
@@ -425,114 +395,22 @@ export default function ReviewFormModal({
             </div>
           </div>
 
-          {/* Achievements */}
-          <div>
-            <Label>Thành tích</Label>
-            {!isViewOnly && (
-              <div className="flex gap-2 mb-2">
-                <Input
-                  value={achievementInput}
-                  onChange={(e) => setAchievementInput(e.target.value)}
-                  placeholder="Nhập thành tích..."
-                  className="bg-[var(--shell)] border-[var(--border)]"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addAchievement();
-                    }
-                  }}
-                />
-                <Button type="button" onClick={addAchievement}>
-                  Thêm
-                </Button>
-              </div>
-            )}
-            <ul className="space-y-2">
-              {formData.achievements?.map((achievement, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between bg-[var(--shell)] p-2 rounded"
-                >
-                  <span className="text-sm text-[var(--text-main)] select-none">
-                    {achievement}
-                  </span>
-                  {!isViewOnly && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeAchievement(i)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Improvements */}
-          <div>
-            <Label>Cần cải thiện</Label>
-            {!isViewOnly && (
-              <div className="flex gap-2 mb-2">
-                <Input
-                  value={improvementInput}
-                  onChange={(e) => setImprovementInput(e.target.value)}
-                  placeholder="Nhập điểm cần cải thiện..."
-                  className="bg-[var(--shell)] border-[var(--border)]"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addImprovement();
-                    }
-                  }}
-                />
-                <Button type="button" onClick={addImprovement}>
-                  Thêm
-                </Button>
-              </div>
-            )}
-            <ul className="space-y-2">
-              {formData.improvements?.map((improvement, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between bg-[var(--shell)] p-2 rounded"
-                >
-                  <span className="text-sm text-[var(--text-main)] select-none">
-                    {improvement}
-                  </span>
-                  {!isViewOnly && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeImprovement(i)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
           {/* Comments */}
-          <div>
-            <Label>Nhận xét</Label>
+          <div className="bg-[var(--shell)]/50 rounded-lg p-5 border border-[var(--border)] space-y-3">
+            <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase tracking-wide">💬 Nhận xét chung</h3>
             <Textarea
               value={formData.comments}
               onChange={(e) =>
                 setFormData({ ...formData, comments: e.target.value })
               }
               placeholder="Nhập nhận xét chung..."
-              className="bg-[var(--shell)] border-[var(--border)] min-h-[100px]"
+              className="bg-[var(--surface)] border-[var(--border)] min-h-[120px]"
               disabled={isViewOnly}
             />
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-3 justify-end pt-2">
             <Button type="button" variant="outline" onClick={onClose}>
               {isViewOnly ? "Đóng" : "Hủy"}
             </Button>
@@ -540,7 +418,7 @@ export default function ReviewFormModal({
               <Button
                 type="submit"
                 disabled={loading}
-                className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
+                className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
               >
                 {loading ? "Đang lưu..." : review ? "Cập nhật" : "Tạo mới"}
               </Button>
