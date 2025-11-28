@@ -91,7 +91,9 @@ export const getMonthEvents = async (req, res) => {
     const { month, year } = req.query;
     const currentDate = new Date();
 
-    const targetMonth = month ? parseInt(month, 10) : currentDate.getMonth() + 1;
+    const targetMonth = month
+      ? parseInt(month, 10)
+      : currentDate.getMonth() + 1;
     const targetYear = year ? parseInt(year, 10) : currentDate.getFullYear();
 
     const start = new Date(targetYear, targetMonth - 1, 1);
@@ -143,17 +145,20 @@ export const getEventById = async (req, res) => {
  */
 export const createEvent = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?._id;
+    console.log("[createEvent] req.user:", req.user);
+
+    const userId = req.user?.userId || req.user?.id || req.user?._id;
     if (!userId) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Unauthorized" });
+      console.log("[createEvent] No userId found in req.user");
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const eventData = {
       ...req.body,
       createdBy: userId,
     };
+
+    console.log("[createEvent] Creating event with data:", eventData);
 
     const newEvent = await CalendarEventModel.create(eventData);
     const populatedEvent = await CalendarEventModel.findById(newEvent._id)
@@ -162,8 +167,13 @@ export const createEvent = async (req, res) => {
       .populate("departmentId", "name")
       .populate("branchId", "name");
 
+    console.log(
+      "[createEvent] Event created successfully:",
+      populatedEvent._id
+    );
     res.status(201).json({ success: true, data: populatedEvent });
   } catch (error) {
+    console.error("[createEvent] Error:", error);
     res.status(400).json({ success: false, message: error.message });
   }
 };
@@ -222,7 +232,9 @@ export const getEventStats = async (req, res) => {
     const { month, year } = req.query;
     const currentDate = new Date();
 
-    const targetMonth = month ? parseInt(month, 10) : currentDate.getMonth() + 1;
+    const targetMonth = month
+      ? parseInt(month, 10)
+      : currentDate.getMonth() + 1;
     const targetYear = year ? parseInt(year, 10) : currentDate.getFullYear();
 
     const start = new Date(targetYear, targetMonth - 1, 1);
@@ -276,4 +288,3 @@ export const getEventStats = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-

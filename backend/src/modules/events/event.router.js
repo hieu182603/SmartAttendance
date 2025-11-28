@@ -32,25 +32,23 @@ eventRouter.get("/stats", getEventStats);
 // Get event by ID
 eventRouter.get("/:id", getEventById);
 
-// Create event (admin, HR, manager)
+// Create event (HR_MANAGER and above only)
 eventRouter.post(
   "/",
   requireRole([
     ROLES.ADMIN,
     ROLES.HR_MANAGER,
-    ROLES.MANAGER,
     ROLES.SUPER_ADMIN,
   ]),
   createEvent
 );
 
-// Update event (admin, HR, manager, or creator)
+// Update event (HR_MANAGER and above only)
 eventRouter.put(
   "/:id",
   requireRole([
     ROLES.ADMIN,
     ROLES.HR_MANAGER,
-    ROLES.MANAGER,
     ROLES.SUPER_ADMIN,
   ]),
   updateEvent
@@ -62,4 +60,5 @@ eventRouter.delete(
   requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
   deleteEvent
 );
+
 
