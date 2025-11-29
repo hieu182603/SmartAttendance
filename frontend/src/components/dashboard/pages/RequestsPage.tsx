@@ -594,6 +594,7 @@ const RequestsPage: React.FC = () => {
 
           <Tabs value={selectedTab} onValueChange={setSelectedTab}>
             <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="all">Tất cả ({stats.total})</TabsTrigger>
               <TabsTrigger value="pending">
                 Chờ duyệt ({stats.pending})
               </TabsTrigger>
@@ -603,7 +604,6 @@ const RequestsPage: React.FC = () => {
               <TabsTrigger value="rejected">
                 Từ chối ({stats.rejected})
               </TabsTrigger>
-              <TabsTrigger value="all">Tất cả ({stats.total})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="pending" className="mt-6 space-y-4">
