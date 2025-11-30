@@ -500,12 +500,42 @@ let lastCheckDate = new Date().toDateString();
     return () => clearInterval(checkInterval);
   }, [state.checkInTime, state.hasCheckedOut]);
 
+  // Khởi động camera khi mount
   useEffect(() => {
     startCamera();
+    
+    // Cleanup khi unmount
     return () => {
+      console.log('[ScanPage] Cleaning up camera...');
       stopCamera();
     };
-  }, []); 
+  }, [startCamera, stopCamera]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('[ScanPage] Page hidden, stopping camera...');
+        stopCamera();
+      } else if (!state.isCameraReady) {
+        console.log('[ScanPage] Page visible, starting camera...');
+        startCamera();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      console.log('[ScanPage] Before unload, stopping camera...');
+      stopCamera();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      stopCamera();
+    };
+  }, [startCamera, stopCamera, state.isCameraReady]);
 
   const { isCameraReady, isProcessing, locationLoading, hasCheckedIn, hasCheckedOut, canCheckOut } = state;
 
