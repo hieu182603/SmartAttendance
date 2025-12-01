@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import {
   QrCode,
@@ -18,24 +19,24 @@ import { useNavigate } from "react-router-dom";
 
 type AttendanceStatus = "ontime" | "late" | "absent" | "unknown";
 
-const getStatusBadge = (status: AttendanceStatus): React.JSX.Element | null => {
+const getStatusBadge = (status: AttendanceStatus, t: (key: string) => string): React.JSX.Element | null => {
   switch (status) {
     case "ontime":
       return (
         <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
-          Đúng giờ
+          {t('dashboard:employeeHome.status.ontime')}
         </Badge>
       );
     case "late":
       return (
         <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">
-          Đi muộn
+          {t('dashboard:employeeHome.status.late')}
         </Badge>
       );
     case "absent":
       return (
         <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">
-          Vắng
+          {t('dashboard:employeeHome.status.absent')}
         </Badge>
       );
     default:
@@ -51,37 +52,16 @@ interface InfoCard {
   delay: number;
 }
 
-const infoCards: InfoCard[] = [
-  {
-    icon: Clock,
-    color: "accent-cyan",
-    label: "Ca làm việc",
-    key: "shift",
-    delay: 0.5,
-  },
-  {
-    icon: MapPin,
-    color: "success",
-    label: "Địa điểm",
-    key: "location",
-    delay: 0.6,
-  },
-  {
-    icon: Calendar,
-    color: "primary",
-    label: "Công tháng này",
-    key: "workingDays",
-    delay: 0.7,
-  },
-];
+// infoCards will be created inside component to use translations
 
 const formatWorkingDays = (
-  value: string | number | { used: number; total: number } | null
+  value: string | number | { used: number; total: number } | null,
+  t: (key: string) => string
 ): string => {
   if (!value) return "—";
   if (typeof value === "string") return value;
   if (typeof value === "object" && value.used != null && value.total != null) {
-    return `${value.used}/${value.total} ngày`;
+    return `${value.used}/${value.total} ${t('dashboard:employeeHome.info.days')}`;
   }
   return String(value);
 };
@@ -95,18 +75,57 @@ interface AttendanceRow {
 }
 
 export const EmployeeHome: React.FC = () => {
+  const { t, i18n } = useTranslation(['dashboard', 'common']);
   const navigate = useNavigate();
   const { summary, recentAttendance, loading, error } = useDashboardData();
-  const currentTime = new Date().toLocaleTimeString("vi-VN", {
+  
+  // Get current locale for date/time formatting
+  const locale = i18n.language === 'en' ? 'en-US' : 'vi-VN';
+  
+  const currentTime = new Date().toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
-  const currentDate = new Date().toLocaleDateString("vi-VN", {
+  const currentDate = new Date().toLocaleDateString(locale, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
+  
+  // Get greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return t('dashboard:employeeHome.greeting.morning');
+    if (hour < 17) return t('dashboard:employeeHome.greeting.afternoon');
+    if (hour < 21) return t('dashboard:employeeHome.greeting.evening');
+    return t('dashboard:employeeHome.greeting.night');
+  };
+  
+  // Create infoCards with translations
+  const infoCards: InfoCard[] = [
+    {
+      icon: Clock,
+      color: "accent-cyan",
+      label: t('dashboard:employeeHome.info.shift'),
+      key: "shift",
+      delay: 0.5,
+    },
+    {
+      icon: MapPin,
+      color: "success",
+      label: t('dashboard:employeeHome.info.location'),
+      key: "location",
+      delay: 0.6,
+    },
+    {
+      icon: Calendar,
+      color: "primary",
+      label: t('dashboard:employeeHome.info.workingDays'),
+      key: "workingDays",
+      delay: 0.7,
+    },
+  ];
 
   const attendanceRows = useMemo<AttendanceRow[]>(() => {
     if (!Array.isArray(recentAttendance) || recentAttendance.length === 0) {
@@ -156,13 +175,13 @@ export const EmployeeHome: React.FC = () => {
 
   const loadingState = loading && (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/40 p-6 text-sm text-[var(--text-sub)]">
-      Đang tải thông tin bảng điều khiển...
+      {t('dashboard:employeeHome.loading')}
     </div>
   );
 
   const errorState = !loading && error && (
     <div className="rounded-xl border border-[var(--error)]/30 bg-[var(--error)]/10 p-6 text-sm text-[var(--error)]">
-      Không thể tải dữ liệu bảng điều khiển. Vui lòng thử lại sau.
+      {t('dashboard:employeeHome.error')}
     </div>
   );
 
@@ -215,7 +234,7 @@ export const EmployeeHome: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <h1 className="text-3xl mb-2">Chào buổi sáng! 👋</h1>
+            <h1 className="text-3xl mb-2">{getGreeting()} 👋</h1>
             <p className="opacity-90">{currentDate}</p>
           </motion.div>
 
@@ -288,10 +307,10 @@ export const EmployeeHome: React.FC = () => {
                 </motion.div>
                 <div>
                   <h2 className="text-2xl text-[var(--text-main)] mb-2">
-                    Đã điểm danh hôm nay
+                    {t('dashboard:employeeHome.attendance.checkedIn')}
                   </h2>
                   <p className="text-[var(--text-sub)] mb-4">
-                    Bạn đã hoàn thành chấm công
+                    {t('dashboard:employeeHome.attendance.completed')}
                   </p>
 
                   {/* Thông tin chi tiết */}
@@ -299,8 +318,7 @@ export const EmployeeHome: React.FC = () => {
                     {!todayAttendance.hasCheckedOut && (
                       <div className="pt-2 border-t border-[var(--border)]">
                         <p className="text-[15px] text-[var(--warning)] text-center">
-                          Chưa check-out. Nhớ check-out khi kết thúc ca làm
-                          việc.
+                          {t('dashboard:employeeHome.attendance.notCheckedOut')}
                         </p>
                       </div>
                     )}
@@ -326,10 +344,10 @@ export const EmployeeHome: React.FC = () => {
                 </motion.div>
                 <div>
                   <h2 className="text-2xl text-[var(--text-main)] mb-2">
-                    Chưa chấm công hôm nay
+                    {t('dashboard:employeeHome.attendance.notCheckedIn')}
                   </h2>
                   <p className="text-[var(--text-sub)]">
-                    Quét mã QR tại văn phòng để điểm danh
+                    {t('dashboard:employeeHome.attendance.scanQR')}
                   </p>
                 </div>
                 <motion.button
@@ -340,7 +358,7 @@ export const EmployeeHome: React.FC = () => {
                 >
                   <span className="flex items-center space-x-2">
                     <Sparkles className="h-5 w-5" />
-                    <span>Quét QR điểm danh</span>
+                    <span>{t('dashboard:employeeHome.attendance.scanQRButton')}</span>
                   </span>
                 </motion.button>
               </div>
@@ -355,7 +373,7 @@ export const EmployeeHome: React.FC = () => {
           const summaryValue = summary[item.key];
           const value =
             item.key === "workingDays"
-              ? formatWorkingDays(summaryValue)
+              ? formatWorkingDays(summaryValue, t)
               : (summaryValue as { name?: string })?.name ||
                 (summaryValue as string) ||
                 "—";
@@ -403,31 +421,31 @@ export const EmployeeHome: React.FC = () => {
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
             <CardTitle className="text-[var(--text-main)]">
-              Thao tác nhanh
+              {t('dashboard:employeeHome.quickActions.title')}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               {
-                label: "Lịch làm việc",
+                label: t('dashboard:employeeHome.quickActions.schedule'),
                 icon: Calendar,
                 page: "schedule",
                 color: "accent-cyan",
               },
               {
-                label: "Yêu cầu nghỉ",
+                label: t('dashboard:employeeHome.quickActions.requests'),
                 icon: FileText,
                 page: "requests",
                 color: "warning",
               },
               {
-                label: "Lịch sử",
+                label: t('dashboard:employeeHome.quickActions.history'),
                 icon: History,
                 page: "history",
                 color: "success",
               },
               {
-                label: "Số ngày phép",
+                label: t('dashboard:employeeHome.quickActions.leaveBalance'),
                 icon: CheckCircle2,
                 page: "leave-balance",
                 color: "primary",
@@ -475,13 +493,13 @@ export const EmployeeHome: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-[var(--text-main)]">
-                Lịch sử gần đây
+                {t('dashboard:employeeHome.recentHistory.title')}
               </CardTitle>
               <button
                 onClick={() => navigate("/employee/history")}
                 className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center space-x-1"
               >
-                <span>Xem tất cả</span>
+                <span>{t('dashboard:employeeHome.recentHistory.viewAll')}</span>
                 <History className="h-4 w-4" />
               </button>
             </div>
@@ -492,19 +510,19 @@ export const EmployeeHome: React.FC = () => {
                 <thead>
                   <tr className="border-b border-[var(--border)]">
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Ngày
+                      {t('dashboard:employeeHome.recentHistory.date')}
                     </th>
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Giờ vào
+                      {t('dashboard:employeeHome.recentHistory.checkIn')}
                     </th>
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Giờ ra
+                      {t('dashboard:employeeHome.recentHistory.checkOut')}
                     </th>
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Địa điểm
+                      {t('dashboard:employeeHome.recentHistory.location')}
                     </th>
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      Trạng thái
+                      {t('dashboard:employeeHome.recentHistory.status')}
                     </th>
                   </tr>
                 </thead>
@@ -515,7 +533,7 @@ export const EmployeeHome: React.FC = () => {
                         colSpan={5}
                         className="py-6 text-center text-sm text-[var(--text-sub)]"
                       >
-                        Chưa có dữ liệu chấm công gần đây.
+                        {t('dashboard:employeeHome.recentHistory.noData')}
                       </td>
                     </tr>
                   ) : (
@@ -537,7 +555,7 @@ export const EmployeeHome: React.FC = () => {
                           {record.location}
                         </td>
                         <td className="py-3 px-4">
-                          {getStatusBadge(record.status)}
+                          {getStatusBadge(record.status, t)}
                         </td>
                       </tr>
                     ))

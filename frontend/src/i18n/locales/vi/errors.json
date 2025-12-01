@@ -1,0 +1,11 @@
+{
+  "generic": "Đã xảy ra lỗi",
+  "network": "Lỗi kết nối mạng",
+  "unauthorized": "Bạn không có quyền truy cập",
+  "forbidden": "Truy cập bị từ chối",
+  "notFound": "Không tìm thấy",
+  "serverError": "Lỗi máy chủ",
+  "timeout": "Hết thời gian chờ",
+  "unknown": "Lỗi không xác định"
+}
+

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useRolePath } from '../../../hooks/useRolePath'
 import { motion } from 'framer-motion'
@@ -92,6 +93,7 @@ const getLeaveTypeConfig = (typeId: string): LeaveTypeConfig => {
 }
 
 const LeaveBalancePage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common'])
   const navigate = useNavigate()
   const basePath = useRolePath()
   const [selectedType, setSelectedType] = useState<string | null>(null)
@@ -118,8 +120,8 @@ const LeaveBalancePage: React.FC = () => {
       } catch (err) {
         console.error('Error fetching leave data:', err)
         const error = err as ErrorWithMessage
-        setError(error.message || 'Không thể tải dữ liệu ngày phép')
-        toast.error('Không thể tải dữ liệu ngày phép')
+        setError(error.message || t('dashboard:leaveBalance.error'))
+        toast.error(t('dashboard:leaveBalance.error'))
       } finally {
         setLoading(false)
       }
@@ -210,10 +212,10 @@ const LeaveBalancePage: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            Số ngày phép
+            {t('dashboard:leaveBalance.title')}
           </h1>
           <p className="text-sm sm:text-base text-[var(--text-sub)] mt-2">
-            Theo dõi số ngày phép còn lại và lịch sử nghỉ phép
+            {t('dashboard:leaveBalance.description')}
           </p>
         </div>
         <Button
@@ -221,8 +223,8 @@ const LeaveBalancePage: React.FC = () => {
           className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white w-full sm:w-auto"
         >
           <Plus className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">Tạo yêu cầu nghỉ phép</span>
-          <span className="sm:hidden">Tạo yêu cầu</span>
+          <span className="hidden sm:inline">{t('dashboard:leaveBalance.createRequest')}</span>
+          <span className="sm:hidden">{t('dashboard:leaveBalance.createRequestShort')}</span>
         </Button>
       </div>
 
@@ -237,11 +239,11 @@ const LeaveBalancePage: React.FC = () => {
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm text-[var(--text-sub)]">Tổng phép năm</p>
+                  <p className="text-xs sm:text-sm text-[var(--text-sub)]">{t('dashboard:leaveBalance.stats.totalAnnual')}</p>
                   <p className="text-2xl sm:text-3xl text-[var(--primary)] mt-2">
                     {annualLeaveTotal}
                   </p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">ngày/năm</p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.overview.daysPerYear')}</p>
                 </div>
                 <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[var(--primary)]/20 flex items-center justify-center">
                   <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-[var(--primary)]" />
@@ -260,9 +262,9 @@ const LeaveBalancePage: React.FC = () => {
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm text-[var(--text-sub)]">Đã sử dụng</p>
+                  <p className="text-xs sm:text-sm text-[var(--text-sub)]">{t('dashboard:leaveBalance.stats.used')}</p>
                   <p className="text-2xl sm:text-3xl text-[var(--warning)] mt-2">{totalUsed}</p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">ngày</p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.overview.days')}</p>
                 </div>
                 <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[var(--warning)]/20 flex items-center justify-center">
                   <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-[var(--warning)]" />
@@ -281,11 +283,11 @@ const LeaveBalancePage: React.FC = () => {
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs sm:text-sm text-[var(--text-sub)]">Còn lại</p>
+                  <p className="text-xs sm:text-sm text-[var(--text-sub)]">{t('dashboard:leaveBalance.stats.remaining')}</p>
                   <p className="text-2xl sm:text-3xl text-[var(--success)] mt-2">
                     {totalRemaining}
                   </p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">ngày</p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.overview.days')}</p>
                 </div>
                 <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
                   <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-[var(--success)]" />
@@ -303,13 +305,13 @@ const LeaveBalancePage: React.FC = () => {
             <TabsList className="grid w-full grid-cols-2 mb-4 sm:mb-6">
               <TabsTrigger value="overview">
                 <Info className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Tổng quan</span>
-                <span className="sm:hidden">Tổng quan</span>
+                <span className="hidden sm:inline">{t('dashboard:leaveBalance.overview.title')}</span>
+                <span className="sm:hidden">{t('dashboard:leaveBalance.overview.title')}</span>
               </TabsTrigger>
               <TabsTrigger value="history">
                 <History className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Lịch sử ({leaveHistory.length})</span>
-                <span className="sm:hidden">Lịch sử</span>
+                <span className="hidden sm:inline">{t('dashboard:leaveBalance.history.title')} ({leaveHistory.length})</span>
+                <span className="sm:hidden">{t('dashboard:leaveBalance.history.title')}</span>
               </TabsTrigger>
             </TabsList>
 
@@ -318,9 +320,9 @@ const LeaveBalancePage: React.FC = () => {
               {leaveTypes.length === 0 ? (
                 <div className="text-center py-12">
                   <Calendar className="h-12 w-12 text-[var(--text-sub)] mx-auto mb-4 opacity-50" />
-                  <p className="text-[var(--text-sub)]">Chưa có dữ liệu ngày phép</p>
+                  <p className="text-[var(--text-sub)]">{t('dashboard:leaveBalance.overview.noData')}</p>
                   <p className="text-xs text-[var(--text-sub)] mt-2">
-                    Dữ liệu sẽ được hiển thị khi có thông tin từ hệ thống
+                    {t('dashboard:leaveBalance.overview.noDataDescription')}
                   </p>
                 </div>
               ) : (
@@ -368,7 +370,7 @@ const LeaveBalancePage: React.FC = () => {
                                 {type.total === 999 || type.total === null
                                   ? '∞'
                                   : type.total || 0}{' '}
-                                ngày
+                                {t('dashboard:leaveBalance.overview.days')}
                               </Badge>
                             </div>
 
@@ -376,10 +378,10 @@ const LeaveBalancePage: React.FC = () => {
                               <div>
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs sm:text-sm text-[var(--text-sub)]">
-                                    Đã dùng
+                                    {t('dashboard:leaveBalance.stats.used')}
                                   </span>
                                   <span className="text-xs sm:text-sm text-[var(--warning)]">
-                                    {type.used || 0} ngày
+                                    {type.used || 0} {t('dashboard:leaveBalance.overview.days')}
                                   </span>
                                 </div>
                                 <Progress
@@ -395,13 +397,13 @@ const LeaveBalancePage: React.FC = () => {
                               <div>
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs sm:text-sm text-[var(--text-sub)]">
-                                    Còn lại
+                                    {t('dashboard:leaveBalance.history.remaining')}
                                   </span>
                                   <span className="text-xs sm:text-sm text-[var(--success)]">
                                     {type.remaining === 999 || type.remaining === null
                                       ? '∞'
                                       : type.remaining || 0}{' '}
-                                    ngày
+                                    {t('dashboard:leaveBalance.overview.days')}
                                   </span>
                                 </div>
                                 <Progress
@@ -418,10 +420,10 @@ const LeaveBalancePage: React.FC = () => {
                               {type.pending && type.pending > 0 && (
                                 <div className="flex items-center justify-between p-2 rounded bg-[var(--warning)]/10">
                                   <span className="text-xs sm:text-sm text-[var(--text-sub)]">
-                                    Đang chờ duyệt
+                                    {t('dashboard:leaveBalance.overview.pending')}
                                   </span>
                                   <Badge className="bg-[var(--warning)]/20 text-[var(--warning)]">
-                                    {type.pending} ngày
+                                    {type.pending} {t('dashboard:leaveBalance.overview.days')}
                                   </Badge>
                                 </div>
                               )}
@@ -441,13 +443,13 @@ const LeaveBalancePage: React.FC = () => {
                                         ? '∞'
                                         : type.total || 0}
                                     </p>
-                                    <p className="text-xs text-[var(--text-sub)] mt-1">Tổng số</p>
+                                    <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.stats.totalAnnual')}</p>
                                   </div>
                                   <div>
                                     <p className="text-xl sm:text-2xl text-[var(--warning)]">
                                       {type.used || 0}
                                     </p>
-                                    <p className="text-xs text-[var(--text-sub)] mt-1">Đã dùng</p>
+                                    <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.stats.used')}</p>
                                   </div>
                                   <div>
                                     <p className="text-xl sm:text-2xl text-[var(--success)]">
@@ -455,7 +457,7 @@ const LeaveBalancePage: React.FC = () => {
                                         ? '∞'
                                         : type.remaining || 0}
                                     </p>
-                                    <p className="text-xs text-[var(--text-sub)] mt-1">Còn lại</p>
+                                    <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.stats.remaining')}</p>
                                   </div>
                                 </div>
                               </motion.div>
@@ -474,9 +476,9 @@ const LeaveBalancePage: React.FC = () => {
               {leaveHistory.length === 0 ? (
                 <div className="text-center py-12">
                   <History className="h-12 w-12 text-[var(--text-sub)] mx-auto mb-4 opacity-50" />
-                  <p className="text-[var(--text-sub)]">Chưa có lịch sử nghỉ phép</p>
+                  <p className="text-[var(--text-sub)]">{t('dashboard:leaveBalance.history.noHistory')}</p>
                   <p className="text-xs text-[var(--text-sub)] mt-2">
-                    Lịch sử sẽ được hiển thị khi bạn có đơn nghỉ phép
+                    {t('dashboard:leaveBalance.history.description')}
                   </p>
                 </div>
               ) : (
@@ -518,13 +520,13 @@ const LeaveBalancePage: React.FC = () => {
                                   variant="outline"
                                   className="border-[var(--border)] text-[var(--text-sub)]"
                                 >
-                                  {history.days || 0} ngày
+                                  {history.days || 0} {t('dashboard:leaveBalance.overview.days')}
                                 </Badge>
                               </div>
 
                               {history.reason && (
                                 <p className="text-xs sm:text-sm text-[var(--text-sub)]">
-                                  <strong>Lý do:</strong> {history.reason}
+                                  <strong>{t('dashboard:leaveBalance.overview.reason')}</strong> {history.reason}
                                 </p>
                               )}
 

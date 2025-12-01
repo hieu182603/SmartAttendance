@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
@@ -117,10 +118,12 @@ const getRoleBadge = (role?: UserRoleType): ReactNode => {
   )
 }
 
-const getStatusBadge = (status?: boolean | string): ReactNode => {
+const getStatusBadge = (status?: boolean | string, t?: (key: string) => string): ReactNode => {
+  const activeLabel = t ? t('dashboard:employeeManagement.status.active') : 'Hoạt động'
+  const inactiveLabel = t ? t('dashboard:employeeManagement.status.inactive') : 'Ngừng'
   return status === true || status === 'active'
-    ? <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30 text-xs whitespace-nowrap">Hoạt động</Badge>
-    : <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30 text-xs whitespace-nowrap">Ngừng</Badge>
+    ? <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30 text-xs whitespace-nowrap">{activeLabel}</Badge>
+    : <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30 text-xs whitespace-nowrap">{inactiveLabel}</Badge>
 }
 
 // Helper function để lấy tên phòng ban
@@ -138,6 +141,7 @@ const getDepartmentId = (department?: string | { _id: string; name: string; code
 }
 
 const EmployeeManagementPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common'])
   const { user: currentUser } = useAuth()
   const { hasPermission } = usePermissions()
   
@@ -214,7 +218,7 @@ const EmployeeManagementPage: React.FC = () => {
     } catch (error) {
       console.error('[EmployeeManagement] fetch error:', error)
       const err = error as ErrorWithMessage
-      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể tải danh sách nhân viên'
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.loadFailed')
       toast.error(errorMessage)
       setUsersList([])
       setPagination({ total: 0, page: 1, limit: 10, totalPages: 0 })
@@ -254,7 +258,7 @@ const EmployeeManagementPage: React.FC = () => {
         // Only show toast if it's not a permission error
         if (!errorMessage.includes('Insufficient permissions') && !errorMessage.includes('403')) {
           console.error('[EmployeeManagement] fetch departments error:', error)
-          toast.error('Không thể tải danh sách phòng ban')
+          toast.error(t('dashboard:employeeManagement.errors.loadDepartmentsFailed'))
         } else {
           // Permission error - just log, don't show toast
           console.log('[EmployeeManagement] No permission to fetch departments')
@@ -277,7 +281,7 @@ const EmployeeManagementPage: React.FC = () => {
     } catch (error) {
       console.error('[EmployeeManagement] get user error:', error)
       const err = error as ErrorWithMessage
-      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể tải thông tin nhân viên'
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.loadUserFailed')
       toast.error(errorMessage)
     }
   }
@@ -307,7 +311,7 @@ const EmployeeManagementPage: React.FC = () => {
     try {
       // Update user to inactive instead of deleting
       await updateUserByAdmin(selectedUser._id || selectedUser.id || '', { isActive: false })
-      toast.success(`🗑️ Đã vô hiệu hóa nhân viên ${selectedUser.name}`)
+      toast.success(t('dashboard:employeeManagement.success.disableSuccess'))
       setIsDeleteDialogOpen(false)
       setSelectedUser(null)
       fetchUsers()
@@ -355,7 +359,7 @@ const EmployeeManagementPage: React.FC = () => {
 
     try {
       await updateUserByAdmin(selectedUser._id || selectedUser.id || '', formData)
-      toast.success(`Đã cập nhật thông tin ${formData.name}`)
+      toast.success(t('dashboard:employeeManagement.success.updateSuccess'))
       setIsEditDialogOpen(false)
       setSelectedUser(null)
       setValidationErrors({})
@@ -427,7 +431,7 @@ const EmployeeManagementPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            Quản lý nhân viên
+            {t('dashboard:employeeManagement.title')}
           </h1>
         </div>
       </div>
@@ -439,7 +443,7 @@ const EmployeeManagementPage: React.FC = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
-                placeholder="Tìm theo tên, email, phòng ban..."
+                placeholder={t('dashboard:employeeManagement.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -450,10 +454,10 @@ const EmployeeManagementPage: React.FC = () => {
             <div className="relative">
               <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                  <SelectValue placeholder="Lọc theo vai trò" />
+                  <SelectValue placeholder={t('dashboard:employeeManagement.filterByRole')} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
-                  <SelectItem value="all">Tất cả vai trò</SelectItem>
+                  <SelectItem value="all">{t('dashboard:employeeManagement.allRoles')}</SelectItem>
                   {ROLES.map(role => {
                     const RoleIcon = role.icon
                     return (
@@ -473,20 +477,20 @@ const EmployeeManagementPage: React.FC = () => {
             <div className="relative">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                  <SelectValue placeholder="Lọc theo trạng thái" />
+                  <SelectValue placeholder={t('dashboard:employeeManagement.filterByStatus')} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="all">{t('dashboard:employeeManagement.allStatus')}</SelectItem>
                   <SelectItem value="active">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                      Hoạt động
+                      {t('dashboard:employeeManagement.active')}
                     </div>
                   </SelectItem>
                   <SelectItem value="inactive">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                      Ngừng hoạt động
+                      {t('dashboard:employeeManagement.inactive')}
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -501,7 +505,7 @@ const EmployeeManagementPage: React.FC = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-[var(--text-sub)] pt-4">Tổng NV</p>
+              <p className="text-sm text-[var(--text-sub)] pt-4">{t('dashboard:employeeManagement.stats.total')}</p>
               <p className="text-2xl text-[var(--text-main)] mt-1">{stats.total}</p>
             </CardContent>
           </Card>
@@ -509,7 +513,7 @@ const EmployeeManagementPage: React.FC = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-[var(--text-sub)] pt-4">Hoạt động</p>
+              <p className="text-sm text-[var(--text-sub)] pt-4">{t('dashboard:employeeManagement.stats.active')}</p>
               <p className="text-2xl text-[var(--success)] mt-1">{stats.active}</p>
             </CardContent>
           </Card>
@@ -517,7 +521,7 @@ const EmployeeManagementPage: React.FC = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-[var(--text-sub)] pt-4">Admin</p>
+              <p className="text-sm text-[var(--text-sub)] pt-4">{t('dashboard:employeeManagement.stats.admin')}</p>
               <p className="text-2xl text-[var(--primary)] mt-1">{stats.admin}</p>
             </CardContent>
           </Card>
@@ -525,7 +529,7 @@ const EmployeeManagementPage: React.FC = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-4 text-center">
-              <p className="text-sm text-[var(--text-sub)] pt-4">Mới tháng này</p>
+              <p className="text-sm text-[var(--text-sub)] pt-4">{t('dashboard:employeeManagement.stats.newThisMonth')}</p>
               <p className="text-2xl text-[var(--accent-cyan)] mt-1">{stats.newThisMonth}</p>
             </CardContent>
           </Card>
@@ -535,31 +539,31 @@ const EmployeeManagementPage: React.FC = () => {
       {/* Table */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">Danh sách nhân viên</CardTitle>
+          <CardTitle className="text-[var(--text-main)]">{t('dashboard:employeeManagement.table.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-12">
-              <p className="text-[var(--text-sub)]">Đang tải...</p>
+              <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.loading')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full table-fixed">
                 <thead>
                   <tr className="bg-[var(--shell)]">
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[20%]">Nhân viên</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[23%]">Email</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[13%]">Phòng ban</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[14%]">Vai trò</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[13%]">Trạng thái</th>
-                    <th className="text-center py-2 px-3 text-xs text-[var(--text-sub)] w-[17%]">Thao tác</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[20%]">{t('dashboard:employeeManagement.table.employee')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[23%]">{t('dashboard:employeeManagement.table.email')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[13%]">{t('dashboard:employeeManagement.table.department')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[14%]">{t('dashboard:employeeManagement.table.role')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[13%]">{t('dashboard:employeeManagement.table.status')}</th>
+                    <th className="text-center py-2 px-3 text-xs text-[var(--text-sub)] w-[17%]">{t('dashboard:employeeManagement.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedUsers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="text-center py-12">
-                        <p className="text-[var(--text-sub)]">Không có nhân viên nào</p>
+                        <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.noEmployees')}</p>
                       </td>
                     </tr>
                   ) : (
@@ -584,13 +588,13 @@ const EmployeeManagementPage: React.FC = () => {
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{user.email || 'N/A'}</td>
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getDepartmentName(user.department)}</td>
                         <td className="py-2 px-3">{getRoleBadge(user.role)}</td>
-                        <td className="py-2 px-3">{getStatusBadge(user.isActive)}</td>
+                        <td className="py-2 px-3">{getStatusBadge(user.isActive, t)}</td>
                         <td className="py-2 px-3">
                           <div className="flex items-center justify-center space-x-1">
                             <button
                               onClick={() => handleViewUser(user)}
                               className="p-1 hover:bg-[var(--shell)] rounded text-[var(--accent-cyan)]"
-                              title="Xem chi tiết"
+                              title={t('dashboard:employeeManagement.table.viewDetails')}
                             >
                               <Eye className="h-4 w-4" />
                             </button>
@@ -598,7 +602,7 @@ const EmployeeManagementPage: React.FC = () => {
                               <button
                                 onClick={() => handleEditUser(user)}
                                 className="p-1 hover:bg-[var(--shell)] rounded text-[var(--primary)]"
-                                title="Chỉnh sửa"
+                                title={t('dashboard:employeeManagement.table.edit')}
                               >
                                 <Edit className="h-4 w-4" />
                               </button>
@@ -607,7 +611,7 @@ const EmployeeManagementPage: React.FC = () => {
                               <button
                                 onClick={() => handleDeleteUser(user)}
                                 className="p-1 hover:bg-[var(--shell)] rounded text-red-500"
-                                title="Vô hiệu hóa"
+                                title={t('dashboard:employeeManagement.table.disable')}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -627,11 +631,11 @@ const EmployeeManagementPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4">
               <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <span>
-                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
+                  {t('dashboard:employeeManagement.pagination.showing')} {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} {t('dashboard:employeeManagement.pagination.of')} {pagination.total}
                 </span>
                 <span className="hidden sm:inline">•</span>
                 <div className="flex items-center gap-2">
-                  <span>Số dòng:</span>
+                  <span>{t('dashboard:employeeManagement.pagination.rowsPerPage')}</span>
                   <Select value={itemsPerPage.toString()} onValueChange={(v) => {
                     setItemsPerPage(Number(v))
                     setCurrentPage(1)
@@ -669,7 +673,7 @@ const EmployeeManagementPage: React.FC = () => {
                 </Button>
 
                 <span className="px-4 text-sm text-gray-900 dark:text-gray-100">
-                  Trang {currentPage} / {pagination.totalPages || 1}
+                  {t('dashboard:employeeManagement.pagination.page')} {currentPage} / {pagination.totalPages || 1}
                 </span>
 
                 <Button
@@ -700,9 +704,9 @@ const EmployeeManagementPage: React.FC = () => {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Thông tin chi tiết nhân viên</DialogTitle>
+            <DialogTitle>{t('dashboard:employeeManagement.viewDialog.title')}</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              Xem đầy đủ thông tin của nhân viên
+              {t('dashboard:employeeManagement.viewDialog.description')}
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
@@ -715,8 +719,8 @@ const EmployeeManagementPage: React.FC = () => {
                 </Avatar>
                 <div>
                   <h3 className="text-xl text-[var(--text-main)]">{selectedUser.name || 'N/A'}</h3>
-                  <p className="text-[var(--text-sub)]">ID: {selectedUser._id || selectedUser.id}</p>
-                  {getStatusBadge(selectedUser.isActive)}
+                  <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.id')} {selectedUser._id || selectedUser.id}</p>
+                  {getStatusBadge(selectedUser.isActive, t)}
                 </div>
               </div>
 
@@ -724,30 +728,30 @@ const EmployeeManagementPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-[var(--text-sub)]">Email</Label>
+                  <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.email')}</Label>
                   <p className="text-[var(--text-main)] mt-1">{selectedUser.email || 'N/A'}</p>
                 </div>
                 <div>
-                  <Label className="text-[var(--text-sub)]">Phòng ban</Label>
+                  <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.department')}</Label>
                   <p className="text-[var(--text-main)] mt-1">{getDepartmentName(selectedUser.department)}</p>
                 </div>
                 <div>
-                  <Label className="text-[var(--text-sub)]">Vai trò</Label>
+                  <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.role')}</Label>
                   <div className="mt-1">{getRoleBadge(selectedUser.role)}</div>
                 </div>
                 <div>
-                  <Label className="text-[var(--text-sub)]">Số điện thoại</Label>
+                  <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.phone')}</Label>
                   <p className="text-[var(--text-main)] mt-1">{selectedUser.phone || 'N/A'}</p>
                 </div>
                 <div>
-                  <Label className="text-[var(--text-sub)]">Ngày tạo</Label>
+                  <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.createdAt')}</Label>
                   <p className="text-[var(--text-main)] mt-1">
                     {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
                   </p>
                 </div>
                 <div>
-                  <Label className="text-[var(--text-sub)]">Trạng thái</Label>
-                  <div className="mt-1">{getStatusBadge(selectedUser.isActive)}</div>
+                  <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.status')}</Label>
+                  <div className="mt-1">{getStatusBadge(selectedUser.isActive, t)}</div>
                 </div>
               </div>
             </div>
@@ -758,7 +762,7 @@ const EmployeeManagementPage: React.FC = () => {
               onClick={() => setIsViewDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
-              Đóng
+              {t('dashboard:employeeManagement.viewDialog.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -768,9 +772,9 @@ const EmployeeManagementPage: React.FC = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="text-xl">Chỉnh sửa thông tin nhân viên</DialogTitle>
+            <DialogTitle className="text-xl">{t('dashboard:employeeManagement.editDialog.title')}</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              Cập nhật thông tin cho: <strong className="text-[var(--text-main)]">{selectedUser?.name}</strong>
+              {t('dashboard:employeeManagement.editDialog.description')} <strong className="text-[var(--text-main)]">{selectedUser?.name}</strong>
             </DialogDescription>
           </DialogHeader>
 
@@ -779,11 +783,11 @@ const EmployeeManagementPage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-[var(--border)]">
                 <Users className="h-4 w-4 text-[var(--primary)]" />
-                <h3 className="text-sm font-semibold text-[var(--text-main)]">Thông tin cá nhân</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-main)]">{t('dashboard:employeeManagement.editDialog.personalInfo')}</h3>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Họ và tên <span className="text-red-500">*</span></Label>
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.fullName')} <span className="text-red-500">*</span></Label>
                 <Input
                   placeholder="Nguyễn Văn A"
                   className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.name ? 'border-red-500' : ''}`}
@@ -801,7 +805,7 @@ const EmployeeManagementPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Email <span className="text-red-500">*</span></Label>
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.email')} <span className="text-red-500">*</span></Label>
                 <Input
                   type="email"
                   placeholder="email@company.com"
@@ -820,7 +824,7 @@ const EmployeeManagementPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Số điện thoại</Label>
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.phone')}</Label>
                 <Input
                   placeholder="0123456789"
                   className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.phone ? 'border-red-500' : ''}`}
@@ -842,14 +846,14 @@ const EmployeeManagementPage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-[var(--border)]">
                 <Shield className="h-4 w-4 text-[var(--primary)]" />
-                <h3 className="text-sm font-semibold text-[var(--text-main)]">Thông tin công việc</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-main)]">{t('dashboard:employeeManagement.editDialog.workInfo')}</h3>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Phòng ban</Label>
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.department')}</Label>
                 <Select value={formData.department} onValueChange={(v) => setFormData({ ...formData, department: v })}>
                   <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
-                    <SelectValue placeholder="Chọn phòng ban" />
+                    <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectDepartment')} />
                   </SelectTrigger>
                   <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
                     <SelectItem value="">N/A</SelectItem>
@@ -863,7 +867,7 @@ const EmployeeManagementPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Vai trò <span className="text-red-500">*</span></Label>
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.role')} <span className="text-red-500">*</span></Label>
                 <RoleGuard permission={Permission.USERS_MANAGE_ROLE} showDisabled>
                   <Select
                     value={formData.role}
@@ -879,7 +883,7 @@ const EmployeeManagementPage: React.FC = () => {
                       className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.role ? 'border-red-500' : ''}`}
                       disabled={!canChangeRole()}
                     >
-                      <SelectValue placeholder="Chọn vai trò" />
+                      <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectRole')} />
                     </SelectTrigger>
                     <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
                       {ROLES.filter(role => canAssignRole(role.value)).map(role => {
@@ -898,7 +902,7 @@ const EmployeeManagementPage: React.FC = () => {
                 </RoleGuard>
                 {!canChangeRole() && (
                   <p className="text-xs text-[var(--text-sub)]">
-                    ⚠️ Chỉ Admin và Super Admin mới có quyền thay đổi vai trò
+                    {t('dashboard:employeeManagement.editDialog.roleChangeWarning')}
                   </p>
                 )}
                 {validationErrors.role && (
@@ -907,32 +911,32 @@ const EmployeeManagementPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Trạng thái tài khoản</Label>
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.accountStatus')}</Label>
                 <Select
                   value={formData.isActive ? 'active' : 'inactive'}
                   onValueChange={(v) => setFormData({ ...formData, isActive: v === 'active' })}
                 >
                   <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
-                    <SelectValue placeholder="Chọn trạng thái" />
+                    <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectStatus')} />
                   </SelectTrigger>
                   <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
                     <SelectItem value="active">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                        Hoạt động
+                        {t('dashboard:employeeManagement.active')}
                       </div>
                     </SelectItem>
                     <SelectItem value="inactive">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                        Ngừng hoạt động
+                        {t('dashboard:employeeManagement.inactive')}
                       </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
                 {!formData.isActive && (
                   <p className="text-xs text-red-500 mt-1">
-                    ⚠️ Nhân viên sẽ không thể đăng nhập khi tài khoản bị vô hiệu hóa
+                    {t('dashboard:employeeManagement.editDialog.inactiveWarning')}
                   </p>
                 )}
               </div>
@@ -948,13 +952,13 @@ const EmployeeManagementPage: React.FC = () => {
               }}
               className="border-[var(--border)] text-[var(--text-main)] h-9"
             >
-              Hủy
+              {t('dashboard:employeeManagement.editDialog.cancel')}
             </Button>
             <Button
               onClick={handleSubmitEdit}
               className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] h-9 px-6"
             >
-              💾 Cập nhật
+              💾 {t('dashboard:employeeManagement.editDialog.update')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -964,9 +968,9 @@ const EmployeeManagementPage: React.FC = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
           <DialogHeader>
-            <DialogTitle>Xác nhận vô hiệu hóa nhân viên</DialogTitle>
+            <DialogTitle>{t('dashboard:employeeManagement.deleteDialog.title')}</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              Bạn có chắc chắn muốn vô hiệu hóa nhân viên này?
+              {t('dashboard:employeeManagement.deleteDialog.description')}
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
@@ -984,7 +988,7 @@ const EmployeeManagementPage: React.FC = () => {
                 </div>
               </div>
               <p className="text-red-500 text-sm mt-4">
-                ⚠️ Nhân viên này sẽ không thể đăng nhập vào hệ thống sau khi vô hiệu hóa.
+                {t('dashboard:employeeManagement.deleteDialog.warning')}
               </p>
             </div>
           )}
@@ -994,13 +998,13 @@ const EmployeeManagementPage: React.FC = () => {
               onClick={() => setIsDeleteDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
-              Hủy
+              {t('dashboard:employeeManagement.deleteDialog.cancel')}
             </Button>
             <Button
               onClick={confirmDelete}
               className="bg-red-500 hover:bg-red-600 text-white"
             >
-              Vô hiệu hóa
+              {t('dashboard:employeeManagement.deleteDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

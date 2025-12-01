@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import {
   Clock,
@@ -82,6 +83,7 @@ interface TypeIconLabel {
 }
 
 const RequestsPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [allRequests, setAllRequests] = useState<Request[]>([]); // Store all requests for stats calculation
   const [requests, setRequests] = useState<Request[]>([]); // Current page requests
   const [selectedTab, setSelectedTab] = useState<string>("pending");
@@ -260,9 +262,9 @@ const RequestsPage: React.FC = () => {
   const getTypeIconLabel = (type: RequestType): TypeIconLabel => {
     switch (type) {
       case "leave":
-        return { icon: <Moon className="h-4 w-4" />, label: "Nghỉ phép" };
+        return { icon: <Moon className="h-4 w-4" />, label: t('dashboard:requests.types.leave') };
       case "overtime":
-        return { icon: <Sun className="h-4 w-4" />, label: "Tăng ca" };
+        return { icon: <Sun className="h-4 w-4" />, label: t('dashboard:requests.types.overtime') };
       case "remote":
         return { icon: <Briefcase className="h-4 w-4" />, label: "Remote" };
       case "correction":
@@ -428,9 +430,9 @@ const RequestsPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl text-[var(--text-main)]">Yêu cầu & Đơn từ</h1>
+          <h1 className="text-3xl text-[var(--text-main)]">{t('dashboard:requests.title')}</h1>
           <p className="text-[var(--text-sub)]">
-            Quản lý nghỉ phép, tăng ca, sửa công và phê duyệt trực tiếp
+            {t('dashboard:requests.description')}
           </p>
         </div>
 

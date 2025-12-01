@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Home, ArrowLeft, SearchX } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '../context/AuthContext';
 import { getRoleBasePath, type UserRoleType } from '../utils/roles';
 
 export default function NotFoundPage() {
+  const { t } = useTranslation(['common']);
   const navigate = useNavigate();
   const { token, user } = useAuth();
 
@@ -46,10 +48,10 @@ export default function NotFoundPage() {
         {/* Error Message */}
         <div className="space-y-4 mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-            Oops! Trang không tồn tại
+            {t('common:notFound.title')}
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-md mx-auto">
-            Trang bạn đang tìm kiếm có thể đã bị xóa, đổi tên hoặc tạm thời không khả dụng.
+            {t('common:notFound.description')}
           </p>
         </div>
 
@@ -63,7 +65,7 @@ export default function NotFoundPage() {
           >
             <span className="absolute inset-0 bg-purple-100 dark:bg-purple-900/30 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
             <ArrowLeft className="mr-2 h-5 w-5 relative z-10" />
-            <span className="relative z-10">Quay lại</span>
+            <span className="relative z-10">{t('common:notFound.goBack')}</span>
           </Button>
 
           <Button
@@ -73,19 +75,19 @@ export default function NotFoundPage() {
           >
             <span className="absolute inset-0 bg-white/20 transform translate-x-full group-hover:translate-x-0 transition-transform duration-300"></span>
             <Home className="mr-2 h-5 w-5 relative z-10" />
-            <span className="relative z-10">{token ? 'Về trang chủ' : 'Về trang chủ'}</span>
+            <span className="relative z-10">{t('common:notFound.goHome')}</span>
           </Button>
         </div>
 
         {/* Additional Help Text */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Nếu bạn cho rằng đây là một lỗi, vui lòng{' '}
+            {t('common:notFound.contactSupport')}{' '}
             <a
               href="mailto:support@smartattendance.com"
               className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
             >
-              liên hệ với bộ phận hỗ trợ
+              {t('common:notFound.contactLink')}
             </a>
           </p>
         </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { AuthLayout } from './AuthLayout'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -16,6 +17,7 @@ interface FormData {
 }
 
 export default function ResetPassword() {
+  const { t } = useTranslation(['auth', 'common'])
   const location = useLocation()
   const navigate = useNavigate()
   const email = (location.state as LocationState)?.email || ''
@@ -43,12 +45,12 @@ export default function ResetPassword() {
     e.preventDefault()
 
     if (!isPasswordValid) {
-      toast.error('Mật khẩu không đủ mạnh')
+      toast.error(t('auth:resetPassword.weakPassword'))
       return
     }
 
     if (!passwordsMatch) {
-      toast.error('Mật khẩu xác nhận không khớp')
+      toast.error(t('auth:resetPassword.confirmPasswordNotMatch'))
       return
     }
 
@@ -58,14 +60,14 @@ export default function ResetPassword() {
       const response = await resetPassword({ email, password: formData.password })
       
       if (response.success) {
-        toast.success(response.message || 'Đặt lại mật khẩu thành công')
+        toast.success(response.message || t('auth:resetPassword.success'))
         navigate('/login')
       } else {
-        toast.error(response.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+        toast.error(response.message || t('auth:resetPassword.genericError'))
       }
     } catch (error) {
       const err = error as ErrorWithMessage
-      toast.error(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+      toast.error(err.message || t('auth:resetPassword.genericError'))
     } finally {
       setIsLoading(false)
     }
@@ -73,8 +75,8 @@ export default function ResetPassword() {
 
   return (
     <AuthLayout 
-      title="Đặt lại mật khẩu" 
-      subtitle="Tạo mật khẩu mới cho tài khoản của bạn"
+      title={t('auth:resetPassword.title')} 
+      subtitle={t('auth:resetPassword.subtitle')}
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -85,14 +87,14 @@ export default function ResetPassword() {
           {/* Email Display */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-3">
             <p className="text-sm text-[var(--text-sub)]">
-              Đặt lại mật khẩu cho: <span className="text-[var(--accent-cyan)] font-medium">{email}</span>
+              {t('auth:resetPassword.resetFor')} <span className="text-[var(--accent-cyan)] font-medium">{email}</span>
             </p>
           </div>
 
           {/* New Password */}
           <div className="space-y-2">
             <Label htmlFor="password" className="text-[var(--text-main)]">
-              Mật khẩu mới
+              {t('auth:resetPassword.password')}
             </Label>
             <div className="relative">
               <Input
@@ -122,14 +124,14 @@ export default function ResetPassword() {
               animate={{ opacity: 1, height: 'auto' }}
               className="space-y-2"
             >
-              <p className="text-sm text-[var(--text-sub)]">Yêu cầu mật khẩu:</p>
+              <p className="text-sm text-[var(--text-sub)]">{t('auth:resetPassword.passwordRequirements')}</p>
               <div className="flex flex-wrap items-center gap-2">
                 {[
-                  { label: 'Ít nhất 8 ký tự', valid: passwordStrength.hasMinLength },
-                  { label: 'Chữ hoa (A-Z)', valid: passwordStrength.hasUpperCase },
-                  { label: 'Chữ thường (a-z)', valid: passwordStrength.hasLowerCase },
-                  { label: 'Số (0-9)', valid: passwordStrength.hasNumber },
-                  { label: 'Ký tự đặc biệt (!@#$...)', valid: passwordStrength.hasSpecialChar },
+                  { label: t('auth:resetPassword.minLength'), valid: passwordStrength.hasMinLength },
+                  { label: t('auth:resetPassword.hasUpperCase'), valid: passwordStrength.hasUpperCase },
+                  { label: t('auth:resetPassword.hasLowerCase'), valid: passwordStrength.hasLowerCase },
+                  { label: t('auth:resetPassword.hasNumber'), valid: passwordStrength.hasNumber },
+                  { label: t('auth:resetPassword.hasSpecialChar'), valid: passwordStrength.hasSpecialChar },
                 ].map((requirement, index) => (
                   <motion.div
                     key={index}
@@ -159,7 +161,7 @@ export default function ResetPassword() {
           {/* Confirm Password */}
           <div className="space-y-2">
             <Label htmlFor="confirmPassword" className="text-[var(--text-main)]">
-              Xác nhận mật khẩu
+              {t('auth:resetPassword.confirmPassword')}
             </Label>
             <div className="relative">
               <Input
@@ -188,7 +190,7 @@ export default function ResetPassword() {
                 animate={{ opacity: 1, y: 0 }}
                 className="text-xs text-red-500"
               >
-                Mật khẩu xác nhận không khớp
+                {t('auth:resetPassword.confirmPasswordNotMatch')}
               </motion.p>
             )}
           </div>
@@ -203,12 +205,12 @@ export default function ResetPassword() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang xử lý...
+                  {t('auth:resetPassword.submitting')}
                 </>
               ) : (
                 <>
                   <Lock className="mr-2 h-4 w-4" />
-                  Đặt lại mật khẩu
+                  {t('auth:resetPassword.submit')}
                 </>
               )}
             </Button>

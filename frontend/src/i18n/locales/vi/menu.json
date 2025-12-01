@@ -1,0 +1,25 @@
+{
+  "home": "Trang chủ",
+  "scan": "Chấm công",
+  "history": "Lịch sử",
+  "requests": "Yêu cầu",
+  "leave-balance": "Số ngày phép",
+  "schedule": "Lịch làm việc",
+  "company-calendar": "Lịch công ty",
+  "profile": "Hồ sơ",
+  "notifications": "Thông báo",
+  "approve-requests": "Phê duyệt yêu cầu",
+  "department-attendance": "Chấm công (Phòng)",
+  "attendance-analytics": "Phân tích chấm công",
+  "admin-attendance": "Quản lý chấm công",
+  "performance-review": "Đánh giá hiệu suất",
+  "shifts": "Quản lý ca làm việc",
+  "employee-management": "Quản lý nhân viên",
+  "payroll-reports": "Báo cáo lương",
+  "payroll": "Bảng lương",
+  "departments": "Quản lý phòng ban",
+  "branches": "Quản lý chi nhánh",
+  "audit-logs": "Nhật ký hệ thống",
+  "camera-checkin": "Chấm công bằng camera"
+}
+

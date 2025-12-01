@@ -1,0 +1,515 @@
+{
+  "overview": {
+    "welcome": {
+      "superAdmin": "Xin chào, Quản trị hệ thống!",
+      "admin": "Xin chào, Quản trị viên!",
+      "hrManager": "Xin chào, Trưởng phòng Nhân sự!",
+      "manager": "Xin chào, Quản lý!",
+      "default": "Xin chào!"
+    },
+    "subtitle": {
+      "superAdmin": "Toàn quyền quản lý và giám sát hệ thống chấm công",
+      "admin": "Quản lý toàn bộ hệ thống chấm công và nhân sự",
+      "hrManager": "Quản lý nhân sự, lương bổng và đánh giá hiệu suất",
+      "manager": "Quản lý nhóm và theo dõi hiệu suất làm việc",
+      "default": "Tổng quan hệ thống chấm công"
+    },
+    "kpi": {
+      "totalEmployees": "Tổng nhân viên",
+      "presentToday": "Có mặt hôm nay",
+      "lateToday": "Đi muộn hôm nay",
+      "absentToday": "Vắng mặt hôm nay"
+    },
+    "charts": {
+      "attendanceTrend": "Xu hướng chấm công",
+      "attendanceByDay": "Chấm công theo ngày"
+    }
+  },
+  "scan": {
+    "title": "Chấm công",
+    "checkInToday": "Chấm công hôm nay",
+    "checkIn": "Chấm công vào",
+    "checkOut": "Chấm công ra",
+    "location": "Vị trí",
+    "status": "Trạng thái",
+    "time": "Thời gian"
+  },
+  "history": {
+    "title": "Lịch sử chấm công",
+    "date": "Ngày",
+    "checkIn": "Giờ vào",
+    "checkOut": "Giờ ra",
+    "status": "Trạng thái",
+    "location": "Vị trí"
+  },
+  "requests": {
+    "title": "Yêu cầu & Đơn từ",
+    "create": "Tạo yêu cầu",
+    "type": "Loại yêu cầu",
+    "status": "Trạng thái",
+    "date": "Ngày",
+    "reason": "Lý do"
+  },
+  "profile": {
+    "title": "Hồ sơ cá nhân",
+    "description": "Quản lý thông tin và cài đặt tài khoản",
+    "tabs": {
+      "info": "Thông tin",
+      "security": "Bảo mật",
+      "settings": "Cài đặt"
+    },
+    "personalInfo": {
+      "title": "Thông tin cá nhân",
+      "subtitle": "Cập nhật thông tin của bạn",
+      "edit": "Chỉnh sửa",
+      "fields": {
+        "fullName": "Họ và tên",
+        "email": "Email",
+        "phone": "Số điện thoại",
+        "birthday": "Ngày sinh",
+        "address": "Địa chỉ",
+        "department": "Phòng ban",
+        "position": "Chức vụ",
+        "bankAccount": "Số tài khoản",
+        "bankName": "Ngân hàng"
+      }
+    },
+    "security": {
+      "title": "Đổi mật khẩu",
+      "subtitle": "Cập nhật mật khẩu để bảo mật tài khoản",
+      "currentPassword": "Mật khẩu hiện tại",
+      "newPassword": "Mật khẩu mới",
+      "confirmPassword": "Xác nhận mật khẩu mới",
+      "updateButton": "Cập nhật mật khẩu",
+      "errors": {
+        "currentRequired": "Vui lòng nhập mật khẩu hiện tại",
+        "newRequired": "Vui lòng nhập mật khẩu mới",
+        "confirmRequired": "Vui lòng xác nhận mật khẩu mới",
+        "minLength": "Mật khẩu mới phải có ít nhất 6 ký tự",
+        "notMatch": "Mật khẩu mới không khớp",
+        "currentIncorrect": "Mật khẩu hiện tại không đúng"
+      },
+      "success": "Đổi mật khẩu thành công!",
+      "error": "Đổi mật khẩu thất bại"
+    },
+    "settings": {
+      "title": "Cài đặt ứng dụng",
+      "notifications": "Thông báo",
+      "emailNotifications": "Nhận thông báo qua email",
+      "pushNotifications": "Thông báo trên trình duyệt",
+      "smsNotifications": "Thông báo qua SMS",
+      "theme": "Giao diện",
+      "lightMode": "Chế độ sáng",
+      "darkMode": "Chế độ tối"
+    },
+    "stats": {
+      "department": "Phòng ban",
+      "joinDate": "Ngày vào",
+      "annualLeave": "Phép năm",
+      "days": "ngày"
+    },
+    "avatar": {
+      "upload": "Upload avatar",
+      "uploading": "Đang upload avatar...",
+      "success": "Upload avatar thành công!",
+      "error": "Upload avatar thất bại",
+      "invalidFile": "Vui lòng chọn file ảnh",
+      "fileTooLarge": "Kích thước file không được vượt quá 10MB"
+    },
+    "update": {
+      "success": "Cập nhật thông tin thành công!",
+      "error": "Cập nhật thông tin thất bại"
+    }
+  },
+  "employeeHome": {
+    "greeting": {
+      "morning": "Chào buổi sáng!",
+      "afternoon": "Chào buổi chiều!",
+      "evening": "Chào buổi tối!",
+      "night": "Chào buổi đêm!"
+    },
+    "attendance": {
+      "checkedIn": "Đã điểm danh hôm nay",
+      "completed": "Bạn đã hoàn thành chấm công",
+      "notCheckedOut": "Chưa check-out. Nhớ check-out khi kết thúc ca làm việc.",
+      "notCheckedIn": "Chưa chấm công hôm nay",
+      "scanQR": "Quét mã QR tại văn phòng để điểm danh",
+      "scanQRButton": "Quét QR điểm danh"
+    },
+    "status": {
+      "ontime": "Đúng giờ",
+      "late": "Đi muộn",
+      "absent": "Vắng"
+    },
+    "info": {
+      "shift": "Ca làm việc",
+      "location": "Địa điểm",
+      "workingDays": "Công tháng này",
+      "days": "ngày"
+    },
+    "quickActions": {
+      "title": "Thao tác nhanh",
+      "schedule": "Lịch làm việc",
+      "requests": "Yêu cầu nghỉ",
+      "history": "Lịch sử",
+      "leaveBalance": "Số ngày phép"
+    },
+    "recentHistory": {
+      "title": "Lịch sử gần đây",
+      "viewAll": "Xem tất cả",
+      "date": "Ngày",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "location": "Địa điểm",
+      "status": "Trạng thái",
+      "noData": "Chưa có dữ liệu chấm công gần đây."
+    },
+    "loading": "Đang tải thông tin bảng điều khiển...",
+    "error": "Không thể tải dữ liệu bảng điều khiển. Vui lòng thử lại sau."
+  },
+  "scan": {
+    "title": "Chấm công",
+    "checkInToday": "Chấm công hôm nay",
+    "description": "Chụp ảnh và xác nhận vị trí để chấm công",
+    "permissionStatus": "Trạng thái quyền truy cập",
+    "checkIn": "Chấm công vào",
+    "checkOut": "Chấm công ra",
+    "location": "Vị trí",
+    "status": "Trạng thái",
+    "time": "Thời gian"
+  },
+  "history": {
+    "title": "Lịch sử chấm công",
+    "date": "Ngày",
+    "day": "Thứ",
+    "checkIn": "Giờ vào",
+    "checkOut": "Giờ ra",
+    "hours": "Giờ làm",
+    "totalHours": "Tổng giờ",
+    "location": "Địa điểm",
+    "status": "Trạng thái",
+    "notes": "Ghi chú",
+    "viewPhoto": "Xem ảnh",
+    "office": "Văn phòng",
+    "statusLabels": {
+      "ontime": "Đúng giờ",
+      "late": "Đi muộn",
+      "absent": "Vắng",
+      "overtime": "Tăng ca",
+      "weekend": "Nghỉ"
+    },
+    "filters": {
+      "all": "Tất cả",
+      "allStatus": "Tất cả trạng thái",
+      "search": "Tìm kiếm",
+      "searchPlaceholder": "Tìm kiếm theo ngày, ghi chú...",
+      "fromDate": "Từ ngày",
+      "toDate": "Đến ngày",
+      "selectDate": "Chọn ngày",
+      "status": "Lọc theo trạng thái",
+      "statusPlaceholder": "Trạng thái",
+      "weekend": "Cuối tuần"
+    },
+    "summary": {
+      "totalDays": "Tổng ngày công",
+      "late": "Đi muộn",
+      "absent": "Vắng mặt",
+      "overtime": "Tăng ca"
+    },
+    "details": {
+      "title": "Chi tiết chấm công",
+      "loading": "Đang tải dữ liệu...",
+      "noData": "Không có dữ liệu phù hợp"
+    },
+    "tabs": {
+      "checkin": "Ảnh check-in",
+      "checkout": "Ảnh check-out",
+      "checkinLabel": "Check-in",
+      "checkoutLabel": "Check-out"
+    },
+    "photo": {
+      "viewTitle": "Xem ảnh chấm công",
+      "time": "Thời gian",
+      "location": "Vị trí",
+      "alt": {
+        "checkin": "Ảnh check-in",
+        "checkout": "Ảnh check-out"
+      }
+    },
+    "noPhoto": {
+      "checkin": "Không có ảnh check-in",
+      "checkout": "Chưa check-out"
+    }
+  },
+  "requests": {
+    "title": "Yêu cầu & Đơn từ",
+    "description": "Quản lý nghỉ phép, tăng ca, sửa công và phê duyệt trực tiếp",
+    "create": "Tạo đơn mới",
+    "type": "Loại yêu cầu",
+    "status": "Trạng thái",
+    "date": "Ngày",
+    "reason": "Lý do",
+    "types": {
+      "leave": "Nghỉ phép",
+      "overtime": "Tăng ca",
+      "correction": "Sửa công"
+    }
+  },
+  "schedule": {
+    "title": "Lịch làm việc",
+    "checkedIn": "Đã điểm danh",
+    "loading": "Đang tải lịch làm việc...",
+    "upcomingShifts": "ca sắp tới",
+    "stats": {
+      "thisMonth": "Tháng này",
+      "checkedIn": "Đã điểm danh",
+      "upcoming": "Sắp tới",
+      "totalHours": "Tổng giờ",
+      "performance": "Hiệu suất",
+      "avgHours": "TB giờ/ngày",
+      "streak": "Chuỗi ngày"
+    },
+    "todayShift": "Ca làm hôm nay",
+    "timeRemaining": "Còn",
+    "hours": "h",
+    "minutes": "m",
+    "inShift": "Đang trong ca làm việc",
+    "notCheckedIn": "Chưa điểm",
+    "checkedInStatus": "Đã điểm",
+    "thisWeek": "Lịch tuần này",
+    "thisWeekLabel": "Tuần này",
+    "perDay": "/ngày",
+    "monthProgress": "Tiến độ tháng",
+    "hoursPerDay": "h/ngày",
+    "updatedFromMonth": "Cập nhật theo dữ liệu tháng",
+    "streakDays": "ngày liên tiếp",
+    "avgHoursPerDay": "Trung bình",
+    "hPerDay": "h/ngày",
+    "month": "Tháng",
+    "error": "Lỗi tải ca làm việc:"
+  },
+  "companyCalendar": {
+    "title": "Lịch công ty",
+    "description": "Theo dõi các sự kiện, cuộc họp và ngày lễ",
+    "createEvent": "Tạo sự kiện",
+    "stats": {
+      "total": "Tổng sự kiện",
+      "upcoming": "Sắp tới (7 ngày)",
+      "holidays": "Ngày lễ",
+      "meetingsAndTraining": "Cuộc họp & Đào tạo"
+    },
+    "tabs": {
+      "holiday": "Ngày lễ",
+      "event": "Sự kiện",
+      "all": "Tất cả"
+    },
+    "selectedDate": "Ngày đã chọn",
+    "events": "sự kiện",
+    "noEvents": "Không có sự kiện",
+    "upcomingEvents": "Sự kiện sắp tới (7 ngày tới)",
+    "loading": "Đang tải sự kiện...",
+    "allDay": "Cả ngày",
+    "noUpcomingEvents": "Không có sự kiện sắp tới trong 7 ngày tới",
+    "allEvents": "Tất cả sự kiện",
+    "month": "Tháng",
+    "noEventsThisMonth": "Không có sự kiện nào trong tháng này",
+    "eventTypes": {
+      "holiday": "Ngày lễ",
+      "meeting": "Họp",
+      "event": "Sự kiện",
+      "deadline": "Deadline",
+      "training": "Đào tạo"
+    },
+    "viewDetails": "Xem chi tiết",
+    "deleteConfirm": "Bạn có chắc chắn muốn xóa sự kiện",
+    "deleteSuccess": "Xóa sự kiện thành công!",
+    "deleteError": "Không thể xóa sự kiện",
+    "loadError": "Không thể tải dữ liệu sự kiện"
+  },
+  "leaveBalance": {
+    "title": "Số ngày phép",
+    "description": "Theo dõi số ngày phép còn lại và lịch sử nghỉ phép",
+    "createRequest": "Tạo yêu cầu nghỉ phép",
+    "createRequestShort": "Tạo yêu cầu",
+    "stats": {
+      "totalAnnual": "Tổng phép năm",
+      "used": "Đã sử dụng",
+      "remaining": "Còn lại"
+    },
+    "tabs": {
+      "balance": "Số dư",
+      "history": "Lịch sử"
+    },
+    "history": {
+      "title": "Lịch sử",
+      "noHistory": "Chưa có lịch sử nghỉ phép",
+      "description": "Lịch sử sẽ được hiển thị khi bạn có đơn nghỉ phép",
+      "remaining": "Còn lại"
+    },
+    "overview": {
+      "title": "Tổng quan",
+      "noData": "Chưa có dữ liệu ngày phép",
+      "noDataDescription": "Dữ liệu sẽ được hiển thị khi có thông tin từ hệ thống",
+      "used": "Đã dùng",
+      "total": "Tổng số",
+      "pending": "Đang chờ duyệt",
+      "days": "ngày",
+      "daysPerYear": "ngày/năm"
+    },
+    "loading": "Đang tải...",
+    "error": "Không thể tải dữ liệu"
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "noData": "Không có dữ liệu",
+    "search": "Tìm kiếm",
+    "filter": "Lọc",
+    "export": "Xuất dữ liệu",
+    "refresh": "Làm mới",
+    "add": "Thêm",
+    "edit": "Sửa",
+    "delete": "Xóa",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "close": "Đóng",
+    "view": "Xem",
+    "update": "Cập nhật",
+    "confirm": "Xác nhận",
+    "back": "Quay lại",
+    "viewDetails": "Xem chi tiết",
+    "filterBy": {
+      "role": "Lọc theo vai trò",
+      "status": "Lọc theo trạng thái"
+    },
+    "actions": {
+      "viewFullInfo": "Xem đầy đủ thông tin của nhân viên",
+      "updateInfo": "Cập nhật thông tin cho",
+      "confirmDisable": "Xác nhận vô hiệu hóa nhân viên"
+    }
+  },
+  "employeeManagement": {
+    "title": "Quản lý nhân viên",
+    "searchPlaceholder": "Tìm theo tên, email, phòng ban...",
+    "filterByRole": "Lọc theo vai trò",
+    "filterByStatus": "Lọc theo trạng thái",
+    "allRoles": "Tất cả vai trò",
+    "allStatus": "Tất cả trạng thái",
+    "active": "Hoạt động",
+    "inactive": "Ngừng hoạt động",
+    "stats": {
+      "total": "Tổng NV",
+      "active": "Hoạt động",
+      "admin": "Admin",
+      "newThisMonth": "Mới tháng này"
+    },
+    "table": {
+      "title": "Danh sách nhân viên",
+      "employee": "Nhân viên",
+      "email": "Email",
+      "department": "Phòng ban",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "actions": "Thao tác",
+      "noEmployees": "Không có nhân viên nào",
+      "loading": "Đang tải...",
+      "viewDetails": "Xem chi tiết",
+      "edit": "Chỉnh sửa",
+      "disable": "Vô hiệu hóa"
+    },
+    "pagination": {
+      "showing": "Hiển thị",
+      "of": "của",
+      "rowsPerPage": "Số dòng:",
+      "page": "Trang"
+    },
+    "viewDialog": {
+      "title": "Thông tin chi tiết nhân viên",
+      "description": "Xem đầy đủ thông tin của nhân viên",
+      "id": "ID:",
+      "email": "Email",
+      "department": "Phòng ban",
+      "role": "Vai trò",
+      "phone": "Số điện thoại",
+      "createdAt": "Ngày tạo",
+      "status": "Trạng thái",
+      "close": "Đóng"
+    },
+    "editDialog": {
+      "title": "Chỉnh sửa thông tin nhân viên",
+      "description": "Cập nhật thông tin cho:",
+      "personalInfo": "Thông tin cá nhân",
+      "workInfo": "Thông tin công việc",
+      "fullName": "Họ và tên",
+      "email": "Email",
+      "phone": "Số điện thoại",
+      "department": "Phòng ban",
+      "selectDepartment": "Chọn phòng ban",
+      "role": "Vai trò",
+      "selectRole": "Chọn vai trò",
+      "accountStatus": "Trạng thái tài khoản",
+      "selectStatus": "Chọn trạng thái",
+      "roleChangeWarning": "⚠️ Chỉ Admin và Super Admin mới có quyền thay đổi vai trò",
+      "inactiveWarning": "⚠️ Nhân viên sẽ không thể đăng nhập khi tài khoản bị vô hiệu hóa",
+      "cancel": "Hủy",
+      "update": "Cập nhật"
+    },
+    "deleteDialog": {
+      "title": "Xác nhận vô hiệu hóa nhân viên",
+      "description": "Bạn có chắc chắn muốn vô hiệu hóa nhân viên này?",
+      "warning": "⚠️ Nhân viên này sẽ không thể đăng nhập vào hệ thống sau khi vô hiệu hóa.",
+      "cancel": "Hủy",
+      "confirm": "Vô hiệu hóa"
+    },
+    "status": {
+      "active": "Hoạt động",
+      "inactive": "Ngừng"
+    },
+    "errors": {
+      "loadFailed": "Không thể tải danh sách nhân viên",
+      "loadDepartmentsFailed": "Không thể tải danh sách phòng ban",
+      "loadUserFailed": "Không thể tải thông tin nhân viên"
+    },
+    "success": {
+      "updateSuccess": "Cập nhật thông tin nhân viên thành công!",
+      "disableSuccess": "Vô hiệu hóa nhân viên thành công!"
+    }
+  },
+  "departments": {
+    "title": "Quản lý phòng ban",
+    "add": "Thêm phòng ban",
+    "searchPlaceholder": "Tìm kiếm phòng ban...",
+    "description": "Quản lý các phòng ban trong công ty",
+    "activeEmployees": "Đang làm việc",
+    "dialog": {
+      "addTitle": "Thêm phòng ban mới",
+      "editTitle": "Chỉnh sửa phòng ban",
+      "name": "Tên phòng ban",
+      "description": "Mô tả",
+      "descriptionPlaceholder": "Mô tả về phòng ban...",
+      "branch": "Chi nhánh",
+      "selectBranch": "Chọn chi nhánh",
+      "manager": "Quản lý",
+      "selectManager": "Chọn quản lý",
+      "status": "Trạng thái",
+      "active": "Hoạt động",
+      "inactive": "Không hoạt động",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "createSuccess": "Tạo phòng ban thành công!",
+      "updateSuccess": "Cập nhật phòng ban thành công!",
+      "error": "Không thể xử lý phòng ban"
+    },
+    "stats": {
+      "total": "Tổng phòng ban",
+      "totalEmployees": "Tổng nhân viên",
+      "activeEmployees": "Nhân viên hoạt động",
+      "totalBudget": "Tổng ngân sách"
+    },
+    "status": {
+      "active": "Hoạt động",
+      "inactive": "Không hoạt động"
+    },
+    "loading": "Đang tải...",
+    "noResults": "Không tìm thấy phòng ban nào"
+  }
+}
