@@ -1,5 +1,4 @@
 import api from './api'
-import type { AxiosRequestConfig } from 'axios'
 
 interface RequestParams {
   page?: number
@@ -78,6 +77,21 @@ export const approveRequest = async (id: string, comments = ''): Promise<unknown
 export const rejectRequest = async (id: string, comments = ''): Promise<unknown> => {
   const { data } = await api.post(`/requests/${id}/reject`, { comments })
   return data
+}
+
+export interface RequestType {
+  value: string
+  label: string
+}
+
+export const getRequestTypes = async (): Promise<{ types: RequestType[] }> => {
+  try {
+    const { data } = await api.get('/requests/types')
+    return data
+  } catch (error) {
+    console.warn('[requests] getRequestTypes failed', (error as Error).message)
+    return { types: [] }
+  }
 }
 
 
