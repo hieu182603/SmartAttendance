@@ -16,14 +16,14 @@ const attendanceSchema = new mongoose.Schema(
       required: true,
       set: (v) => {
         const d = new Date(v);
-        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       },
     },
     checkIn: { type: Date }, 
     checkOut: { type: Date }, 
     status: {
       type: String,
-      enum: ["present", "absent", "late"],
+      enum: ["present", "absent", "late", "on_leave"],
       default: "absent",
     },
     workHours: {
@@ -55,9 +55,8 @@ attendanceSchema.methods.calculateWorkHours = function () {
 
 // === Tự động cập nhật status và giờ làm ===
 attendanceSchema.pre("save", function (next) {
-  // Chuẩn hóa ngày
   const d = new Date(this.date);
-  this.date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  this.date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
   // Tính giờ
   this.calculateWorkHours();
