@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Eye } from 'lucide-react'
+import { Search, Eye, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
@@ -19,6 +19,8 @@ interface AttendanceRecord {
   location: string
   status: AttendanceStatus
   notes: string
+  checkInPhoto?: string
+  checkOutPhoto?: string
 }
 
 const getStatusBadge = (status: AttendanceStatus): React.JSX.Element | null => {
@@ -48,8 +50,9 @@ const HistoryPage: React.FC = () => {
   const [dateTo, setDateTo] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>('all')
   const [currentPage, setCurrentPage] = useState(1)
-  const [quickFilter, setQuickFilter] = useState<'all' | '7days' | 'thisMonth' | 'lastMonth'>('all')
   const [itemsPerPage] = useState(20)
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null)
+  const [activeTab, setActiveTab] = useState<'checkin' | 'checkout'>('checkin')
   const [pagination, setPagination] = useState<{
     total: number
     page: number
@@ -61,41 +64,6 @@ const HistoryPage: React.FC = () => {
     limit: 20,
     totalPages: 0,
   })
-
-  // Handle quick filter
-  const handleQuickFilter = (filter: 'all' | '7days' | 'thisMonth' | 'lastMonth') => {
-    setQuickFilter(filter)
-    const today = new Date()
-
-    switch (filter) {
-      case '7days': {
-        const sevenDaysAgo = new Date(today)
-        sevenDaysAgo.setDate(today.getDate() - 7)
-        setDateFrom(sevenDaysAgo.toISOString().split('T')[0])
-        setDateTo(today.toISOString().split('T')[0])
-        break
-      }
-      case 'thisMonth': {
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-        setDateFrom(firstDay.toISOString().split('T')[0])
-        setDateTo(today.toISOString().split('T')[0])
-        break
-      }
-      case 'lastMonth': {
-        const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-        const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
-        setDateFrom(firstDayLastMonth.toISOString().split('T')[0])
-        setDateTo(lastDayLastMonth.toISOString().split('T')[0])
-        break
-      }
-      case 'all':
-      default:
-        setDateFrom('')
-        setDateTo('')
-        break
-    }
-    setCurrentPage(1)
-  }
 
   // Fetch all records for summary stats (without pagination)
   useEffect(() => {
@@ -231,10 +199,7 @@ const HistoryPage: React.FC = () => {
             <Input
               type="date"
               value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value)
-                setQuickFilter('all')
-              }}
+              onChange={(e) => setDateTo(e.target.value)}
               placeholder="Chọn ngày"
               className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
             />
@@ -287,28 +252,27 @@ const HistoryPage: React.FC = () => {
                   <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Tổng giờ</th>
                   <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Địa điểm</th>
                   <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Trạng thái</th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Ghi chú</th>
                   <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">Xem ảnh</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={9} className="py-6 text-center text-[var(--text-sub)]">
+                    <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
                 )}
                 {!loading && error && (
                   <tr>
-                    <td colSpan={9} className="py-6 text-center text-[var(--error)]">
+                    <td colSpan={8} className="py-6 text-center text-[var(--error)]">
                       {error}
                     </td>
                   </tr>
                 )}
                 {!loading && !error && filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="py-6 text-center text-[var(--text-sub)]">
+                    <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
                       Không có dữ liệu phù hợp
                     </td>
                   </tr>
@@ -332,22 +296,15 @@ const HistoryPage: React.FC = () => {
                           : record.location || '-'}
                     </td>
                     <td className="py-3 px-4">{getStatusBadge(record.status)}</td>
-                    <td className="py-3 px-4 text-[var(--text-sub)] text-sm">
-                      {record.notes && !record.notes.startsWith('[Ảnh:') && !record.notes.startsWith('http')
-                        ? record.notes
-                        : '-'}
-                    </td>
                     <td className="py-3 px-4 text-center">
                       {(record.notes?.includes('http') || record.location?.includes('http')) ? (
-                        <a
-                          href={record.notes?.match(/https?:\/\/[^\s\]]+/)?.[0] || record.location?.match(/https?:\/\/[^\s\]]+/)?.[0] || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => setSelectedRecord(record)}
                           className="inline-flex items-center gap-1 text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors"
                           title="Xem ảnh chấm công"
                         >
                           <Eye className="h-4 w-4" />
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-[var(--text-sub)]">-</span>
                       )}
@@ -414,6 +371,113 @@ const HistoryPage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Image Modal */}
+      {selectedRecord && (() => {
+        // Parse URLs
+        const allUrls = selectedRecord.notes?.match(/\[Ảnh[^\]]*:\s*(https?:\/\/[^\]]+)\]/g) || [];
+        const checkInMatch = allUrls[0]?.match(/https?:\/\/[^\]]+/);
+        const checkInUrl = checkInMatch?.[0] || selectedRecord.location?.match(/https?:\/\/[^\s]+/)?.[0];
+        const checkOutMatch = selectedRecord.notes?.match(/\[Ảnh check-out:\s*(https?:\/\/[^\]]+)\]/i);
+        const checkOutUrl = checkOutMatch?.[1];
+
+        const currentUrl = activeTab === 'checkin' ? checkInUrl : checkOutUrl;
+        const currentTime = activeTab === 'checkin' ? selectedRecord.checkIn : selectedRecord.checkOut;
+
+        return (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => {
+              setSelectedRecord(null);
+              setActiveTab('checkin');
+            }}
+          >
+            <div 
+              className="relative bg-[var(--surface)] rounded-lg overflow-hidden w-full max-w-[800px]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setSelectedRecord(null);
+                  setActiveTab('checkin');
+                }}
+                className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-[var(--shell)] hover:bg-[var(--border)] text-[var(--text-main)] transition-colors"
+                title="Đóng"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              {/* Tabs */}
+              <div className="flex border-b border-[var(--border)]">
+                <button
+                  onClick={() => setActiveTab('checkin')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
+                    activeTab === 'checkin'
+                      ? 'text-[var(--primary)] bg-[var(--primary)]/5'
+                      : 'text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--shell)]'
+                  }`}
+                >
+                  Check-in
+                  {activeTab === 'checkin' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('checkout')}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
+                    activeTab === 'checkout'
+                      ? 'text-[var(--primary)] bg-[var(--primary)]/5'
+                      : 'text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--shell)]'
+                  }`}
+                >
+                  Check-out
+                  {activeTab === 'checkout' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />
+                  )}
+                </button>
+              </div>
+
+              {/* Image Container */}
+              <div className="bg-[var(--shell)] flex items-center justify-center">
+                {currentUrl ? (
+                  <img
+                    src={currentUrl}
+                    alt={`Ảnh ${activeTab === 'checkin' ? 'check-in' : 'check-out'}`}
+                    className="w-full h-auto object-contain max-h-[80vh]"
+                  />
+                ) : (
+                  <div className="text-center py-24">
+                    <p className="text-[var(--text-sub)] text-sm">
+                      {activeTab === 'checkin' ? 'Không có ảnh check-in' : 'Chưa check-out'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Info Footer */}
+              <div className="px-5 py-4 border-t border-[var(--border)] bg-[var(--shell)]/50">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-xs text-[var(--text-sub)] mb-1.5">Thời gian</p>
+                    <p className="text-base font-semibold text-[var(--text-main)]">
+                      {currentTime || '-'}
+                    </p>
+                  </div>
+                  <div className="border-l border-[var(--border)] pl-6">
+                    <p className="text-xs text-[var(--text-sub)] mb-1.5">Vị trí</p>
+                    <p className="text-base font-semibold text-[var(--text-main)] truncate">
+                      {selectedRecord.location && !selectedRecord.location.startsWith('http')
+                        ? selectedRecord.location
+                        : 'Văn phòng'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   )
 }

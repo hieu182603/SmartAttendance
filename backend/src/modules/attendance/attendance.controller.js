@@ -496,7 +496,7 @@ export const checkOut = async (req, res) => {
     const checkInTime = new Date(attendance.checkIn);
     const hoursWorked = (now - checkInTime) / (1000 * 60 * 60);
 
-    const MIN_WORK_HOURS = 8;
+    const MIN_WORK_HOURS = 2; 
     if (hoursWorked < MIN_WORK_HOURS) {
       const remainingMinutes = Math.ceil((MIN_WORK_HOURS - hoursWorked) * 60);
       const hours = Math.floor(remainingMinutes / 60);
