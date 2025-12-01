@@ -1,6 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Languages, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const languages = [
@@ -10,65 +8,32 @@ const languages = [
 
 export default function LanguageSwitcher() {
   const { i18n } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const changeLanguage = (langCode: string) => {
-    i18n.changeLanguage(langCode);
-    setIsOpen(false);
+  const toggleLanguage = () => {
+    // Toggle between 'vi' and 'en'
+    const currentLang = i18n.language;
+    const newLang = currentLang === 'vi' ? 'en' : 'vi';
+    i18n.changeLanguage(newLang);
   };
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
+  // Get current language info
+  const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <Button
-        onClick={() => setIsOpen(!isOpen)}
-        variant="outline"
-        size="icon"
-        className="w-10 h-10 rounded-full bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface)] hover:border-[var(--accent-cyan)] transition-all"
-      >
-        <Languages className="h-4 w-4 text-[var(--text-main)]" />
-        <span className="sr-only">Change language</span>
-      </Button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 rounded-lg bg-[var(--surface)] border border-[var(--border)] shadow-lg z-50 overflow-hidden">
-          {languages.map((language) => (
-            <button
-              key={language.code}
-              onClick={() => changeLanguage(language.code)}
-              className={`w-full flex items-center justify-between px-4 py-2 text-sm hover:bg-[var(--primary)]/10 transition-colors ${
-                i18n.language === language.code ? 'bg-[var(--primary)]/10' : ''
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">{language.flag}</span>
-                <span className="font-medium text-[var(--text-main)]">{language.name}</span>
-              </div>
-              {i18n.language === language.code && (
-                <Check className="h-4 w-4 text-[var(--primary)]" />
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <Button
+      onClick={toggleLanguage}
+      variant="outline"
+      size="icon"
+      className="group relative w-7 h-7 rounded-full bg-gradient-to-br from-[var(--primary)]/10 via-[var(--accent-cyan)]/10 to-[var(--primary)]/10 border border-[var(--border)] hover:border-[var(--accent-cyan)] hover:shadow-lg hover:shadow-[var(--accent-cyan)]/20 transition-all duration-300 overflow-hidden"
+      title={`Switch to ${currentLanguage.code === 'vi' ? 'English' : 'Tiếng Việt'}`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
+      <div className="relative flex items-center justify-center">
+        <span className="text-sm group-hover:scale-110 transition-transform duration-300">
+          {currentLanguage.flag}
+        </span>
+      </div>
+      <span className="sr-only">Toggle language</span>
+    </Button>
   );
 }
-

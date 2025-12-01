@@ -12,14 +12,13 @@ import {
   CreditCard,
   Camera,
   Lock,
-  Bell,
   Globe,
   Moon,
   Sun,
   Eye,
   EyeOff,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,22 +95,11 @@ interface PasswordErrors {
   confirm: string;
 }
 
-interface Notifications {
-  email: boolean;
-  push: boolean;
-  sms: boolean;
-}
-
 export function Profile({ role, user }: ProfileProps): React.JSX.Element {
   const { t } = useTranslation(['dashboard', 'common']);
   const { setUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
-  const [notifications, setNotifications] = useState<Notifications>({
-    email: true,
-    push: true,
-    sms: false,
-  });
 
   const [profile, setProfile] = useState<ProfileData>({
     fullName: "",
@@ -288,9 +276,9 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
 
     try {
       toast.loading(t('dashboard:profile.avatar.uploading'), { id: 'upload-avatar' });
-      
+
       const response = await uploadAvatar(file);
-      
+
       if (response.user) {
         setUser(response.user);
         toast.success(t('dashboard:profile.avatar.success'), { id: 'upload-avatar' });
@@ -868,75 +856,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                       </Select>
                     </div>
 
-                    {/* Notifications */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-2">
-                        <Bell className="h-5 w-5 text-[var(--accent-cyan)]" />
-                        <h4 className="text-[var(--text-main)]">{t('dashboard:profile.settings.notifications')}</h4>
-                      </div>
 
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--shell)]">
-                          <div>
-                            <p className="text-sm text-[var(--text-main)]">
-                              Email
-                            </p>
-                            <p className="text-xs text-[var(--text-sub)]">
-                              {t('dashboard:profile.settings.emailNotifications')}
-                            </p>
-                          </div>
-                          <Switch
-                            checked={notifications.email}
-                            onCheckedChange={(checked) =>
-                              setNotifications({
-                                ...notifications,
-                                email: checked,
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--shell)]">
-                          <div>
-                            <p className="text-sm text-[var(--text-main)]">
-                              Push
-                            </p>
-                            <p className="text-xs text-[var(--text-sub)]">
-                              {t('dashboard:profile.settings.pushNotifications')}
-                            </p>
-                          </div>
-                          <Switch
-                            checked={notifications.push}
-                            onCheckedChange={(checked) =>
-                              setNotifications({
-                                ...notifications,
-                                push: checked,
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--shell)]">
-                          <div>
-                            <p className="text-sm text-[var(--text-main)]">
-                              SMS
-                            </p>
-                            <p className="text-xs text-[var(--text-sub)]">
-                              {t('dashboard:profile.settings.smsNotifications')}
-                            </p>
-                          </div>
-                          <Switch
-                            checked={notifications.sms}
-                            onCheckedChange={(checked) =>
-                              setNotifications({
-                                ...notifications,
-                                sms: checked,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </TabsContent>
               </Tabs>

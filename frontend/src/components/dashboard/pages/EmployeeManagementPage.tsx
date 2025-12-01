@@ -144,12 +144,14 @@ const EmployeeManagementPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common'])
   const { user: currentUser } = useAuth()
   const { hasPermission } = usePermissions()
-  
+
+  // Permission flags
   const canView = hasPermission(Permission.USERS_VIEW)
   const canCreate = hasPermission(Permission.USERS_CREATE)
   const canUpdate = hasPermission(Permission.USERS_UPDATE)
   const canDelete = hasPermission(Permission.USERS_DELETE)
-  const canManageRole = hasPermission(Permission.USERS_MANAGE_ROLE)
+  // Use distinct name to avoid shadowing imported canManageRole() helper
+  const canManageRolePermission = hasPermission(Permission.USERS_MANAGE_ROLE)
   
   if (!canView) {
     return <UnauthorizedPage />
@@ -406,11 +408,12 @@ const EmployeeManagementPage: React.FC = () => {
 
   const canAssignRole = (targetRole: UserRoleType): boolean => {
     if (!currentUser?.role) return false
+    // Use imported helper to compare role hierarchy
     return canManageRole(currentUser.role as UserRoleType, targetRole)
   }
 
   const canUpdateUser = () => canUpdate
-  const canChangeRole = () => canManageRole
+  const canChangeRole = () => canManageRolePermission
 
   // Stats: Note - these are approximate since we only have paginated data
   // For accurate stats, backend should provide a separate stats endpoint

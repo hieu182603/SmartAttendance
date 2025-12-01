@@ -540,9 +540,9 @@
           "Đăng ký chấm công hộ cho nhân viên",
           "Xuất Excel tổng hợp"
         ],
-        "limitations": [
-          "Không xóa bản ghi đã khóa bởi Admin"
-        ]
+      "limitations": [
+        "Không xóa bản ghi đã khóa bởi Admin"
+      ]
       },
       "admin": {
         "scope": "Toàn bộ tổ chức",
@@ -564,9 +564,9 @@
           "Quản lý phân quyền truy cập",
           "Đồng bộ dữ liệu đa chi nhánh"
         ],
-        "limitations": [
-          "Cần ghi nhật ký hoạt động khi thao tác đặc biệt"
-        ]
+      "limitations": [
+        "Cần ghi nhật ký hoạt động khi thao tác đặc biệt"
+      ]
       }
     },
     "details": {
@@ -590,6 +590,41 @@
     },
     "totalEmployees": "Tổng nhân viên",
     "currentRole": "Vai trò hiện tại:"
+  },
+  "attendanceAnalytics": {
+    "title": "Phân tích chấm công",
+    "description": "Thống kê và phân tích xu hướng chấm công",
+    "export": "Xuất báo cáo",
+    "stats": {
+      "attendanceRate": "Tỷ lệ chấm công",
+      "avgPresent": "Đi làm trung bình",
+      "avgLate": "Đi muộn trung bình",
+      "avgAbsent": "Vắng trung bình",
+      "onTime": "Đúng giờ",
+      "late": "Đi muộn",
+      "absent": "Vắng",
+      "vắng": "Vắng"
+    },
+    "charts": {
+      "dailyTrend": "Xu hướng theo ngày",
+      "departmentStats": "Thống kê theo phòng ban",
+      "topPerformers": "Nhân viên chuyên cần"
+    },
+    "periods": {
+      "7days": "7 ngày",
+      "30days": "30 ngày",
+      "90days": "90 ngày"
+    },
+    "departments": {
+      "all": "Tất cả phòng ban"
+    },
+    "error": "Không thể tải dữ liệu phân tích",
+    "trend": "Xu hướng",
+    "comparedToLastWeek": "So với tuần trước",
+    "attendanceRateLabel": "Tỷ lệ chấm công",
+    "departmentComparison": "So sánh phòng ban",
+    "departmentDetails": "Chi tiết phòng ban",
+    "topPerformers": "Top 5 nhân viên chuyên cần"
   },
   "common": {
     "loading": "Đang tải...",
@@ -705,6 +740,102 @@
       "updateSuccess": "Cập nhật thông tin nhân viên thành công!",
       "disableSuccess": "Vô hiệu hóa nhân viên thành công!"
     }
+  },
+  "payroll": {
+    "title": "Bảng lương",
+    "export": "Xuất Excel",
+    "searchPlaceholder": "Tìm theo tên hoặc mã nhân viên...",
+    "filters": {
+      "status": "Trạng thái",
+      "all": "Tất cả",
+      "pending": "Chờ duyệt",
+      "approved": "Đã duyệt",
+      "paid": "Đã thanh toán"
+    },
+    "table": {
+      "employee": "Nhân viên",
+      "department": "Phòng ban",
+      "position": "Chức vụ",
+      "workDays": "Ngày công",
+      "totalDays": "Tổng ngày",
+      "overtimeHours": "Giờ tăng ca",
+      "leaveDays": "Ngày nghỉ",
+      "lateDays": "Ngày đi muộn",
+      "baseSalary": "Lương cơ bản",
+      "overtimePay": "Tiền tăng ca",
+      "bonus": "Thưởng",
+      "deductions": "Khấu trừ",
+      "totalSalary": "Tổng lương",
+      "status": "Trạng thái"
+    },
+    "stats": {
+      "totalEmployees": "Tổng nhân viên",
+      "totalSalary": "Tổng quỹ lương",
+      "avgSalary": "Lương TB",
+      "pending": "Chờ xử lý"
+    },
+    "description": "Tính toán và quản lý bảng lương nhân viên",
+    "totalPayroll": "Tổng bảng lương",
+    "avgSalaryPerPerson": "Lương TB/nhân viên",
+    "details": "Chi tiết bảng lương",
+    "employeeCode": "Mã nhân viên",
+    "employeeName": "Họ và tên"
+  },
+  "payrollReports": {
+    "title": "Báo cáo lương",
+    "description": "Tổng quan và phân tích chi phí lương",
+    "export": "Xuất báo cáo",
+    "exporting": "📥 Đang xuất báo cáo lương...",
+    "error": "Không thể tải báo cáo lương",
+    "stats": {
+      "totalSalary": "Tổng quỹ lương",
+      "employees": "Số nhân viên",
+      "baseSalary": "Tổng lương cơ bản"
+    },
+    "charts": {
+      "departmentDistribution": "Phân bổ chi phí theo phòng ban",
+      "monthlyTrend": "Xu hướng theo tháng"
+    }
+  },
+  "branches": {
+    "title": "Quản lý chi nhánh",
+    "add": "Thêm chi nhánh",
+    "searchPlaceholder": "Tìm chi nhánh theo tên, mã hoặc thành phố...",
+    "description": "Quản lý các chi nhánh trên toàn quốc",
+    "dialog": {
+      "addTitle": "Thêm chi nhánh mới",
+      "editTitle": "Chỉnh sửa chi nhánh",
+      "name": "Tên chi nhánh",
+      "namePlaceholder": "VD: Chi nhánh Hà Nội",
+      "code": "Mã chi nhánh",
+      "codePlaceholder": "VD: HN001",
+      "city": "Thành phố",
+      "country": "Quốc gia",
+      "phone": "Số điện thoại",
+      "email": "Email",
+      "manager": "Quản lý chi nhánh",
+      "selectManager": "Chọn quản lý",
+      "status": "Trạng thái",
+      "active": "Hoạt động",
+      "inactive": "Không hoạt động",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "createSuccess": "Tạo chi nhánh thành công!",
+      "updateSuccess": "Cập nhật chi nhánh thành công!",
+      "error": "Không thể xử lý chi nhánh"
+    },
+    "stats": {
+      "total": "Tổng chi nhánh",
+      "totalEmployees": "Tổng nhân viên",
+      "totalDepartments": "Tổng phòng ban",
+      "active": "Đang hoạt động"
+    },
+    "status": {
+      "active": "Hoạt động",
+      "inactive": "Không hoạt động"
+    },
+    "loading": "Đang tải...",
+    "noResults": "Không tìm thấy chi nhánh nào"
   },
   "departments": {
     "title": "Quản lý phòng ban",
