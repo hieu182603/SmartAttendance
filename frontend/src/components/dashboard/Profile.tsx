@@ -141,13 +141,20 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       const userRole = (user.role || UserRole.EMPLOYEE) as UserRoleType;
       const position = getRolePosition(userRole);
 
+      // Extract department name from object or string
+      const getDepartmentName = (dept?: string | { _id: string; name: string }): string => {
+        if (!dept) return "";
+        if (typeof dept === "string") return dept;
+        return dept.name || "";
+      };
+
       setProfile({
         fullName: user.name || "",
         email: user.email || "",
         phone: user.phone || "",
         address: user.address || "",
         birthday: formattedBirthday,
-        department: user.department || "",
+        department: getDepartmentName(user.department),
         position: position,
         joinDate: user.createdAt
           ? new Date(user.createdAt).toISOString().split("T")[0]

@@ -61,9 +61,10 @@ export class UserService {
    * Lấy thông tin user theo ID
    */
   static async getUserById(userId) {
-    const user = await UserModel.findById(userId).select(
-      "-password -otp -otpExpires"
-    );
+    const user = await UserModel.findById(userId)
+      .select("-password -otp -otpExpires")
+      .populate("department", "name code")
+      .populate("branch", "name address");
 
     if (!user) {
       throw new Error("User not found");

@@ -33,6 +33,10 @@ import { getAllUsers, getUserById, updateUserByAdmin } from '../../../services/u
 import { getAllDepartments, type Department as DepartmentType } from '../../../services/departmentService'
 import { useAuth } from '../../../context/AuthContext'
 import { UserRole, ROLE_NAMES, canManageRole, type UserRoleType } from '../../../utils/roles'
+import { Permission } from '../../../utils/roles'
+import { usePermissions } from '../../../hooks/usePermissions'
+import RoleGuard from '../../RoleGuard'
+import UnauthorizedPage from '../../UnauthorizedPage'
 import type { ErrorWithMessage } from '../../../types'
 
 interface RoleConfig {
@@ -135,6 +139,17 @@ const getDepartmentId = (department?: string | { _id: string; name: string; code
 
 const EmployeeManagementPage: React.FC = () => {
   const { user: currentUser } = useAuth()
+  const { hasPermission } = usePermissions()
+  
+  const canView = hasPermission(Permission.USERS_VIEW)
+  const canCreate = hasPermission(Permission.USERS_CREATE)
+  const canUpdate = hasPermission(Permission.USERS_UPDATE)
+  const canDelete = hasPermission(Permission.USERS_DELETE)
+  const canManageRole = hasPermission(Permission.USERS_MANAGE_ROLE)
+  
+  if (!canView) {
+    return <UnauthorizedPage />
+  }
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -390,21 +405,8 @@ const EmployeeManagementPage: React.FC = () => {
     return canManageRole(currentUser.role as UserRoleType, targetRole)
   }
 
-  // Kiểm tra xem user hiện tại có quyền update user không
-  const canUpdateUser = (): boolean => {
-    if (!currentUser?.role) return false
-    // Use UserRole constants instead of hardcoded strings
-    const allowedRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER]
-    return allowedRoles.includes(currentUser.role as UserRoleType)
-  }
-
-  // Kiểm tra xem user hiện tại có quyền thay đổi role không
-  const canChangeRole = (): boolean => {
-    if (!currentUser?.role) return false
-    // Use UserRole constants instead of hardcoded strings
-    const userRole = currentUser.role as UserRoleType
-    return userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN
-  }
+  const canUpdateUser = () => canUpdate
+  const canChangeRole = () => canManageRole
 
   // Stats: Note - these are approximate since we only have paginated data
   // For accurate stats, backend should provide a separate stats endpoint
@@ -592,21 +594,24 @@ const EmployeeManagementPage: React.FC = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => handleEditUser(user)}
-                              className="p-1 hover:bg-[var(--shell)] rounded text-[var(--primary)] disabled:opacity-50 disabled:cursor-not-allowed"
-                              title={canUpdateUser() ? "Chỉnh sửa" : "Bạn không có quyền chỉnh sửa"}
-                              disabled={!canUpdateUser()}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(user)}
-                              className="p-1 hover:bg-[var(--shell)] rounded text-red-500"
-                              title="Vô hiệu hóa"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            <RoleGuard permission={Permission.USERS_UPDATE} showDisabled>
+                              <button
+                                onClick={() => handleEditUser(user)}
+                                className="p-1 hover:bg-[var(--shell)] rounded text-[var(--primary)]"
+                                title="Chỉnh sửa"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                            </RoleGuard>
+                            <RoleGuard permission={Permission.USERS_DELETE} showDisabled>
+                              <button
+                                onClick={() => handleDeleteUser(user)}
+                                className="p-1 hover:bg-[var(--shell)] rounded text-red-500"
+                                title="Vô hiệu hóa"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </RoleGuard>
                           </div>
                         </td>
                       </tr>
@@ -859,36 +864,38 @@ const EmployeeManagementPage: React.FC = () => {
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Vai trò <span className="text-red-500">*</span></Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(v) => {
-                    setFormData({ ...formData, role: v })
-                    if (validationErrors.role) {
-                      setValidationErrors({ ...validationErrors, role: null })
-                    }
-                  }}
-                  disabled={!canChangeRole()}
-                >
-                  <SelectTrigger 
-                    className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.role ? 'border-red-500' : ''} ${!canChangeRole() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                <RoleGuard permission={Permission.USERS_MANAGE_ROLE} showDisabled>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(v) => {
+                      setFormData({ ...formData, role: v })
+                      if (validationErrors.role) {
+                        setValidationErrors({ ...validationErrors, role: null })
+                      }
+                    }}
                     disabled={!canChangeRole()}
                   >
-                    <SelectValue placeholder="Chọn vai trò" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
-                    {ROLES.filter(role => canAssignRole(role.value)).map(role => {
-                      const RoleIcon = role.icon
-                      return (
-                        <SelectItem key={role.value} value={role.value}>
-                          <div className="flex items-center gap-2">
-                            <RoleIcon className="h-3.5 w-3.5" />
-                            {role.label}
-                          </div>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
+                    <SelectTrigger 
+                      className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.role ? 'border-red-500' : ''}`}
+                      disabled={!canChangeRole()}
+                    >
+                      <SelectValue placeholder="Chọn vai trò" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                      {ROLES.filter(role => canAssignRole(role.value)).map(role => {
+                        const RoleIcon = role.icon
+                        return (
+                          <SelectItem key={role.value} value={role.value}>
+                            <div className="flex items-center gap-2">
+                              <RoleIcon className="h-3.5 w-3.5" />
+                              {role.label}
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </RoleGuard>
                 {!canChangeRole() && (
                   <p className="text-xs text-[var(--text-sub)]">
                     ⚠️ Chỉ Admin và Super Admin mới có quyền thay đổi vai trò
