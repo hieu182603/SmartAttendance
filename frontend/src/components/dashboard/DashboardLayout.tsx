@@ -41,106 +41,8 @@ import {
   getRoleColor,
   getRoleBasePath,
 } from "../../utils/roles";
+import { getMenuByPermissions, type MenuItem } from "../../utils/menuItems";
 
-interface MenuItem {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  path: string;
-  section: "admin" | "employee" | "system";
-}
-
-// Helper function to generate menu based on role
-function getMenuByRole(role: UserRoleType): MenuItem[] {
-  const basePath = getRoleBasePath(role);
-
-  // Base employee menu (all roles have access, excluding home for admin roles)
-  const baseMenu: MenuItem[] = [
-    { id: "scan", label: "Chấm công", icon: Camera, path: `${basePath}/scan`, section: "employee" },
-    { id: "history", label: "Lịch sử", icon: History, path: `${basePath}/history`, section: "employee" },
-    { id: "requests", label: "Yêu cầu", icon: FileText, path: `${basePath}/requests`, section: "employee" },
-    { id: "leave-balance", label: "Số ngày phép", icon: CalendarDays, path: `${basePath}/leave-balance`, section: "employee" },
-    { id: "schedule", label: "Lịch làm việc", icon: Clock, path: `${basePath}/schedule`, section: "employee" },
-    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: `${basePath}/company-calendar`, section: "employee" },
-    { id: "profile", label: "Hồ sơ", icon: User, path: `${basePath}/profile`, section: "employee" },
-  ];
-
-  // Simplified menu for admin roles (only company calendar and profile)
-  const adminEmployeeMenu: MenuItem[] = [
-    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: `${basePath}/company-calendar`, section: "employee" },
-    { id: "profile", label: "Hồ sơ", icon: User, path: `${basePath}/profile`, section: "employee" },
-  ];
-
-  // Home menu item
-  const homeMenu: MenuItem = { id: "home", label: "Trang chủ", icon: Home, path: basePath, section: "admin" };
-
-  // Admin menus for different roles (home is first in admin section)
-  const adminMenus: Partial<Record<UserRoleType, MenuItem[]>> = {
-    [UserRole.MANAGER]: [
-      homeMenu,
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "department-attendance", label: "Chấm công (Phòng)", icon: CheckCircle2, path: `${basePath}/department-attendance`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-      { id: "admin-attendance", label: "Quản lý chấm công", icon: Clock, path: `${basePath}/admin-attendance`, section: "admin" },
-      { id: "performance-review", label: "Đánh giá hiệu suất", icon: Award, path: `${basePath}/performance-review`, section: "admin" },
-      { id: "shifts", label: "Quản lý ca làm việc", icon: Clock, path: `${basePath}/shifts`, section: "admin" },
-    ],
-    [UserRole.HR_MANAGER]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-      { id: "admin-attendance", label: "Quản lý chấm công", icon: Clock, path: `${basePath}/admin-attendance`, section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: TrendingUp, path: `${basePath}/payroll-reports`, section: "admin" },
-      { id: "payroll", label: "Bảng lương", icon: DollarSign, path: `${basePath}/payroll`, section: "admin" },
-      { id: "performance-review", label: "Đánh giá hiệu suất", icon: Award, path: `${basePath}/performance-review`, section: "admin" },
-    ],
-    [UserRole.ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-      { id: "admin-attendance", label: "Quản lý chấm công", icon: Clock, path: `${basePath}/admin-attendance`, section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: DollarSign, path: `${basePath}/payroll-reports`, section: "admin" },
-      { id: "payroll", label: "Bảng lương", icon: TrendingUp, path: `${basePath}/payroll`, section: "admin" },
-      { id: "performance-review", label: "Đánh giá hiệu suất", icon: Award, path: `${basePath}/performance-review`, section: "admin" },
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
-    ],
-    [UserRole.SUPER_ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: TrendingUp, path: `${basePath}/payroll-reports`, section: "admin" },
-      { id: "payroll", label: "Bảng lương", icon: DollarSign, path: `${basePath}/payroll`, section: "admin" },
-      { id: "performance-review", label: "Đánh giá hiệu suất", icon: Award, path: `${basePath}/performance-review`, section: "admin" },
-      { id: "admin-attendance", label: "Quản lý chấm công", icon: Clock, path: `${basePath}/admin-attendance`, section: "admin" },
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
-    ],
-  };
-
-  // Get additional menus for the role
-  const additionalMenus = adminMenus[role] || [];
-
-  // For ADMIN and SUPER_ADMIN roles, use simplified employee menu
-  if (role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN) {
-    return [...additionalMenus, ...adminEmployeeMenu];
-  }
-
-  // For other roles with admin access (MANAGER, HR_MANAGER), show full employee menu
-  if (canAccessAdminPanel(role)) {
-    return [...additionalMenus, ...baseMenu];
-  }
-
-  // For EMPLOYEE, add home to employee section
-  return [{ id: "home", label: "Trang chủ", icon: Home, path: basePath, section: "employee" }, ...baseMenu];
-}
 
 interface NotificationBellProps {
   onClick: () => void;
@@ -177,11 +79,24 @@ const DashboardLayout: React.FC = () => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
 
-  // Get user role and menu items
+  // Get user role and menu items (permission-based)
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
-  const menu = getMenuByRole(userRole);
+  const basePath = getRoleBasePath(userRole);
+  const menu = getMenuByPermissions(userRole, basePath);
   const roleInfo = getRoleColor(userRole);
   const roleName = getRoleName(userRole);
+  
+  // Filter menu for ADMIN/SUPER_ADMIN (only show company-calendar and profile in employee section)
+  const filteredMenu = (() => {
+    if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
+      const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
+      const employeeItems = menu.filter(item => 
+        item.section === 'employee' && (item.id === 'company-calendar' || item.id === 'profile')
+      );
+      return [...adminItems, ...employeeItems];
+    }
+    return menu;
+  })();
 
   const getCurrentPage = (): string => {
     const basePath = getRoleBasePath(userRole);
@@ -273,9 +188,9 @@ const DashboardLayout: React.FC = () => {
             {/* Group menu items by section */}
             {(() => {
               const sections: { admin: MenuItem[]; employee: MenuItem[]; system: MenuItem[] } = {
-                admin: menu.filter(item => item.section === 'admin'),
-                employee: menu.filter(item => item.section === 'employee'),
-                system: menu.filter(item => item.section === 'system'),
+                admin: filteredMenu.filter(item => item.section === 'admin'),
+                employee: filteredMenu.filter(item => item.section === 'employee'),
+                system: filteredMenu.filter(item => item.section === 'system'),
               };
 
               return (

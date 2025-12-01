@@ -173,7 +173,10 @@ export class AuthService {
 
     // Lấy user hiện tại
     static async getCurrentUser(userId) {
-        const user = await UserModel.findById(userId).select("-password");
+        const user = await UserModel.findById(userId)
+            .select("-password -otp -otpExpires")
+            .populate("department", "name code")
+            .populate("branch", "name address");
         if (!user) throw new Error("User not found");
         return user;
     }
