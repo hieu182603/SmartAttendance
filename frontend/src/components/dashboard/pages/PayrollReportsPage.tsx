@@ -25,17 +25,17 @@ import {
   Cell,
 } from "recharts";
 
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { Badge } from "../../ui/badge";
-import { Input } from "../../ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   getPayrollReports,
   type PayrollSummary,
   type DepartmentPayroll,
   type MonthlyTrendPoint,
-} from "../../../services/payrollService";
+} from "@/services/payrollService";
 
 const COLORS = ["#8B5CF6", "#06B6D4", "#F59E0B", "#10B981", "#EF4444"];
 

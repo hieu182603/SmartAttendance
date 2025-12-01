@@ -16,29 +16,29 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { Card, CardContent } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Badge } from "../../ui/badge";
-import { Avatar, AvatarFallback } from "../../ui/avatar";
-import { Progress } from "../../ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../ui/select";
+} from "@/components/ui/select";
 
 import { toast } from "sonner";
 import {
   performanceService,
   type PerformanceReview,
-} from "../../../services/performanceService";
-import { getAllUsers } from "../../../services/userService";
-import { useAuth } from "../../../context/AuthContext";
-import ReviewFormModal from "./ReviewFormModal";
-import api from "../../../services/api";
+} from "@/services/performanceService";
+import { getAllUsers } from "@/services/userService";
+import { useAuth } from "@/context/AuthContext";
+import ReviewFormModal from "@/components/dashboard/pages/ReviewFormModal";
+import api from "@/services/api";
 
 export default function PerformanceReviewPage() {
   const { t } = useTranslation(['dashboard', 'common']);

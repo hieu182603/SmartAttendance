@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Search, Calendar, Download, Eye, Edit, Trash2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Badge } from "../../ui/badge";
-import { Input } from "../../ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -13,13 +13,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../ui/table";
-import { Avatar, AvatarFallback } from "../../ui/avatar";
+} from "@/components/ui/table";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
   getDepartmentAttendance,
   exportAttendanceAnalytics,
-} from "../../../services/attendanceService";
+} from "@/services/attendanceService";
 
 interface AttendanceRecord {
   id: string;

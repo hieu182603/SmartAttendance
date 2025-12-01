@@ -3,12 +3,12 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Sparkles, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Badge } from "../ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import { UserRole, type UserRoleType, getRoleName, getRoleColor } from "../../utils/roles";
-import { getDashboardStats } from "../../services/dashboardService";
+import { useAuth } from "@/context/AuthContext";
+import { UserRole, type UserRoleType, getRoleName, getRoleColor } from "@/utils/roles";
+import { getDashboardStats } from "@/services/dashboardService";
 import { toast } from "sonner";
 import {
   AreaChart,

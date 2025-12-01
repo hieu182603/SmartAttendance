@@ -5,8 +5,8 @@ import {
   DollarSign, TrendingUp, Award
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
-import { Permission, type PermissionType } from './roles';
-import { getRoleBasePath, ROLE_PERMISSIONS, type UserRoleType } from './roles';
+import { Permission, type PermissionType } from '@/utils/roles';
+import { getRoleBasePath, ROLE_PERMISSIONS, type UserRoleType } from '@/utils/roles';
 
 export interface MenuItem {
   id: string;

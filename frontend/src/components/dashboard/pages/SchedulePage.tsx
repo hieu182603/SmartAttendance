@@ -14,11 +14,11 @@ import {
   Target,
   Star,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Badge } from "../../ui/badge";
-import { Progress } from "../../ui/progress";
-import shiftService from "../../../services/shiftService";
-import { getAttendanceHistory } from "../../../services/attendanceService";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import shiftService from "@/services/shiftService";
+import { getAttendanceHistory } from "@/services/attendanceService";
 
 type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
 
@@ -64,7 +64,8 @@ const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
 };
 
 const SchedulePage: React.FC = () => {
-  const { t } = useTranslation(['dashboard', 'common']);
+  const { t, i18n } = useTranslation(['dashboard', 'common']);
+  const locale = i18n.language === "vi" ? "vi-VN" : "en-US";
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -700,7 +701,7 @@ const SchedulePage: React.FC = () => {
                 <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)]">
                   <div className="text-center">
                     <p className="text-sm text-[var(--text-sub)] mb-4">
-                      Khung giờ làm việc
+                      {t('dashboard:schedule.timeRange')}
                     </p>
                     <motion.div
                       className="text-3xl text-[var(--text-main)]"
@@ -879,19 +880,27 @@ const SchedulePage: React.FC = () => {
               <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--success)]" />
-                  <span className="text-[var(--text-sub)]">Hoàn thành</span>
+                  <span className="text-[var(--text-sub)]">
+                    {t('dashboard:schedule.legend.done')}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--accent-cyan)]" />
-                  <span className="text-[var(--text-sub)]">Hôm nay</span>
+                  <span className="text-[var(--text-sub)]">
+                    {t('dashboard:schedule.legend.today')}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--primary)]" />
-                  <span className="text-[var(--text-sub)]">Sắp tới</span>
+                  <span className="text-[var(--text-sub)]">
+                    {t('dashboard:schedule.legend.upcoming')}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--text-sub)]" />
-                  <span className="text-[var(--text-sub)]">Nghỉ</span>
+                  <span className="text-[var(--text-sub)]">
+                    {t('dashboard:schedule.legend.off')}
+                  </span>
                 </div>
               </div>
 
@@ -907,7 +916,9 @@ const SchedulePage: React.FC = () => {
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-[var(--text-sub)]">Đúng giờ</p>
+                  <p className="text-sm text-[var(--text-sub)]">
+                    {t('dashboard:schedule.weekStats.onTime')}
+                  </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {weekOnTimeLabel}
                   </p>
@@ -916,7 +927,9 @@ const SchedulePage: React.FC = () => {
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-[var(--text-sub)]">Avg giờ</p>
+                  <p className="text-sm text-[var(--text-sub)]">
+                    {t('dashboard:schedule.weekStats.avgHoursShort')}
+                  </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {avgWeekHours}h
                   </p>
@@ -931,7 +944,11 @@ const SchedulePage: React.FC = () => {
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <TrendingUp className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>Thống kê {currentMonthLabel}</span>
+                <span>
+                  {t('dashboard:schedule.monthStats.title', {
+                    month: currentMonthLabel,
+                  })}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -963,14 +980,14 @@ const SchedulePage: React.FC = () => {
                   <div className="flex items-center space-x-2 mb-2">
                     <Zap className="h-4 w-4 text-[var(--warning)]" />
                     <span className="text-sm text-[var(--text-sub)]">
-                      Tổng giờ
+                      {t('dashboard:schedule.monthStats.totalHours')}
                     </span>
                   </div>
                   <p className="text-2xl text-[var(--text-main)]">
                     {stats.totalHours}h
                   </p>
                   <p className="text-xs text-[var(--text-sub)] mt-1">
-                    Trung bình{" "}
+                    {t('dashboard:schedule.monthStats.averageLabel')}{" "}
                     {stats.completed > 0
                       ? (stats.totalHours / stats.completed).toFixed(1)
                       : 0}

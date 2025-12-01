@@ -1,7 +1,7 @@
 import React from 'react'
-import { usePermissions } from '../hooks/usePermissions'
-import { Permission, type PermissionType } from '../utils/roles'
-import { UserRole, type UserRoleType } from '../utils/roles'
+import { usePermissions } from '@/hooks/usePermissions'
+import { Permission, type PermissionType } from '@/utils/roles'
+import { UserRole, type UserRoleType } from '@/utils/roles'
 import { Lock } from 'lucide-react'
 
 interface RoleGuardProps {

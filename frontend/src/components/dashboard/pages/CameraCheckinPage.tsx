@@ -1,6 +1,6 @@
 import React from 'react'
 import { Camera } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const CameraCheckinPage: React.FC = () => (
   <Card className="border-[var(--border)] bg-[var(--surface)]">

@@ -121,6 +121,76 @@
       "error": "Cập nhật thông tin thất bại"
     }
   },
+  "approveRequests": {
+    "title": "Phê duyệt yêu cầu",
+    "description": "Xem và xử lý các yêu cầu của nhân viên",
+    "stats": {
+      "pending": "Đang chờ",
+      "approved": "Đã duyệt",
+      "rejected": "Từ chối",
+      "total": "Tổng số"
+    },
+    "filters": {
+      "allTypes": "Tất cả loại",
+      "allDepartments": "Tất cả phòng ban",
+      "requestType": "Loại yêu cầu",
+      "department": "Phòng ban",
+      "searchPlaceholder": "Tìm kiếm yêu cầu..."
+    },
+    "departments": {
+      "it": "IT",
+      "hr": "Nhân sự",
+      "sales": "Kinh doanh",
+      "marketing": "Marketing"
+    },
+    "tabs": {
+      "all": "Tất cả",
+      "pending": "Chờ duyệt",
+      "approved": "Đã duyệt",
+      "rejected": "Từ chối"
+    },
+    "actions": {
+      "approve": "Duyệt",
+      "reject": "Từ chối",
+      "approveTitle": "Duyệt yêu cầu",
+      "rejectTitle": "Từ chối yêu cầu",
+      "comments": "Ghi chú",
+      "commentsPlaceholder": "Nhập ghi chú (không bắt buộc)...",
+      "confirm": "Xác nhận",
+      "cancel": "Hủy",
+      "approveSuccess": "Đã duyệt yêu cầu",
+      "rejectSuccess": "Đã từ chối yêu cầu",
+      "error": "Không thể xử lý yêu cầu"
+    },
+    "request": {
+      "employee": "Nhân viên",
+      "listTitle": "Danh sách yêu cầu",
+      "type": "Loại",
+      "startDate": "Ngày bắt đầu",
+      "endDate": "Ngày kết thúc",
+      "duration": "Thời lượng",
+      "reason": "Lý do",
+      "status": "Trạng thái",
+      "submittedAt": "Thời gian gửi",
+      "sentAt": "Gửi lúc {{time}}",
+      "approvedBy": "Phê duyệt bởi {{approver}}",
+      "atTime": "{{time}}",
+      "noRequests": "Không có yêu cầu",
+      "loading": "Đang tải..."
+    },
+    "types": {
+      "leave": "Nghỉ phép",
+      "overtime": "Tăng ca",
+      "late": "Đi muộn",
+      "remote": "Làm từ xa",
+      "other": "Khác"
+    },
+    "urgency": {
+      "high": "Gấp",
+      "medium": "Bình thường",
+      "low": "Không gấp"
+    }
+  },
   "employeeHome": {
     "greeting": {
       "morning": "Chào buổi sáng!",
@@ -286,7 +356,23 @@
     "avgHoursPerDay": "Trung bình",
     "hPerDay": "h/ngày",
     "month": "Tháng",
-    "error": "Lỗi tải ca làm việc:"
+    "error": "Lỗi tải ca làm việc:",
+    "timeRange": "Khung giờ làm việc",
+    "legend": {
+      "done": "Hoàn thành",
+      "today": "Hôm nay",
+      "upcoming": "Sắp tới",
+      "off": "Nghỉ"
+    },
+    "weekStats": {
+      "onTime": "Đúng giờ",
+      "avgHoursShort": "Avg giờ"
+    },
+    "monthStats": {
+      "title": "Thống kê {{month}}",
+      "totalHours": "Tổng giờ",
+      "averageLabel": "Trung bình"
+    }
   },
   "companyCalendar": {
     "title": "Lịch công ty",
@@ -340,12 +426,6 @@
       "balance": "Số dư",
       "history": "Lịch sử"
     },
-    "history": {
-      "title": "Lịch sử",
-      "noHistory": "Chưa có lịch sử nghỉ phép",
-      "description": "Lịch sử sẽ được hiển thị khi bạn có đơn nghỉ phép",
-      "remaining": "Còn lại"
-    },
     "overview": {
       "title": "Tổng quan",
       "noData": "Chưa có dữ liệu ngày phép",
@@ -356,8 +436,160 @@
       "days": "ngày",
       "daysPerYear": "ngày/năm"
     },
+    "types": {
+      "defaultName": "Nghỉ phép",
+      "descriptions": {
+        "annual": "Nghỉ phép hàng năm theo quy định",
+        "sick": "Nghỉ ốm có lương",
+        "unpaid": "Nghỉ không hưởng lương",
+        "compensatory": "Nghỉ bù do làm thêm giờ",
+        "maternity": "Nghỉ thai sản theo luật lao động"
+      }
+    },
+    "status": {
+      "approved": "Đã duyệt",
+      "pending": "Chờ duyệt",
+      "rejected": "Từ chối"
+    },
+    "history": {
+      "title": "Lịch sử",
+      "noHistory": "Chưa có lịch sử nghỉ phép",
+      "description": "Lịch sử sẽ được hiển thị khi bạn có đơn nghỉ phép",
+      "remaining": "Còn lại",
+      "approvedBy": "Phê duyệt bởi {{approver}}",
+      "approvedAt": "lúc {{time}}"
+    },
+    "loadingState": {
+      "loading": "Đang tải dữ liệu...",
+      "errorTitle": "Lỗi tải dữ liệu",
+      "retry": "Thử lại"
+    },
     "loading": "Đang tải...",
     "error": "Không thể tải dữ liệu"
+  },
+  "adminAttendance": {
+    "title": "Quản lý chấm công",
+    "filters": {
+      "allStatus": "Tất cả trạng thái",
+      "ontime": "Đúng giờ",
+      "late": "Đi muộn",
+      "absent": "Vắng",
+      "overtime": "Tăng ca",
+      "weekend": "Cuối tuần"
+    },
+    "stats": {
+      "present": "Có mặt",
+      "late": "Đi muộn",
+      "absent": "Vắng"
+    },
+    "table": {
+      "employee": "Nhân viên",
+      "date": "Ngày",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "hours": "Số giờ",
+      "status": "Trạng thái",
+      "location": "Địa điểm",
+      "actions": "Thao tác",
+      "view": "Xem",
+      "edit": "Sửa",
+      "noData": "Không có dữ liệu",
+      "loading": "Đang tải..."
+    },
+    "pagination": {
+      "showing": "Hiển thị",
+      "of": "của",
+      "rowsPerPage": "Số dòng:",
+      "page": "Trang"
+    },
+    "export": "Xuất dữ liệu",
+    "searchPlaceholder": "Tìm theo tên, email...",
+    "error": "Không thể tải dữ liệu chấm công",
+    "fallbackName": "Không rõ",
+    "toasts": {
+      "exporting": "📊 Đang xuất file Excel...",
+      "noPermission": "⚠️ Vai trò hiện tại không được phép xuất Excel"
+    },
+    "aria": {
+      "pickCheckIn": "Chọn giờ vào",
+      "pickCheckOut": "Chọn giờ ra"
+    },
+    "locations": {
+      "loading": "Đang tải...",
+      "empty": "Không có địa điểm nào"
+    },
+    "roles": {
+      "manager": {
+        "scope": "Phòng ban phụ trách",
+        "description": "Theo dõi và xác nhận chấm công cho đội nhóm trực thuộc.",
+        "actions": [
+          "Xem trạng thái chấm công phòng ban",
+          "Gửi nhắc nhở đi muộn",
+          "Xuất báo cáo bộ phận"
+        ],
+        "limitations": [
+          "Không chỉnh sửa thủ công bản ghi hệ thống",
+          "Không xóa lịch sử chấm công"
+        ]
+      },
+      "hr": {
+        "scope": "Toàn công ty",
+        "description": "Điều phối chính sách chấm công & hỗ trợ cập nhật thông tin cho nhân sự.",
+        "actions": [
+          "Chỉnh sửa thời gian vào/ra thủ công",
+          "Đăng ký chấm công hộ cho nhân viên",
+          "Xuất Excel tổng hợp"
+        ],
+        "limitations": [
+          "Không xóa bản ghi đã khóa bởi Admin"
+        ]
+      },
+      "admin": {
+        "scope": "Toàn bộ tổ chức",
+        "description": "Đảm bảo dữ liệu chấm công chính xác, đồng bộ với bảng lương & báo cáo.",
+        "actions": [
+          "Quản trị trạng thái chấm công",
+          "Khóa/mở khóa bản ghi",
+          "Tích hợp báo cáo với bảng lương"
+        ],
+        "limitations": [
+          "Xóa bản ghi cần xác nhận từ Super Admin"
+        ]
+      },
+      "super": {
+        "scope": "Toàn hệ thống",
+        "description": "Kiểm soát bảo mật & tuân thủ, xử lý sự cố hoặc override dữ liệu.",
+        "actions": [
+          "Xóa/khôi phục bản ghi",
+          "Quản lý phân quyền truy cập",
+          "Đồng bộ dữ liệu đa chi nhánh"
+        ],
+        "limitations": [
+          "Cần ghi nhật ký hoạt động khi thao tác đặc biệt"
+        ]
+      }
+    },
+    "details": {
+      "employeeCode": "Mã nhân viên:",
+      "attendanceInfo": "Thông tin chấm công",
+      "workDate": "Ngày làm việc",
+      "totalHours": "Tổng giờ",
+      "workLocation": "Địa điểm làm việc",
+      "close": "Đóng"
+    },
+    "editDialog": {
+      "title": "Chỉnh sửa chấm công",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "location": "Địa điểm",
+      "selectLocation": "Chọn địa điểm",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "success": "Cập nhật bản ghi thành công!"
+    },
+    "totalEmployees": "Tổng nhân viên",
+    "currentRole": "Vai trò hiện tại:"
   },
   "common": {
     "loading": "Đang tải...",

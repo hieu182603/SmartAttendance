@@ -16,21 +16,21 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Badge } from "../../ui/badge";
-import { Calendar } from "../../ui/calendar";
-import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import eventService, { Event } from "../../../services/eventService";
-import { CreateEventDialog } from "../dialogs/CreateEventDialog";
-import { UpdateEventDialog } from "../dialogs/UpdateEventDialog";
-import { useAuth } from "../../../context/AuthContext";
+import eventService, { Event } from "@/services/eventService";
+import { CreateEventDialog } from "@/components/dashboard/dialogs/CreateEventDialog";
+import { UpdateEventDialog } from "@/components/dashboard/dialogs/UpdateEventDialog";
+import { useAuth } from "@/context/AuthContext";
 import {
   hasMinimumLevel,
   UserRole,
   type UserRoleType,
-} from "../../../utils/roles";
+} from "@/utils/roles";
 
 type EventType = "holiday" | "meeting" | "event" | "deadline" | "training";
 

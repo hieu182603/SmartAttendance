@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Languages, Check } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 
 const languages = [
   { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },

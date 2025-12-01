@@ -12,11 +12,11 @@ import {
   ChevronsRight,
   Clock,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Avatar, AvatarFallback } from "../../ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -24,28 +24,28 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "../../ui/dialog";
-import { Label } from "../../ui/label";
-import { Separator } from "../../ui/separator";
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   UserRole,
   type UserRoleType,
   ROLE_NAMES,
-} from "../../../utils/roles";
-import { useAuth } from "../../../context/AuthContext";
+} from "@/utils/roles";
+import { useAuth } from "@/context/AuthContext";
 import {
   getAllAttendance,
   updateAttendanceRecord as updateAttendanceRecordApi,
-} from "../../../services/attendanceService";
-import { getAllLocations } from "../../../services/locationService";
+} from "@/services/attendanceService";
+import { getAllLocations } from "@/services/locationService";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../ui/select";
+} from "@/components/ui/select";
 
 type AttendanceStatus = "ontime" | "late" | "absent" | "overtime" | "weekend";
 
@@ -85,77 +85,75 @@ const adminRoleOrder = [
 
 type AdminRoleType = (typeof adminRoleOrder)[number];
 
-const ROLE_ACCESS_CONFIG: Record<
-  AdminRoleType,
-  {
-    scope: string;
-    description: string;
-    actions: string[];
-    limitations: string[];
-    canEdit: boolean;
-    canDelete: boolean;
-    canExport: boolean;
-  }
-> = {
+type RoleAccessEntry = {
+  scope: string;
+  description: string;
+  actions: string[];
+  limitations: string[];
+  canEdit: boolean;
+  canDelete: boolean;
+  canExport: boolean;
+};
+
+const buildRoleAccessConfig = (
+  t: (key: string) => string
+): Record<AdminRoleType, RoleAccessEntry> => ({
   [UserRole.MANAGER]: {
-    scope: "Phòng ban phụ trách",
-    description: "Theo dõi và xác nhận chấm công cho đội nhóm trực thuộc.",
+    scope: t("dashboard:adminAttendance.roles.manager.scope"),
+    description: t("dashboard:adminAttendance.roles.manager.description"),
     actions: [
-      "Xem trạng thái chấm công phòng ban",
-      "Gửi nhắc nhở đi muộn",
-      "Xuất báo cáo bộ phận",
+      t("dashboard:adminAttendance.roles.manager.actions.0"),
+      t("dashboard:adminAttendance.roles.manager.actions.1"),
+      t("dashboard:adminAttendance.roles.manager.actions.2"),
     ],
     limitations: [
-      "Không chỉnh sửa thủ công bản ghi hệ thống",
-      "Không xóa lịch sử chấm công",
+      t("dashboard:adminAttendance.roles.manager.limitations.0"),
+      t("dashboard:adminAttendance.roles.manager.limitations.1"),
     ],
     canEdit: false,
     canDelete: false,
     canExport: true,
   },
   [UserRole.HR_MANAGER]: {
-    scope: "Toàn công ty",
-    description:
-      "Điều phối chính sách chấm công & hỗ trợ cập nhật thông tin cho nhân sự.",
+    scope: t("dashboard:adminAttendance.roles.hr.scope"),
+    description: t("dashboard:adminAttendance.roles.hr.description"),
     actions: [
-      "Chỉnh sửa thời gian vào/ra thủ công",
-      "Đăng ký chấm công hộ cho nhân viên",
-      "Xuất Excel tổng hợp",
+      t("dashboard:adminAttendance.roles.hr.actions.0"),
+      t("dashboard:adminAttendance.roles.hr.actions.1"),
+      t("dashboard:adminAttendance.roles.hr.actions.2"),
     ],
-    limitations: ["Không xóa bản ghi đã khóa bởi Admin"],
+    limitations: [t("dashboard:adminAttendance.roles.hr.limitations.0")],
     canEdit: true,
     canDelete: false,
     canExport: true,
   },
   [UserRole.ADMIN]: {
-    scope: "Toàn bộ tổ chức",
-    description:
-      "Đảm bảo dữ liệu chấm công chính xác, đồng bộ với bảng lương & báo cáo.",
+    scope: t("dashboard:adminAttendance.roles.admin.scope"),
+    description: t("dashboard:adminAttendance.roles.admin.description"),
     actions: [
-      "Quản trị trạng thái chấm công",
-      "Khóa/mở khóa bản ghi",
-      "Tích hợp báo cáo với payroll",
+      t("dashboard:adminAttendance.roles.admin.actions.0"),
+      t("dashboard:adminAttendance.roles.admin.actions.1"),
+      t("dashboard:adminAttendance.roles.admin.actions.2"),
     ],
-    limitations: ["Xóa bản ghi cần xác nhận từ Super Admin"],
+    limitations: [t("dashboard:adminAttendance.roles.admin.limitations.0")],
     canEdit: true,
     canDelete: true,
     canExport: true,
   },
   [UserRole.SUPER_ADMIN]: {
-    scope: "Toàn hệ thống",
-    description:
-      "Kiểm soát bảo mật & tuân thủ, xử lý sự cố hoặc override dữ liệu.",
+    scope: t("dashboard:adminAttendance.roles.super.scope"),
+    description: t("dashboard:adminAttendance.roles.super.description"),
     actions: [
-      "Xóa/khôi phục bản ghi",
-      "Quản lý phân quyền truy cập",
-      "Đồng bộ dữ liệu đa chi nhánh",
+      t("dashboard:adminAttendance.roles.super.actions.0"),
+      t("dashboard:adminAttendance.roles.super.actions.1"),
+      t("dashboard:adminAttendance.roles.super.actions.2"),
     ],
-    limitations: ["Cần ghi nhật ký hoạt động khi thao tác đặc biệt"],
+    limitations: [t("dashboard:adminAttendance.roles.super.limitations.0")],
     canEdit: true,
     canDelete: true,
     canExport: true,
   },
-};
+});
 
 const getStatusBadge = (status: string, t: (key: string) => string) => {
   switch (status) {
@@ -209,6 +207,10 @@ export default function AdminAttendancePage() {
   const resolvedRole = useMemo<UserRoleType>(() => {
     return (user?.role as UserRoleType) || UserRole.MANAGER;
   }, [user?.role]);
+  const roleAccessConfig = useMemo(
+    () => buildRoleAccessConfig(t),
+    [t]
+  );
 
   const [records, setRecords] = useState<AttendanceRecordItem[]>([]);
   const [summaryCounts, setSummaryCounts] = useState<AttendanceSummary>({
@@ -327,13 +329,14 @@ export default function AdminAttendancePage() {
         status: statusFilter === "all" ? undefined : statusFilter,
       });
 
+      const fallbackName = t('dashboard:adminAttendance.fallbackName');
       const normalized: AttendanceRecordItem[] = (response?.records ?? []).map(
         (item: Record<string, unknown>, index: number) => {
           const safeName =
             pickString(item.name) ??
             pickString(item.userName) ??
             pickString(item.employeeName) ??
-            "Không rõ";
+            fallbackName;
           const checkInValue = formatTimeValue(item.checkIn);
           const checkOutValue = formatTimeValue(item.checkOut);
           const statusValue =
@@ -497,7 +500,7 @@ export default function AdminAttendancePage() {
   };
 
   const adminRole = (resolvedRole === UserRole.EMPLOYEE ? UserRole.MANAGER : resolvedRole) as AdminRoleType;
-  const roleConfig = ROLE_ACCESS_CONFIG[adminRole];
+  const roleConfig = roleAccessConfig[adminRole];
 
   const hasRecords = paginationInfo.total > 0;
   const paginationStart = hasRecords
@@ -587,8 +590,8 @@ export default function AdminAttendancePage() {
               onClick={() =>
                 toast.success(
                   roleConfig.canExport
-                    ? "📊 Đang xuất file Excel..."
-                    : "⚠️ Vai trò hiện tại không được phép xuất Excel"
+                    ? t('dashboard:adminAttendance.toasts.exporting')
+                    : t('dashboard:adminAttendance.toasts.noPermission')
                 )
               }
             >
@@ -950,7 +953,7 @@ export default function AdminAttendancePage() {
                     type="button"
                     onClick={openCheckInPicker}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
-                    aria-label="Chọn giờ vào"
+                    aria-label={t('dashboard:adminAttendance.aria.pickCheckIn')}
                   >
                     <Clock className="h-4 w-4" />
                   </button>
@@ -972,7 +975,7 @@ export default function AdminAttendancePage() {
                     type="button"
                     onClick={openCheckOutPicker}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"
-                    aria-label="Chọn giờ ra"
+                    aria-label={t('dashboard:adminAttendance.aria.pickCheckOut')}
                   >
                     <Clock className="h-4 w-4" />
                   </button>
@@ -995,11 +998,11 @@ export default function AdminAttendancePage() {
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
                   {isLoadingLocations ? (
                     <div className="px-2 py-1.5 text-sm text-[var(--text-sub)]">
-                      Đang tải...
+                      {t('dashboard:adminAttendance.locations.loading')}
                     </div>
                   ) : locations.length === 0 ? (
                     <div className="px-2 py-1.5 text-sm text-[var(--text-sub)]">
-                      Không có địa điểm nào
+                      {t('dashboard:adminAttendance.locations.empty')}
                     </div>
                   ) : (
                     locations.map((location) => (

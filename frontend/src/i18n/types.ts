@@ -4,12 +4,12 @@
  */
 
 import 'i18next';
-import viCommon from './locales/vi/common.json';
-import viAuth from './locales/vi/auth.json';
-import viMenu from './locales/vi/menu.json';
-import viDashboard from './locales/vi/dashboard.json';
-import viErrors from './locales/vi/errors.json';
-import viValidation from './locales/vi/validation.json';
+import viCommon from '@/i18n/locales/vi/common.json';
+import viAuth from '@/i18n/locales/vi/auth.json';
+import viMenu from '@/i18n/locales/vi/menu.json';
+import viDashboard from '@/i18n/locales/vi/dashboard.json';
+import viErrors from '@/i18n/locales/vi/errors.json';
+import viValidation from '@/i18n/locales/vi/validation.json';
 
 declare module 'i18next' {
   interface CustomTypeOptions {

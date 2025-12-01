@@ -1,4 +1,4 @@
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { 
   hasPermission, 
   hasMinimumLevel, 
@@ -7,8 +7,8 @@ import {
   canAccessAdminPanel,
   type UserRoleType,
   type PermissionType 
-} from '../utils/roles';
-import { UserRole } from '../utils/roles';
+} from '@/utils/roles';
+import { UserRole } from '@/utils/roles';
 
 export function usePermissions() {
   const { user } = useAuth();

@@ -1,5 +1,5 @@
-import api from './api'
-import type { LoginResponse, RegisterResponse, VerifyOtpResponse, VerifyResetOtpResponse, ForgotPasswordResponse, ResetPasswordResponse, ResendOtpResponse, User } from '../types'
+import api from '@/services/api'
+import type { LoginResponse, RegisterResponse, VerifyOtpResponse, VerifyResetOtpResponse, ForgotPasswordResponse, ResetPasswordResponse, ResendOtpResponse, User } from '@/types'
 
 export const register = async ({ name, email, password }: { name: string; email: string; password: string }): Promise<RegisterResponse> => {
     return (await api.post('/auth/register', { name, email, password })).data

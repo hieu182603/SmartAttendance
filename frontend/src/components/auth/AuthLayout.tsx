@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Sun, Moon, QrCode, MapPin, BarChart3 } from 'lucide-react'
-import { useTheme } from '../ThemeProvider'
-import { Button } from '../ui/button'
+import { useTheme } from '@/components/ThemeProvider'
+import { Button } from '@/components/ui/button'
 
 interface AuthLayoutProps {
   children: React.ReactNode

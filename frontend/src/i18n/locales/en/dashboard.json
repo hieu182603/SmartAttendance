@@ -286,7 +286,23 @@
     "avgHoursPerDay": "Average",
     "hPerDay": "h/day",
     "month": "Month",
-    "error": "Error loading shifts:"
+    "error": "Error loading shifts:",
+    "timeRange": "Working hours",
+    "legend": {
+      "done": "Done",
+      "today": "Today",
+      "upcoming": "Upcoming",
+      "off": "Off"
+    },
+    "weekStats": {
+      "onTime": "On time",
+      "avgHoursShort": "Avg hours"
+    },
+    "monthStats": {
+      "title": "Statistics {{month}}",
+      "totalHours": "Total hours",
+      "averageLabel": "Average"
+    }
   },
   "companyCalendar": {
     "title": "Company Calendar",
@@ -340,12 +356,6 @@
       "balance": "Balance",
       "history": "History"
     },
-    "history": {
-      "title": "History",
-      "noHistory": "No leave history",
-      "description": "History will be displayed when you have leave requests",
-      "remaining": "Remaining"
-    },
     "overview": {
       "title": "Overview",
       "noData": "No leave data",
@@ -357,71 +367,6 @@
       "daysPerYear": "days/year",
       "reason": "Reason:"
     },
-  "adminAttendance": {
-    "title": "Attendance Management",
-    "filters": {
-      "allStatus": "All Status",
-      "ontime": "On Time",
-      "late": "Late",
-      "absent": "Absent",
-      "overtime": "Overtime",
-      "weekend": "Weekend"
-    },
-    "stats": {
-      "present": "Present",
-      "late": "Late",
-      "absent": "Absent"
-    },
-    "table": {
-      "employee": "Employee",
-      "date": "Date",
-      "checkIn": "Check In",
-      "checkOut": "Check Out",
-      "hours": "Hours",
-      "status": "Status",
-      "location": "Location",
-      "actions": "Actions",
-      "view": "View",
-      "edit": "Edit",
-      "noData": "No data",
-      "loading": "Loading..."
-    },
-    "pagination": {
-      "showing": "Showing",
-      "of": "of",
-      "rowsPerPage": "Rows per page:",
-      "page": "Page"
-    },
-    "viewDialog": {
-      "title": "Attendance Details",
-      "close": "Close"
-    },
-    "editDialog": {
-      "title": "Edit Attendance",
-      "checkIn": "Check In",
-      "checkOut": "Check Out",
-      "location": "Location",
-      "selectLocation": "Select Location",
-      "cancel": "Cancel",
-      "save": "Save",
-      "saving": "Saving...",
-      "success": "Attendance updated successfully!",
-      "error": "Failed to update attendance"
-    },
-    "export": "Export Data",
-    "searchPlaceholder": "Search by name, email...",
-    "error": "Failed to load attendance data",
-    "details": {
-      "employeeCode": "Employee Code:",
-      "attendanceInfo": "Attendance Information",
-      "workDate": "Work Date",
-      "totalHours": "Total Hours",
-      "workLocation": "Work Location",
-      "close": "Close"
-    },
-    "totalEmployees": "Total Employees",
-    "currentRole": "Current Role:"
-  },
   "departmentAttendance": {
     "title": "Department Attendance",
     "description": "Track attendance of employees in the department",
@@ -445,6 +390,12 @@
       "noData": "No data",
       "loading": "Loading..."
     },
+    "pagination": {
+      "showing": "Showing",
+      "of": "of",
+      "rowsPerPage": "Rows per page:",
+      "page": "Page"
+    },
     "todayList": "Today's Attendance List"
   },
   "approveRequests": {
@@ -462,6 +413,12 @@
       "requestType": "Request Type",
       "department": "Department",
       "searchPlaceholder": "Search requests..."
+    },
+    "departments": {
+      "it": "IT",
+      "hr": "Human Resources",
+      "sales": "Sales",
+      "marketing": "Marketing"
     },
     "tabs": {
       "all": "All",
@@ -484,6 +441,7 @@
     },
     "request": {
       "employee": "Employee",
+      "listTitle": "Request List",
       "type": "Type",
       "startDate": "Start Date",
       "endDate": "End Date",
@@ -491,8 +449,23 @@
       "reason": "Reason",
       "status": "Status",
       "submittedAt": "Submitted At",
+      "sentAt": "Sent at {{time}}",
+      "approvedBy": "Approved by {{approver}}",
+      "atTime": "{{time}}",
       "noRequests": "No requests",
       "loading": "Loading..."
+    },
+    "types": {
+      "leave": "Leave",
+      "overtime": "Overtime",
+      "late": "Late",
+      "remote": "Remote",
+      "other": "Other"
+    },
+    "urgency": {
+      "high": "Urgent",
+      "medium": "Normal",
+      "low": "Low urgency"
     }
   },
   "attendanceAnalytics": {
@@ -676,9 +649,155 @@
     "noResults": "No departments found",
     "description": "Manage departments in the company",
     "activeEmployees": "Active Employees"
-  },
+    },
+    "types": {
+      "defaultName": "Leave",
+      "descriptions": {
+        "annual": "Annual leave according to policy",
+        "sick": "Paid sick leave",
+        "unpaid": "Unpaid leave",
+        "compensatory": "Compensatory leave for overtime",
+        "maternity": "Maternity leave per labor law"
+      }
+    },
+    "status": {
+      "approved": "Approved",
+      "pending": "Pending",
+      "rejected": "Rejected"
+    },
+    "history": {
+      "title": "History",
+      "noHistory": "No leave history",
+      "description": "History will be displayed when you have leave requests",
+      "remaining": "Remaining",
+      "approvedBy": "Approved by {{approver}}",
+      "approvedAt": "at {{time}}"
+    },
+    "loadingState": {
+      "loading": "Loading data...",
+      "errorTitle": "Failed to load data",
+      "retry": "Retry"
+    },
     "loading": "Loading...",
     "error": "Failed to load data"
+  },
+  "adminAttendance": {
+    "title": "Attendance Management",
+    "filters": {
+      "allStatus": "All Status",
+      "ontime": "On Time",
+      "late": "Late",
+      "absent": "Absent",
+      "overtime": "Overtime",
+      "weekend": "Weekend"
+    },
+    "stats": {
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent"
+    },
+    "table": {
+      "employee": "Employee",
+      "date": "Date",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "hours": "Hours",
+      "status": "Status",
+      "location": "Location",
+      "actions": "Actions",
+      "view": "View",
+      "edit": "Edit",
+      "noData": "No data",
+      "loading": "Loading..."
+    },
+    "export": "Export Data",
+    "searchPlaceholder": "Search by name, email...",
+    "error": "Failed to load attendance data",
+    "fallbackName": "Unknown",
+    "toasts": {
+      "exporting": "📊 Exporting Excel file...",
+      "noPermission": "⚠️ Your role is not allowed to export Excel"
+    },
+    "aria": {
+      "pickCheckIn": "Select check-in time",
+      "pickCheckOut": "Select check-out time"
+    },
+    "locations": {
+      "loading": "Loading...",
+      "empty": "No locations available"
+    },
+    "roles": {
+      "manager": {
+        "scope": "Responsible departments",
+        "description": "Monitor and confirm attendance for your managed teams.",
+        "actions": [
+          "View department attendance status",
+          "Send late reminders",
+          "Export department reports"
+        ],
+        "limitations": [
+          "Cannot manually edit system records",
+          "Cannot delete attendance history"
+        ]
+      },
+      "hr": {
+        "scope": "Entire company",
+        "description": "Coordinate attendance policies and support HR updates.",
+        "actions": [
+          "Manually adjust check-in/out times",
+          "Register attendance on behalf of employees",
+          "Export consolidated Excel"
+        ],
+        "limitations": [
+          "Cannot delete records locked by Admin"
+        ]
+      },
+      "admin": {
+        "scope": "Whole organization",
+        "description": "Ensure attendance accuracy aligned with payroll and reports.",
+        "actions": [
+          "Manage attendance statuses",
+          "Lock/unlock records",
+          "Integrate reports with payroll"
+        ],
+        "limitations": [
+          "Deleting records requires Super Admin approval"
+        ]
+      },
+      "super": {
+        "scope": "Entire system",
+        "description": "Control security & compliance, handle incidents or overrides.",
+        "actions": [
+          "Delete/restore records",
+          "Manage access permissions",
+          "Sync multi-branch data"
+        ],
+        "limitations": [
+          "Must log special operations"
+        ]
+      }
+    },
+    "details": {
+      "employeeCode": "Employee Code:",
+      "attendanceInfo": "Attendance Information",
+      "workDate": "Work Date",
+      "totalHours": "Total Hours",
+      "workLocation": "Work Location",
+      "close": "Close"
+    },
+    "editDialog": {
+      "title": "Edit Attendance",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "location": "Location",
+      "selectLocation": "Select location",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "success": "Attendance record updated successfully!"
+    },
+    "totalEmployees": "Total employees",
+    "currentRole": "Current role:"
   },
   "common": {
     "loading": "Loading...",

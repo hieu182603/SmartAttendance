@@ -1,5 +1,5 @@
 import React from "react";
-import { cn } from "./utils";
+import { cn } from "@/components/ui/utils";
 
 interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: number
