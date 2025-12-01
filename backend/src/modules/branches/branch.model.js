@@ -17,10 +17,17 @@ const branchSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
-    address: {
-      type: String,
+    latitude: {
+      type: Number,
       required: true,
-      trim: true,
+      min: -90,
+      max: 90,
+    },
+    longitude: {
+      type: Number,
+      required: true,
+      min: -180,
+      max: 180,
     },
     city: {
       type: String,

@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { AuthLayout } from './AuthLayout'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
-import { Checkbox } from '../ui/checkbox'
+import { useTranslation } from 'react-i18next'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
-import { register as registerApi } from '../../services/authService'
+import { register as registerApi } from '@/services/authService'
 import { toast } from 'sonner'
-import type { ErrorWithMessage } from '../../types'
+import type { ErrorWithMessage } from '@/types'
 
 interface FormData {
   fullName: string
@@ -20,6 +21,7 @@ interface FormData {
 }
 
 export default function Register() {
+  const { t } = useTranslation(['auth', 'common'])
   const navigate = useNavigate()
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -59,29 +61,29 @@ export default function Register() {
     
     // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      toast.error('Email không hợp lệ!')
+      toast.error(t('auth:register.invalidEmail'))
       return
     }
 
     // Validate full name
     if (formData.fullName.trim().length < 2) {
-      toast.error('Họ và tên phải có ít nhất 2 ký tự!')
+      toast.error(t('auth:register.invalidName'))
       return
     }
 
     // Validate password strength
     if (!passwordStrength.hasMinLength || !passwordStrength.hasUpperCase || 
         !passwordStrength.hasLowerCase || !passwordStrength.hasNumber) {
-      toast.error('Mật khẩu không đáp ứng yêu cầu!')
+      toast.error(t('auth:register.weakPassword'))
       return
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Mật khẩu không khớp!')
+      toast.error(t('auth:register.passwordsNotMatch'))
       return
     }
     if (!formData.agreeTerms) {
-      toast.error('Vui lòng đồng ý với điều khoản sử dụng')
+      toast.error(t('auth:register.agreeTermsRequired'))
       return
     }
 
@@ -93,11 +95,11 @@ export default function Register() {
         email: formData.email,
         password: formData.password,
       })
-      toast.success('Đăng ký thành công! Vui lòng kiểm tra email để xác thực OTP.')
+      toast.success(t('auth:register.success'))
       navigate('/verify-otp', { state: { email: formData.email, purpose: 'register' } })
     } catch (err) {
       const error = err as ErrorWithMessage
-      toast.error(error.message || 'Đăng ký thất bại')
+      toast.error(error.message || t('auth:register.error'))
     } finally {
       setIsLoading(false)
     }
@@ -105,8 +107,8 @@ export default function Register() {
 
   return (
     <AuthLayout 
-      title="Đăng ký tài khoản" 
-      subtitle="Tạo tài khoản mới để bắt đầu"
+      title={t('auth:register.title')} 
+      subtitle={t('auth:register.subtitle')}
     >
       <motion.form 
         onSubmit={handleSubmit} 
@@ -116,11 +118,11 @@ export default function Register() {
         transition={{ duration: 0.5 }}
       >
         <div className="space-y-1.5">
-          <Label htmlFor="fullName" className="text-[var(--text-main)] text-sm">Họ và tên</Label>
+          <Label htmlFor="fullName" className="text-[var(--text-main)] text-sm">{t('auth:register.fullName')}</Label>
           <Input
             id="fullName"
             type="text"
-            placeholder="Nguyễn Văn A"
+            placeholder={t('auth:register.fullNamePlaceholder')}
             value={formData.fullName}
             onChange={(e) => setFormData({ ...formData, fullName: e.target.value.trim() })}
             className="h-9 text-sm"
@@ -131,7 +133,7 @@ export default function Register() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-[var(--text-main)] text-sm">Email</Label>
+          <Label htmlFor="email" className="text-[var(--text-main)] text-sm">{t('auth:register.email')}</Label>
           <Input
             id="email"
             type="email"
@@ -146,7 +148,7 @@ export default function Register() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-[var(--text-main)] text-sm">Mật khẩu</Label>
+          <Label htmlFor="password" className="text-[var(--text-main)] text-sm">{t('auth:register.password')}</Label>
           <div className="relative">
             <Input
               id="password"
@@ -175,10 +177,10 @@ export default function Register() {
               className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5"
             >
               {[
-                { label: '8+ ký tự', valid: passwordStrength.hasMinLength },
-                { label: 'A-Z', valid: passwordStrength.hasUpperCase },
-                { label: 'a-z', valid: passwordStrength.hasLowerCase },
-                { label: '0-9', valid: passwordStrength.hasNumber },
+                { label: t('auth:register.minLength'), valid: passwordStrength.hasMinLength },
+                { label: t('auth:register.hasUpperCase'), valid: passwordStrength.hasUpperCase },
+                { label: t('auth:register.hasLowerCase'), valid: passwordStrength.hasLowerCase },
+                { label: t('auth:register.hasNumber'), valid: passwordStrength.hasNumber },
               ].map((requirement, index) => (
                 <motion.div
                   key={index}
@@ -206,7 +208,7 @@ export default function Register() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="confirmPassword" className="text-[var(--text-main)] text-sm">Xác nhận mật khẩu</Label>
+          <Label htmlFor="confirmPassword" className="text-[var(--text-main)] text-sm">{t('auth:register.confirmPassword')}</Label>
           <div className="relative">
             <Input
               id="confirmPassword"
@@ -234,7 +236,7 @@ export default function Register() {
               animate={{ opacity: 1, y: 0 }}
               className="text-[10px] text-red-500"
             >
-              Mật khẩu xác nhận không khớp
+              {t('auth:register.confirmPasswordNotMatch')}
             </motion.p>
           )}
         </div>
@@ -247,13 +249,13 @@ export default function Register() {
             className="h-3.5 w-3.5 mt-0.5"
           />
           <label htmlFor="terms" className="text-xs text-[var(--text-sub)] cursor-pointer leading-tight">
-            Tôi đồng ý với{' '}
+            {t('auth:register.agreeTerms')}{' '}
             <a href="#" className="text-[var(--accent-cyan)] hover:underline">
-              điều khoản
+              {t('auth:register.terms')}
             </a>{' '}
-            và{' '}
+            {t('auth:register.and')}{' '}
             <a href="#" className="text-[var(--accent-cyan)] hover:underline">
-              chính sách
+              {t('auth:register.policy')}
             </a>
           </label>
         </div>
@@ -267,18 +269,18 @@ export default function Register() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                Đang xử lý...
+                {t('auth:register.submitting')}
               </>
             ) : (
-              'Đăng ký'
+              t('auth:register.submit')
             )}
           </Button>
         </motion.div>
 
         <p className="text-center text-xs text-[var(--text-sub)] pt-1">
-          Đã có tài khoản?{' '}
+          {t('auth:register.hasAccount')}{' '}
           <Link to="/login" className="text-[var(--accent-cyan)] hover:underline">
-            Đăng nhập ngay
+            {t('auth:register.login')}
           </Link>
         </p>
       </motion.form>

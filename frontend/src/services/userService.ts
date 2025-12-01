@@ -1,5 +1,5 @@
-import api from './api'
-import type { User, ValidationError } from '../types'
+import api from '@/services/api'
+import type { User, ValidationError } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
 interface UpdateUserData {

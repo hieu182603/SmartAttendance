@@ -62,19 +62,11 @@ attendanceSchema.pre("save", function (next) {
   // Tính giờ
   this.calculateWorkHours();
 
-  // Cập nhật trạng thái
+  // Cập nhật trạng thái cơ bản
+  // Note: Logic đi muộn sẽ được xử lý ở controller (cần async để lấy schedule)
   if (this.checkIn) {
-    // Kiểm tra đi muộn
-    const SHIFT_START_HOUR = 8;
-    const SHIFT_START_MINUTE = 0;
-    const LATE_TOLERANCE_MINUTES = 30; 
-    
-    const lateTime = new Date(this.date);
-    lateTime.setHours(SHIFT_START_HOUR, SHIFT_START_MINUTE + LATE_TOLERANCE_MINUTES, 0, 0);
-    
-    if (this.checkIn > lateTime) {
-      this.status = "late";
-    } else {
+    // Nếu status chưa được set từ controller, mặc định là present
+    if (!this.status || this.status === "absent") {
       this.status = "present";
     }
   } else {

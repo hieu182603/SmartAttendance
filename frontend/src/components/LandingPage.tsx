@@ -14,11 +14,11 @@ import {
   Sun,
   Moon,
 } from 'lucide-react'
-import { Button } from './ui/button'
-import { useTheme } from './ThemeProvider'
-import { useAuth } from '../context/AuthContext'
+import { Button } from '@/components/ui/button'
+import { useTheme } from '@/components/ThemeProvider'
+import { useAuth } from '@/context/AuthContext'
 import { useEffect } from 'react'
-import { getRoleBasePath, type UserRoleType } from '../utils/roles'
+import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
 
 export default function LandingPage() {
   const navigate = useNavigate()

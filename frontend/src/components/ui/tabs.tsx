@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react'
-import { cn } from './utils'
+import { cn } from '@/components/ui/utils'
 
 interface TabsContextType {
   value: string | null

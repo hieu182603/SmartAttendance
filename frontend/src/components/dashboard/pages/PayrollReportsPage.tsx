@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   DollarSign,
@@ -24,17 +25,17 @@ import {
   Cell,
 } from "recharts";
 
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { Badge } from "../../ui/badge";
-import { Input } from "../../ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   getPayrollReports,
   type PayrollSummary,
   type DepartmentPayroll,
   type MonthlyTrendPoint,
-} from "../../../services/payrollService";
+} from "@/services/payrollService";
 
 const COLORS = ["#8B5CF6", "#06B6D4", "#F59E0B", "#10B981", "#EF4444"];
 
@@ -52,6 +53,7 @@ const formatFullCurrency = (amount: number): string => {
 };
 
 const PayrollReportsPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [summary, setSummary] = useState<PayrollSummary[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,7 +82,7 @@ const PayrollReportsPage: React.FC = () => {
         }
       } catch (error) {
         console.error("[PayrollReports] fetch error:", error);
-        toast.error("Không thể tải báo cáo lương");
+        toast.error(t('dashboard:payrollReports.error'));
       } finally {
         setLoading(false);
       }
@@ -129,7 +131,7 @@ const PayrollReportsPage: React.FC = () => {
   }, [departmentData, searchQuery]);
 
   const handleExport = (): void => {
-    toast.success("📥 Đang xuất báo cáo lương...");
+    toast.success(t('dashboard:payrollReports.exporting'));
   };
 
   return (
@@ -137,10 +139,10 @@ const PayrollReportsPage: React.FC = () => {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            Báo cáo lương
+            {t('dashboard:payrollReports.title')}
           </h1>
           <p className="text-[var(--text-sub)] mt-2">
-            Tổng quan và phân tích chi phí lương
+            {t('dashboard:payrollReports.description')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -165,7 +167,7 @@ const PayrollReportsPage: React.FC = () => {
             className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
           >
             <Download className="h-4 w-4 mr-2" />
-            Xuất báo cáo
+            {t('dashboard:payrollReports.export')}
           </Button>
         </div>
       </div>
@@ -173,7 +175,7 @@ const PayrollReportsPage: React.FC = () => {
       {!currentPayroll ? (
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="py-16 text-center text-[var(--text-sub)]">
-            Chưa có dữ liệu báo cáo lương
+            {t('common:noData')}
           </CardContent>
         </Card>
       ) : (
@@ -188,7 +190,7 @@ const PayrollReportsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-[var(--text-sub)]">
-                        Tổng lương
+                        {t('dashboard:payrollReports.stats.totalSalary')}
                       </p>
                       <p className="text-2xl text-[var(--primary)] mt-2">
                         {formatCompactCurrency(currentPayroll.totalSalary)}
@@ -229,7 +231,7 @@ const PayrollReportsPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-[var(--text-sub)]">
-                        Nhân viên
+                        {t('dashboard:payrollReports.stats.employees')}
                       </p>
                       <p className="text-2xl text-[var(--accent-cyan)] mt-2">
                         {currentPayroll.totalEmployees}
@@ -318,7 +320,7 @@ const PayrollReportsPage: React.FC = () => {
                       formatter={(value: number) => `${value} triệu`}
                     />
                     <Legend />
-                    <Bar dataKey="total" fill="#8B5CF6" name="Tổng lương (triệu)" />
+                    <Bar dataKey="total" fill="#8B5CF6" name={t('dashboard:payrollReports.stats.totalSalary') + ' (triệu)'} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -327,7 +329,7 @@ const PayrollReportsPage: React.FC = () => {
             <Card className="bg-[var(--surface)] border-[var(--border)]">
               <CardHeader>
                 <CardTitle className="text-[var(--text-main)]">
-                  Phân bổ theo phòng ban
+                  {t('dashboard:payrollReports.charts.departmentDistribution')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -419,7 +421,7 @@ const PayrollReportsPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <p className="text-xs text-[var(--text-sub)]">
-                          Tổng lương
+                          {t('dashboard:payrollReports.stats.totalSalary')}
                         </p>
                         <p className="text-lg text-[var(--primary)]">
                           {formatCompactCurrency(dept.totalSalary)}
@@ -468,7 +470,7 @@ const PayrollReportsPage: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--shell)]">
                     <span className="text-[var(--text-sub)]">
-                      Tổng lương cơ bản
+                      {t('dashboard:payrollReports.stats.baseSalary')}
                     </span>
                     <span className="text-[var(--text-main)]">
                       {formatFullCurrency(currentPayroll.totalSalary)}

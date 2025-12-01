@@ -20,7 +20,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       return 'dark'
     }
-    return 'dark' // Default to dark for this app
+    return 'dark' 
   })
 
   useEffect(() => {

@@ -43,28 +43,62 @@ export const ROLE_COLORS: Record<UserRoleType, RoleColor> = {
     [UserRole.EMPLOYEE]: { bg: 'bg-gray-500/20', text: 'text-gray-500' },
 };
 
-// Permission types
+// Permission types - Fine-grained permissions
 export const Permission = {
-    // Attendance
-    VIEW_OWN_ATTENDANCE: 'VIEW_OWN_ATTENDANCE',
-    VIEW_ALL_ATTENDANCE: 'VIEW_ALL_ATTENDANCE',
-    MANUAL_CHECKIN: 'MANUAL_CHECKIN',
+    // Attendance - Fine-grained
+    ATTENDANCE_VIEW_OWN: 'ATTENDANCE_VIEW_OWN',
+    ATTENDANCE_VIEW_DEPARTMENT: 'ATTENDANCE_VIEW_DEPARTMENT',
+    ATTENDANCE_VIEW_ALL: 'ATTENDANCE_VIEW_ALL',
+    ATTENDANCE_MANUAL_CHECKIN: 'ATTENDANCE_MANUAL_CHECKIN',
+    ATTENDANCE_APPROVE: 'ATTENDANCE_APPROVE',
 
-    // Requests
-    CREATE_REQUEST: 'CREATE_REQUEST',
-    APPROVE_REQUEST: 'APPROVE_REQUEST',
-    APPROVE_ALL_REQUESTS: 'APPROVE_ALL_REQUESTS',
+    // Requests - Fine-grained
+    REQUESTS_CREATE: 'REQUESTS_CREATE',
+    REQUESTS_VIEW_OWN: 'REQUESTS_VIEW_OWN',
+    REQUESTS_APPROVE_DEPARTMENT: 'REQUESTS_APPROVE_DEPARTMENT',
+    REQUESTS_APPROVE_ALL: 'REQUESTS_APPROVE_ALL',
 
     // Analytics
-    VIEW_ANALYTICS: 'VIEW_ANALYTICS',
+    ANALYTICS_VIEW_DEPARTMENT: 'ANALYTICS_VIEW_DEPARTMENT',
+    ANALYTICS_VIEW_ALL: 'ANALYTICS_VIEW_ALL',
     VIEW_REPORTS: 'VIEW_REPORTS',
 
-    // User Management
-    VIEW_USERS: 'VIEW_USERS',
-    MANAGE_USERS: 'MANAGE_USERS',
+    // User Management - Fine-grained
+    USERS_VIEW: 'USERS_VIEW',
+    USERS_CREATE: 'USERS_CREATE',
+    USERS_UPDATE: 'USERS_UPDATE',
+    USERS_DELETE: 'USERS_DELETE',
+    USERS_MANAGE_ROLE: 'USERS_MANAGE_ROLE',
+
+    // Payroll
+    PAYROLL_VIEW: 'PAYROLL_VIEW',
+    PAYROLL_MANAGE: 'PAYROLL_MANAGE',
+    PAYROLL_EXPORT: 'PAYROLL_EXPORT',
+
+    // Departments
+    DEPARTMENTS_VIEW: 'DEPARTMENTS_VIEW',
+    DEPARTMENTS_MANAGE: 'DEPARTMENTS_MANAGE',
+
+    // Branches
+    BRANCHES_VIEW: 'BRANCHES_VIEW',
+    BRANCHES_MANAGE: 'BRANCHES_MANAGE',
 
     // System
-    MANAGE_SYSTEM: 'MANAGE_SYSTEM',
+    SYSTEM_SETTINGS_VIEW: 'SYSTEM_SETTINGS_VIEW',
+    SYSTEM_SETTINGS_UPDATE: 'SYSTEM_SETTINGS_UPDATE',
+    AUDIT_LOGS_VIEW: 'AUDIT_LOGS_VIEW',
+
+    // Legacy permissions (keep for backward compatibility)
+    VIEW_OWN_ATTENDANCE: 'ATTENDANCE_VIEW_OWN',
+    VIEW_ALL_ATTENDANCE: 'ATTENDANCE_VIEW_ALL',
+    MANUAL_CHECKIN: 'ATTENDANCE_MANUAL_CHECKIN',
+    CREATE_REQUEST: 'REQUESTS_CREATE',
+    APPROVE_REQUEST: 'REQUESTS_APPROVE_DEPARTMENT',
+    APPROVE_ALL_REQUESTS: 'REQUESTS_APPROVE_ALL',
+    VIEW_ANALYTICS: 'ANALYTICS_VIEW_DEPARTMENT',
+    VIEW_USERS: 'USERS_VIEW',
+    MANAGE_USERS: 'USERS_CREATE', // Default to CREATE for backward compatibility
+    MANAGE_SYSTEM: 'SYSTEM_SETTINGS_UPDATE',
 } as const;
 
 export type PermissionType = typeof Permission[keyof typeof Permission];
@@ -72,42 +106,58 @@ export type PermissionType = typeof Permission[keyof typeof Permission];
 // Role to Permissions mapping
 export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
     [UserRole.EMPLOYEE]: [
-        Permission.VIEW_OWN_ATTENDANCE,
-        Permission.CREATE_REQUEST,
+        Permission.ATTENDANCE_VIEW_OWN,
+        Permission.REQUESTS_CREATE,
+        Permission.REQUESTS_VIEW_OWN,
     ],
 
     [UserRole.MANAGER]: [
-        Permission.VIEW_OWN_ATTENDANCE,
-        Permission.VIEW_ALL_ATTENDANCE,
-        Permission.CREATE_REQUEST,
-        Permission.APPROVE_REQUEST,
-        Permission.VIEW_ANALYTICS,
+        Permission.ATTENDANCE_VIEW_OWN,
+        Permission.ATTENDANCE_VIEW_DEPARTMENT,
+        Permission.REQUESTS_CREATE,
+        Permission.REQUESTS_VIEW_OWN,
+        Permission.REQUESTS_APPROVE_DEPARTMENT,
+        Permission.ANALYTICS_VIEW_DEPARTMENT,
         Permission.VIEW_REPORTS,
     ],
 
     [UserRole.HR_MANAGER]: [
-        Permission.VIEW_OWN_ATTENDANCE,
-        Permission.VIEW_ALL_ATTENDANCE,
-        Permission.CREATE_REQUEST,
-        Permission.APPROVE_ALL_REQUESTS,
-        Permission.MANUAL_CHECKIN,
-        Permission.VIEW_ANALYTICS,
+        Permission.ATTENDANCE_VIEW_OWN,
+        Permission.ATTENDANCE_VIEW_ALL,
+        Permission.ATTENDANCE_MANUAL_CHECKIN,
+        Permission.REQUESTS_CREATE,
+        Permission.REQUESTS_VIEW_OWN,
+        Permission.REQUESTS_APPROVE_ALL,
+        Permission.ANALYTICS_VIEW_ALL,
         Permission.VIEW_REPORTS,
-        Permission.VIEW_USERS,
-        Permission.MANAGE_USERS,
+        Permission.USERS_VIEW,
+        Permission.USERS_CREATE,
+        Permission.USERS_UPDATE,
+        Permission.PAYROLL_VIEW,
     ],
 
     [UserRole.ADMIN]: [
-        Permission.VIEW_OWN_ATTENDANCE,
-        Permission.VIEW_ALL_ATTENDANCE,
-        Permission.CREATE_REQUEST,
-        Permission.APPROVE_ALL_REQUESTS,
-        Permission.MANUAL_CHECKIN,
-        Permission.VIEW_ANALYTICS,
+        Permission.ATTENDANCE_VIEW_ALL,
+        Permission.ATTENDANCE_MANUAL_CHECKIN,
+        Permission.ATTENDANCE_APPROVE,
+        Permission.REQUESTS_APPROVE_ALL,
+        Permission.ANALYTICS_VIEW_ALL,
         Permission.VIEW_REPORTS,
-        Permission.VIEW_USERS,
-        Permission.MANAGE_USERS,
-        Permission.MANAGE_SYSTEM,
+        Permission.USERS_VIEW,
+        Permission.USERS_CREATE,
+        Permission.USERS_UPDATE,
+        Permission.USERS_DELETE,
+        Permission.USERS_MANAGE_ROLE,
+        Permission.PAYROLL_VIEW,
+        Permission.PAYROLL_MANAGE,
+        Permission.PAYROLL_EXPORT,
+        Permission.DEPARTMENTS_VIEW,
+        Permission.DEPARTMENTS_MANAGE,
+        Permission.BRANCHES_VIEW,
+        Permission.BRANCHES_MANAGE,
+        Permission.SYSTEM_SETTINGS_VIEW,
+        Permission.SYSTEM_SETTINGS_UPDATE,
+        Permission.AUDIT_LOGS_VIEW,
     ],
 
     [UserRole.SUPER_ADMIN]: Object.values(Permission) as PermissionType[], // All permissions

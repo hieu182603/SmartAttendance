@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   Building2,
@@ -20,13 +21,13 @@ import {
   Clock,
   CheckCircle2
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { Badge } from '../../ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../ui/dialog';
-import { Label } from '../../ui/label';
-import { Separator } from '../../ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   getAllBranches,
@@ -35,15 +36,16 @@ import {
   updateBranch,
   deleteBranch,
   type Branch as BranchType,
-} from '../../../services/branchService';
-import api from '../../../services/api';
+} from '@/services/branchService';
+import api from '@/services/api';
 
 interface Branch {
   id: string;
   _id?: string;
   name: string;
   code: string;
-  address: string;
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
   city: string;
   country: string;
   phone: string;
@@ -65,6 +67,7 @@ interface Manager {
 }
 
 export function BranchesPage() {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,7 +99,8 @@ export function BranchesPage() {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
-    address: '',
+    latitude: '',
+    longitude: '',
     city: '',
     country: 'Việt Nam',
     phone: '',
@@ -143,7 +147,8 @@ export function BranchesPage() {
         _id: branch._id,
         name: branch.name,
         code: branch.code,
-        address: branch.address,
+        latitude: typeof branch.latitude === 'number' ? branch.latitude : (branch.latitude !== undefined && branch.latitude !== null ? parseFloat(branch.latitude as any) : null),
+        longitude: typeof branch.longitude === 'number' ? branch.longitude : (branch.longitude !== undefined && branch.longitude !== null ? parseFloat(branch.longitude as any) : null),
         city: branch.city,
         country: branch.country,
         phone: branch.phone || '',
@@ -169,7 +174,7 @@ export function BranchesPage() {
       }
     } catch (error) {
       console.error('Error loading branches:', error);
-      toast.error('Không thể tải danh sách chi nhánh');
+      toast.error(t('dashboard:branches.dialog.error'));
     } finally {
       setLoading(false);
     }
@@ -203,7 +208,8 @@ export function BranchesPage() {
       setFormData({
         name: branch.name,
         code: branch.code,
-        address: branch.address,
+        latitude: (branch.latitude !== undefined && branch.latitude !== null) ? branch.latitude.toString() : '',
+        longitude: (branch.longitude !== undefined && branch.longitude !== null) ? branch.longitude.toString() : '',
         city: branch.city,
         country: branch.country,
         phone: branch.phone || '',
@@ -216,7 +222,8 @@ export function BranchesPage() {
       setFormData({
         name: '',
         code: '',
-        address: '',
+        latitude: '',
+        longitude: '',
         city: '',
         country: 'Việt Nam',
         phone: '',
@@ -229,8 +236,21 @@ export function BranchesPage() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.code || !formData.address || !formData.city || !formData.managerId) {
+    if (!formData.name || !formData.code || !formData.latitude || !formData.longitude || !formData.city || !formData.managerId) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+
+    const latitude = parseFloat(formData.latitude);
+    const longitude = parseFloat(formData.longitude);
+
+    if (isNaN(latitude) || latitude < -90 || latitude > 90) {
+      toast.error('Vĩ độ phải là số từ -90 đến 90');
+      return;
+    }
+
+    if (isNaN(longitude) || longitude < -180 || longitude > 180) {
+      toast.error('Kinh độ phải là số từ -180 đến 180');
       return;
     }
 
@@ -239,7 +259,8 @@ export function BranchesPage() {
         await createBranch({
           name: formData.name,
           code: formData.code,
-          address: formData.address,
+          latitude: latitude,
+          longitude: longitude,
           city: formData.city,
           country: formData.country,
           phone: formData.phone || undefined,
@@ -247,12 +268,13 @@ export function BranchesPage() {
           managerId: formData.managerId,
           timezone: formData.timezone,
         });
-        toast.success(`Đã tạo chi nhánh ${formData.name}`);
+        toast.success(t('dashboard:branches.dialog.createSuccess'));
       } else if (selectedBranch) {
         await updateBranch(selectedBranch._id || selectedBranch.id, {
           name: formData.name,
           code: formData.code,
-          address: formData.address,
+          latitude: latitude,
+          longitude: longitude,
           city: formData.city,
           country: formData.country,
           phone: formData.phone || undefined,
@@ -260,7 +282,7 @@ export function BranchesPage() {
           managerId: formData.managerId,
           timezone: formData.timezone,
         });
-        toast.success(`Đã cập nhật chi nhánh ${formData.name}`);
+        toast.success(t('dashboard:branches.dialog.updateSuccess'));
       }
       setIsDialogOpen(false);
       await loadBranches();
@@ -293,10 +315,10 @@ export function BranchesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            Quản lý chi nhánh
+            {t('dashboard:branches.title')}
           </h1>
           <p className="text-[var(--text-sub)] mt-2">
-            Quản lý các chi nhánh trên toàn quốc
+            {t('dashboard:branches.description')}
           </p>
         </div>
         <Button
@@ -304,7 +326,7 @@ export function BranchesPage() {
           className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Thêm chi nhánh
+          {t('dashboard:branches.add')}
         </Button>
       </div>
 
@@ -319,7 +341,7 @@ export function BranchesPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Tổng chi nhánh</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:branches.stats.total')}</p>
                   <p className="text-3xl text-[var(--primary)] mt-2">{stats.total}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--primary)]/20 flex items-center justify-center">
@@ -339,7 +361,7 @@ export function BranchesPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Tổng nhân viên</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:branches.stats.totalEmployees')}</p>
                   <p className="text-3xl text-[var(--accent-cyan)] mt-2">{stats.totalEmployees}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
@@ -359,7 +381,7 @@ export function BranchesPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Phòng ban</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:branches.stats.totalDepartments')}</p>
                   <p className="text-3xl text-[var(--warning)] mt-2">{stats.totalDepartments}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--warning)]/20 flex items-center justify-center">
@@ -379,7 +401,7 @@ export function BranchesPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Hoạt động</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:branches.stats.active')}</p>
                   <p className="text-3xl text-[var(--success)] mt-2">{stats.active}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
@@ -397,7 +419,7 @@ export function BranchesPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
             <Input
-              placeholder="Tìm kiếm chi nhánh theo tên, mã hoặc thành phố..."
+              placeholder={t('dashboard:branches.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -408,11 +430,11 @@ export function BranchesPage() {
 
       {/* Branches Grid */}
       {loading ? (
-        <div className="text-center py-8 text-[var(--text-sub)]">Đang tải...</div>
+        <div className="text-center py-8 text-[var(--text-sub)]">{t('dashboard:branches.loading')}</div>
       ) : filteredBranches.length === 0 ? (
         <div className="text-center py-12">
           <Building2 className="h-16 w-16 text-[var(--text-sub)] mx-auto mb-4 opacity-50" />
-          <p className="text-[var(--text-sub)]">Không tìm thấy chi nhánh nào</p>
+          <p className="text-[var(--text-sub)]">{t('dashboard:branches.noResults')}</p>
         </div>
       ) : (
       <>
@@ -439,7 +461,7 @@ export function BranchesPage() {
                             {branch.code}
                           </Badge>
                           <Badge className="bg-[var(--success)]/20 text-[var(--success)]">
-                            {branch.status === 'active' ? 'Hoạt động' : 'Ngừng'}
+                            {branch.status === 'active' ? t('dashboard:branches.status.active') : t('dashboard:branches.status.inactive')}
                           </Badge>
                         </div>
                       </div>
@@ -472,9 +494,17 @@ export function BranchesPage() {
                   <div className="flex items-start gap-2 text-sm">
                     <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
                     <span className="text-[var(--text-sub)]">
-                      {branch.address}, {branch.city}, {branch.country}
+                      {branch.city}, {branch.country}
                     </span>
                   </div>
+                  {(branch.latitude !== undefined && branch.latitude !== null && branch.longitude !== undefined && branch.longitude !== null) && (
+                    <div className="flex items-start gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
+                      <span className="text-[var(--text-sub)]">
+                        Tọa độ: {typeof branch.latitude === 'number' ? branch.latitude.toFixed(6) : 'N/A'}, {typeof branch.longitude === 'number' ? branch.longitude.toFixed(6) : 'N/A'}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-sm">
                     <Phone className="h-4 w-4 text-[var(--accent-cyan)]" />
                     <span className="text-[var(--text-main)]">{branch.phone}</span>
@@ -609,7 +639,7 @@ export function BranchesPage() {
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {dialogMode === 'create' ? 'Thêm chi nhánh mới' : 'Chỉnh sửa chi nhánh'}
+              {dialogMode === 'create' ? t('dashboard:branches.dialog.addTitle') : t('dashboard:branches.dialog.editTitle')}
             </DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
               {dialogMode === 'create' ? 'Điền thông tin chi nhánh mới' : 'Cập nhật thông tin chi nhánh'}
@@ -618,7 +648,7 @@ export function BranchesPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Tên chi nhánh *</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.name')} *</Label>
               <Input
                 placeholder="Ví dụ: Chi nhánh Hà Nội"
                 value={formData.name}
@@ -628,7 +658,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Mã chi nhánh *</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.code')} *</Label>
               <Input
                 placeholder="Ví dụ: HN"
                 value={formData.code}
@@ -637,18 +667,32 @@ export function BranchesPage() {
               />
             </div>
 
-            <div className="space-y-2 col-span-2">
-              <Label className="text-[var(--text-main)]">Địa chỉ *</Label>
+            <div className="space-y-2">
+              <Label className="text-[var(--text-main)]">Vĩ độ (Latitude) *</Label>
               <Input
-                placeholder="Số nhà, tên đường, quận/huyện"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                type="number"
+                step="any"
+                placeholder="Ví dụ: 21.0285"
+                value={formData.latitude}
+                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Thành phố *</Label>
+              <Label className="text-[var(--text-main)]">Kinh độ (Longitude) *</Label>
+              <Input
+                type="number"
+                step="any"
+                placeholder="Ví dụ: 105.8542"
+                value={formData.longitude}
+                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.city')} *</Label>
               <Input
                 placeholder="Ví dụ: Hà Nội"
                 value={formData.city}
@@ -658,7 +702,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Quốc gia *</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.country')} *</Label>
               <Input
                 placeholder="Việt Nam"
                 value={formData.country}
@@ -668,7 +712,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Số điện thoại</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.phone')}</Label>
               <Input
                 placeholder="+84 24 xxxx xxxx"
                 value={formData.phone}
@@ -678,7 +722,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Email</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.email')}</Label>
               <Input
                 type="email"
                 placeholder="branch@company.com"
@@ -719,13 +763,13 @@ export function BranchesPage() {
               onClick={() => setIsDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
-              Hủy
+              {t('dashboard:branches.dialog.cancel')}
             </Button>
             <Button
               onClick={handleSubmit}
               className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
             >
-              {dialogMode === 'create' ? 'Tạo chi nhánh' : 'Cập nhật'}
+              {dialogMode === 'create' ? t('dashboard:branches.dialog.save') : t('common:update')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -815,9 +859,13 @@ export function BranchesPage() {
                     <div className="flex items-start space-x-2 p-2 rounded-lg bg-[var(--shell)]">
                       <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5" />
                       <div>
-                        <p className="text-xs text-[var(--text-sub)]">Địa chỉ</p>
-                        <p className="text-sm text-[var(--text-main)]">{selectedBranch.address}</p>
+                        <p className="text-xs text-[var(--text-sub)]">Địa điểm</p>
                         <p className="text-sm text-[var(--text-main)]">{selectedBranch.city}, {selectedBranch.country}</p>
+                        {(selectedBranch.latitude !== undefined && selectedBranch.latitude !== null && selectedBranch.longitude !== undefined && selectedBranch.longitude !== null) && (
+                          <p className="text-xs text-[var(--text-sub)] mt-1">
+                            Tọa độ: {typeof selectedBranch.latitude === 'number' ? selectedBranch.latitude.toFixed(6) : 'N/A'}, {typeof selectedBranch.longitude === 'number' ? selectedBranch.longitude.toFixed(6) : 'N/A'}
+                          </p>
+                        )}
                       </div>
                     </div>
 

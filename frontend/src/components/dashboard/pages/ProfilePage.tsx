@@ -1,7 +1,7 @@
 import React from 'react'
-import { useAuth } from '../../../context/AuthContext'
-import { Profile } from '../Profile'
-import { UserRole, type UserRoleType } from '../../../utils/roles'
+import { useAuth } from '@/context/AuthContext'
+import { Profile } from '@/components/dashboard/Profile'
+import { UserRole, type UserRoleType } from '@/utils/roles'
 
 export default function ProfilePage(): React.JSX.Element {
   const { user } = useAuth()

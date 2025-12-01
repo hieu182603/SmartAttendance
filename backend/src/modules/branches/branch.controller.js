@@ -4,7 +4,8 @@ import { z } from "zod";
 const createBranchSchema = z.object({
   name: z.string().min(1, "Tên chi nhánh không được để trống"),
   code: z.string().min(1, "Mã chi nhánh không được để trống"),
-  address: z.string().min(1, "Địa chỉ không được để trống"),
+  latitude: z.number().min(-90, "Vĩ độ phải từ -90 đến 90").max(90, "Vĩ độ phải từ -90 đến 90"),
+  longitude: z.number().min(-180, "Kinh độ phải từ -180 đến 180").max(180, "Kinh độ phải từ -180 đến 180"),
   city: z.string().min(1, "Thành phố không được để trống"),
   country: z.string().optional(),
   phone: z.string().optional(),
@@ -18,7 +19,8 @@ const createBranchSchema = z.object({
 const updateBranchSchema = z.object({
   name: z.string().min(1).optional(),
   code: z.string().min(1).optional(),
-  address: z.string().min(1).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   city: z.string().min(1).optional(),
   country: z.string().optional(),
   phone: z.string().optional(),

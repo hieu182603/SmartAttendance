@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Camera,
   MapPin,
@@ -6,9 +7,9 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import api from "../../../services/api";
+import api from "@/services/api";
 import type { AxiosError } from "axios";
 
 const dataURLtoBlob = (dataURL: string): Blob => {
@@ -86,6 +87,7 @@ interface CheckInError {
 }
 
 const ScanPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [state, setState] = useState<State>({
     isCameraReady: false,
     isProcessing: false,
@@ -153,7 +155,7 @@ const toRad = (value: number) => (value * Math.PI) / 180;
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 30000, 
           maximumAge: 0,
         });
       });
@@ -172,10 +174,25 @@ const toRad = (value: number) => (value * Math.PI) / 180;
 
       setLocationData(location);
       setPermissions(prev => ({ ...prev, location: true }));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error getting location:", error);
-      setLocationError("Không thể lấy vị trí. Vui lòng kiểm tra quyền truy cập.");
+      
+      // Xử lý các loại lỗi cụ thể
+      let errorMessage = "Không thể lấy vị trí. ";
+      
+      if (error.code === 1) { // PERMISSION_DENIED
+        errorMessage += "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.";
+      } else if (error.code === 2) { // POSITION_UNAVAILABLE
+        errorMessage += "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.";
+      } else if (error.code === 3) { // TIMEOUT
+        errorMessage += "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.";
+      } else {
+        errorMessage += "Vui lòng kiểm tra quyền truy cập và GPS.";
+      }
+      
+      setLocationError(errorMessage);
       setPermissions(prev => ({ ...prev, location: false }));
+      toast.error(errorMessage);
     } finally {
       setState(prev => ({ ...prev, locationLoading: false }));
     }
@@ -463,7 +480,15 @@ let lastCheckDate = new Date().toDateString();
   useEffect(() => {
     if (!state.checkInTime || state.hasCheckedOut) return;
 
-    const MIN_WORK_HOURS = 8; 
+    const MIN_WORK_HOURS = 2; 
+    const now = new Date();
+    const hoursWorked = (now.getTime() - state.checkInTime.getTime()) / (1000 * 60 * 60);
+    if (hoursWorked >= MIN_WORK_HOURS) {
+      setState(prev => ({ ...prev, canCheckOut: true }));
+      return; 
+    }
+
+    // Kiểm tra định kỳ mỗi phút
     const checkInterval = setInterval(() => {
       const now = new Date();
       const hoursWorked = (now.getTime() - state.checkInTime!.getTime()) / (1000 * 60 * 60);
@@ -472,13 +497,7 @@ let lastCheckDate = new Date().toDateString();
         setState(prev => ({ ...prev, canCheckOut: true }));
         clearInterval(checkInterval);
       }
-    }, 60000); 
-
-    const now = new Date();
-    const hoursWorked = (now.getTime() - state.checkInTime.getTime()) / (1000 * 60 * 60);
-    if (hoursWorked >= 8) { 
-      setState(prev => ({ ...prev, canCheckOut: true }));
-    }
+    }, 60000);
 
     return () => clearInterval(checkInterval);
   }, [state.checkInTime, state.hasCheckedOut]);
@@ -488,7 +507,7 @@ let lastCheckDate = new Date().toDateString();
     return () => {
       stopCamera();
     };
-  }, [startCamera, stopCamera]);
+  }, []); 
 
   const { isCameraReady, isProcessing, locationLoading, hasCheckedIn, hasCheckedOut, canCheckOut } = state;
 
@@ -497,17 +516,17 @@ let lastCheckDate = new Date().toDateString();
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            Chấm công hôm nay
+            {t('dashboard:scan.checkInToday')}
           </CardTitle>
           <p className="text-sm text-[var(--text-sub)] mt-2">
-            Chụp ảnh và xác nhận vị trí để chấm công
+            {t('dashboard:scan.description')}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Trạng thái quyền */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">
-              Trạng thái quyền truy cập
+              {t('dashboard:scan.permissionStatus')}
             </h3>
             <div className="flex flex-wrap gap-2">
               {Object.entries(permissions).map(([key, granted]) => (
@@ -562,21 +581,51 @@ let lastCheckDate = new Date().toDateString();
               <MapPin className="h-4 w-4" />
               Thông tin vị trí
             </h3>
-            {locationLoading ? (
+            {!locationData && !locationError ? (
               <div className="flex items-center justify-center gap-2 py-4 text-sm text-[var(--text-sub)]">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Đang lấy vị trí...
               </div>
             ) : locationError ? (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                {locationError}
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <p>{locationError}</p>
+                </div>
+                <button
+                  onClick={getLocation}
+                  disabled={locationLoading}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {locationLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang thử lại...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="h-4 w-4" />
+                      Thử lại
+                    </>
+                  )}
+                </button>
               </div>
             ) : locationData ? (
-              <>
+              <div className="relative">
+                {/* Loading overlay khi đang refresh */}
+                {locationLoading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[var(--shell)]/80 backdrop-blur-sm">
+                    <div className="flex items-center gap-2 text-sm text-[var(--text-main)]">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang làm mới...
+                    </div>
+                  </div>
+                )}
+                
                 <div className="space-y-2 text-sm">
                   {locationData.nearestOffice && (
                     <div className="flex justify-between items-start">
-<span className="text-[var(--text-sub)]">Văn phòng gần nhất:</span>
+                      <span className="text-[var(--text-sub)]">Văn phòng gần nhất:</span>
                       <span className="font-medium text-[var(--text-main)] text-right">
                         {locationData.nearestOffice}
                       </span>
@@ -609,17 +658,14 @@ let lastCheckDate = new Date().toDateString();
                 </div>
                 <button
                   onClick={getLocation}
-                  className="mt-2 text-xs text-[var(--primary)] hover:underline"
+                  disabled={locationLoading}
+                  className="mt-3 flex items-center justify-center gap-2 w-full rounded-lg border border-[var(--border)] bg-[var(--shell)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
+                  <MapPin className="h-4 w-4" />
                   Làm mới vị trí
                 </button>
-              </>
-            ) : (
-              <div className="flex items-center justify-center gap-2 py-4 text-sm text-[var(--text-sub)]">
-                <MapPin className="h-4 w-4" />
-                Đang lấy vị trí...
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Nút check-in và check-out */}

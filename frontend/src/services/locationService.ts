@@ -1,4 +1,4 @@
-import api from './api'
+import api from '@/services/api'
 
 interface Location {
   _id: string
@@ -28,6 +28,7 @@ export const getAllLocations = async (): Promise<Location[]> => {
     return []
   }
 }
+
 
 
 

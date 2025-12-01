@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getDashboardData } from '../services/dashboardService'
+import { getDashboardData } from '@/services/dashboardService'
 import type { AxiosRequestConfig } from 'axios'
 
 interface DashboardSummary {

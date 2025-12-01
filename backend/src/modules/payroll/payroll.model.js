@@ -41,7 +41,7 @@ payrollReportSchema.index({ month: 1 }, { unique: true });
 payrollReportSchema.index({ periodStart: -1 });
 
 export const PayrollReportModel = mongoose.model(
-  "PayrollReport",
+  "PayrollRecords",
   payrollReportSchema
 );
 
@@ -174,8 +174,8 @@ payrollRecordSchema.pre("save", function (next) {
   next();
 });
 
-export const PayrollRecordModel = mongoose.model(
-  "PayrollRecord",
-  payrollRecordSchema
-);
+// export const PayrollRecordModel = mongoose.model(
+//   "PayrollRecord",
+//   payrollRecordSchema
+// );
 

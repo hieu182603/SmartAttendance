@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
     Briefcase,
@@ -17,16 +18,16 @@ import {
     ChevronsLeft,
     ChevronsRight
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
-import { Badge } from '../../ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../ui/dialog';
-import { Label } from '../../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Separator } from '../../ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Textarea } from '../../ui/textarea';
+import { Textarea } from '@/components/ui/textarea';
 import {
     getAllDepartments,
     getDepartmentStats,
@@ -34,9 +35,9 @@ import {
     updateDepartment,
     deleteDepartment,
     type Department as DepartmentType,
-} from '../../../services/departmentService';
-import { getBranchesList } from '../../../services/branchService';
-import api from '../../../services/api';
+} from '@/services/departmentService';
+import { getBranchesList } from '@/services/branchService';
+import api from '@/services/api';
 
 
 interface Department {
@@ -70,6 +71,7 @@ interface Manager {
 }
 
 export function DepartmentsPage() {
+    const { t } = useTranslation(['dashboard', 'common']);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [managers, setManagers] = useState<Manager[]>([]);
@@ -177,7 +179,7 @@ export function DepartmentsPage() {
             }
         } catch (error) {
             console.error('Error loading departments:', error);
-            toast.error('Không thể tải danh sách phòng ban');
+            toast.error(t('dashboard:departments.dialog.error'));
         } finally {
             setLoading(false);
         }
@@ -255,7 +257,7 @@ export function DepartmentsPage() {
                 managerId: formData.managerId,
                 budget: parseInt(formData.budget) || 0,
                 });
-                toast.success(`Đã tạo phòng ban ${formData.name}`);
+                toast.success(t('dashboard:departments.dialog.createSuccess'));
         } else if (selectedDepartment) {
                 await updateDepartment(selectedDepartment._id || selectedDepartment.id, {
                         name: formData.name,
@@ -265,7 +267,7 @@ export function DepartmentsPage() {
                         managerId: formData.managerId,
                     budget: parseInt(formData.budget) || undefined,
                 });
-                toast.success(`Đã cập nhật phòng ban ${formData.name}`);
+                toast.success(t('dashboard:departments.dialog.updateSuccess'));
         }
         setIsDialogOpen(false);
             await loadDepartments();
@@ -298,10 +300,10 @@ export function DepartmentsPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-                        Quản lý phòng ban
+                        {t('dashboard:departments.title')}
                     </h1>
                     <p className="text-[var(--text-sub)] mt-2">
-                        Quản lý các phòng ban trong công ty
+                        {t('dashboard:departments.description')}
                     </p>
                 </div>
                 <Button
@@ -309,7 +311,7 @@ export function DepartmentsPage() {
                     className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
                 >
                     <Plus className="h-4 w-4 mr-2" />
-                    Thêm phòng ban
+                    {t('dashboard:departments.add')}
                 </Button>
             </div>
 
@@ -324,7 +326,7 @@ export function DepartmentsPage() {
                         <CardContent className="p-6 mt-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-[var(--text-sub)]">Tổng phòng ban</p>
+                                    <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departments.stats.total')}</p>
                                     <p className="text-3xl text-[var(--primary)] mt-2">{stats.total}</p>
                                 </div>
                                 <div className="h-12 w-12 rounded-full bg-[var(--primary)]/20 flex items-center justify-center">
@@ -344,7 +346,7 @@ export function DepartmentsPage() {
                         <CardContent className="p-6 mt-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-[var(--text-sub)]">Tổng nhân viên</p>
+                                    <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departments.stats.totalEmployees')}</p>
                                     <p className="text-3xl text-[var(--accent-cyan)] mt-2">{stats.totalEmployees}</p>
                                 </div>
                                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
@@ -384,7 +386,7 @@ export function DepartmentsPage() {
                         <CardContent className="p-6 mt-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-[var(--text-sub)]">Tổng ngân sách</p>
+                                    <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departments.stats.totalBudget')}</p>
                                     <p className="text-2xl text-[var(--warning)] mt-2">
                                         {(stats.totalBudget / 1000000000).toFixed(1)}B
                                     </p>
@@ -406,7 +408,7 @@ export function DepartmentsPage() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
                                 <Input
-                                    placeholder="Tìm kiếm phòng ban..."
+                                    placeholder={t('dashboard:departments.searchPlaceholder')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -415,7 +417,7 @@ export function DepartmentsPage() {
                         </div>
                         <Select value={filterBranch} onValueChange={setFilterBranch}>
                             <SelectTrigger className="w-full md:w-[200px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                                <SelectValue placeholder="Chi nhánh" />
+                                <SelectValue placeholder={t('dashboard:departments.dialog.branch')} />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Tất cả chi nhánh</SelectItem>
@@ -430,11 +432,11 @@ export function DepartmentsPage() {
 
             {/* Departments Grid */}
             {loading ? (
-                <div className="text-center py-8 text-[var(--text-sub)]">Đang tải...</div>
+                <div className="text-center py-8 text-[var(--text-sub)]">{t('dashboard:departments.loading')}</div>
             ) : filteredDepartments.length === 0 ? (
                 <div className="text-center py-12">
                     <Briefcase className="h-16 w-16 text-[var(--text-sub)] mx-auto mb-4 opacity-50" />
-                    <p className="text-[var(--text-sub)]">Không tìm thấy phòng ban nào</p>
+                    <p className="text-[var(--text-sub)]">{t('dashboard:departments.noResults')}</p>
                 </div>
             ) : (
             <>
@@ -605,7 +607,7 @@ export function DepartmentsPage() {
                 <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {dialogMode === 'create' ? 'Thêm phòng ban mới' : 'Chỉnh sửa phòng ban'}
+                            {dialogMode === 'create' ? t('dashboard:departments.dialog.addTitle') : t('dashboard:departments.dialog.editTitle')}
                         </DialogTitle>
                         <DialogDescription className="text-[var(--text-sub)]">
                             {dialogMode === 'create' ? 'Điền thông tin phòng ban mới' : 'Cập nhật thông tin phòng ban'}
@@ -614,7 +616,7 @@ export function DepartmentsPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label className="text-[var(--text-main)]">Tên phòng ban *</Label>
+                            <Label className="text-[var(--text-main)]">{t('dashboard:departments.dialog.name')} *</Label>
                             <Input
                                 placeholder="Ví dụ: Công nghệ thông tin"
                                 value={formData.name}
@@ -645,10 +647,10 @@ export function DepartmentsPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-[var(--text-main)]">Chi nhánh *</Label>
+                            <Label className="text-[var(--text-main)]">{t('dashboard:departments.dialog.branch')} *</Label>
                             <Select value={formData.branchId} onValueChange={(v) => setFormData({ ...formData, branchId: v })}>
                                 <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                                    <SelectValue placeholder="Chọn chi nhánh" />
+                                    <SelectValue placeholder={t('dashboard:departments.dialog.selectBranch')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {branches.map(branch => (
@@ -659,10 +661,10 @@ export function DepartmentsPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-[var(--text-main)]">Trưởng phòng *</Label>
+                            <Label className="text-[var(--text-main)]">{t('dashboard:departments.dialog.manager')} *</Label>
                             <Select value={formData.managerId} onValueChange={(v) => setFormData({ ...formData, managerId: v })}>
                                 <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                                    <SelectValue placeholder="Chọn trưởng phòng" />
+                                    <SelectValue placeholder={t('dashboard:departments.dialog.selectManager')} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {managers.map(manager => (
@@ -690,13 +692,13 @@ export function DepartmentsPage() {
                             onClick={() => setIsDialogOpen(false)}
                             className="border-[var(--border)] text-[var(--text-main)]"
                         >
-                            Hủy
+                            {t('dashboard:departments.dialog.cancel')}
                         </Button>
                         <Button
                             onClick={handleSubmit}
                             className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
                         >
-                            {dialogMode === 'create' ? 'Tạo phòng ban' : 'Cập nhật'}
+                            {dialogMode === 'create' ? t('dashboard:departments.dialog.save') : t('common:update')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -729,7 +731,7 @@ export function DepartmentsPage() {
                                                     : 'bg-[var(--error)]/20 text-[var(--error)]'
                                                 }`}
                                         >
-                                            {selectedDepartment.status === 'active' ? 'Hoạt động' : 'Ngừng hoạt động'}
+                                            {selectedDepartment.status === 'active' ? t('dashboard:departments.status.active') : t('dashboard:departments.status.inactive')}
                                         </Badge>
                                     </div>
                                 </div>
@@ -742,7 +744,7 @@ export function DepartmentsPage() {
                                 <Card className="bg-[var(--shell)] border-[var(--border)]">
                                     <CardContent className="p-4 mt-4 text-center">
                                         <Users className="h-8 w-8 text-[var(--primary)] mx-auto mb-2" />
-                                        <p className="text-sm text-[var(--text-sub)]">Tổng nhân viên</p>
+                                        <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departments.stats.totalEmployees')}</p>
                                         <p className="text-2xl text-[var(--text-main)] mt-1">{selectedDepartment.employeeCount}</p>
                                     </CardContent>
                                 </Card>

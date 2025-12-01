@@ -1,5 +1,6 @@
 import { AttendanceModel } from "./attendance.model.js";
 import { LocationModel } from "../locations/location.model.js";
+import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
 
 const formatDateLabel = (date) => {
@@ -25,6 +26,76 @@ const deriveStatus = (doc) => {
   if (doc.workHours && doc.workHours > 8) return "overtime";
   if (!doc.checkIn && !doc.checkOut) return "absent";
   return "ontime";
+};
+
+/**
+ * Lấy schedule của nhân viên trong ngày
+ */
+const getUserSchedule = async (userId, date) => {
+  try {
+    const schedule = await EmployeeScheduleModel.findOne({
+      userId,
+      date: date,
+    }).populate('shiftId').lean();
+    
+    return schedule;
+  } catch (error) {
+    console.error('[getUserSchedule] Error:', error);
+    return null;
+  }
+};
+
+/**
+ * Kiểm tra đi muộn dựa trên schedule
+ */
+const checkLateStatus = (checkInTime, schedule) => {
+  const LATE_TOLERANCE_MINUTES = 30;
+  const DEFAULT_START_TIME = "08:00";
+  
+  // Lấy giờ bắt đầu ca từ schedule hoặc dùng mặc định
+  const startTime = schedule?.startTime || DEFAULT_START_TIME;
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  
+  // Tạo thời gian muộn nhất được phép
+  const dateOnly = new Date(checkInTime);
+  dateOnly.setHours(0, 0, 0, 0);
+  const lateTime = new Date(dateOnly);
+  lateTime.setHours(startHour, startMinute + LATE_TOLERANCE_MINUTES, 0, 0);
+  
+  return checkInTime > lateTime;
+};
+
+/**
+ * Kiểm tra về sớm/overtime dựa trên schedule
+ */
+const checkEarlyLeaveOrOvertime = (checkOutTime, schedule) => {
+  const EARLY_TOLERANCE_MINUTES = 15; // Cho phép về sớm 15 phút
+  const DEFAULT_END_TIME = "17:00";
+  
+  // Lấy giờ kết thúc ca từ schedule hoặc dùng mặc định
+  const endTime = schedule?.endTime || DEFAULT_END_TIME;
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  
+  // Tạo thời gian kết thúc ca
+  const dateOnly = new Date(checkOutTime);
+  dateOnly.setHours(0, 0, 0, 0);
+  const shiftEndTime = new Date(dateOnly);
+  shiftEndTime.setHours(endHour, endMinute, 0, 0);
+  
+  // Thời gian sớm nhất được phép về
+  const earliestLeaveTime = new Date(shiftEndTime);
+  earliestLeaveTime.setMinutes(earliestLeaveTime.getMinutes() - EARLY_TOLERANCE_MINUTES);
+  
+  return {
+    isEarlyLeave: checkOutTime < earliestLeaveTime,
+    isOvertime: checkOutTime > shiftEndTime,
+    minutesEarly: checkOutTime < earliestLeaveTime 
+      ? Math.round((earliestLeaveTime - checkOutTime) / (1000 * 60))
+      : 0,
+    minutesOvertime: checkOutTime > shiftEndTime
+      ? Math.round((checkOutTime - shiftEndTime) / (1000 * 60))
+      : 0,
+  };
 };
 
 const formatWorkHours = (hours) => {
@@ -131,32 +202,93 @@ export const getAttendanceHistory = async (req, res) => {
       if (from) query.date.$gte = new Date(from);
       if (to) {
         const toDate = new Date(to);
-        toDate.setHours(23, 59, 59, 999); // End of day
+        toDate.setHours(23, 59, 59, 999);
         query.date.$lte = toDate;
       }
     }
 
-    // Search filter - search in notes
+    // Search filter
     if (search) {
       query.notes = { $regex: search, $options: 'i' };
     }
 
-    // Pagination
+    // Lấy attendance từ DB và ngày đầu tiên song song
+    const [docs, firstAttendance] = await Promise.all([
+      AttendanceModel.find(query)
+        .populate("locationId")
+        .lean(), // Dùng lean() để tăng performance
+      AttendanceModel.findOne({ userId })
+        .sort({ date: 1 })
+        .select('date')
+        .lean()
+    ]);
+
+    // Tạo map các ngày đã có attendance
+    const attendanceMap = new Map();
+    docs.forEach(doc => {
+      const dateKey = formatDateLabel(doc.date);
+      attendanceMap.set(dateKey, doc);
+    });
+
+    // Xác định khoảng thời gian
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const userStartDate = firstAttendance ? new Date(firstAttendance.date) : today;
+    userStartDate.setHours(0, 0, 0, 0);
+    
+    let startDate = query.date?.$gte ? new Date(query.date.$gte) : new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const endDate = query.date?.$lte ? new Date(query.date.$lte) : new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    
+    // Không fill trước ngày vào công ty
+    if (startDate < userStartDate) {
+      startDate = userStartDate;
+    }
+    
+    // Fill absent cho các ngày đã qua
+    const allRecords = [];
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const currentDate = new Date(d);
+      const dateKey = formatDateLabel(currentDate);
+      
+      if (attendanceMap.has(dateKey)) {
+        allRecords.push(attendanceMap.get(dateKey));
+      } else {
+        // Tạo bản ghi ảo cho ngày absent/weekend
+        const dayOfWeek = currentDate.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        
+        allRecords.push({
+          _id: `virtual-${dateKey}`,
+          date: currentDate,
+          userId,
+          checkIn: null,
+          checkOut: null,
+          workHours: 0,
+          status: isWeekend ? "weekend" : "absent",
+          locationId: null,
+          notes: isWeekend ? "" : "Chưa chấm công",
+          isVirtual: true,
+        });
+      }
+    }
+    
+    // Thêm attendance của hôm nay (nếu có)
+    const todayKey = formatDateLabel(today);
+    if (attendanceMap.has(todayKey) && !allRecords.some(r => formatDateLabel(r.date) === todayKey)) {
+      allRecords.push(attendanceMap.get(todayKey));
+    }
+
+    // Sort từ mới → cũ
+    allRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
+    const total = allRecords.length;
+    const paginatedRecords = allRecords.slice(skip, skip + limitNum);
 
-    const [docs, total] = await Promise.all([
-      AttendanceModel.find(query)
-        .populate("locationId")
-        .sort({ date: -1 })
-        .skip(skip)
-        .limit(limitNum),
-      AttendanceModel.countDocuments(query)
-    ]);
-
-    // Map and format data
-    const data = docs.map((doc) => {
+    const data = paginatedRecords.map((doc) => {
       const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
         weekday: "long",
       });
@@ -196,7 +328,6 @@ export const getAttendanceHistory = async (req, res) => {
 export const checkIn = async (req, res) => {
   try {
     const userId = req.user.userId;
-    // If request is multipart/form-data (via multer), small fields are in req.body and file in req.file
     const {
       latitude: latRaw,
       longitude: lonRaw,
@@ -204,7 +335,7 @@ export const checkIn = async (req, res) => {
       ssid,
       bssid,
     } = req.body || {};
-    const photoFile = req.file || null; // multer will populate req.file when upload.single('photo') used
+    const photoFile = req.file || null;
 
     // Convert numeric inputs
     const latitude = latRaw !== undefined ? Number(latRaw) : undefined;
@@ -305,6 +436,9 @@ export const checkIn = async (req, res) => {
       today.getDate()
     );
 
+    // Lấy schedule của nhân viên hôm nay
+    const schedule = await getUserSchedule(userId, dateOnly);
+    
     // Tìm hoặc tạo bản ghi chấm công hôm nay
     let attendance = await AttendanceModel.findOne({
       userId,
@@ -323,6 +457,11 @@ export const checkIn = async (req, res) => {
       // Cập nhật check-in
       attendance.checkIn = now;
       attendance.locationId = validLocation._id;
+      
+      // Kiểm tra đi muộn dựa trên schedule
+      const isLate = checkLateStatus(now, schedule);
+      attendance.status = isLate ? "late" : "present";
+      
       if (photoFile) {
         try {
           const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkins');
@@ -337,13 +476,16 @@ export const checkIn = async (req, res) => {
         }
       }
     } else {
+      // Kiểm tra đi muộn dựa trên schedule
+      const isLate = checkLateStatus(now, schedule);
+      
       // Tạo mới bản ghi chấm công
       attendance = new AttendanceModel({
         userId,
         date: dateOnly,
         checkIn: now,
         locationId: validLocation._id,
-        status: "present",
+        status: isLate ? "late" : "present",
         notes: "",
       });
 
@@ -496,7 +638,7 @@ export const checkOut = async (req, res) => {
     const checkInTime = new Date(attendance.checkIn);
     const hoursWorked = (now - checkInTime) / (1000 * 60 * 60);
 
-    const MIN_WORK_HOURS = 8;
+    const MIN_WORK_HOURS = 2; 
     if (hoursWorked < MIN_WORK_HOURS) {
       const remainingMinutes = Math.ceil((MIN_WORK_HOURS - hoursWorked) * 60);
       const hours = Math.floor(remainingMinutes / 60);
@@ -515,21 +657,45 @@ export const checkOut = async (req, res) => {
       });
     }
 
+    // Lấy schedule để kiểm tra về sớm/overtime
+    const schedule = await getUserSchedule(userId, dateOnly);
+    
     // Cập nhật check-out
     attendance.checkOut = now;
+
+    // Kiểm tra về sớm hoặc overtime
+    const checkOutInfo = checkEarlyLeaveOrOvertime(now, schedule);
+    
+    // Thêm note nếu về sớm hoặc overtime
+    let additionalNote = '';
+    if (checkOutInfo.isEarlyLeave) {
+      additionalNote = `\n[Về sớm ${checkOutInfo.minutesEarly} phút]`;
+    } else if (checkOutInfo.isOvertime && checkOutInfo.minutesOvertime > 30) {
+      // Chỉ ghi nhận overtime nếu > 30 phút
+      additionalNote = `\n[Tăng ca ${checkOutInfo.minutesOvertime} phút]`;
+    }
 
     if (photoFile) {
       try {
         const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkouts');
         attendance.notes = attendance.notes
-          ? `${attendance.notes}\n[Ảnh check-out: ${result.url}]`
-          : `[Ảnh check-out: ${result.url}]`;
+          ? `${attendance.notes}\n[Ảnh check-out: ${result.url}]${additionalNote}`
+          : `[Ảnh check-out: ${result.url}]${additionalNote}`;
       } catch (e) {
         console.error("Upload to Cloudinary failed:", e);
+        if (additionalNote) {
+          attendance.notes = attendance.notes 
+            ? `${attendance.notes}${additionalNote}`
+            : additionalNote.trim();
+        }
       }
+    } else if (additionalNote) {
+      attendance.notes = attendance.notes 
+        ? `${attendance.notes}${additionalNote}`
+        : additionalNote.trim();
     }
 
-    // Tính giờ làm việc (updateStatus sẽ tự động chạy trong pre-save hook)
+    // Tính giờ làm việc
     attendance.calculateWorkHours();
 
     await attendance.save();
@@ -541,9 +707,17 @@ export const checkOut = async (req, res) => {
       ? `${Math.floor(attendance.workHours)}h ${Math.round((attendance.workHours % 1) * 60)}m`
       : '0h';
 
+    // Tạo message động dựa trên tình huống
+    let message = "Check-out thành công!";
+    if (checkOutInfo.isEarlyLeave) {
+      message = `Check-out thành công! (Về sớm ${checkOutInfo.minutesEarly} phút)`;
+    } else if (checkOutInfo.isOvertime && checkOutInfo.minutesOvertime > 30) {
+      message = `Check-out thành công! (Tăng ca ${checkOutInfo.minutesOvertime} phút)`;
+    }
+
     res.json({
       success: true,
-      message: "Check-out thành công!",
+      message,
       data: {
         checkOutTime,
         checkOutDate,
@@ -552,6 +726,10 @@ export const checkOut = async (req, res) => {
         distance: validationResult.distance
           ? `${validationResult.distance}m`
           : null,
+        isEarlyLeave: checkOutInfo.isEarlyLeave,
+        isOvertime: checkOutInfo.isOvertime,
+        minutesEarly: checkOutInfo.minutesEarly,
+        minutesOvertime: checkOutInfo.minutesOvertime,
       },
     });
   } catch (error) {
@@ -1241,7 +1419,6 @@ export const getDepartmentAttendance = async (req, res) => {
       employeeId: doc.userId?._id?.toString().slice(-3) || 'N/A'
     }));
 
-    // Tính summary từ tất cả records trong ngày (không chỉ trang hiện tại)
     const allDocs = await AttendanceModel.find(query)
       .populate('userId', 'name email')
       .select('status checkIn checkOut');

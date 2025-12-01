@@ -1,0 +1,917 @@
+{
+  "overview": {
+    "welcome": {
+      "superAdmin": "Hello, System Administrator!",
+      "admin": "Hello, Administrator!",
+      "hrManager": "Hello, HR Manager!",
+      "manager": "Hello, Manager!",
+      "default": "Hello!"
+    },
+    "subtitle": {
+      "superAdmin": "Full system management and monitoring of attendance system",
+      "admin": "Manage entire attendance system and personnel",
+      "hrManager": "Manage personnel, payroll and performance evaluation",
+      "manager": "Manage team and track work performance",
+      "default": "Attendance system overview"
+    },
+    "kpi": {
+      "totalEmployees": "Total Employees",
+      "presentToday": "Present Today",
+      "lateToday": "Late Today",
+      "absentToday": "Absent Today"
+    },
+    "charts": {
+      "attendanceTrend": "Attendance Trend",
+      "attendanceByDay": "Attendance by Day"
+    }
+  },
+  "scan": {
+    "title": "Check-in",
+    "checkInToday": "Check-in Today",
+    "checkIn": "Check In",
+    "checkOut": "Check Out",
+    "location": "Location",
+    "status": "Status",
+    "time": "Time"
+  },
+  "history": {
+    "title": "Attendance History",
+    "date": "Date",
+    "checkIn": "Check In",
+    "checkOut": "Check Out",
+    "status": "Status",
+    "location": "Location"
+  },
+  "requests": {
+    "title": "Requests & Applications",
+    "create": "Create Request",
+    "type": "Request Type",
+    "status": "Status",
+    "date": "Date",
+    "reason": "Reason"
+  },
+  "profile": {
+    "title": "Personal Profile",
+    "description": "Manage your information and account settings",
+    "tabs": {
+      "info": "Information",
+      "security": "Security",
+      "settings": "Settings"
+    },
+    "personalInfo": {
+      "title": "Personal Information",
+      "subtitle": "Update your information",
+      "edit": "Edit",
+      "fields": {
+        "fullName": "Full Name",
+        "email": "Email",
+        "phone": "Phone Number",
+        "birthday": "Date of Birth",
+        "address": "Address",
+        "department": "Department",
+        "position": "Position",
+        "bankAccount": "Bank Account",
+        "bankName": "Bank Name"
+      }
+    },
+    "security": {
+      "title": "Change Password",
+      "subtitle": "Update password to secure your account",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm New Password",
+      "updateButton": "Update Password",
+      "errors": {
+        "currentRequired": "Please enter current password",
+        "newRequired": "Please enter new password",
+        "confirmRequired": "Please confirm new password",
+        "minLength": "New password must be at least 6 characters",
+        "notMatch": "New passwords do not match",
+        "currentIncorrect": "Current password is incorrect"
+      },
+      "success": "Password changed successfully!",
+      "error": "Failed to change password"
+    },
+    "settings": {
+      "title": "App Settings",
+      "notifications": "Notifications",
+      "emailNotifications": "Receive email notifications",
+      "pushNotifications": "Browser notifications",
+      "smsNotifications": "SMS notifications",
+      "theme": "Theme",
+      "lightMode": "Light Mode",
+      "darkMode": "Dark Mode"
+    },
+    "stats": {
+      "department": "Department",
+      "joinDate": "Join Date",
+      "annualLeave": "Annual Leave",
+      "days": "days"
+    },
+    "avatar": {
+      "upload": "Upload avatar",
+      "uploading": "Uploading avatar...",
+      "success": "Avatar uploaded successfully!",
+      "error": "Failed to upload avatar",
+      "invalidFile": "Please select an image file",
+      "fileTooLarge": "File size must not exceed 10MB"
+    },
+    "update": {
+      "success": "Profile updated successfully!",
+      "error": "Failed to update profile"
+    }
+  },
+  "employeeHome": {
+    "greeting": {
+      "morning": "Good morning!",
+      "afternoon": "Good afternoon!",
+      "evening": "Good evening!",
+      "night": "Good night!"
+    },
+    "attendance": {
+      "checkedIn": "Checked in today",
+      "completed": "You have completed your check-in",
+      "notCheckedOut": "Not checked out yet. Remember to check out when your shift ends.",
+      "notCheckedIn": "Not checked in today",
+      "scanQR": "Scan QR code at the office to check in",
+      "scanQRButton": "Scan QR to Check In"
+    },
+    "status": {
+      "ontime": "On Time",
+      "late": "Late",
+      "absent": "Absent"
+    },
+    "info": {
+      "shift": "Shift",
+      "location": "Location",
+      "workingDays": "Working Days This Month",
+      "days": "days"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "schedule": "Schedule",
+      "requests": "Leave Requests",
+      "history": "History",
+      "leaveBalance": "Leave Balance"
+    },
+    "recentHistory": {
+      "title": "Recent History",
+      "viewAll": "View All",
+      "date": "Date",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "location": "Location",
+      "status": "Status",
+      "noData": "No recent attendance data."
+    },
+    "loading": "Loading dashboard information...",
+    "error": "Unable to load dashboard data. Please try again later."
+  },
+  "scan": {
+    "title": "Check-in",
+    "checkInToday": "Check-in Today",
+    "description": "Take a photo and confirm location to check in",
+    "permissionStatus": "Permission Status",
+    "checkIn": "Check In",
+    "checkOut": "Check Out",
+    "location": "Location",
+    "status": "Status",
+    "time": "Time"
+  },
+  "history": {
+    "title": "Attendance History",
+    "date": "Date",
+    "day": "Day",
+    "checkIn": "Check In",
+    "checkOut": "Check Out",
+    "hours": "Hours",
+    "totalHours": "Total Hours",
+    "location": "Location",
+    "status": "Status",
+    "notes": "Notes",
+    "viewPhoto": "View Photo",
+    "office": "Office",
+    "statusLabels": {
+      "ontime": "On Time",
+      "late": "Late",
+      "absent": "Absent",
+      "overtime": "Overtime",
+      "weekend": "Weekend"
+    },
+    "filters": {
+      "all": "All",
+      "allStatus": "All Status",
+      "search": "Search",
+      "searchPlaceholder": "Search by date, notes...",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "selectDate": "Select Date",
+      "status": "Filter by Status",
+      "statusPlaceholder": "Status",
+      "weekend": "Weekend"
+    },
+    "summary": {
+      "totalDays": "Total Working Days",
+      "late": "Late",
+      "absent": "Absent",
+      "overtime": "Overtime"
+    },
+    "details": {
+      "title": "Attendance Details",
+      "loading": "Loading data...",
+      "noData": "No matching data"
+    },
+    "tabs": {
+      "checkin": "Check-in Photo",
+      "checkout": "Check-out Photo",
+      "checkinLabel": "Check-in",
+      "checkoutLabel": "Check-out"
+    },
+    "photo": {
+      "viewTitle": "View Attendance Photo",
+      "time": "Time",
+      "location": "Location",
+      "alt": {
+        "checkin": "Check-in photo",
+        "checkout": "Check-out photo"
+      }
+    },
+    "noPhoto": {
+      "checkin": "No check-in photo",
+      "checkout": "Not checked out yet"
+    }
+  },
+  "requests": {
+    "title": "Requests & Applications",
+    "description": "Manage leave, overtime, corrections and direct approvals",
+    "create": "Create New Request",
+    "type": "Request Type",
+    "status": "Status",
+    "date": "Date",
+    "reason": "Reason",
+    "types": {
+      "leave": "Leave",
+      "overtime": "Overtime",
+      "correction": "Correction"
+    }
+  },
+  "schedule": {
+    "title": "Schedule",
+    "checkedIn": "Checked In",
+    "loading": "Loading schedule...",
+    "upcomingShifts": "upcoming shifts",
+    "stats": {
+      "thisMonth": "This Month",
+      "checkedIn": "Checked In",
+      "upcoming": "Upcoming",
+      "totalHours": "Total Hours",
+      "performance": "Performance",
+      "avgHours": "Avg Hours/Day",
+      "streak": "Day Streak"
+    },
+    "todayShift": "Today's Shift",
+    "timeRemaining": "Remaining",
+    "hours": "h",
+    "minutes": "m",
+    "inShift": "Currently in shift",
+    "notCheckedIn": "Not checked in",
+    "checkedInStatus": "Checked in",
+    "thisWeek": "This Week's Schedule",
+    "thisWeekLabel": "This Week",
+    "perDay": "/day",
+    "monthProgress": "Month Progress",
+    "hoursPerDay": "h/day",
+    "updatedFromMonth": "Updated from month data",
+    "streakDays": "days in a row",
+    "avgHoursPerDay": "Average",
+    "hPerDay": "h/day",
+    "month": "Month",
+    "error": "Error loading shifts:",
+    "timeRange": "Working hours",
+    "legend": {
+      "done": "Done",
+      "today": "Today",
+      "upcoming": "Upcoming",
+      "off": "Off"
+    },
+    "weekStats": {
+      "onTime": "On time",
+      "avgHoursShort": "Avg hours"
+    },
+    "monthStats": {
+      "title": "Statistics {{month}}",
+      "totalHours": "Total hours",
+      "averageLabel": "Average"
+    }
+  },
+  "companyCalendar": {
+    "title": "Company Calendar",
+    "description": "Track events, meetings and holidays",
+    "createEvent": "Create Event",
+    "stats": {
+      "total": "Total Events",
+      "upcoming": "Upcoming (7 days)",
+      "holidays": "Holidays",
+      "meetingsAndTraining": "Meetings & Training"
+    },
+    "tabs": {
+      "holiday": "Holidays",
+      "event": "Events",
+      "all": "All"
+    },
+    "selectedDate": "Selected Date",
+    "events": "events",
+    "noEvents": "No events",
+    "upcomingEvents": "Upcoming Events (Next 7 Days)",
+    "loading": "Loading events...",
+    "allDay": "All Day",
+    "noUpcomingEvents": "No upcoming events in the next 7 days",
+    "allEvents": "All Events",
+    "month": "Month",
+    "noEventsThisMonth": "No events this month",
+    "eventTypes": {
+      "holiday": "Holiday",
+      "meeting": "Meeting",
+      "event": "Event",
+      "deadline": "Deadline",
+      "training": "Training"
+    },
+    "viewDetails": "View Details",
+    "deleteConfirm": "Are you sure you want to delete the event",
+    "deleteSuccess": "Event deleted successfully!",
+    "deleteError": "Failed to delete event",
+    "loadError": "Failed to load event data"
+  },
+  "leaveBalance": {
+    "title": "Leave Balance",
+    "description": "Track remaining leave days and leave history",
+    "createRequest": "Create Leave Request",
+    "createRequestShort": "Create Request",
+    "stats": {
+      "totalAnnual": "Total Annual Leave",
+      "used": "Used",
+      "remaining": "Remaining"
+    },
+    "tabs": {
+      "balance": "Balance",
+      "history": "History"
+    },
+    "overview": {
+      "title": "Overview",
+      "noData": "No leave data",
+      "noDataDescription": "Data will be displayed when information is available from the system",
+      "used": "Used",
+      "total": "Total",
+      "pending": "Pending Approval",
+      "days": "days",
+      "daysPerYear": "days/year",
+      "reason": "Reason:"
+    },
+  "departmentAttendance": {
+    "title": "Department Attendance",
+    "description": "Track attendance of employees in the department",
+    "exportSuccess": "Excel exported successfully",
+    "export": "Export Excel",
+    "searchPlaceholder": "Search employees...",
+    "stats": {
+      "total": "Total",
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent"
+    },
+    "table": {
+      "employee": "Employee",
+      "date": "Date",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "hours": "Total Hours",
+      "status": "Status",
+      "location": "Location",
+      "noData": "No data",
+      "loading": "Loading..."
+    },
+    "pagination": {
+      "showing": "Showing",
+      "of": "of",
+      "rowsPerPage": "Rows per page:",
+      "page": "Page"
+    },
+    "todayList": "Today's Attendance List"
+  },
+  "approveRequests": {
+    "title": "Approve Requests",
+    "description": "Approve or reject employee requests",
+    "stats": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "total": "Total"
+    },
+    "filters": {
+      "allTypes": "All Types",
+      "allDepartments": "All Departments",
+      "requestType": "Request Type",
+      "department": "Department",
+      "searchPlaceholder": "Search requests..."
+    },
+    "departments": {
+      "it": "IT",
+      "hr": "Human Resources",
+      "sales": "Sales",
+      "marketing": "Marketing"
+    },
+    "tabs": {
+      "all": "All",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "actions": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveTitle": "Approve Request",
+      "rejectTitle": "Reject Request",
+      "comments": "Comments",
+      "commentsPlaceholder": "Enter comments (optional)...",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "approveSuccess": "Request approved",
+      "rejectSuccess": "Request rejected",
+      "error": "Failed to process request"
+    },
+    "request": {
+      "employee": "Employee",
+      "listTitle": "Request List",
+      "type": "Type",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "duration": "Duration",
+      "reason": "Reason",
+      "status": "Status",
+      "submittedAt": "Submitted At",
+      "sentAt": "Sent at {{time}}",
+      "approvedBy": "Approved by {{approver}}",
+      "atTime": "{{time}}",
+      "noRequests": "No requests",
+      "loading": "Loading..."
+    },
+    "types": {
+      "leave": "Leave",
+      "overtime": "Overtime",
+      "late": "Late",
+      "remote": "Remote",
+      "other": "Other"
+    },
+    "urgency": {
+      "high": "Urgent",
+      "medium": "Normal",
+      "low": "Low urgency"
+    }
+  },
+  "attendanceAnalytics": {
+    "title": "Attendance Analytics",
+    "description": "Statistics and attendance trend analysis",
+    "export": "Export Report",
+    "stats": {
+      "attendanceRate": "Attendance Rate",
+      "avgPresent": "Avg Present",
+      "avgLate": "Avg Late",
+      "avgAbsent": "Avg Absent",
+      "onTime": "On Time",
+      "late": "Late",
+      "absent": "Absent",
+      "vắng": "Absent"
+    },
+    "charts": {
+      "dailyTrend": "Daily Trend",
+      "departmentStats": "Department Statistics",
+      "topPerformers": "Top Performers"
+    },
+    "periods": {
+      "7days": "7 Days",
+      "30days": "30 Days",
+      "90days": "90 Days"
+    },
+    "departments": {
+      "all": "All Departments"
+    },
+    "error": "Failed to load analytics data",
+    "trend": "Trend",
+    "comparedToLastWeek": "Compared to last week",
+    "attendanceRateLabel": "Attendance Rate",
+    "departmentComparison": "Department Comparison",
+    "departmentDetails": "Department Details",
+    "topPerformers": "Top 5 Dedicated Employees"
+  },
+  "payroll": {
+    "title": "Payroll",
+    "export": "Export Excel",
+    "searchPlaceholder": "Search by name or employee ID...",
+    "filters": {
+      "status": "Status",
+      "all": "All",
+      "pending": "Pending",
+      "approved": "Approved",
+      "paid": "Paid"
+    },
+    "table": {
+      "employee": "Employee",
+      "department": "Department",
+      "position": "Position",
+      "workDays": "Work Days",
+      "totalDays": "Total Days",
+      "overtimeHours": "Overtime Hours",
+      "leaveDays": "Leave Days",
+      "lateDays": "Late Days",
+      "baseSalary": "Base Salary",
+      "overtimePay": "Overtime Pay",
+      "bonus": "Bonus",
+      "deductions": "Deductions",
+      "totalSalary": "Total Salary",
+      "status": "Status"
+    },
+    "stats": {
+      "totalEmployees": "Total Employees",
+      "totalSalary": "Total Salary",
+      "avgSalary": "Avg Salary",
+      "pending": "Pending"
+    },
+    "description": "Calculate and manage employee payroll",
+    "totalPayroll": "Total Payroll",
+    "avgSalaryPerPerson": "Avg Salary/Person",
+    "details": "Payroll Details",
+    "employeeCode": "Employee Code",
+    "employeeName": "Full Name"
+  },
+  "payrollReports": {
+    "title": "Payroll Reports",
+    "description": "Overview and payroll cost analysis",
+    "export": "Export Report",
+    "exporting": "📥 Exporting payroll report...",
+    "error": "Failed to load payroll reports",
+    "stats": {
+      "totalSalary": "Total Salary",
+      "employees": "Employees",
+      "baseSalary": "Total Base Salary"
+    },
+    "charts": {
+      "departmentDistribution": "Department Distribution",
+      "monthlyTrend": "Monthly Trend"
+    }
+  },
+  "performanceReview": {
+    "title": "Performance Review",
+    "searchPlaceholder": "Search by employee name...",
+    "filters": {
+      "status": "Status",
+      "all": "All",
+      "completed": "Completed",
+      "pending": "Pending",
+      "draft": "Draft",
+      "rejected": "Rejected"
+    },
+    "employee": "Employee"
+  },
+  "branches": {
+    "title": "Branch Management",
+    "add": "Add Branch",
+    "searchPlaceholder": "Search branches by name, code or city...",
+    "dialog": {
+      "addTitle": "Add New Branch",
+      "editTitle": "Edit Branch",
+      "name": "Branch Name",
+      "namePlaceholder": "Example: Hanoi Branch",
+      "code": "Branch Code",
+      "codePlaceholder": "Example: HN001",
+      "city": "City",
+      "country": "Country",
+      "phone": "Phone",
+      "email": "Email",
+      "manager": "Manager",
+      "selectManager": "Select Manager",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "cancel": "Cancel",
+      "save": "Save",
+      "createSuccess": "Branch created successfully!",
+      "updateSuccess": "Branch updated successfully!",
+      "error": "Failed to process branch"
+    },
+    "description": "Manage branches nationwide",
+    "stats": {
+      "total": "Total Branches",
+      "totalEmployees": "Total Employees",
+      "totalDepartments": "Departments",
+      "active": "Active"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "loading": "Loading...",
+    "noResults": "No branches found"
+  },
+  "departments": {
+    "title": "Department Management",
+    "add": "Add Department",
+    "searchPlaceholder": "Search departments...",
+    "dialog": {
+      "addTitle": "Add New Department",
+      "editTitle": "Edit Department",
+      "name": "Department Name",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe the department...",
+      "branch": "Branch",
+      "selectBranch": "Select Branch",
+      "manager": "Manager",
+      "selectManager": "Select Manager",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "cancel": "Cancel",
+      "save": "Save",
+      "createSuccess": "Department created successfully!",
+      "updateSuccess": "Department updated successfully!",
+      "error": "Failed to process department"
+    },
+    "stats": {
+      "total": "Total Departments",
+      "totalEmployees": "Total Employees",
+      "activeEmployees": "Active Employees",
+      "totalBudget": "Total Budget"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "loading": "Loading...",
+    "noResults": "No departments found",
+    "description": "Manage departments in the company",
+    "activeEmployees": "Active Employees"
+    },
+    "types": {
+      "defaultName": "Leave",
+      "descriptions": {
+        "annual": "Annual leave according to policy",
+        "sick": "Paid sick leave",
+        "unpaid": "Unpaid leave",
+        "compensatory": "Compensatory leave for overtime",
+        "maternity": "Maternity leave per labor law"
+      }
+    },
+    "status": {
+      "approved": "Approved",
+      "pending": "Pending",
+      "rejected": "Rejected"
+    },
+    "history": {
+      "title": "History",
+      "noHistory": "No leave history",
+      "description": "History will be displayed when you have leave requests",
+      "remaining": "Remaining",
+      "approvedBy": "Approved by {{approver}}",
+      "approvedAt": "at {{time}}"
+    },
+    "loadingState": {
+      "loading": "Loading data...",
+      "errorTitle": "Failed to load data",
+      "retry": "Retry"
+    },
+    "loading": "Loading...",
+    "error": "Failed to load data"
+  },
+  "adminAttendance": {
+    "title": "Attendance Management",
+    "filters": {
+      "allStatus": "All Status",
+      "ontime": "On Time",
+      "late": "Late",
+      "absent": "Absent",
+      "overtime": "Overtime",
+      "weekend": "Weekend"
+    },
+    "stats": {
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent"
+    },
+    "table": {
+      "employee": "Employee",
+      "date": "Date",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "hours": "Hours",
+      "status": "Status",
+      "location": "Location",
+      "actions": "Actions",
+      "view": "View",
+      "edit": "Edit",
+      "noData": "No data",
+      "loading": "Loading..."
+    },
+    "export": "Export Data",
+    "searchPlaceholder": "Search by name, email...",
+    "error": "Failed to load attendance data",
+    "fallbackName": "Unknown",
+    "toasts": {
+      "exporting": "📊 Exporting Excel file...",
+      "noPermission": "⚠️ Your role is not allowed to export Excel"
+    },
+    "aria": {
+      "pickCheckIn": "Select check-in time",
+      "pickCheckOut": "Select check-out time"
+    },
+    "locations": {
+      "loading": "Loading...",
+      "empty": "No locations available"
+    },
+    "roles": {
+      "manager": {
+        "scope": "Responsible departments",
+        "description": "Monitor and confirm attendance for your managed teams.",
+        "actions": [
+          "View department attendance status",
+          "Send late reminders",
+          "Export department reports"
+        ],
+        "limitations": [
+          "Cannot manually edit system records",
+          "Cannot delete attendance history"
+        ]
+      },
+      "hr": {
+        "scope": "Entire company",
+        "description": "Coordinate attendance policies and support HR updates.",
+        "actions": [
+          "Manually adjust check-in/out times",
+          "Register attendance on behalf of employees",
+          "Export consolidated Excel"
+        ],
+        "limitations": [
+          "Cannot delete records locked by Admin"
+        ]
+      },
+      "admin": {
+        "scope": "Whole organization",
+        "description": "Ensure attendance accuracy aligned with payroll and reports.",
+        "actions": [
+          "Manage attendance statuses",
+          "Lock/unlock records",
+          "Integrate reports with payroll"
+        ],
+        "limitations": [
+          "Deleting records requires Super Admin approval"
+        ]
+      },
+      "super": {
+        "scope": "Entire system",
+        "description": "Control security & compliance, handle incidents or overrides.",
+        "actions": [
+          "Delete/restore records",
+          "Manage access permissions",
+          "Sync multi-branch data"
+        ],
+        "limitations": [
+          "Must log special operations"
+        ]
+      }
+    },
+    "details": {
+      "employeeCode": "Employee Code:",
+      "attendanceInfo": "Attendance Information",
+      "workDate": "Work Date",
+      "totalHours": "Total Hours",
+      "workLocation": "Work Location",
+      "close": "Close"
+    },
+    "editDialog": {
+      "title": "Edit Attendance",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "location": "Location",
+      "selectLocation": "Select location",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "success": "Attendance record updated successfully!"
+    },
+    "totalEmployees": "Total employees",
+    "currentRole": "Current role:"
+  },
+  "common": {
+    "loading": "Loading...",
+    "noData": "No data",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export Data",
+    "refresh": "Refresh",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "view": "View",
+    "update": "Update",
+    "confirm": "Confirm",
+    "back": "Back",
+    "viewDetails": "View Details",
+    "filterBy": {
+      "role": "Filter by Role",
+      "status": "Filter by Status"
+    },
+    "actions": {
+      "viewFullInfo": "View full employee information",
+      "updateInfo": "Update information for",
+      "confirmDisable": "Confirm Disable Employee"
+    }
+  },
+  "employeeManagement": {
+    "title": "Employee Management",
+    "searchPlaceholder": "Search by name, email, department...",
+    "filterByRole": "Filter by Role",
+    "filterByStatus": "Filter by Status",
+    "allRoles": "All Roles",
+    "allStatus": "All Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "stats": {
+      "total": "Total",
+      "active": "Active",
+      "admin": "Admin",
+      "newThisMonth": "New This Month"
+    },
+    "table": {
+      "title": "Employee List",
+      "employee": "Employee",
+      "email": "Email",
+      "department": "Department",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions",
+      "noEmployees": "No employees found",
+      "loading": "Loading...",
+      "viewDetails": "View Details",
+      "edit": "Edit",
+      "disable": "Disable"
+    },
+    "pagination": {
+      "showing": "Showing",
+      "of": "of",
+      "rowsPerPage": "Rows per page:",
+      "page": "Page"
+    },
+    "viewDialog": {
+      "title": "Employee Details",
+      "description": "View full employee information",
+      "id": "ID:",
+      "email": "Email",
+      "department": "Department",
+      "role": "Role",
+      "phone": "Phone Number",
+      "createdAt": "Created Date",
+      "status": "Status",
+      "close": "Close"
+    },
+    "editDialog": {
+      "title": "Edit Employee Information",
+      "description": "Update information for:",
+      "personalInfo": "Personal Information",
+      "workInfo": "Work Information",
+      "fullName": "Full Name",
+      "email": "Email",
+      "phone": "Phone Number",
+      "department": "Department",
+      "selectDepartment": "Select Department",
+      "role": "Role",
+      "selectRole": "Select Role",
+      "accountStatus": "Account Status",
+      "selectStatus": "Select Status",
+      "roleChangeWarning": "Only Admin and Super Admin can change roles",
+      "inactiveWarning": "Employee will not be able to login when account is disabled",
+      "cancel": "Cancel",
+      "update": "Update"
+    },
+    "deleteDialog": {
+      "title": "Confirm Disable Employee",
+      "description": "Are you sure you want to disable this employee?",
+      "warning": "This employee will not be able to login to the system after being disabled.",
+      "cancel": "Cancel",
+      "confirm": "Disable"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "errors": {
+      "loadFailed": "Failed to load employee list",
+      "loadDepartmentsFailed": "Failed to load department list",
+      "loadUserFailed": "Failed to load employee information"
+    },
+    "success": {
+      "updateSuccess": "Employee information updated successfully!",
+      "disableSuccess": "Employee disabled successfully!"
+    }
+  }
+}

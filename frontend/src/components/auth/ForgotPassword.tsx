@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { AuthLayout } from './AuthLayout'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
+import { useTranslation } from 'react-i18next'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Mail, ArrowLeft, Loader2 } from 'lucide-react'
-import { forgotPassword } from '../../services/authService'
+import { forgotPassword } from '@/services/authService'
 import { toast } from 'sonner'
-import type { ErrorWithMessage } from '../../types'
+import type { ErrorWithMessage } from '@/types'
 
 export default function ForgotPassword() {
+  const { t } = useTranslation(['auth', 'common'])
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -23,14 +25,14 @@ export default function ForgotPassword() {
       const response = await forgotPassword({ email })
       
       if (response.success) {
-        toast.success(response.message || 'Mã OTP đã được gửi đến email của bạn')
+        toast.success(response.message || t('auth:forgotPassword.success'))
         navigate('/verify-reset-otp', { state: { email, purpose: 'reset' } })
       } else {
-        toast.error(response.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+        toast.error(response.message || t('auth:forgotPassword.genericError'))
       }
     } catch (error) {
       const err = error as ErrorWithMessage
-      toast.error(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+      toast.error(err.message || t('auth:forgotPassword.genericError'))
     } finally {
       setIsLoading(false)
     }
@@ -38,8 +40,8 @@ export default function ForgotPassword() {
 
   return (
     <AuthLayout 
-      title="Quên mật khẩu" 
-      subtitle="Nhập email để nhận mã OTP khôi phục"
+      title={t('auth:forgotPassword.title')} 
+      subtitle={t('auth:forgotPassword.subtitle')}
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -52,7 +54,7 @@ export default function ForgotPassword() {
           className="flex items-center space-x-2 text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors mb-6 group"
         >
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Quay lại đăng nhập</span>
+          <span>{t('auth:forgotPassword.backToLogin')}</span>
         </Link>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -61,14 +63,14 @@ export default function ForgotPassword() {
             <div className="flex items-start space-x-3">
               <Mail className="h-5 w-5 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
               <p className="text-sm text-[var(--text-sub)]">
-                Nhập địa chỉ email bạn đã đăng ký. Chúng tôi sẽ gửi mã OTP để bạn có thể đặt lại mật khẩu.
+                {t('auth:forgotPassword.info')}
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="email" className="text-[var(--text-main)]">
-              Email
+              {t('auth:forgotPassword.email')}
             </Label>
             <Input
               id="email"
@@ -91,10 +93,10 @@ export default function ForgotPassword() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Đang gửi...
+                  {t('auth:forgotPassword.submitting')}
                 </>
               ) : (
-                'Gửi mã OTP'
+                t('auth:forgotPassword.submit')
               )}
             </Button>
           </motion.div>
@@ -102,12 +104,12 @@ export default function ForgotPassword() {
           {/* Help Text */}
           <div className="text-center space-y-2">
             <p className="text-sm text-[var(--text-sub)]">
-              Bạn nhớ lại mật khẩu?{' '}
+              {t('auth:forgotPassword.rememberPassword')}{' '}
               <Link
                 to="/login"
                 className="text-[var(--accent-cyan)] hover:underline"
               >
-                Đăng nhập ngay
+                {t('auth:forgotPassword.loginNow')}
               </Link>
             </p>
           </div>

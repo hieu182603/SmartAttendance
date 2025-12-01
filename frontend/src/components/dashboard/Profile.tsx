@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   User,
@@ -18,29 +19,29 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { Switch } from "../ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
-import { Badge } from "../ui/badge";
-import { Separator } from "../ui/separator";
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { updateUserProfile, changePassword, uploadAvatar } from "../../services/userService";
-import { useAuth } from "../../context/AuthContext";
-import { useTheme } from "../ThemeProvider";
-import { UserRole, getRolePosition, type UserRoleType } from "../../utils/roles";
-import type { User as UserType } from "../../types";
-import type { ErrorWithMessage } from "../../types";
+import { updateUserProfile, changePassword, uploadAvatar } from "@/services/userService";
+import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/components/ThemeProvider";
+import { UserRole, getRolePosition, type UserRoleType } from "@/utils/roles";
+import type { User as UserType } from "@/types";
+import type { ErrorWithMessage } from "@/types";
 
 interface ProfileProps {
   role?: string;
@@ -102,6 +103,7 @@ interface Notifications {
 }
 
 export function Profile({ role, user }: ProfileProps): React.JSX.Element {
+  const { t } = useTranslation(['dashboard', 'common']);
   const { setUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
@@ -141,13 +143,20 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       const userRole = (user.role || UserRole.EMPLOYEE) as UserRoleType;
       const position = getRolePosition(userRole);
 
+      // Extract department name from object or string
+      const getDepartmentName = (dept?: string | { _id: string; name: string }): string => {
+        if (!dept) return "";
+        if (typeof dept === "string") return dept;
+        return dept.name || "";
+      };
+
       setProfile({
         fullName: user.name || "",
         email: user.email || "",
         phone: user.phone || "",
         address: user.address || "",
         birthday: formattedBirthday,
-        department: user.department || "",
+        department: getDepartmentName(user.department),
         position: position,
         joinDate: user.createdAt
           ? new Date(user.createdAt).toISOString().split("T")[0]
@@ -193,11 +202,11 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       if (response.user) {
         setUser(response.user);
         setIsEditing(false);
-        toast.success("Cập nhật thông tin thành công!");
+        toast.success(t('dashboard:profile.update.success'));
       }
     } catch (error) {
       const err = error as ErrorWithMessage;
-      toast.error(err.response?.data?.message || "Cập nhật thông tin thất bại");
+      toast.error(err.response?.data?.message || t('dashboard:profile.update.error'));
     }
   };
 
@@ -208,9 +217,9 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     // Validate
     if (!passwordData.current || !passwordData.new || !passwordData.confirm) {
       setPasswordErrors({
-        current: !passwordData.current ? "Vui lòng nhập mật khẩu hiện tại" : "",
-        new: !passwordData.new ? "Vui lòng nhập mật khẩu mới" : "",
-        confirm: !passwordData.confirm ? "Vui lòng xác nhận mật khẩu mới" : "",
+        current: !passwordData.current ? t('dashboard:profile.security.errors.currentRequired') : "",
+        new: !passwordData.new ? t('dashboard:profile.security.errors.newRequired') : "",
+        confirm: !passwordData.confirm ? t('dashboard:profile.security.errors.confirmRequired') : "",
       });
       return;
     }
@@ -218,7 +227,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     if (passwordData.new.length < 6) {
       setPasswordErrors({
         current: "",
-        new: "Mật khẩu mới phải có ít nhất 6 ký tự",
+        new: t('dashboard:profile.security.errors.minLength'),
         confirm: "",
       });
       return;
@@ -228,20 +237,20 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       setPasswordErrors({
         current: "",
         new: "",
-        confirm: "Mật khẩu mới không khớp",
+        confirm: t('dashboard:profile.security.errors.notMatch'),
       });
       return;
     }
 
     try {
       await changePassword(passwordData.current, passwordData.new);
-      toast.success("Đổi mật khẩu thành công!");
+      toast.success(t('dashboard:profile.security.success'));
       setPasswordData({ current: "", new: "", confirm: "" });
       setPasswordErrors({ current: "", new: "", confirm: "" });
     } catch (error) {
       // API interceptor wraps error, so check both error.message and error.response
       const err = error as ErrorWithMessage;
-      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || "Đổi mật khẩu thất bại";
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:profile.security.error');
 
       console.log("Error caught:", error);
       console.log("Error message:", errorMessage);
@@ -251,7 +260,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
         errorMessage.includes("không đúng") ||
         errorMessage === "Mật khẩu hiện tại không đúng") {
         setPasswordErrors({
-          current: "Mật khẩu hiện tại không đúng",
+          current: t('dashboard:profile.security.errors.currentIncorrect'),
           new: "",
           confirm: "",
         });
@@ -267,28 +276,28 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Vui lòng chọn file ảnh');
+      toast.error(t('dashboard:profile.avatar.invalidFile'));
       return;
     }
 
     // Validate file size (10MB)
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('Kích thước file không được vượt quá 10MB');
+      toast.error(t('dashboard:profile.avatar.fileTooLarge'));
       return;
     }
 
     try {
-      toast.loading('Đang upload avatar...', { id: 'upload-avatar' });
+      toast.loading(t('dashboard:profile.avatar.uploading'), { id: 'upload-avatar' });
       
       const response = await uploadAvatar(file);
       
       if (response.user) {
         setUser(response.user);
-        toast.success('Upload avatar thành công!', { id: 'upload-avatar' });
+        toast.success(t('dashboard:profile.avatar.success'), { id: 'upload-avatar' });
       }
     } catch (error) {
       const err = error as ErrorWithMessage;
-      toast.error(err.response?.data?.message || 'Upload avatar thất bại', { id: 'upload-avatar' });
+      toast.error(err.response?.data?.message || t('dashboard:profile.avatar.error'), { id: 'upload-avatar' });
     } finally {
       // Reset input để có thể chọn lại file cùng tên
       e.target.value = '';
@@ -310,10 +319,10 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
           >
             👤
           </motion.span>
-          <span>Hồ sơ cá nhân</span>
+          <span>{t('dashboard:profile.title')}</span>
         </h1>
         <p className="text-[var(--text-sub)]">
-          Quản lý thông tin và cài đặt tài khoản
+          {t('dashboard:profile.description')}
         </p>
       </motion.div>
 
@@ -387,7 +396,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-[var(--text-sub)] flex items-center space-x-2">
                       <Briefcase className="h-4 w-4" />
-                      <span>Phòng ban</span>
+                      <span>{t('dashboard:profile.stats.department')}</span>
                     </span>
                     <span className="text-[var(--text-main)]">
                       {profile.department}
@@ -398,7 +407,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[var(--text-sub)] flex items-center space-x-2">
                         <Calendar className="h-4 w-4" />
-                        <span>Ngày vào</span>
+                        <span>{t('dashboard:profile.stats.joinDate')}</span>
                       </span>
                       <span className="text-[var(--text-main)]">
                         {new Date(profile.joinDate).toLocaleDateString("vi-VN")}
@@ -410,11 +419,11 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[var(--text-sub)] flex items-center space-x-2">
                         <span>🏖️</span>
-                        <span>Phép năm</span>
+                        <span>{t('dashboard:profile.stats.annualLeave')}</span>
                       </span>
                       <span className="text-[var(--success)]">
                         {user.leaveBalance.annual.used}/
-                        {user.leaveBalance.annual.total} ngày
+                        {user.leaveBalance.annual.total} {t('dashboard:profile.stats.days')}
                       </span>
                     </div>
                   )}
@@ -439,19 +448,19 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     value="info"
                     className="flex-1 flex items-center justify-center"
                   >
-                    Thông tin
+                    {t('dashboard:profile.tabs.info')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="security"
                     className="flex-1 flex items-center justify-center"
                   >
-                    Bảo mật
+                    {t('dashboard:profile.tabs.security')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="settings"
                     className="flex-1 flex items-center justify-center"
                   >
-                    Cài đặt
+                    {t('dashboard:profile.tabs.settings')}
                   </TabsTrigger>
                 </TabsList>
 
@@ -460,10 +469,10 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg text-[var(--text-main)]">
-                        Thông tin cá nhân
+                        {t('dashboard:profile.personalInfo.title')}
                       </h3>
                       <p className="text-sm text-[var(--text-sub)]">
-                        Cập nhật thông tin của bạn
+                        {t('dashboard:profile.personalInfo.subtitle')}
                       </p>
                     </div>
                     {!isEditing ? (
@@ -471,7 +480,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                         onClick={() => setIsEditing(true)}
                         className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
                       >
-                        Chỉnh sửa
+                        {t('dashboard:profile.personalInfo.edit')}
                       </Button>
                     ) : (
                       <div className="flex space-x-2">
@@ -480,13 +489,13 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                           variant="outline"
                           className="border-[var(--border)]"
                         >
-                          Hủy
+                          {t('common:cancel')}
                         </Button>
                         <Button
                           onClick={handleSaveProfile}
                           className="bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)]"
                         >
-                          Lưu
+                          {t('common:save')}
                         </Button>
                       </div>
                     )}
@@ -496,7 +505,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <User className="h-4 w-4 inline mr-2" />
-                        Họ và tên
+                        {t('dashboard:profile.personalInfo.fields.fullName')}
                       </Label>
                       <Input
                         value={profile.fullName}
@@ -511,7 +520,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Mail className="h-4 w-4 inline mr-2" />
-                        Email
+                        {t('dashboard:profile.personalInfo.fields.email')}
                       </Label>
                       <Input
                         value={profile.email}
@@ -523,7 +532,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Phone className="h-4 w-4 inline mr-2" />
-                        Số điện thoại
+                        {t('dashboard:profile.personalInfo.fields.phone')}
                       </Label>
                       <Input
                         value={profile.phone}
@@ -538,7 +547,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Calendar className="h-4 w-4 inline mr-2" />
-                        Ngày sinh
+                        {t('dashboard:profile.personalInfo.fields.birthday')}
                       </Label>
                       <Input
                         type="date"
@@ -554,7 +563,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2 md:col-span-2">
                       <Label className="text-[var(--text-main)]">
                         <MapPin className="h-4 w-4 inline mr-2" />
-                        Địa chỉ
+                        {t('dashboard:profile.personalInfo.fields.address')}
                       </Label>
                       <Input
                         value={profile.address}
@@ -569,7 +578,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Building2 className="h-4 w-4 inline mr-2" />
-                        Phòng ban
+                        {t('dashboard:profile.personalInfo.fields.department')}
                       </Label>
                       <Input
                         value={profile.department}
@@ -581,7 +590,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Briefcase className="h-4 w-4 inline mr-2" />
-                        Chức vụ
+                        {t('dashboard:profile.personalInfo.fields.position')}
                       </Label>
                       <Input
                         value={profile.position}
@@ -593,7 +602,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <CreditCard className="h-4 w-4 inline mr-2" />
-                        Số tài khoản
+                        {t('dashboard:profile.personalInfo.fields.bankAccount')}
                       </Label>
                       <Input
                         value={profile.bankAccount}
@@ -611,7 +620,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Building2 className="h-4 w-4 inline mr-2" />
-                        Ngân hàng
+                        {t('dashboard:profile.personalInfo.fields.bankName')}
                       </Label>
                       <Input
                         value={profile.bankName}
@@ -629,10 +638,10 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                 <TabsContent value="security" className="space-y-6">
                   <div>
                     <h3 className="text-lg text-[var(--text-main)] mb-1">
-                      Đổi mật khẩu
+                      {t('dashboard:profile.security.title')}
                     </h3>
                     <p className="text-sm text-[var(--text-sub)]">
-                      Cập nhật mật khẩu để bảo mật tài khoản
+                      {t('dashboard:profile.security.subtitle')}
                     </p>
                   </div>
 
@@ -640,7 +649,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Lock className="h-4 w-4 inline mr-2" />
-                        Mật khẩu hiện tại
+                        {t('dashboard:profile.security.currentPassword')}
                       </Label>
                       <div className="relative">
                         <Input
@@ -692,7 +701,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Lock className="h-4 w-4 inline mr-2" />
-                        Mật khẩu mới
+                        {t('dashboard:profile.security.newPassword')}
                       </Label>
                       <div className="relative">
                         <Input
@@ -742,7 +751,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-2">
                       <Label className="text-[var(--text-main)]">
                         <Lock className="h-4 w-4 inline mr-2" />
-                        Xác nhận mật khẩu mới
+                        {t('dashboard:profile.security.confirmPassword')}
                       </Label>
                       <div className="relative">
                         <Input
@@ -795,7 +804,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                       onClick={handleChangePassword}
                       className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
                     >
-                      Cập nhật mật khẩu
+                      {t('dashboard:profile.security.updateButton')}
                     </Button>
                   </div>
                 </TabsContent>
@@ -804,10 +813,10 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                 <TabsContent value="settings" className="space-y-6">
                   <div>
                     <h3 className="text-lg text-[var(--text-main)] mb-1">
-                      Cài đặt ứng dụng
+                      {t('dashboard:profile.settings.title')}
                     </h3>
                     <p className="text-sm text-[var(--text-sub)]">
-                      Tùy chỉnh trải nghiệm của bạn
+                      {t('dashboard:profile.settings.title')}
                     </p>
                   </div>
 
@@ -863,7 +872,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <div className="space-y-4">
                       <div className="flex items-center space-x-2">
                         <Bell className="h-5 w-5 text-[var(--accent-cyan)]" />
-                        <h4 className="text-[var(--text-main)]">Thông báo</h4>
+                        <h4 className="text-[var(--text-main)]">{t('dashboard:profile.settings.notifications')}</h4>
                       </div>
 
                       <div className="space-y-3">
@@ -873,7 +882,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                               Email
                             </p>
                             <p className="text-xs text-[var(--text-sub)]">
-                              Nhận thông báo qua email
+                              {t('dashboard:profile.settings.emailNotifications')}
                             </p>
                           </div>
                           <Switch
@@ -893,7 +902,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                               Push
                             </p>
                             <p className="text-xs text-[var(--text-sub)]">
-                              Thông báo trên trình duyệt
+                              {t('dashboard:profile.settings.pushNotifications')}
                             </p>
                           </div>
                           <Switch
@@ -913,7 +922,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                               SMS
                             </p>
                             <p className="text-xs text-[var(--text-sub)]">
-                              Nhận tin nhắn SMS
+                              {t('dashboard:profile.settings.smsNotifications')}
                             </p>
                           </div>
                           <Switch
