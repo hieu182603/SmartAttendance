@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import { authMiddleware } from '../../middleware/auth.middleware.js'
 import { requireRole, ROLES } from '../../middleware/role.middleware.js'
-import { createRequest, getMyRequests, getAllRequests, approveRequest, rejectRequest } from './request.controller.js'
+import { createRequest, getMyRequests, getAllRequests, approveRequest, rejectRequest, getRequestTypes } from './request.controller.js'
 
 export const requestRouter = Router()
 
 requestRouter.use(authMiddleware)
 
+requestRouter.get('/types', getRequestTypes)
 requestRouter.get('/my', getMyRequests)
 requestRouter.post('/', createRequest)
 

@@ -10,13 +10,19 @@ import {
   Sun,
   AlertCircle,
   Plus,
-  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { Card, CardContent } from "../../ui/card";
+import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
+
 import {
   Dialog,
   DialogContent,
@@ -35,12 +41,26 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+
 } from "@/components/ui/select";
 import { getMyRequests, createRequest as createRequestApi } from "@/services/requestService";
 import type { ErrorWithMessage } from "@/types";
 
+} from "../../ui/select";
+import {
+  getMyRequests,
+  createRequest as createRequestApi,
+  getRequestTypes,
+} from "../../../services/requestService";
+import type {
+  RequestType as RequestTypeOption,
+} from "../../../services/requestService";
+import { getAllDepartments } from "../../../services/departmentService";
+import type { ErrorWithMessage } from "../../../types";
+
+
 type RequestStatus = "pending" | "approved" | "rejected";
-type RequestType = "leave" | "overtime" | "remote" | "correction";
+type RequestType = string;
 type Urgency = "high" | "medium" | "low";
 
 interface Request {
@@ -71,16 +91,23 @@ interface DateRange {
 }
 
 interface Stats {
+  total: number;
   pending: number;
   approved: number;
   rejected: number;
-  total: number;
 }
 
 interface TypeIconLabel {
   icon: ReactNode;
   label: string;
 }
+
+const FALLBACK_REQUEST_TYPES: RequestTypeOption[] = [
+  { value: "leave", label: "Nghỉ phép" },
+  { value: "overtime", label: "Tăng ca" },
+  { value: "remote", label: "Remote" },
+  { value: "correction", label: "Sửa công" },
+];
 
 const RequestsPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common']);
@@ -101,6 +128,8 @@ const RequestsPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
+  const [requestTypes, setRequestTypes] = useState<RequestTypeOption[]>([]);
+  const [departments, setDepartments] = useState<Array<{ value: string; label: string }>>([]);
   const [pagination, setPagination] = useState<{
     total: number;
     page: number;
@@ -112,6 +141,34 @@ const RequestsPage: React.FC = () => {
     limit: 20,
     totalPages: 0,
   });
+
+  // Fetch request types and departments
+  useEffect(() => {
+    let isMounted = true;
+    const fetchOptions = async () => {
+      try {
+        const [typesResult, deptsResult] = await Promise.all([
+          getRequestTypes(),
+          getAllDepartments({ limit: 1000, status: 'active' })
+        ]);
+        
+        if (isMounted) {
+          setRequestTypes(typesResult.types || []);
+          const deptOptions = deptsResult.departments.map(dept => ({
+            value: dept.name,
+            label: dept.name
+          }));
+          setDepartments(deptOptions);
+        }
+      } catch (error) {
+        console.error('[RequestsPage] Options fetch error:', error);
+      }
+    };
+    fetchOptions();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Fetch stats (all requests without pagination for accurate stats)
   useEffect(() => {
@@ -128,7 +185,7 @@ const RequestsPage: React.FC = () => {
             ...(pendingResult.requests || []),
             ...(approvedResult.requests || []),
             ...(rejectedResult.requests || []),
-          ];
+          ] as unknown as Request[];
           setAllRequests(allRequestsData);
         }
       } catch (error) {
@@ -152,6 +209,7 @@ const RequestsPage: React.FC = () => {
           limit?: number;
           status?: string;
           search?: string;
+          type?: string;
         } = {
           page: currentPage,
           limit: itemsPerPage,
@@ -162,6 +220,11 @@ const RequestsPage: React.FC = () => {
           params.status = selectedTab;
         }
 
+        // Type filter
+        if (filterType !== "all") {
+          params.type = filterType;
+        }
+
         // Search filter
         if (searchQuery) {
           params.search = searchQuery;
@@ -169,7 +232,14 @@ const RequestsPage: React.FC = () => {
 
         const result = await getMyRequests(params);
         if (isMounted) {
-          setRequests(result.requests || []);
+          let filteredRequests = (result.requests || []) as unknown as Request[];
+          
+          // Client-side department filter (since getMyRequests only returns user's own requests)
+          if (filterDepartment !== "all") {
+            filteredRequests = filteredRequests.filter(req => req.department === filterDepartment);
+          }
+          
+          setRequests(filteredRequests);
           if (result.pagination) {
             setPagination(result.pagination);
           }
@@ -187,12 +257,12 @@ const RequestsPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [currentPage, selectedTab, searchQuery]);
+  }, [currentPage, selectedTab, searchQuery, filterType, filterDepartment]);
 
-  // Reset to page 1 when tab or search changes
+  // Reset to page 1 when tab, search, or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedTab, searchQuery]);
+  }, [selectedTab, searchQuery, filterType, filterDepartment]);
 
   // Calculate stats from allRequests
   const stats = useMemo<Stats>(() => {
@@ -204,22 +274,10 @@ const RequestsPage: React.FC = () => {
     };
   }, [allRequests]);
 
-  // Server-side filtering - no client-side filtering needed for main list
-  // But we still need to filter by type and department if those filters exist
-  const applyFilters = (tabValue: string): Request[] => {
-    // Note: Status filtering is done server-side via selectedTab
-    // Type and department filters may need server-side support or stay client-side for now
-    let filtered = requests;
-    
-    if (filterType !== "all") {
-      filtered = filtered.filter(req => req.type === filterType);
-    }
-    // Department filter may not be applicable for "my requests" but keeping for consistency
-    if (filterDepartment !== "all") {
-      filtered = filtered.filter(req => req.department === filterDepartment);
-    }
-    
-    return filtered;
+  // Filtering is now done in the fetch effect, but we keep this for rendering
+  const applyFilters = (_tabValue: string): Request[] => {
+    // Filtering is already done in the fetch effect
+    return requests;
   };
 
   const handleCreateRequest = async (): Promise<void> => {
@@ -237,11 +295,21 @@ const RequestsPage: React.FC = () => {
         reason: requestReason.trim(),
       };
       const newRequest = await createRequestApi(payload) as Request;
-      // Refresh requests after creating new one
+      
+      // The response from createRequest should already have all needed fields
       // Add to allRequests for stats
       setAllRequests((prev) => [newRequest, ...prev]);
-      // Refresh current page
-      setCurrentPage(1);
+      
+      // Add to current requests list if on pending tab or all tab
+      if (selectedTab === 'pending' || selectedTab === 'all') {
+        setRequests((prev) => [newRequest, ...prev]);
+      }
+      
+      // Switch to pending tab if not already there
+      if (selectedTab !== 'pending') {
+        setSelectedTab('pending');
+      }
+      
       setIsCreateDialogOpen(false);
       setRequestType("");
       setRequestReason("");
@@ -457,11 +525,15 @@ const RequestsPage: React.FC = () => {
                   <SelectTrigger className="border-[var(--border)] bg-[var(--input-bg)]">
                     <SelectValue placeholder="Chọn loại đơn" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="leave">Nghỉ phép</SelectItem>
-                    <SelectItem value="overtime">Tăng ca</SelectItem>
-                    <SelectItem value="remote">Remote</SelectItem>
-                    <SelectItem value="correction">Sửa công</SelectItem>
+                <SelectContent>
+                  {(requestTypes.length
+                    ? requestTypes
+                    : FALLBACK_REQUEST_TYPES
+                  ).map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -574,10 +646,14 @@ const RequestsPage: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="leave">Nghỉ phép</SelectItem>
-                <SelectItem value="overtime">Tăng ca</SelectItem>
-                <SelectItem value="remote">Remote</SelectItem>
-                <SelectItem value="correction">Sửa công</SelectItem>
+                {(requestTypes.length
+                  ? requestTypes
+                  : FALLBACK_REQUEST_TYPES
+                ).map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filterDepartment} onValueChange={setFilterDepartment}>
@@ -586,10 +662,11 @@ const RequestsPage: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả phòng ban</SelectItem>
-                <SelectItem value="IT">IT</SelectItem>
-                <SelectItem value="Nhân sự">Nhân sự</SelectItem>
-                <SelectItem value="Marketing">Marketing</SelectItem>
-                <SelectItem value="Kinh doanh">Kinh doanh</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.value} value={dept.value}>
+                    {dept.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -608,6 +685,9 @@ const RequestsPage: React.FC = () => {
               </TabsTrigger>
             </TabsList>
 
+            <TabsContent value="all" className="mt-6 space-y-4">
+              {renderRequests("all")}
+            </TabsContent>        
             <TabsContent value="pending" className="mt-6 space-y-4">
               {renderRequests("pending")}
             </TabsContent>
@@ -616,10 +696,7 @@ const RequestsPage: React.FC = () => {
             </TabsContent>
             <TabsContent value="rejected" className="mt-6 space-y-4">
               {renderRequests("rejected")}
-            </TabsContent>
-            <TabsContent value="all" className="mt-6 space-y-4">
-              {renderRequests("all")}
-            </TabsContent>
+            </TabsContent>            
           </Tabs>
           
           {/* Pagination Controls */}

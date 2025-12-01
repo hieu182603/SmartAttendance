@@ -1,4 +1,5 @@
 import { RequestModel } from './request.model.js'
+import { RequestTypeModel } from './request-type.model.js'
 import { BranchModel } from '../branches/branch.model.js'
 import { DepartmentModel } from '../departments/department.model.js'
 
@@ -30,15 +31,70 @@ const getTitleByType = (type) => {
   return typeMap[type] || 'Yêu cầu'
 }
 
+const DEFAULT_REQUEST_TYPES = [
+  { value: 'leave', label: 'Nghỉ phép' },
+  { value: 'sick', label: 'Nghỉ ốm' },
+  { value: 'unpaid', label: 'Nghỉ không lương' },
+  { value: 'compensatory', label: 'Nghỉ bù' },
+  { value: 'maternity', label: 'Nghỉ thai sản' },
+  { value: 'overtime', label: 'Tăng ca' },
+  { value: 'remote', label: 'Làm từ xa' },
+  { value: 'late', label: 'Đi muộn' },
+  { value: 'correction', label: 'Sửa công' },
+  { value: 'other', label: 'Yêu cầu khác' }
+]
+
+const ensureDefaultRequestTypes = async () => {
+  await Promise.all(
+    DEFAULT_REQUEST_TYPES.map((type, index) =>
+      RequestTypeModel.updateOne(
+        { value: type.value },
+        {
+          $setOnInsert: {
+            label: type.label,
+            description: type.label,
+            sortOrder: index,
+            isActive: true,
+            isSystem: true,
+          },
+        },
+        { upsert: true }
+      )
+    )
+  )
+}
+
+export const getRequestTypes = async (_req, res) => {
+  try {
+    await ensureDefaultRequestTypes()
+    const docs = await RequestTypeModel.find({ isActive: true })
+      .sort({ sortOrder: 1, label: 1 })
+      .lean()
+
+    const types =
+      docs.map((doc) => ({ value: doc.value, label: doc.label })) ||
+      DEFAULT_REQUEST_TYPES
+
+    res.json({ types })
+  } catch (error) {
+    console.error('[requests] getRequestTypes error', error)
+    res.status(500).json({ message: 'Không lấy được danh sách loại đơn' })
+  }
+}
+
 export const getMyRequests = async (req, res) => {
   try {
     const userId = req.user.userId
-    const { status, search, page = 1, limit = 20 } = req.query
+    const { status, search, type, department, page = 1, limit = 20 } = req.query
 
     const query = { userId }
 
     if (status && ['pending', 'approved', 'rejected'].includes(status)) {
       query.status = status
+    }
+
+    if (type && type !== 'all') {
+      query.type = type
     }
 
     if (search) {
@@ -122,15 +178,33 @@ export const createRequest = async (req, res) => {
       urgency: urgency || 'medium',
     })
 
+    // Populate user info to match getMyRequests format
+    await doc.populate({
+      path: 'userId',
+      select: 'name department branch',
+      populate: [
+        { path: 'department', select: 'name' },
+        { path: 'branch', select: 'name' }
+      ]
+    })
+
     res.status(201).json({
       id: doc._id.toString(),
+      employeeName: doc.userId?.name || 'N/A',
+      department: doc.userId?.department?.name || 'N/A',
+      branch: doc.userId?.branch?.name || 'N/A',
       type: doc.type,
       title: getTitleByType(doc.type),
       date: formatDate(doc.startDate),
+      startDate: formatDate(doc.startDate),
+      endDate: formatDate(doc.endDate),
       duration: buildDuration(doc.startDate, doc.endDate),
       status: doc.status,
       reason: doc.reason,
+      description: doc.description || doc.reason,
+      urgency: doc.urgency || 'medium',
       createdAt: formatDate(doc.createdAt),
+      submittedAt: formatDate(doc.createdAt),
     })
   } catch (error) {
     console.error('[requests] create error', error)
