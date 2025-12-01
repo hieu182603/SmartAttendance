@@ -30,8 +30,6 @@ interface State {
   isCameraReady: boolean;
   isProcessing: boolean;
   locationLoading: boolean;
-  checkInStatus: "success" | "error" | "already" | null;
-  checkOutStatus: "success" | "error" | "not_checked_in" | "insufficient_hours" | null;
   hasCheckedIn: boolean;
   hasCheckedOut: boolean;
   checkInTime: Date | null;
@@ -54,11 +52,11 @@ interface LocationData {
 interface Office {
   _id: string;
   name: string;
-  address: string;
   latitude: number;
   longitude: number;
   radius: number;
 }
+
 
 interface CheckInResponse {
   success: boolean;
@@ -92,8 +90,6 @@ const ScanPage: React.FC = () => {
     isCameraReady: false,
     isProcessing: false,
     locationLoading: false,
-    checkInStatus: null,
-    checkOutStatus: null,
     hasCheckedIn: false,
     hasCheckedOut: false,
     checkInTime: null,
@@ -112,10 +108,9 @@ const ScanPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Hàm tính khoảng cách giữa 2 tọa độ (Haversine formula)
   const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
-const toRad = (value: number) => (value * Math.PI) / 180;
-    const R = 6371e3; 
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const R = 6371e3; // Bán kính trái đất (mét)
     
     const φ1 = toRad(lat1);
     const φ2 = toRad(lat2);
@@ -125,10 +120,9 @@ const toRad = (value: number) => (value * Math.PI) / 180;
     const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     
-    return R * c; 
+    return R * c;
   }, []);
 
-  // Tìm văn phòng gần nhất
   const findNearestOffice = useCallback((lat: number, lon: number) => {
     if (offices.length === 0) return null;
     
@@ -146,7 +140,6 @@ const toRad = (value: number) => (value * Math.PI) / 180;
     return { office: nearest, distance: Math.round(minDistance) };
   }, [offices, calculateDistance]);
 
-  // Lấy vị trí GPS
   const getLocation = useCallback(async () => {
     setState(prev => ({ ...prev, locationLoading: true }));
     setLocationError(null);
@@ -177,7 +170,6 @@ const toRad = (value: number) => (value * Math.PI) / 180;
     } catch (error: any) {
       console.error("Error getting location:", error);
       
-      // Xử lý các loại lỗi cụ thể
       let errorMessage = "Không thể lấy vị trí. ";
       
       if (error.code === 1) { // PERMISSION_DENIED
@@ -198,7 +190,6 @@ const toRad = (value: number) => (value * Math.PI) / 180;
     }
   }, [findNearestOffice]);
 
-  // Bật camera
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -222,7 +213,6 @@ console.error("Error accessing camera:", error);
     }
   }, []);
 
-  // Tắt camera
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -234,7 +224,6 @@ console.error("Error accessing camera:", error);
     setState(prev => ({ ...prev, isCameraReady: false }));
   }, []);
 
-  // Chụp ảnh và resize
   const capturePhoto = useCallback((): string | null => {
     if (!videoRef.current || !state.isCameraReady) return null;
 
@@ -268,11 +257,10 @@ console.error("Error accessing camera:", error);
     return canvas.toDataURL("image/jpeg", 0.6);
   }, [state.isCameraReady]);
 
-  // Xử lý check-in
   const handleCheckIn = useCallback(async () => {
     if (!locationData) return;
     
-    setState(prev => ({ ...prev, isProcessing: true, checkInStatus: null }));
+    setState(prev => ({ ...prev, isProcessing: true }));
 
     try {
       const photoData = capturePhoto();
@@ -296,22 +284,21 @@ console.error("Error accessing camera:", error);
         const now = new Date();
         setState(prev => ({ 
           ...prev, 
-          checkInStatus: "success", 
           hasCheckedIn: true,
           checkInTime: now,
           canCheckOut: false
         }));
         
-        // Cập nhật khoảng cách từ response
-        if (response.data.data?.distance) {
-          const distanceValue = parseInt(response.data.data.distance);
-          setLocationData(prev => prev ? { ...prev, distance: distanceValue } : null);
+        if (response.data.data) {
+          const { distance, location } = response.data.data;
+          setLocationData(prev => prev ? { 
+            ...prev, 
+            distance: distance ? parseInt(distance) : prev.distance,
+            nearestOffice: location || prev.nearestOffice
+          } : null);
         }
-toast.success("Check-in thành công!");
-
-        setTimeout(() => {
-          setState(prev => ({ ...prev, checkInStatus: null }));
-        }, 3000);
+        
+        toast.success(response.data.message || "Check-in thành công!");
       }
     } catch (error) {
       console.error("Check-in error:", error);
@@ -320,24 +307,21 @@ toast.success("Check-in thành công!");
 
       if (err.response?.data?.code === 'ALREADY_CHECKED_IN') {
         toast.info(errorMessage);
-        setState(prev => ({ ...prev, checkInStatus: "already", hasCheckedIn: true }));
+        setState(prev => ({ ...prev, hasCheckedIn: true }));
       } else if (err.response?.data?.code === 'TOO_EARLY') {
         toast.warning(errorMessage);
-        setState(prev => ({ ...prev, checkInStatus: "error" }));
       } else {
         toast.error(errorMessage);
-        setState(prev => ({ ...prev, checkInStatus: "error" }));
       }
     } finally {
       setState(prev => ({ ...prev, isProcessing: false }));
     }
   }, [locationData, capturePhoto]);
 
-  // Xử lý check-out
   const handleCheckOut = useCallback(async () => {
     if (!locationData) return;
     
-    setState(prev => ({ ...prev, isProcessing: true, checkOutStatus: null }));
+    setState(prev => ({ ...prev, isProcessing: true }));
 
     try {
       const photoData = capturePhoto();
@@ -358,14 +342,18 @@ toast.success("Check-in thành công!");
       });
 
       if (response.data.success) {
-        setState(prev => ({ ...prev, checkOutStatus: "success", hasCheckedOut: true }));
+        setState(prev => ({ ...prev, hasCheckedOut: true }));
         
-        const workHours = response.data.data?.workHours || '0h';
-        toast.success(`Check-out thành công! Tổng giờ làm: ${workHours}`);
-
-        setTimeout(() => {
-          setState(prev => ({ ...prev, checkOutStatus: null }));
-        }, 3000);
+        if (response.data.data) {
+          const { distance, location } = response.data.data;
+          setLocationData(prev => prev ? { 
+            ...prev, 
+            distance: distance ? parseInt(distance) : prev.distance,
+            nearestOffice: location || prev.nearestOffice
+          } : null);
+        }
+        
+        toast.success(response.data.message || "Check-out thành công!");
       }
     } catch (error) {
       console.error("Check-out error:", error);
@@ -374,23 +362,19 @@ toast.success("Check-in thành công!");
 
       if (err.response?.data?.code === 'NOT_CHECKED_IN') {
         toast.warning(errorMessage);
-        setState(prev => ({ ...prev, checkOutStatus: "not_checked_in" }));
       } else if (err.response?.data?.code === 'ALREADY_CHECKED_OUT') {
         toast.info(errorMessage);
-        setState(prev => ({ ...prev, checkOutStatus: "success", hasCheckedOut: true }));
+        setState(prev => ({ ...prev, hasCheckedOut: true }));
       } else if (err.response?.data?.code === 'INSUFFICIENT_WORK_HOURS') {
-toast.warning(errorMessage);
-        setState(prev => ({ ...prev, checkOutStatus: "insufficient_hours" }));
+        toast.warning(errorMessage);
       } else {
         toast.error(errorMessage);
-        setState(prev => ({ ...prev, checkOutStatus: "error" }));
       }
     } finally {
       setState(prev => ({ ...prev, isProcessing: false }));
     }
   }, [locationData, capturePhoto]);
 
-  // Load danh sách offices và check trạng thái attendance khi mount
   useEffect(() => {
     const loadOffices = async () => {
       try {
@@ -418,7 +402,6 @@ toast.warning(errorMessage);
             const [, day, month, year] = dateMatch;
             const attendanceStr = `${parseInt(day)}/${parseInt(month)}/${year}`;
             
-            // So sánh ngày
             if (attendanceStr === todayStr) {
               let checkInTime = null;
               if (latestAttendance.checkIn) {
@@ -446,16 +429,14 @@ toast.warning(errorMessage);
     checkTodayAttendance();
   }, []);
 
-  // Tự động lấy vị trí khi offices đã load
   useEffect(() => {
     if (offices.length > 0) {
       getLocation();
     }
-  }, [offices.length]); 
+  }, [offices.length, getLocation]);
 
-  // Reset state khi sang ngày mới (kiểm tra mỗi phút)
   useEffect(() => {
-let lastCheckDate = new Date().toDateString();
+    let lastCheckDate = new Date().toDateString();
 
     const checkNewDay = setInterval(() => {
       const currentDate = new Date().toDateString();
@@ -466,8 +447,6 @@ let lastCheckDate = new Date().toDateString();
           hasCheckedOut: false,
           checkInTime: null,
           canCheckOut: false,
-          checkInStatus: null,
-          checkOutStatus: null
         }));
         lastCheckDate = currentDate;
       }
@@ -476,19 +455,18 @@ let lastCheckDate = new Date().toDateString();
     return () => clearInterval(checkNewDay);
   }, []);
 
-  // Kiểm tra thời gian làm việc để enable nút check-out
   useEffect(() => {
     if (!state.checkInTime || state.hasCheckedOut) return;
 
-    const MIN_WORK_HOURS = 2; 
+    const MIN_WORK_HOURS = 1; 
     const now = new Date();
     const hoursWorked = (now.getTime() - state.checkInTime.getTime()) / (1000 * 60 * 60);
+    
     if (hoursWorked >= MIN_WORK_HOURS) {
       setState(prev => ({ ...prev, canCheckOut: true }));
       return; 
     }
 
-    // Kiểm tra định kỳ mỗi phút
     const checkInterval = setInterval(() => {
       const now = new Date();
       const hoursWorked = (now.getTime() - state.checkInTime!.getTime()) / (1000 * 60 * 60);
@@ -698,7 +676,7 @@ let lastCheckDate = new Date().toDateString();
               onClick={handleCheckOut}
               disabled={isProcessing || !permissions.camera || !permissions.location || !locationData || !hasCheckedIn || hasCheckedOut || !canCheckOut}
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? "Cần làm việc ít nhất 8 giờ (ca Full time)" : ""}
+              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? "Vui lòng chờ ít nhất 1 giờ sau khi check-in" : ""}
             >
               {isProcessing && hasCheckedIn && !hasCheckedOut ? (
                 <>

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getAttendanceHistory } from '@/services/attendanceService'
 
-type AttendanceStatus = 'ontime' | 'late' | 'absent' | 'overtime' | 'weekend'
+type AttendanceStatus = 'ontime' | 'late' | 'absent' | 'overtime' | 'weekend' | 'on_leave'
 
 interface AttendanceRecord {
   id?: string
@@ -41,6 +41,8 @@ const getStatusBadge = (
       return <Badge className="bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/30">{t('dashboard:history.statusLabels.overtime')}</Badge>
     case 'weekend':
       return <Badge className="bg-[var(--text-sub)]/20 text-[var(--text-sub)] border-[var(--text-sub)]/30">{t('dashboard:history.statusLabels.weekend')}</Badge>
+    case 'on_leave':
+      return <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30">{t('dashboard:history.statusLabels.onLeave', { defaultValue: 'Nghỉ phép' })}</Badge>
     default:
       return null
   }
@@ -53,8 +55,7 @@ const HistoryPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [selectedDate, setSelectedDate] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(20)
@@ -72,65 +73,40 @@ const HistoryPage: React.FC = () => {
     totalPages: 0,
   })
 
-  // Fetch all records for summary stats (without pagination)
   useEffect(() => {
     let isMounted = true
-    const fetchStats = async () => {
-      try {
-        const result = await getAttendanceHistory({
-          from: dateFrom || undefined,
-          to: dateTo || undefined,
-          limit: 1000, // Get all for stats
-        })
-        if (isMounted && result.records) {
-          setAllRecords(result.records as unknown as AttendanceRecord[])
-        }
-      } catch (err) {
-        console.error('[HistoryPage] Stats fetch error:', err)
-      }
-    }
-    fetchStats()
-    return () => {
-      isMounted = false
-    }
-  }, [dateFrom, dateTo])
-
-  // Fetch paginated records
-  useEffect(() => {
-    let isMounted = true
+    
     const fetchData = async () => {
       setLoading(true)
       setError('')
+      
       try {
-        const params: {
-          from?: string
-          to?: string
-          search?: string
-          page?: number
-          limit?: number
-        } = {
-          from: dateFrom || undefined,
-          to: dateTo || undefined,
+        const baseParams = {
+          from: selectedDate || undefined,
+          to: selectedDate || undefined,
+          search: searchTerm || undefined,
+        }
+
+        const paginatedResult = await getAttendanceHistory({
+          ...baseParams,
           page: currentPage,
           limit: itemsPerPage,
-        }
+        })
 
-        // Search filter
-        if (searchTerm) {
-          params.search = searchTerm
-        }
+        const statsResult = searchTerm 
+          ? paginatedResult 
+          : await getAttendanceHistory({ ...baseParams, limit: 1000 })
 
-        const result = await getAttendanceHistory(params)
         if (isMounted) {
-          setRecords((result.records || []) as unknown as AttendanceRecord[])
-          if (result.pagination) {
-            setPagination(result.pagination)
+          setRecords((paginatedResult.records || []) as unknown as AttendanceRecord[])
+          setAllRecords((statsResult.records || []) as unknown as AttendanceRecord[])
+          if (paginatedResult.pagination) {
+            setPagination(paginatedResult.pagination)
           }
         }
       } catch (err) {
         if (isMounted) {
           const error = err as Error
-          // Prefer backend message if any, otherwise show localized fallback
           setError(error.message || t('dashboard:history.details.loading'))
         }
       } finally {
@@ -144,20 +120,17 @@ const HistoryPage: React.FC = () => {
     return () => {
       isMounted = false
     }
-  }, [dateFrom, dateTo, searchTerm, currentPage, itemsPerPage, statusFilter])
+  }, [selectedDate, searchTerm, currentPage, itemsPerPage, t])
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [dateFrom, dateTo, searchTerm, statusFilter])
+  }, [selectedDate, searchTerm])
 
-  // Client-side filtering by status if needed
   const filteredData = useMemo(() => {
     if (statusFilter === 'all') return records
     return records.filter(record => record.status === statusFilter)
   }, [records, statusFilter])
 
-  // Calculate summary from allRecords (not paginated data)
   const summary = useMemo(() => {
     const total = allRecords.length
     const late = allRecords.filter((item) => item.status === 'late').length
@@ -200,17 +173,20 @@ const HistoryPage: React.FC = () => {
                 <SelectItem value="absent">{t('dashboard:history.statusLabels.absent')}</SelectItem>
                 <SelectItem value="overtime">{t('dashboard:history.statusLabels.overtime')}</SelectItem>
                 <SelectItem value="weekend">{t('dashboard:history.filters.weekend')}</SelectItem>
+                <SelectItem value="on_leave">{t('dashboard:history.statusLabels.onLeave', { defaultValue: 'Nghỉ phép' })}</SelectItem>
               </SelectContent>
             </Select>
 
-            {/* Date Filter */}
+            {/* Date Filter - Chọn 1 ngày cụ thể */}
             <Input
               type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
               placeholder={t('dashboard:history.filters.selectDate')}
               className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
             />
+
+
           </div>
         </CardContent>
       </Card>
@@ -385,12 +361,9 @@ const HistoryPage: React.FC = () => {
 
       {/* Image Modal */}
       {selectedRecord && (() => {
-        // Parse URLs
-        const allUrls = selectedRecord.notes?.match(/\[Ảnh[^\]]*:\s*(https?:\/\/[^\]]+)\]/g) || [];
-        const checkInMatch = allUrls[0]?.match(/https?:\/\/[^\]]+/);
-        const checkInUrl = checkInMatch?.[0] || selectedRecord.location?.match(/https?:\/\/[^\s]+/)?.[0];
-        const checkOutMatch = selectedRecord.notes?.match(/\[Ảnh check-out:\s*(https?:\/\/[^\]]+)\]/i);
-        const checkOutUrl = checkOutMatch?.[1];
+        const checkInUrl = selectedRecord.notes?.match(/\[Ảnh:\s*(https?:\/\/[^\]]+)\]/)?.[1] || 
+                          selectedRecord.location?.match(/https?:\/\/[^\s]+/)?.[0];
+        const checkOutUrl = selectedRecord.notes?.match(/\[Ảnh check-out:\s*(https?:\/\/[^\]]+)\]/i)?.[1];
 
         const currentUrl = activeTab === 'checkin' ? checkInUrl : checkOutUrl;
         const currentTime = activeTab === 'checkin' ? selectedRecord.checkIn : selectedRecord.checkOut;
