@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Camera,
   MapPin,
@@ -86,6 +87,7 @@ interface CheckInError {
 }
 
 const ScanPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [state, setState] = useState<State>({
     isCameraReady: false,
     isProcessing: false,
@@ -514,17 +516,17 @@ let lastCheckDate = new Date().toDateString();
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            Chấm công hôm nay
+            {t('dashboard:scan.checkInToday')}
           </CardTitle>
           <p className="text-sm text-[var(--text-sub)] mt-2">
-            Chụp ảnh và xác nhận vị trí để chấm công
+            {t('dashboard:scan.description')}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Trạng thái quyền */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">
-              Trạng thái quyền truy cập
+              {t('dashboard:scan.permissionStatus')}
             </h3>
             <div className="flex flex-wrap gap-2">
               {Object.entries(permissions).map(([key, granted]) => (

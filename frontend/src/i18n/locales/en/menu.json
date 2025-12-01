@@ -1,0 +1,25 @@
+{
+  "home": "Home",
+  "scan": "Check-in",
+  "history": "History",
+  "requests": "Requests",
+  "leave-balance": "Leave Balance",
+  "schedule": "Schedule",
+  "company-calendar": "Company Calendar",
+  "profile": "Profile",
+  "notifications": "Notifications",
+  "approve-requests": "Approve Requests",
+  "department-attendance": "Department Attendance",
+  "attendance-analytics": "Attendance Analytics",
+  "admin-attendance": "Admin Attendance",
+  "performance-review": "Performance Review",
+  "shifts": "Shift Management",
+  "employee-management": "Employee Management",
+  "payroll-reports": "Payroll Reports",
+  "payroll": "Payroll",
+  "departments": "Department Management",
+  "branches": "Branch Management",
+  "audit-logs": "Audit Logs",
+  "camera-checkin": "Camera Check-in"
+}
+

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
   Building2,
@@ -66,6 +67,7 @@ interface Manager {
 }
 
 export function BranchesPage() {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,7 +174,7 @@ export function BranchesPage() {
       }
     } catch (error) {
       console.error('Error loading branches:', error);
-      toast.error('Không thể tải danh sách chi nhánh');
+      toast.error(t('dashboard:branches.dialog.error'));
     } finally {
       setLoading(false);
     }
@@ -266,7 +268,7 @@ export function BranchesPage() {
           managerId: formData.managerId,
           timezone: formData.timezone,
         });
-        toast.success(`Đã tạo chi nhánh ${formData.name}`);
+        toast.success(t('dashboard:branches.dialog.createSuccess'));
       } else if (selectedBranch) {
         await updateBranch(selectedBranch._id || selectedBranch.id, {
           name: formData.name,
@@ -280,7 +282,7 @@ export function BranchesPage() {
           managerId: formData.managerId,
           timezone: formData.timezone,
         });
-        toast.success(`Đã cập nhật chi nhánh ${formData.name}`);
+        toast.success(t('dashboard:branches.dialog.updateSuccess'));
       }
       setIsDialogOpen(false);
       await loadBranches();
@@ -313,10 +315,10 @@ export function BranchesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            Quản lý chi nhánh
+            {t('dashboard:branches.title')}
           </h1>
           <p className="text-[var(--text-sub)] mt-2">
-            Quản lý các chi nhánh trên toàn quốc
+            {t('dashboard:branches.description')}
           </p>
         </div>
         <Button
@@ -324,7 +326,7 @@ export function BranchesPage() {
           className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Thêm chi nhánh
+          {t('dashboard:branches.add')}
         </Button>
       </div>
 
@@ -339,7 +341,7 @@ export function BranchesPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Tổng chi nhánh</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:branches.stats.total')}</p>
                   <p className="text-3xl text-[var(--primary)] mt-2">{stats.total}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--primary)]/20 flex items-center justify-center">
@@ -359,7 +361,7 @@ export function BranchesPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Tổng nhân viên</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:branches.stats.totalEmployees')}</p>
                   <p className="text-3xl text-[var(--accent-cyan)] mt-2">{stats.totalEmployees}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
@@ -379,7 +381,7 @@ export function BranchesPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Phòng ban</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:branches.stats.totalDepartments')}</p>
                   <p className="text-3xl text-[var(--warning)] mt-2">{stats.totalDepartments}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--warning)]/20 flex items-center justify-center">
@@ -399,7 +401,7 @@ export function BranchesPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Hoạt động</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:branches.stats.active')}</p>
                   <p className="text-3xl text-[var(--success)] mt-2">{stats.active}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
@@ -417,7 +419,7 @@ export function BranchesPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
             <Input
-              placeholder="Tìm kiếm chi nhánh theo tên, mã hoặc thành phố..."
+              placeholder={t('dashboard:branches.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -428,11 +430,11 @@ export function BranchesPage() {
 
       {/* Branches Grid */}
       {loading ? (
-        <div className="text-center py-8 text-[var(--text-sub)]">Đang tải...</div>
+        <div className="text-center py-8 text-[var(--text-sub)]">{t('dashboard:branches.loading')}</div>
       ) : filteredBranches.length === 0 ? (
         <div className="text-center py-12">
           <Building2 className="h-16 w-16 text-[var(--text-sub)] mx-auto mb-4 opacity-50" />
-          <p className="text-[var(--text-sub)]">Không tìm thấy chi nhánh nào</p>
+          <p className="text-[var(--text-sub)]">{t('dashboard:branches.noResults')}</p>
         </div>
       ) : (
       <>
@@ -459,7 +461,7 @@ export function BranchesPage() {
                             {branch.code}
                           </Badge>
                           <Badge className="bg-[var(--success)]/20 text-[var(--success)]">
-                            {branch.status === 'active' ? 'Hoạt động' : 'Ngừng'}
+                            {branch.status === 'active' ? t('dashboard:branches.status.active') : t('dashboard:branches.status.inactive')}
                           </Badge>
                         </div>
                       </div>
@@ -637,7 +639,7 @@ export function BranchesPage() {
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {dialogMode === 'create' ? 'Thêm chi nhánh mới' : 'Chỉnh sửa chi nhánh'}
+              {dialogMode === 'create' ? t('dashboard:branches.dialog.addTitle') : t('dashboard:branches.dialog.editTitle')}
             </DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
               {dialogMode === 'create' ? 'Điền thông tin chi nhánh mới' : 'Cập nhật thông tin chi nhánh'}
@@ -646,7 +648,7 @@ export function BranchesPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Tên chi nhánh *</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.name')} *</Label>
               <Input
                 placeholder="Ví dụ: Chi nhánh Hà Nội"
                 value={formData.name}
@@ -656,7 +658,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Mã chi nhánh *</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.code')} *</Label>
               <Input
                 placeholder="Ví dụ: HN"
                 value={formData.code}
@@ -690,7 +692,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Thành phố *</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.city')} *</Label>
               <Input
                 placeholder="Ví dụ: Hà Nội"
                 value={formData.city}
@@ -700,7 +702,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Quốc gia *</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.country')} *</Label>
               <Input
                 placeholder="Việt Nam"
                 value={formData.country}
@@ -710,7 +712,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Số điện thoại</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.phone')}</Label>
               <Input
                 placeholder="+84 24 xxxx xxxx"
                 value={formData.phone}
@@ -720,7 +722,7 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Email</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.email')}</Label>
               <Input
                 type="email"
                 placeholder="branch@company.com"
@@ -761,13 +763,13 @@ export function BranchesPage() {
               onClick={() => setIsDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
-              Hủy
+              {t('dashboard:branches.dialog.cancel')}
             </Button>
             <Button
               onClick={handleSubmit}
               className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
             >
-              {dialogMode === 'create' ? 'Tạo chi nhánh' : 'Cập nhật'}
+              {dialogMode === 'create' ? t('dashboard:branches.dialog.save') : t('common:update')}
             </Button>
           </DialogFooter>
         </DialogContent>

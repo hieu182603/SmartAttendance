@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Sparkles, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -29,40 +30,40 @@ interface WelcomeMessage {
 }
 
 // Role-based welcome messages
-const getRoleWelcomeMessage = (role: UserRoleType): WelcomeMessage => {
+const getRoleWelcomeMessage = (role: UserRoleType, t: (key: string) => string): WelcomeMessage => {
   switch (role) {
     case UserRole.SUPER_ADMIN:
       return {
-        greeting: "Xin chào, Quản trị hệ thống!",
-        subtitle: "Toàn quyền quản lý và giám sát hệ thống chấm công",
+        greeting: t('dashboard:overview.welcome.superAdmin'),
+        subtitle: t('dashboard:overview.subtitle.superAdmin'),
         icon: Shield,
         gradient: "from-purple-500 to-pink-500",
       };
     case UserRole.ADMIN:
       return {
-        greeting: "Xin chào, Quản trị viên!",
-        subtitle: "Quản lý toàn bộ hệ thống chấm công và nhân sự",
+        greeting: t('dashboard:overview.welcome.admin'),
+        subtitle: t('dashboard:overview.subtitle.admin'),
         icon: UserCog,
         gradient: "from-red-500 to-orange-500",
       };
     case UserRole.HR_MANAGER:
       return {
-        greeting: "Xin chào, Trưởng phòng Nhân sự!",
-        subtitle: "Quản lý nhân sự, lương bổng và đánh giá hiệu suất",
+        greeting: t('dashboard:overview.welcome.hrManager'),
+        subtitle: t('dashboard:overview.subtitle.hrManager'),
         icon: Users,
         gradient: "from-blue-500 to-cyan-500",
       };
     case UserRole.MANAGER:
       return {
-        greeting: "Xin chào, Quản lý!",
-        subtitle: "Quản lý nhóm và theo dõi hiệu suất làm việc",
+        greeting: t('dashboard:overview.welcome.manager'),
+        subtitle: t('dashboard:overview.subtitle.manager'),
         icon: Activity,
         gradient: "from-green-500 to-teal-500",
       };
     default:
       return {
-        greeting: "Xin chào, Admin!",
-        subtitle: "Tổng quan hệ thống chấm công",
+        greeting: t('dashboard:overview.welcome.default'),
+        subtitle: t('dashboard:overview.subtitle.default'),
         icon: Activity,
         gradient: "from-[var(--primary)] to-[var(--accent-cyan)]",
       };
@@ -104,7 +105,8 @@ export const DashboardOverview: React.FC = () => {
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.MANAGER;
   const roleInfo = getRoleColor(userRole);
   const roleName = getRoleName(userRole);
-  const welcomeMsg = getRoleWelcomeMessage(userRole);
+  const { t } = useTranslation(['dashboard', 'common']);
+  const welcomeMsg = getRoleWelcomeMessage(userRole, t);
   const WelcomeIcon = welcomeMsg.icon;
 
   const [loading, setLoading] = useState(true);
@@ -127,7 +129,7 @@ export const DashboardOverview: React.FC = () => {
         setDashboardData(data);
       } catch (error) {
         console.error("[DashboardOverview] fetch error:", error);
-        toast.error("Không thể tải dữ liệu dashboard");
+        toast.error(t('dashboard:common.loading'));
         // Set default values on error
         setDashboardData({
           kpi: {
@@ -155,28 +157,28 @@ export const DashboardOverview: React.FC = () => {
   // Prepare KPI data from API - đảm bảo luôn có giá trị mặc định
   const kpiData: KPICard[] = [
     {
-      title: "Tổng nhân viên",
+      title: t('dashboard:overview.kpi.totalEmployees'),
       value: (dashboardData?.kpi?.totalEmployees ?? 0).toString(),
       icon: Users,
       color: "text-[var(--accent-cyan)]",
       bgColor: "bg-[var(--accent-cyan)]/10",
     },
     {
-      title: "Có mặt hôm nay",
+      title: t('dashboard:overview.kpi.presentToday'),
       value: (dashboardData?.kpi?.presentToday ?? 0).toString(),
       icon: CheckCircle,
       color: "text-[var(--success)]",
       bgColor: "bg-[var(--success)]/10",
     },
     {
-      title: "Đi muộn",
+      title: t('dashboard:overview.kpi.lateToday'),
       value: (dashboardData?.kpi?.lateToday ?? 0).toString(),
       icon: Clock,
       color: "text-[var(--warning)]",
       bgColor: "bg-[var(--warning)]/10",
     },
     {
-      title: "Vắng mặt",
+      title: t('dashboard:overview.kpi.absentToday'),
       value: (dashboardData?.kpi?.absentToday ?? 0).toString(),
       icon: XCircle,
       color: "text-[var(--error)]",
@@ -191,7 +193,7 @@ export const DashboardOverview: React.FC = () => {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-[var(--primary)] mx-auto mb-4" />
-          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+          <p className="text-[var(--text-sub)]">{t('dashboard:common.loading')}</p>
         </div>
       </div>
     );
@@ -469,7 +471,7 @@ export const DashboardOverview: React.FC = () => {
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <TrendingUp className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>Xu hướng chấm công tuần này</span>
+                <span>{t('dashboard:overview.charts.attendanceTrend')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent>

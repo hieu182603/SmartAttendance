@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   Award,
@@ -40,6 +41,7 @@ import ReviewFormModal from "./ReviewFormModal";
 import api from "../../../services/api";
 
 export default function PerformanceReviewPage() {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [reviews, setReviews] = useState<PerformanceReview[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPeriod, setFilterPeriod] = useState("all");
@@ -83,7 +85,7 @@ export default function PerformanceReviewPage() {
       const mappedEmployees = (data.users || []).map((user: any) => ({
         _id: user._id,
         fullName: user.fullName || user.name,
-        position: user.position || user.role || "Nhân viên",
+        position: user.position || user.role || t('dashboard:performanceReview.employee'),
       }));
       setEmployees(mappedEmployees);
     } catch (error) {
@@ -257,7 +259,7 @@ export default function PerformanceReviewPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent select-none">
-            Đánh giá hiệu suất
+            {t('dashboard:performanceReview.title')}
           </h1>
           <p className="text-[var(--text-sub)] mt-2 select-none">
             {isManager
@@ -385,7 +387,7 @@ export default function PerformanceReviewPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
                 <Input
-                  placeholder="Tìm kiếm theo tên nhân viên..."
+                  placeholder={t('dashboard:performanceReview.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -407,7 +409,7 @@ export default function PerformanceReviewPage() {
             </Select>
             <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
               <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                <SelectValue placeholder="Trạng thái" />
+                <SelectValue placeholder={t('dashboard:performanceReview.filters.status')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả</SelectItem>
@@ -455,7 +457,7 @@ export default function PerformanceReviewPage() {
                             {review.employeeId.fullName || review.employeeId.name}
                           </h3>
                           <p className="text-sm text-[var(--text-sub)] select-none">
-                            {review.employeeId.position || "Nhân viên"}
+                            {review.employeeId.position || t('dashboard:performanceReview.employee')}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">

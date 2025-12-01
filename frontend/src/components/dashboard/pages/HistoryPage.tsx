@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Eye, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
 import { Badge } from '../../ui/badge'
@@ -23,24 +24,30 @@ interface AttendanceRecord {
   checkOutPhoto?: string
 }
 
-const getStatusBadge = (status: AttendanceStatus): React.JSX.Element | null => {
+type TranslationFunction = ReturnType<typeof useTranslation<['dashboard', 'common']>>['t']
+
+const getStatusBadge = (
+  status: AttendanceStatus,
+  t: TranslationFunction
+): React.JSX.Element | null => {
   switch (status) {
     case 'ontime':
-      return <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">Đúng giờ</Badge>
+      return <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">{t('dashboard:history.statusLabels.ontime')}</Badge>
     case 'late':
-      return <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">Đi muộn</Badge>
+      return <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">{t('dashboard:history.statusLabels.late')}</Badge>
     case 'absent':
-      return <Badge variant="error">Vắng</Badge>
+      return <Badge variant="error">{t('dashboard:history.statusLabels.absent')}</Badge>
     case 'overtime':
-      return <Badge className="bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/30">Tăng ca</Badge>
+      return <Badge className="bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/30">{t('dashboard:history.statusLabels.overtime')}</Badge>
     case 'weekend':
-      return <Badge className="bg-[var(--text-sub)]/20 text-[var(--text-sub)] border-[var(--text-sub)]/30">Nghỉ</Badge>
+      return <Badge className="bg-[var(--text-sub)]/20 text-[var(--text-sub)] border-[var(--text-sub)]/30">{t('dashboard:history.statusLabels.weekend')}</Badge>
     default:
       return null
   }
 }
 
 const HistoryPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]) // For summary stats
   const [loading, setLoading] = useState(false)
@@ -123,7 +130,8 @@ const HistoryPage: React.FC = () => {
       } catch (err) {
         if (isMounted) {
           const error = err as Error
-          setError(error.message || 'Không thể tải dữ liệu')
+          // Prefer backend message if any, otherwise show localized fallback
+          setError(error.message || t('dashboard:history.details.loading'))
         }
       } finally {
         if (isMounted) {
@@ -161,8 +169,8 @@ const HistoryPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl text-[var(--text-main)]">Lịch sử chấm công</h1>
-        <p className="text-[var(--text-sub)]">Xem và xuất báo cáo chấm công của bạn</p>
+        <h1 className="text-3xl text-[var(--text-main)]">{t('dashboard:history.title')}</h1>
+        <p className="text-[var(--text-sub)]">{t('dashboard:history.description', { defaultValue: 'Xem và xuất báo cáo chấm công của bạn' })}</p>
       </div>
 
       {/* Filters */}
@@ -173,7 +181,7 @@ const HistoryPage: React.FC = () => {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
-                placeholder="Tìm kiếm theo ngày, ghi chú..."
+                placeholder={t('dashboard:history.filters.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
@@ -183,15 +191,15 @@ const HistoryPage: React.FC = () => {
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | AttendanceStatus)}>
               <SelectTrigger className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
-                <SelectValue placeholder="Trạng thái" />
+                <SelectValue placeholder={t('dashboard:history.filters.statusPlaceholder')} />
               </SelectTrigger>
               <SelectContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="ontime">Đúng giờ</SelectItem>
-                <SelectItem value="late">Đi muộn</SelectItem>
-                <SelectItem value="absent">Vắng</SelectItem>
-                <SelectItem value="overtime">Tăng ca</SelectItem>
-                <SelectItem value="weekend">Nghỉ cuối tuần</SelectItem>
+                <SelectItem value="all">{t('dashboard:history.filters.allStatus')}</SelectItem>
+                <SelectItem value="ontime">{t('dashboard:history.statusLabels.ontime')}</SelectItem>
+                <SelectItem value="late">{t('dashboard:history.statusLabels.late')}</SelectItem>
+                <SelectItem value="absent">{t('dashboard:history.statusLabels.absent')}</SelectItem>
+                <SelectItem value="overtime">{t('dashboard:history.statusLabels.overtime')}</SelectItem>
+                <SelectItem value="weekend">{t('dashboard:history.filters.weekend')}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -200,7 +208,7 @@ const HistoryPage: React.FC = () => {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              placeholder="Chọn ngày"
+              placeholder={t('dashboard:history.filters.selectDate')}
               className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
             />
           </div>
@@ -211,25 +219,25 @@ const HistoryPage: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)] mt-2">Tổng ngày công</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">{t('dashboard:history.summary.totalDays')}</p>
             <p className="text-2xl text-[var(--text-main)] mt-1">{summary.total}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)] mt-2">Đi muộn</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">{t('dashboard:history.summary.late')}</p>
             <p className="text-2xl text-[var(--warning)] mt-1">{summary.late}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)] mt-2">Vắng mặt</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">{t('dashboard:history.summary.absent')}</p>
             <p className="text-2xl text-[var(--error)] mt-1">{summary.absent}</p>
           </CardContent>
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)] mt-2">Tăng ca</p>
+            <p className="text-sm text-[var(--text-sub)] mt-2">{t('dashboard:history.summary.overtime')}</p>
             <p className="text-2xl text-[var(--primary)] mt-1">{summary.overtime}</p>
           </CardContent>
         </Card>
@@ -238,28 +246,28 @@ const HistoryPage: React.FC = () => {
       {/* Table */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">Chi tiết chấm công</CardTitle>
+          <CardTitle className="text-[var(--text-main)]">{t('dashboard:history.details.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-[var(--shell)]">
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Ngày</th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Thứ</th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Giờ vào</th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Giờ ra</th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Tổng giờ</th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Địa điểm</th>
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Trạng thái</th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">Xem ảnh</th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">{t('dashboard:history.date')}</th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">{t('dashboard:history.day')}</th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">{t('dashboard:history.checkIn')}</th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">{t('dashboard:history.checkOut')}</th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">{t('dashboard:history.totalHours')}</th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">{t('dashboard:history.location')}</th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">{t('dashboard:history.status')}</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">{t('dashboard:history.viewPhoto')}</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
                     <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
-                      Đang tải dữ liệu...
+                      {t('dashboard:history.details.loading')}
                     </td>
                   </tr>
                 )}
@@ -273,7 +281,7 @@ const HistoryPage: React.FC = () => {
                 {!loading && !error && filteredData.length === 0 && (
                   <tr>
                     <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
-                      Không có dữ liệu phù hợp
+                      {t('dashboard:history.details.noData')}
                     </td>
                   </tr>
                 )}
@@ -289,19 +297,19 @@ const HistoryPage: React.FC = () => {
                     <td className="py-3 px-4 text-[var(--text-main)]">{record.checkOut}</td>
                     <td className="py-3 px-4 text-[var(--text-main)]">{record.hours}</td>
                     <td className="py-3 px-4 text-[var(--text-sub)]">
-                      {record.location && !record.location.startsWith('http')
+                        {record.location && !record.location.startsWith('http')
                         ? record.location
                         : record.location?.includes('attendance')
-                          ? 'Văn phòng'
+                          ? t('dashboard:history.office')
                           : record.location || '-'}
                     </td>
-                    <td className="py-3 px-4">{getStatusBadge(record.status)}</td>
+                    <td className="py-3 px-4">{getStatusBadge(record.status, t)}</td>
                     <td className="py-3 px-4 text-center">
                       {(record.notes?.includes('http') || record.location?.includes('http')) ? (
                         <button
                           onClick={() => setSelectedRecord(record)}
                           className="inline-flex items-center gap-1 text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors"
-                          title="Xem ảnh chấm công"
+                          title={t('dashboard:history.photo.viewTitle')}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -320,7 +328,10 @@ const HistoryPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-[var(--border)]">
               <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
                 <span>
-                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
+                  {t('dashboard:employeeManagement.pagination.showing')}{' '}
+                  {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)}{' '}
+                  {t('dashboard:employeeManagement.pagination.of')}{' '}
+                  {pagination.total}
                 </span>
               </div>
 
@@ -345,7 +356,7 @@ const HistoryPage: React.FC = () => {
                 </Button>
 
                 <span className="px-4 text-sm text-[var(--text-main)]">
-                  Trang {currentPage} / {pagination.totalPages}
+                  {t('dashboard:employeeManagement.pagination.page')} {currentPage} / {pagination.totalPages}
                 </span>
 
                 <Button
@@ -403,7 +414,7 @@ const HistoryPage: React.FC = () => {
                   setActiveTab('checkin');
                 }}
                 className="absolute top-4 right-4 z-10 p-2 rounded-full bg-[var(--shell)]/80 hover:bg-[var(--border)] text-[var(--text-main)] transition-all hover:scale-110 shadow-lg backdrop-blur-sm"
-                title="Đóng"
+                title={t('common.close')}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -414,7 +425,7 @@ const HistoryPage: React.FC = () => {
                   <div className="flex items-center gap-4">
                     <div>
                       <h3 className="text-lg font-semibold text-[var(--text-main)]">
-                        Chi tiết chấm công
+                        {t('dashboard:history.details.title')}
                       </h3>
                       <p className="text-sm text-[var(--text-sub)] mt-0.5">
                         {selectedRecord.date} - {selectedRecord.day}
@@ -422,7 +433,7 @@ const HistoryPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {getStatusBadge(selectedRecord.status)}
+                    {getStatusBadge(selectedRecord.status, t)}
                   </div>
                 </div>
               </div>
@@ -438,7 +449,7 @@ const HistoryPage: React.FC = () => {
                 >
                   <span className="flex items-center justify-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${activeTab === 'checkin' ? 'bg-[var(--primary)]' : 'bg-[var(--text-sub)]'}`}></span>
-                    Check-in
+                    {t('dashboard:history.tabs.checkinLabel')}
                   </span>
                   {activeTab === 'checkin' && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent" />
@@ -453,7 +464,7 @@ const HistoryPage: React.FC = () => {
                 >
                   <span className="flex items-center justify-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${activeTab === 'checkout' ? 'bg-[var(--primary)]' : 'bg-[var(--text-sub)]'}`}></span>
-                    Check-out
+                    {t('dashboard:history.tabs.checkoutLabel')}
                   </span>
                   {activeTab === 'checkout' && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent" />
@@ -467,7 +478,7 @@ const HistoryPage: React.FC = () => {
                   <div className="relative w-full h-full flex items-center justify-center">
                     <img
                       src={currentUrl}
-                      alt={`Ảnh ${activeTab === 'checkin' ? 'check-in' : 'check-out'}`}
+                      alt={activeTab === 'checkin' ? t('dashboard:history.photo.alt.checkin') : t('dashboard:history.photo.alt.checkout')}
                       className="w-full h-auto object-contain rounded-lg shadow-xl border border-[var(--border)]"
                       style={{ maxHeight: '300px' }}
                     />
@@ -478,7 +489,7 @@ const HistoryPage: React.FC = () => {
                       <Eye className="h-8 w-8 text-[var(--text-sub)]" />
                     </div>
                     <p className="text-[var(--text-sub)] text-base font-medium">
-                      {activeTab === 'checkin' ? 'Không có ảnh check-in' : 'Chưa check-out'}
+                      {activeTab === 'checkin' ? t('dashboard:history.noPhoto.checkin') : t('dashboard:history.noPhoto.checkout')}
                     </p>
                   </div>
                 )}
@@ -488,17 +499,17 @@ const HistoryPage: React.FC = () => {
               <div className="px-8 py-5 border-t border-[var(--border)] bg-gradient-to-r from-[var(--shell)]/80 to-[var(--shell)]/50">
                 <div className="grid grid-cols-2 gap-8">
                   <div className="flex flex-col">
-                    <p className="text-xs font-medium text-[var(--text-sub)] mb-2 uppercase tracking-wide">Thời gian</p>
+                    <p className="text-xs font-medium text-[var(--text-sub)] mb-2 uppercase tracking-wide">{t('dashboard:history.photo.time')}</p>
                     <p className="text-lg font-bold text-[var(--text-main)]">
                       {currentTime || '-'}
                     </p>
                   </div>
                   <div className="flex flex-col border-l border-[var(--border)] pl-8">
-                    <p className="text-xs font-medium text-[var(--text-sub)] mb-2 uppercase tracking-wide">Vị trí</p>
+                    <p className="text-xs font-medium text-[var(--text-sub)] mb-2 uppercase tracking-wide">{t('dashboard:history.photo.location')}</p>
                     <p className="text-lg font-bold text-[var(--text-main)] truncate">
                       {selectedRecord.location && !selectedRecord.location.startsWith('http')
                         ? selectedRecord.location
-                        : 'Văn phòng'}
+                        : t('dashboard:history.office')}
                     </p>
                   </div>
                 </div>

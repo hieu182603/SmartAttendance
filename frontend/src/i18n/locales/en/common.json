@@ -1,0 +1,88 @@
+{
+  "buttons": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "confirm": "Confirm",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "refresh": "Refresh",
+    "add": "Add",
+    "update": "Update",
+    "view": "View",
+    "download": "Download",
+    "upload": "Upload"
+  },
+  "labels": {
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "phone": "Phone",
+    "fullName": "Full Name",
+    "confirmPassword": "Confirm Password",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "register": "Register now",
+    "login": "Login now"
+  },
+  "messages": {
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "noData": "No data",
+    "processing": "Processing...",
+    "saved": "Saved",
+    "deleted": "Deleted",
+    "updated": "Updated",
+    "created": "Created",
+    "pleaseWait": "Please wait..."
+  },
+  "actions": {
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "forgotPassword": "Forgot Password",
+    "resetPassword": "Reset Password",
+    "verifyOtp": "Verify OTP"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "thisYear": "This Year"
+  },
+  "notFound": {
+    "title": "Oops! Page Not Found",
+    "description": "The page you are looking for may have been deleted, renamed, or is temporarily unavailable.",
+    "goBack": "Go Back",
+    "goHome": "Go Home",
+    "contactSupport": "If you believe this is an error, please",
+    "contactLink": "contact support"
+  },
+  "unauthorized": {
+    "title": "Access Denied",
+    "description": "You don't have permission to access this page. Please contact an administrator if you need access.",
+    "goHome": "Go Home"
+  },
+  "dashboard": {
+    "logout": "Logout",
+    "user": "User",
+    "sections": {
+      "admin": "Administration",
+      "employee": "Personal",
+      "system": "System"
+    }
+  }
+}
+

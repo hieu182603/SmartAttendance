@@ -4,6 +4,7 @@ import {
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
   DollarSign, TrendingUp, Award
 } from 'lucide-react';
+import type { TFunction } from 'i18next';
 import { Permission, type PermissionType } from './roles';
 import { getRoleBasePath, ROLE_PERMISSIONS, type UserRoleType } from './roles';
 
@@ -186,5 +187,25 @@ export function getMenuByPermissions(
       ...item,
       path: item.path.replace(/^\/(employee|manager|hr|admin)/, basePath),
     }));
+}
+
+/**
+ * Get menu items with translated labels
+ * @param t - Translation function from useTranslation hook
+ * @param userRole - User role
+ * @param basePath - Base path for the role
+ * @returns Menu items with translated labels
+ */
+export function getMenuByPermissionsWithTranslations(
+  t: TFunction<any, undefined>,
+  userRole: UserRoleType,
+  basePath: string
+): MenuItem[] {
+  const menu = getMenuByPermissions(userRole, basePath);
+  
+  return menu.map(item => ({
+    ...item,
+    label: t(`menu:${item.id}`) || item.label, // Fallback to original label if translation not found
+  }));
 }
 

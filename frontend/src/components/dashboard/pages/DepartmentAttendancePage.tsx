@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Search, Calendar, Download, Eye, Edit, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -42,6 +43,7 @@ interface AttendanceSummary {
 }
 
 const DepartmentAttendancePage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [summary, setSummary] = useState<AttendanceSummary>({
     total: 0,
@@ -80,7 +82,7 @@ const DepartmentAttendancePage: React.FC = () => {
       );
     } catch (error) {
       console.error("[DepartmentAttendance] fetch error:", error);
-      toast.error("Không thể tải dữ liệu chấm công");
+      toast.error(t('dashboard:adminAttendance.error'));
     } finally {
       setLoading(false);
     }
@@ -96,10 +98,10 @@ const DepartmentAttendancePage: React.FC = () => {
         from: selectedDate,
         to: selectedDate,
       });
-      toast.success("Xuất Excel thành công");
+      toast.success(t('dashboard:adminAttendance.export') + ' ' + t('common:success'));
     } catch (error) {
       console.error("[DepartmentAttendance] export error:", error);
-      toast.error("Không thể xuất Excel");
+      toast.error(t('dashboard:departmentAttendance.export') + ' ' + t('common:error'));
     }
   };
 
@@ -108,25 +110,25 @@ const DepartmentAttendancePage: React.FC = () => {
       case "ontime":
         return (
           <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
-            Đúng giờ
+            {t('dashboard:adminAttendance.filters.ontime')}
           </Badge>
         );
       case "late":
         return (
           <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30">
-            Đi muộn
+            {t('dashboard:adminAttendance.filters.late')}
           </Badge>
         );
       case "absent":
         return (
           <Badge className="bg-red-500/20 text-red-500 border-red-500/30">
-            Vắng
+            {t('dashboard:adminAttendance.filters.absent')}
           </Badge>
         );
       case "overtime":
         return (
           <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30">
-            Tăng ca
+            {t('dashboard:adminAttendance.filters.overtime')}
           </Badge>
         );
       default:
@@ -152,10 +154,10 @@ const DepartmentAttendancePage: React.FC = () => {
         className="space-y-2"
       >
         <h1 className="text-3xl font-bold text-[var(--text-main)]">
-          Quản lý chấm công
+          {t('dashboard:departmentAttendance.title')}
         </h1>
         <p className="text-[var(--text-sub)]">
-          Xem và quản lý chấm công của nhân viên
+          {t('dashboard:departmentAttendance.description')}
         </p>
       </motion.div>
 
@@ -166,7 +168,7 @@ const DepartmentAttendancePage: React.FC = () => {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
-                placeholder="Tìm theo tên nhân viên..."
+                placeholder={t('dashboard:departmentAttendance.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
@@ -189,7 +191,7 @@ const DepartmentAttendancePage: React.FC = () => {
             </div>
             <Button onClick={handleExport} variant="outline" className="gap-2">
               <Download className="h-4 w-4" />
-              Xuất Excel
+              {t('dashboard:departmentAttendance.export')}
             </Button>
           </div>
         </CardContent>
@@ -200,7 +202,7 @@ const DepartmentAttendancePage: React.FC = () => {
         <Card>
           <CardContent className="pt-6 mt-4">
             <div className="space-y-2">
-              <p className="text-sm text-[var(--text-sub)]">Tổng NV</p>
+              <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departmentAttendance.stats.total')}</p>
               <p className="text-2xl font-bold text-[var(--text-main)]">
                 {summary.total}
               </p>
@@ -210,7 +212,7 @@ const DepartmentAttendancePage: React.FC = () => {
         <Card>
           <CardContent className="pt-6 mt-4">
             <div className="space-y-2">
-              <p className="text-sm text-[var(--text-sub)]">Có mặt</p>
+              <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departmentAttendance.stats.present')}</p>
               <p className="text-2xl font-bold text-green-500">
                 {summary.present}
               </p>
@@ -220,7 +222,7 @@ const DepartmentAttendancePage: React.FC = () => {
         <Card>
           <CardContent className="pt-6 mt-4">
             <div className="space-y-2">
-              <p className="text-sm text-[var(--text-sub)]">Đi muộn</p>
+              <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departmentAttendance.stats.late')}</p>
               <p className="text-2xl font-bold text-orange-500">
                 {summary.late}
               </p>
@@ -230,7 +232,7 @@ const DepartmentAttendancePage: React.FC = () => {
         <Card>
           <CardContent className="pt-6 mt-4">
             <div className="space-y-2">
-              <p className="text-sm text-[var(--text-sub)]">Vắng</p>
+              <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departmentAttendance.stats.absent')}</p>
               <p className="text-2xl font-bold text-red-500">
                 {summary.absent}
               </p>
@@ -242,30 +244,30 @@ const DepartmentAttendancePage: React.FC = () => {
       {/* Attendance Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách chấm công hôm nay</CardTitle>
+          <CardTitle>{t('dashboard:departmentAttendance.todayList')}</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-8 text-[var(--text-sub)]">
-              Đang tải...
+              {t('dashboard:departmentAttendance.table.loading')}
             </div>
           ) : records.length === 0 ? (
             <div className="text-center py-8 text-[var(--text-sub)]">
-              Không có dữ liệu
+              {t('dashboard:departmentAttendance.table.noData')}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nhân viên</TableHead>
-                    <TableHead>Ngày</TableHead>
-                    <TableHead>Giờ vào</TableHead>
-                    <TableHead>Giờ ra</TableHead>
-                    <TableHead>Tổng giờ</TableHead>
-                    <TableHead>Địa điểm</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thao tác</TableHead>
+                    <TableHead>{t('dashboard:departmentAttendance.table.employee')}</TableHead>
+                    <TableHead>{t('dashboard:departmentAttendance.table.date')}</TableHead>
+                    <TableHead>{t('dashboard:departmentAttendance.table.checkIn')}</TableHead>
+                    <TableHead>{t('dashboard:departmentAttendance.table.checkOut')}</TableHead>
+                    <TableHead>{t('dashboard:departmentAttendance.table.hours')}</TableHead>
+                    <TableHead>{t('dashboard:departmentAttendance.table.location')}</TableHead>
+                    <TableHead>{t('dashboard:departmentAttendance.table.status')}</TableHead>
+                    <TableHead>{t('dashboard:adminAttendance.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
+import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { ThemeProvider } from "./components/ThemeProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -56,14 +57,17 @@ const ShiftsPage = lazy(() =>
 
 
 // Loading component sử dụng Loader2 từ lucide-react
-const PageLoading = () => (
-  <div className="flex items-center justify-center min-h-screen bg-[var(--background)]">
-    <div className="flex flex-col items-center gap-4">
-      <Loader2 className="h-12 w-12 animate-spin text-[var(--primary)]" />
-      <p className="text-[var(--text-sub)] text-sm font-medium">Đang tải...</p>
+const PageLoading = () => {
+  const { t } = useTranslation(['common']);
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-[var(--background)]">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-12 w-12 animate-spin text-[var(--primary)]" />
+        <p className="text-[var(--text-sub)] text-sm font-medium">{t('common:messages.loading')}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function App() {
   return (

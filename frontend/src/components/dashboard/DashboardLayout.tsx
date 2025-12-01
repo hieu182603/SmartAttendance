@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import {
   Home,
@@ -33,6 +34,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../ThemeProvider";
 import { Button } from "../ui/button";
 import NotificationCenter from "./NotificationCenter";
+import LanguageSwitcher from "../LanguageSwitcher";
 import {
   UserRole,
   type UserRoleType,
@@ -41,7 +43,7 @@ import {
   getRoleColor,
   getRoleBasePath,
 } from "../../utils/roles";
-import { getMenuByPermissions, type MenuItem } from "../../utils/menuItems";
+import { getMenuByPermissionsWithTranslations, type MenuItem } from "../../utils/menuItems";
 
 
 interface NotificationBellProps {
@@ -73,6 +75,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onClick }) => {
 };
 
 const DashboardLayout: React.FC = () => {
+  const { t } = useTranslation(['menu', 'common']);
   const { user, logout } = useAuth();
   const { toggleTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -82,10 +85,12 @@ const DashboardLayout: React.FC = () => {
   // Get user role and menu items (permission-based)
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
   const basePath = getRoleBasePath(userRole);
-  const menu = getMenuByPermissions(userRole, basePath);
+  // Fix type issue with t: pass only "common" for menu translation utility
+  const tMenu = useTranslation("menu").t;
+  const menu = getMenuByPermissionsWithTranslations(tMenu, userRole, basePath);
   const roleInfo = getRoleColor(userRole);
   const roleName = getRoleName(userRole);
-  
+
   // Filter menu for ADMIN/SUPER_ADMIN (only show company-calendar and profile in employee section)
   const filteredMenu = (() => {
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
@@ -138,6 +143,9 @@ const DashboardLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-4">
+            {/* Language Switcher */}
+            <LanguageSwitcher />
+            
             {/* Theme Toggle */}
             <Button
               onClick={toggleTheme}
@@ -155,7 +163,7 @@ const DashboardLayout: React.FC = () => {
 
             <div className="hidden md:block text-right">
               <p className="text-sm text-[var(--text-main)]">
-                {user?.email || "Người dùng"}
+                {user?.email || t('common:dashboard.user')}
               </p>
               <p className="text-xs text-[var(--text-sub)]">{roleName}</p>
             </div>
@@ -166,7 +174,7 @@ const DashboardLayout: React.FC = () => {
               className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--surface)]"
             >
               <LogOut className="h-4 w-4 mr-2" />
-              <span className="hidden md:inline">Đăng xuất</span>
+              <span className="hidden md:inline">{t('common:dashboard.logout')}</span>
             </Button>
           </div>
         </div>
@@ -199,7 +207,7 @@ const DashboardLayout: React.FC = () => {
                   {sections.admin.length > 0 && (
                     <div className="mb-4">
                       <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                        Quản trị
+                        {t('common:dashboard.sections.admin')}
                       </div>
                       {sections.admin.map((item) => {
                         const Icon = item.icon;
@@ -231,7 +239,7 @@ const DashboardLayout: React.FC = () => {
                     <div className="mb-4">
                       {sections.admin.length > 0 && (
                         <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                          Cá nhân
+                          {t('common:dashboard.sections.employee')}
                         </div>
                       )}
                       {sections.employee.map((item) => {
@@ -267,7 +275,7 @@ const DashboardLayout: React.FC = () => {
                   {sections.system.length > 0 && (
                     <div className="mb-4">
                       <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                        Hệ thống
+                        {t('common:dashboard.sections.system')}
                       </div>
                       {sections.system.map((item) => {
                         const Icon = item.icon;

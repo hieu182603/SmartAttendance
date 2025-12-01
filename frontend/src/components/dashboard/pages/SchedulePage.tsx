@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   Calendar as CalendarIcon,
@@ -63,6 +64,7 @@ const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
 };
 
 const SchedulePage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,7 +231,7 @@ const SchedulePage: React.FC = () => {
         scheduleData.sort((a, b) => a.date.localeCompare(b.date));
         setSchedule(scheduleData);
       } catch (err) {
-        console.error("Lỗi tải ca làm việc:", err);
+        console.error(t('dashboard:schedule.error'), err);
         setSchedule([]);
       } finally {
         setLoading(false);
@@ -252,7 +254,7 @@ const SchedulePage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
-        <p className="text-lg">Đang tải lịch làm việc...</p>
+        <p className="text-lg">{t('dashboard:schedule.loading')}</p>
       </div>
     );
   }
@@ -549,35 +551,35 @@ const SchedulePage: React.FC = () => {
 
   const statCards: StatCard[] = [
     {
-      label: "Tháng này",
+      label: t('dashboard:schedule.stats.thisMonth'),
       value: stats.thisMonth,
       color: "primary",
       icon: "📋",
       delay: 0.1,
     },
     {
-      label: "Đã điểm danh",
+      label: t('dashboard:schedule.stats.checkedIn'),
       value: stats.completed,
       color: "success",
       icon: "✅",
       delay: 0.2,
     },
     {
-      label: "Sắp tới",
+      label: t('dashboard:schedule.stats.upcoming'),
       value: stats.upcoming,
       color: "accent-cyan",
       icon: "🔜",
       delay: 0.3,
     },
     {
-      label: "Tổng giờ",
+      label: t('dashboard:schedule.stats.totalHours'),
       value: `${formattedTotalHours}h`,
       color: "warning",
       icon: "⏰",
       delay: 0.4,
     },
     {
-      label: "Hiệu suất",
+      label: t('dashboard:schedule.stats.performance'),
       value: stats.performance + "%",
       color: "success",
       icon: "📊",
@@ -602,7 +604,7 @@ const SchedulePage: React.FC = () => {
               >
                 📆
               </motion.span>
-              <span>Lịch làm việc</span>
+              <span>{t('dashboard:schedule.title')}</span>
             </h1>
             <p className="text-[var(--text-sub)] mt-1">
               {today.toLocaleDateString("vi-VN", {
@@ -615,7 +617,7 @@ const SchedulePage: React.FC = () => {
           </div>
           <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 px-4 py-2">
             <AlertCircle className="h-4 w-4 mr-2" />
-            {upcomingShifts.length} ca sắp tới
+            {upcomingShifts.length} {t('dashboard:schedule.upcomingShifts')}
           </Badge>
         </div>
       </motion.div>
@@ -675,12 +677,12 @@ const SchedulePage: React.FC = () => {
               <CardTitle className="text-[var(--text-main)] flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Target className="h-5 w-5 text-[var(--accent-cyan)]" />
-                  <span>Ca làm hôm nay</span>
+                  <span>{t('dashboard:schedule.todayShift')}</span>
                 </div>
                 {countdown && (
                   <Badge className="bg-[var(--warning)]/30 text-[var(--warning)] border border-[var(--warning)]/50 dark:bg-[var(--warning)]/20 dark:border-[var(--warning)]/30">
                     <Clock className="h-3 w-3 mr-1" />
-                    Còn {countdown.hours}h {countdown.minutes}m
+                    {t('dashboard:schedule.timeRemaining')} {countdown.hours}{t('dashboard:schedule.hours')} {countdown.minutes}{t('dashboard:schedule.minutes')}
                   </Badge>
                 )}
               </CardTitle>
@@ -739,7 +741,7 @@ const SchedulePage: React.FC = () => {
                               className="h-2"
                             />
                             <p className="text-xs text-[var(--text-sub)] mt-2">
-                              Đang trong ca làm việc
+                              {t('dashboard:schedule.inShift')}
                             </p>
                           </div>
                         );
@@ -778,8 +780,8 @@ const SchedulePage: React.FC = () => {
                               </h4>
                               <Badge className={getStatusColor(shift.status)}>
                                 {shift.status === "completed"
-                                  ? "✅ Đã điểm"
-                                  : "🔵 Chưa điểm"}
+                                  ? `✅ ${t('dashboard:schedule.checkedInStatus')}`
+                                  : `🔵 ${t('dashboard:schedule.notCheckedIn')}`}
                               </Badge>
                             </div>
                           </div>
@@ -834,7 +836,7 @@ const SchedulePage: React.FC = () => {
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <CalendarIcon className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>Lịch tuần này</span>
+                <span>{t('dashboard:schedule.thisWeek')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -896,7 +898,7 @@ const SchedulePage: React.FC = () => {
               {/* Week Stats */}
               <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-[var(--border)]">
                 <div className="text-center">
-                  <p className="text-sm text-[var(--text-sub)]">Tuần này</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:schedule.thisWeekLabel')}</p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {weekAttendanceLabel}
                   </p>
@@ -918,7 +920,7 @@ const SchedulePage: React.FC = () => {
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {avgWeekHours}h
                   </p>
-                  <p className="text-xs text-[var(--text-sub)]">/ngày</p>
+                  <p className="text-xs text-[var(--text-sub)]">{t('dashboard:schedule.perDay')}</p>
                 </div>
               </div>
             </CardContent>
@@ -936,7 +938,7 @@ const SchedulePage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-[var(--text-sub)]">
-                    Tiến độ tháng
+                    {t('dashboard:schedule.monthProgress')}
                   </span>
                   <span className="text-sm text-[var(--text-main)]">
                     {stats.completed}/{stats.thisMonth} ca (
@@ -972,7 +974,7 @@ const SchedulePage: React.FC = () => {
                     {stats.completed > 0
                       ? (stats.totalHours / stats.completed).toFixed(1)
                       : 0}
-                    h/ngày
+                    {t('dashboard:schedule.hoursPerDay')}
                   </p>
                 </div>
 
@@ -987,7 +989,7 @@ const SchedulePage: React.FC = () => {
                     {stats.performance}%
                   </p>
                   <p className="text-xs text-[var(--text-sub)] mt-1">
-                    Cập nhật theo dữ liệu tháng
+                    {t('dashboard:schedule.updatedFromMonth')}
                   </p>
                 </div>
               </div>
@@ -1166,7 +1168,7 @@ const SchedulePage: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm text-[var(--text-main)]">
-                          Streak: {currentStreak} ngày liên tiếp
+                          {t('dashboard:schedule.stats.streak')}: {currentStreak} {t('dashboard:schedule.streakDays')}
                         </p>
                         <p className="text-xs text-[var(--text-sub)]">
                           {currentStreak > 0 ? "Giữ vững phong độ!" : "Bắt đầu streak mới!"}
@@ -1180,7 +1182,7 @@ const SchedulePage: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm text-[var(--text-main)]">
-                          Trung bình {avgHoursPerDay}h/ngày
+                          {t('dashboard:schedule.avgHoursPerDay')} {avgHoursPerDay}{t('dashboard:schedule.hPerDay')}
                         </p>
                         <p className="text-xs text-[var(--text-sub)]">
                           Tháng {currentMonthLabel}

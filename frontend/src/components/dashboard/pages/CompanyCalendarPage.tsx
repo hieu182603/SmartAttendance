@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import {
@@ -96,6 +97,7 @@ interface StatCard {
 }
 
 const CompanyCalendarPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filterType, setFilterType] = useState<string>("all");
@@ -148,7 +150,7 @@ const CompanyCalendarPage: React.FC = () => {
         setEvents(month.map(mapEvent));
       } catch (error) {
         console.error("Error fetching events:", error);
-        toast.error("Không thể tải dữ liệu sự kiện");
+        toast.error(t('dashboard:companyCalendar.loadError'));
       } finally {
         setLoading(false);
       }
@@ -174,20 +176,8 @@ const CompanyCalendarPage: React.FC = () => {
     : [];
 
   const getTypeLabel = (type: EventType): string => {
-    switch (type) {
-      case "holiday":
-        return "Ngày lễ";
-      case "meeting":
-        return "Họp";
-      case "event":
-        return "Sự kiện";
-      case "deadline":
-        return "Deadline";
-      case "training":
-        return "Đào tạo";
-      default:
-        return type;
-    }
+    const typeKey = `dashboard:companyCalendar.eventTypes.${type}`;
+    return t(typeKey) || type;
   };
 
   const getTypeIcon = (type: EventType): ReactNode => {
@@ -248,45 +238,45 @@ const CompanyCalendarPage: React.FC = () => {
     e.stopPropagation(); // Prevent triggering handleViewEvent
 
     if (
-      !window.confirm(`Bạn có chắc chắn muốn xóa sự kiện "${event.title}"?`)
+      !window.confirm(`${t('dashboard:companyCalendar.deleteConfirm')} "${event.title}"?`)
     ) {
       return;
     }
 
     try {
       await eventService.deleteEvent(event.id);
-      toast.success("🗑️ Xóa sự kiện thành công!");
+      toast.success(t('dashboard:companyCalendar.deleteSuccess'));
       handleCreateSuccess(); // Refresh data
     } catch (error: any) {
       console.error("Error deleting event:", error);
-      toast.error(error.response?.data?.message || "Không thể xóa sự kiện");
+      toast.error(error.response?.data?.message || t('dashboard:companyCalendar.deleteError'));
     }
   };
 
   const statCards: StatCard[] = [
     {
-      label: "Tổng sự kiện",
+      label: t('dashboard:companyCalendar.stats.total'),
       value: stats.total,
       color: "primary",
       icon: "📋",
       delay: 0.1,
     },
     {
-      label: "Sắp tới (7 ngày)",
+      label: t('dashboard:companyCalendar.stats.upcoming'),
       value: stats.upcoming,
       color: "warning",
       icon: "⏰",
       delay: 0.2,
     },
     {
-      label: "Ngày lễ",
+      label: t('dashboard:companyCalendar.stats.holidays'),
       value: stats.holidays,
       color: "error",
       icon: "🎉",
       delay: 0.3,
     },
     {
-      label: "Họp & Đào tạo",
+      label: t('dashboard:companyCalendar.stats.meetingsAndTraining'),
       value: stats.meetingsAndTraining,
       color: "accent-cyan",
       icon: "👥",
@@ -300,10 +290,10 @@ const CompanyCalendarPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            Lịch công ty
+            {t('dashboard:companyCalendar.title')}
           </h1>
           <p className="text-[var(--text-sub)] mt-2">
-            Theo dõi các sự kiện, cuộc họp và ngày lễ
+            {t('dashboard:companyCalendar.description')}
           </p>
         </div>
         {canCreateEvent && (
@@ -312,7 +302,7 @@ const CompanyCalendarPage: React.FC = () => {
             className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Tạo sự kiện
+            {t('dashboard:companyCalendar.createEvent')}
           </Button>
         )}
       </div>
@@ -322,11 +312,11 @@ const CompanyCalendarPage: React.FC = () => {
         <CardContent className="p-6">
           <Tabs value={filterType} onValueChange={(v) => setFilterType(v)}>
             <TabsList className="grid w-full grid-cols-6 mt-4">
-              <TabsTrigger value="all">Tất cả</TabsTrigger>
-              <TabsTrigger value="holiday">Ngày lễ</TabsTrigger>
-              <TabsTrigger value="meeting">Họp</TabsTrigger>
-              <TabsTrigger value="event">Sự kiện</TabsTrigger>
-              <TabsTrigger value="deadline">Deadline</TabsTrigger>
+              <TabsTrigger value="all">{t('dashboard:companyCalendar.tabs.all')}</TabsTrigger>
+              <TabsTrigger value="holiday">{t('dashboard:companyCalendar.tabs.holiday')}</TabsTrigger>
+              <TabsTrigger value="meeting">{getTypeLabel('meeting')}</TabsTrigger>
+              <TabsTrigger value="event">{t('dashboard:companyCalendar.tabs.event')}</TabsTrigger>
+              <TabsTrigger value="deadline">{getTypeLabel('deadline')}</TabsTrigger>
               <TabsTrigger value="training">Đào tạo</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -437,7 +427,7 @@ const CompanyCalendarPage: React.FC = () => {
               {selectedDate && (
                 <div className="mt-4 p-3 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
                   <p className="text-xs text-[var(--text-sub)] mb-1">
-                    Ngày đã chọn
+                    {t('dashboard:companyCalendar.selectedDate')}
                   </p>
                   <p className="text-sm text-[var(--text-main)] mb-2">
                     {selectedDate.toLocaleDateString("vi-VN", {
@@ -450,7 +440,7 @@ const CompanyCalendarPage: React.FC = () => {
                   {selectedDateEvents.length > 0 ? (
                     <div className="space-y-2">
                       <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border-[var(--accent-cyan)]/40">
-                        {selectedDateEvents.length} sự kiện
+                        {selectedDateEvents.length} {t('dashboard:companyCalendar.events')}
                       </Badge>
                       <div className="space-y-1">
                         {selectedDateEvents.map((event) => (
@@ -478,7 +468,7 @@ const CompanyCalendarPage: React.FC = () => {
                     </div>
                   ) : (
                     <p className="text-xs text-[var(--text-sub)]">
-                      Không có sự kiện
+                      {t('dashboard:companyCalendar.noEvents')}
                     </p>
                   )}
                 </div>
@@ -499,7 +489,7 @@ const CompanyCalendarPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Bell className="h-5 w-5 text-[var(--accent-cyan)]" />
                 <CardTitle className="text-[var(--text-main)]">
-                  Sự kiện sắp tới (7 ngày tới)
+                  {t('dashboard:companyCalendar.upcomingEvents')}
                 </CardTitle>
               </div>
             </CardHeader>
@@ -507,7 +497,7 @@ const CompanyCalendarPage: React.FC = () => {
               {loading ? (
                 <div className="text-center py-12">
                   <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-[var(--text-sub)]">Đang tải sự kiện...</p>
+                  <p className="text-[var(--text-sub)]">{t('dashboard:companyCalendar.loading')}</p>
                 </div>
               ) : upcomingEvents.length > 0 ? (
                 upcomingEvents.map((event, index) => (
@@ -559,7 +549,7 @@ const CompanyCalendarPage: React.FC = () => {
                                       variant="outline"
                                       className="border-[var(--border)] text-[var(--text-sub)] text-xs"
                                     >
-                                      Cả ngày
+                                      {t('dashboard:companyCalendar.allDay')}
                                     </Badge>
                                   )}
                                 </div>
@@ -640,7 +630,7 @@ const CompanyCalendarPage: React.FC = () => {
                 >
                   <div className="text-6xl mb-4">📅</div>
                   <p className="text-[var(--text-sub)]">
-                    Không có sự kiện sắp tới trong 7 ngày tới
+                    {t('dashboard:companyCalendar.noUpcomingEvents')}
                   </p>
                 </motion.div>
               )}
@@ -653,7 +643,7 @@ const CompanyCalendarPage: React.FC = () => {
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            Tất cả sự kiện ({filteredEvents.length}) - Tháng{" "}
+            {t('dashboard:companyCalendar.allEvents')} ({filteredEvents.length}) - {t('dashboard:companyCalendar.month')}{" "}
             {selectedDate.toLocaleDateString("vi-VN", {
               month: "long",
               year: "numeric",
@@ -779,7 +769,7 @@ const CompanyCalendarPage: React.FC = () => {
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">📅</div>
                 <p className="text-[var(--text-sub)]">
-                  Không có sự kiện nào trong tháng này
+                  {t('dashboard:companyCalendar.noEventsThisMonth')}
                 </p>
               </div>
             )}

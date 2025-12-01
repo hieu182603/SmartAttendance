@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Search,
   Download,
@@ -71,14 +72,7 @@ interface AttendanceSummary {
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 25];
-const STATUS_FILTER_OPTIONS = [
-  { label: "Tất cả trạng thái", value: "all" },
-  { label: "Đúng giờ", value: "ontime" },
-  { label: "Đi muộn", value: "late" },
-  { label: "Vắng", value: "absent" },
-  { label: "Tăng ca", value: "overtime" },
-  { label: "Cuối tuần", value: "weekend" },
-] as const;
+// STATUS_FILTER_OPTIONS will be created inside component to use translation
 
 type StatusFilterValue = (typeof STATUS_FILTER_OPTIONS)[number]["value"];
 
@@ -163,36 +157,36 @@ const ROLE_ACCESS_CONFIG: Record<
   },
 };
 
-const getStatusBadge = (status: string) => {
+const getStatusBadge = (status: string, t: (key: string) => string) => {
   switch (status) {
     case "ontime":
       return (
         <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
-          Đúng giờ
+          {t('dashboard:adminAttendance.filters.ontime')}
         </Badge>
       );
     case "late":
       return (
         <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">
-          Đi muộn
+          {t('dashboard:adminAttendance.filters.late')}
         </Badge>
       );
     case "absent":
       return (
         <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">
-          Vắng
+          {t('dashboard:adminAttendance.filters.absent')}
         </Badge>
       );
     case "overtime":
       return (
         <Badge className="bg-purple-500/20 text-purple-600 border-purple-500/30">
-          Tăng ca
+          {t('dashboard:adminAttendance.filters.overtime')}
         </Badge>
       );
     case "weekend":
       return (
         <Badge className="bg-[var(--text-sub)]/20 text-[var(--text-sub)] border-[var(--text-sub)]/30">
-          Cuối tuần
+          {t('dashboard:adminAttendance.filters.weekend')}
         </Badge>
       );
     default:
@@ -201,7 +195,17 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function AdminAttendancePage() {
+  const { t } = useTranslation(['dashboard', 'common']);
   const { user } = useAuth();
+  
+  const STATUS_FILTER_OPTIONS = [
+    { label: t('dashboard:adminAttendance.filters.allStatus'), value: "all" },
+    { label: t('dashboard:adminAttendance.filters.ontime'), value: "ontime" },
+    { label: t('dashboard:adminAttendance.filters.late'), value: "late" },
+    { label: t('dashboard:adminAttendance.filters.absent'), value: "absent" },
+    { label: t('dashboard:adminAttendance.filters.overtime'), value: "overtime" },
+    { label: t('dashboard:adminAttendance.filters.weekend'), value: "weekend" },
+  ] as const;
   const resolvedRole = useMemo<UserRoleType>(() => {
     return (user?.role as UserRoleType) || UserRole.MANAGER;
   }, [user?.role]);
@@ -381,9 +385,9 @@ export default function AdminAttendancePage() {
       });
     } catch (error) {
       console.warn("[AdminAttendance] getAllAttendance failed", error);
-      setFetchError("Không thể tải dữ liệu chấm công");
+      setFetchError(t('dashboard:adminAttendance.error'));
       setRecords([]);
-      toast.error("Không thể tải dữ liệu chấm công");
+      toast.error(t('dashboard:adminAttendance.error'));
       setSummaryCounts({ total: 0, present: 0, late: 0, absent: 0 });
       setPaginationInfo({
         page: 1,
@@ -409,7 +413,7 @@ export default function AdminAttendancePage() {
         setLocations(locationList.map((loc) => ({ _id: loc._id, name: loc.name })));
       } catch (error) {
         console.error("[AdminAttendance] Failed to load locations", error);
-        toast.error("Không thể tải danh sách địa điểm");
+        toast.error(t('dashboard:adminAttendance.error'));
       } finally {
         setIsLoadingLocations(false);
       }
@@ -475,7 +479,7 @@ export default function AdminAttendancePage() {
       }
 
       await updateAttendanceRecordApi(selectedRecord.id, updatePayload);
-      toast.success("✅ Đã cập nhật thông tin chấm công");
+      toast.success(t('dashboard:adminAttendance.editDialog.success'));
       setIsEditDialogOpen(false);
       setSelectedRecord(null);
       await fetchAttendance();
@@ -484,8 +488,8 @@ export default function AdminAttendancePage() {
       const errorMessage =
         error && typeof error === "object" && "response" in error
           ? (error.response as { data?: { message?: string } })?.data?.message ||
-          "Không thể cập nhật bản ghi"
-          : "Không thể cập nhật bản ghi";
+          t('dashboard:adminAttendance.editDialog.error')
+          : t('dashboard:adminAttendance.editDialog.error');
       toast.error(errorMessage);
     } finally {
       setIsSaving(false);
@@ -537,9 +541,9 @@ export default function AdminAttendancePage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl text-[var(--text-main)]">Quản lý chấm công</h1>
+        <h1 className="text-3xl text-[var(--text-main)]">{t('dashboard:adminAttendance.title')}</h1>
         <p className="text-sm text-[var(--text-sub)]">
-          Vai trò hiện tại:{" "}
+          {t('dashboard:adminAttendance.currentRole')}{" "}
           <span className="font-semibold text-[var(--text-main)]">{ROLE_NAMES[resolvedRole]}</span>
         </p>
       </div>
@@ -549,7 +553,7 @@ export default function AdminAttendancePage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
-                placeholder="Tìm theo tên nhân viên..."
+                placeholder={t('dashboard:adminAttendance.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
@@ -566,7 +570,7 @@ export default function AdminAttendancePage() {
               onValueChange={(value) => setStatusFilter(value as StatusFilterValue)}
             >
               <SelectTrigger className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
-                <SelectValue placeholder="Trạng thái" />
+                <SelectValue placeholder={t('dashboard:adminAttendance.table.status')} />
               </SelectTrigger>
               <SelectContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
                 {STATUS_FILTER_OPTIONS.map((option) => (
@@ -589,7 +593,7 @@ export default function AdminAttendancePage() {
               }
             >
               <Download className="h-4 w-4 mr-2" />
-              Xuất Excel
+              {t('dashboard:adminAttendance.export')}
             </Button>
           </div>
         </CardContent>
@@ -599,7 +603,7 @@ export default function AdminAttendancePage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center mt-4">
-            <p className="text-sm text-[var(--text-sub)]">Tổng NV</p>
+            <p className="text-sm text-[var(--text-sub)]">{t('dashboard:adminAttendance.totalEmployees')}</p>
             <p className="text-2xl text-[var(--text-main)] mt-1">
               {summaryCounts.total}
             </p>
@@ -607,7 +611,7 @@ export default function AdminAttendancePage() {
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center mt-4">
-            <p className="text-sm text-[var(--text-sub)]">Có mặt</p>
+            <p className="text-sm text-[var(--text-sub)]">{t('dashboard:adminAttendance.stats.present')}</p>
             <p className="text-2xl text-[var(--success)] mt-1">
               {summaryCounts.present}
             </p>
@@ -615,7 +619,7 @@ export default function AdminAttendancePage() {
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center mt-4">
-            <p className="text-sm text-[var(--text-sub)]">Đi muộn</p>
+            <p className="text-sm text-[var(--text-sub)]">{t('dashboard:adminAttendance.stats.late')}</p>
             <p className="text-2xl text-[var(--warning)] mt-1">
               {summaryCounts.late}
             </p>
@@ -623,7 +627,7 @@ export default function AdminAttendancePage() {
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center mt-4">
-            <p className="text-sm text-[var(--text-sub)]">Vắng</p>
+            <p className="text-sm text-[var(--text-sub)]">{t('dashboard:adminAttendance.stats.absent')}</p>
             <p className="text-2xl text-[var(--error)] mt-1">
               {summaryCounts.absent}
             </p>
@@ -644,28 +648,28 @@ export default function AdminAttendancePage() {
               <thead>
                 <tr className="bg-[var(--shell)]">
                   <th className="text-left py-4 px-6 text-sm font-semibold text-[var(--text-main)] first:rounded-tl-lg w-[22%]">
-                    Nhân viên
+                    {t('dashboard:adminAttendance.table.employee')}
                   </th>
                   <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap w-[11%]">
-                    Ngày
+                    {t('dashboard:adminAttendance.table.date')}
                   </th>
                   <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap w-[9%]">
-                    Giờ vào
+                    {t('dashboard:adminAttendance.table.checkIn')}
                   </th>
                   <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap w-[9%]">
-                    Giờ ra
+                    {t('dashboard:adminAttendance.table.checkOut')}
                   </th>
                   <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] whitespace-nowrap w-[9%]">
-                    Tổng giờ
+                    {t('dashboard:adminAttendance.table.hours')}
                   </th>
                   <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] w-[18%]">
-                    Địa điểm
+                    {t('dashboard:adminAttendance.table.location')}
                   </th>
                   <th className="text-left py-4 px-3 text-sm font-semibold text-[var(--text-main)] w-[12%]">
-                    Trạng thái
+                    {t('dashboard:adminAttendance.table.status')}
                   </th>
                   <th className="text-center py-4 px-4 text-sm font-semibold text-[var(--text-main)] last:rounded-tr-lg whitespace-nowrap w-[10%]">
-                    Thao tác
+                    {t('dashboard:adminAttendance.table.actions')}
                   </th>
                 </tr>
               </thead>
@@ -673,7 +677,7 @@ export default function AdminAttendancePage() {
                 {isLoading ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-[var(--text-sub)]">
-                      Đang tải dữ liệu...
+                      {t('dashboard:adminAttendance.table.loading')}
                     </td>
                   </tr>
                 ) : fetchError ? (
@@ -685,7 +689,7 @@ export default function AdminAttendancePage() {
                 ) : records.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-[var(--text-sub)]">
-                      Không có bản ghi nào phù hợp với bộ lọc hiện tại.
+                      {t('dashboard:adminAttendance.table.noData')}
                     </td>
                   </tr>
                 ) : (
@@ -727,14 +731,14 @@ export default function AdminAttendancePage() {
                         {record.location}
                       </td>
                       <td className="py-4 px-3">
-                        {getStatusBadge(record.status)}
+                        {getStatusBadge(record.status, t)}
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-center space-x-1">
                           <button
                             onClick={() => handleViewRecord(record)}
                             className="rounded-md p-2 text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-colors"
-                            title="Xem chi tiết"
+                            title={t('dashboard:adminAttendance.table.view')}
                           >
                             <Eye className="h-4 w-4" />
                           </button>
@@ -742,7 +746,7 @@ export default function AdminAttendancePage() {
                             onClick={() => handleEditRecord(record)}
                             disabled={!roleConfig.canEdit}
                             className="rounded-md p-2 text-[var(--primary)] hover:bg-[var(--primary)]/10 disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40 transition-colors"
-                            title="Chỉnh sửa"
+                            title={t('dashboard:adminAttendance.table.edit')}
                           >
                             <Edit className="h-4 w-4" />
                           </button>
@@ -757,12 +761,12 @@ export default function AdminAttendancePage() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4 text-[var(--text-sub)]">
             <div className="flex items-center gap-2 text-sm">
               <span>
-                Hiển thị {paginationStart} - {paginationEnd} /{" "}
+                {t('dashboard:adminAttendance.pagination.showing')} {paginationStart} - {paginationEnd} {t('dashboard:adminAttendance.pagination.of')}{" "}
                 {paginationInfo.total.toLocaleString("vi-VN")}
               </span>
               <span className="hidden sm:inline">•</span>
               <div className="flex items-center gap-2">
-                <span>Số dòng:</span>
+                <span>{t('dashboard:adminAttendance.pagination.rowsPerPage')}</span>
                 <Select
                   value={pageSize.toString()}
                   onValueChange={(v) => handlePageSizeChange(Number(v))}
@@ -802,7 +806,7 @@ export default function AdminAttendancePage() {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="px-4 text-sm text-[var(--text-main)]">
-                Trang {paginationInfo.page} / {paginationInfo.totalPages}
+                {t('dashboard:adminAttendance.pagination.page')} {paginationInfo.page} / {paginationInfo.totalPages}
               </span>
               <Button
                 variant="outline"
@@ -835,9 +839,9 @@ export default function AdminAttendancePage() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-3xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Chi tiết chấm công</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">{t('dashboard:adminAttendance.viewDialog.title')}</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              Thông tin chi tiết về bản ghi chấm công
+              {t('dashboard:adminAttendance.viewDialog.title')}
             </DialogDescription>
           </DialogHeader>
           {selectedRecord && (
@@ -854,11 +858,11 @@ export default function AdminAttendancePage() {
                     {selectedRecord.name}
                   </h3>
                   <p className="text-sm text-[var(--text-sub)]">
-                    Mã nhân viên: {selectedRecord.userId}
+                    {t('dashboard:adminAttendance.details.employeeCode')} {selectedRecord.userId}
                   </p>
                 </div>
                 <div>
-                  {getStatusBadge(selectedRecord.status)}
+                  {getStatusBadge(selectedRecord.status, t)}
                 </div>
               </div>
 
@@ -867,29 +871,29 @@ export default function AdminAttendancePage() {
               {/* Attendance Details */}
               <div>
                 <h4 className="text-sm font-semibold text-[var(--text-sub)] uppercase tracking-wide mb-3">
-                  Thông tin chấm công
+                  {t('dashboard:adminAttendance.details.attendanceInfo')}
                 </h4>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   <div className="space-y-1">
-                    <Label className="text-xs text-[var(--text-sub)]">Ngày làm việc</Label>
+                    <Label className="text-xs text-[var(--text-sub)]">{t('dashboard:adminAttendance.details.workDate')}</Label>
                     <p className="text-[var(--text-main)] font-medium">
                       {selectedRecord.date}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-[var(--text-sub)]">Tổng giờ làm</Label>
+                    <Label className="text-xs text-[var(--text-sub)]">{t('dashboard:adminAttendance.details.totalHours')}</Label>
                     <p className="text-[var(--text-main)] font-medium">
                       {selectedRecord.hours}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-[var(--text-sub)]">Giờ vào</Label>
+                    <Label className="text-xs text-[var(--text-sub)]">{t('dashboard:adminAttendance.editDialog.checkIn')}</Label>
                     <p className="text-[var(--text-main)] font-medium">
                       {selectedRecord.checkIn}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-[var(--text-sub)]">Giờ ra</Label>
+                    <Label className="text-xs text-[var(--text-sub)]">{t('dashboard:adminAttendance.editDialog.checkOut')}</Label>
                     <p className="text-[var(--text-main)] font-medium">
                       {selectedRecord.checkOut}
                     </p>
@@ -897,7 +901,7 @@ export default function AdminAttendancePage() {
                   <div className="col-span-2 space-y-1">
                     <Label className="text-xs text-[var(--text-sub)] flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" />
-                      Địa điểm làm việc
+                      {t('dashboard:adminAttendance.details.workLocation')}
                     </Label>
                     <p className="text-[var(--text-main)] font-medium">
                       {selectedRecord.location}
@@ -913,7 +917,7 @@ export default function AdminAttendancePage() {
               onClick={() => setIsViewDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
             >
-              Đóng
+              {t('dashboard:adminAttendance.details.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -923,15 +927,15 @@ export default function AdminAttendancePage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
           <DialogHeader>
-            <DialogTitle>Chỉnh sửa bản ghi chấm công</DialogTitle>
+            <DialogTitle>{t('dashboard:adminAttendance.editDialog.title')}</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              Cập nhật thông tin chấm công cho {selectedRecord?.name}
+              {t('dashboard:adminAttendance.editDialog.title')} {selectedRecord?.name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Giờ vào</Label>
+                <Label>{t('dashboard:adminAttendance.editDialog.checkIn')}</Label>
                 <div className="relative">
                   <Input
                     ref={checkInInputRef}
@@ -953,7 +957,7 @@ export default function AdminAttendancePage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Giờ ra</Label>
+                <Label>{t('dashboard:adminAttendance.editDialog.checkOut')}</Label>
                 <div className="relative">
                   <Input
                     ref={checkOutInputRef}
@@ -977,7 +981,7 @@ export default function AdminAttendancePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Địa điểm</Label>
+              <Label>{t('dashboard:adminAttendance.editDialog.location')}</Label>
               <Select
                 value={formData.locationId}
                 onValueChange={(value) =>
@@ -986,7 +990,7 @@ export default function AdminAttendancePage() {
                 disabled={isLoadingLocations}
               >
                 <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
-                  <SelectValue placeholder={isLoadingLocations ? "Đang tải..." : "Chọn địa điểm"} />
+                  <SelectValue placeholder={isLoadingLocations ? t('common:loading') : t('dashboard:adminAttendance.editDialog.selectLocation')} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
                   {isLoadingLocations ? (
@@ -1014,14 +1018,14 @@ export default function AdminAttendancePage() {
                 onClick={() => setIsEditDialogOpen(false)}
                 className="border-[var(--border)] text-[var(--text-main)]"
               >
-                Hủy
+                {t('dashboard:adminAttendance.editDialog.cancel')}
               </Button>
               <Button
                 onClick={handleSubmitEdit}
                 disabled={isSaving}
                 className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] disabled:opacity-60"
               >
-                {isSaving ? "Đang lưu..." : "Cập nhật"}
+                {isSaving ? t('dashboard:adminAttendance.editDialog.saving') : t('dashboard:adminAttendance.editDialog.save')}
               </Button>
             </div>
           </div>

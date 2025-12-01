@@ -1,0 +1,11 @@
+{
+  "generic": "An error occurred",
+  "network": "Network connection error",
+  "unauthorized": "You don't have permission",
+  "forbidden": "Access denied",
+  "notFound": "Not found",
+  "serverError": "Server error",
+  "timeout": "Request timeout",
+  "unknown": "Unknown error"
+}
+
