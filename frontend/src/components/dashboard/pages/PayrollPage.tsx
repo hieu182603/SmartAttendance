@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   DollarSign,
@@ -9,6 +9,7 @@ import {
   Users,
   Clock,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -28,124 +29,86 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-
-interface PayrollRecord {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  department: string;
-  position: string;
-  workDays: number;
-  totalDays: number;
-  overtimeHours: number;
-  leaveDays: number;
-  lateDays: number;
-  baseSalary: number;
-  overtimePay: number;
-  bonus: number;
-  deductions: number;
-  totalSalary: number;
-  status: "pending" | "approved" | "paid";
-}
-
-const mockPayrollData: PayrollRecord[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Nguyễn Văn A",
-    department: "IT",
-    position: "Senior Developer",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 15,
-    leaveDays: 0,
-    lateDays: 1,
-    baseSalary: 25000000,
-    overtimePay: 2500000,
-    bonus: 5000000,
-    deductions: 500000,
-    totalSalary: 32000000,
-    status: "approved",
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Trần Thị B",
-    department: "IT",
-    position: "Frontend Developer",
-    workDays: 21,
-    totalDays: 22,
-    overtimeHours: 10,
-    leaveDays: 1,
-    lateDays: 0,
-    baseSalary: 18000000,
-    overtimePay: 1500000,
-    bonus: 3000000,
-    deductions: 200000,
-    totalSalary: 22300000,
-    status: "pending",
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Lê Văn C",
-    department: "Marketing",
-    position: "Marketing Manager",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 8,
-    leaveDays: 0,
-    lateDays: 0,
-    baseSalary: 22000000,
-    overtimePay: 1200000,
-    bonus: 4000000,
-    deductions: 300000,
-    totalSalary: 26900000,
-    status: "paid",
-  },
-  {
-    id: "4",
-    employeeId: "EMP004",
-    employeeName: "Phạm Thị D",
-    department: "HR",
-    position: "HR Specialist",
-    workDays: 20,
-    totalDays: 22,
-    overtimeHours: 5,
-    leaveDays: 2,
-    lateDays: 0,
-    baseSalary: 15000000,
-    overtimePay: 800000,
-    bonus: 2000000,
-    deductions: 100000,
-    totalSalary: 17700000,
-    status: "pending",
-  },
-  {
-    id: "5",
-    employeeId: "EMP005",
-    employeeName: "Hoàng Văn E",
-    department: "IT",
-    position: "Backend Developer",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 20,
-    leaveDays: 0,
-    lateDays: 2,
-    baseSalary: 20000000,
-    overtimePay: 3000000,
-    bonus: 4500000,
-    deductions: 800000,
-    totalSalary: 26700000,
-    status: "approved",
-  },
-];
+import {
+  getPayrollRecords,
+  getDepartments,
+  type PayrollRecord,
+} from "../../../services/payrollService";
 
 export default function PayrollPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [selectedMonth, setSelectedMonth] = useState("2024-10");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
+  });
+  const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch departments on mount
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const depts = await getDepartments();
+        setDepartments(depts);
+      } catch (error) {
+        console.error("Error fetching departments:", error);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
+
+  // Fetch payroll data
+  useEffect(() => {
+    const fetchPayrollData = async () => {
+      try {
+        setLoading(true);
+        const response = await getPayrollRecords({
+          month: selectedMonth,
+          limit: 1000,
+        });
+        setPayrollData(response.records || []);
+      } catch (error: any) {
+        console.error("Error fetching payroll:", error);
+        console.error("Error details:", error.response?.data || error.message);
+
+        // Show specific error message
+        const errorMsg =
+          error.response?.data?.message ||
+          error.message ||
+          "Không thể tải dữ liệu bảng lương";
+        toast.error(errorMsg);
+
+        // Use empty data on error
+        setPayrollData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayrollData();
+  }, [selectedMonth]);
+
+  const filteredData = payrollData.filter((record) => {
+    const employeeName = record.userId?.name || "";
+    const empId = record.employeeId || record.userId?.employeeId || "";
+
+    const matchSearch =
+      employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      empId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchDepartment =
+      filterDepartment === "all" || record.department === filterDepartment;
+    const matchStatus =
+      filterStatus === "all" || record.status === filterStatus;
+
+    return matchSearch && matchDepartment && matchStatus;
+  });
 
   const exportToExcel = () => {
     // Create CSV content
@@ -171,8 +134,8 @@ export default function PayrollPage() {
       headers.join(","),
       ...filteredData.map((record) =>
         [
-          record.employeeId,
-          record.employeeName,
+          record.employeeId || record.userId?.employeeId || "N/A",
+          record.userId?.name || "N/A",
           record.department,
           record.position,
           record.workDays,
@@ -205,18 +168,6 @@ export default function PayrollPage() {
     link.click();
     document.body.removeChild(link);
   };
-
-  const filteredData = mockPayrollData.filter((record) => {
-    const matchSearch =
-      record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchDepartment =
-      filterDepartment === "all" || record.department === filterDepartment;
-    const matchStatus =
-      filterStatus === "all" || record.status === filterStatus;
-
-    return matchSearch && matchDepartment && matchStatus;
-  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -252,13 +203,14 @@ export default function PayrollPage() {
   };
 
   const stats = {
-    totalEmployees: mockPayrollData.length,
-    totalPayroll: mockPayrollData.reduce((sum, r) => sum + r.totalSalary, 0),
+    totalEmployees: payrollData.length,
+    totalPayroll: payrollData.reduce((sum, r) => sum + r.totalSalary, 0),
     avgSalary:
-      mockPayrollData.reduce((sum, r) => sum + r.totalSalary, 0) /
-      mockPayrollData.length,
-    pendingApproval: mockPayrollData.filter((r) => r.status === "pending")
-      .length,
+      payrollData.length > 0
+        ? payrollData.reduce((sum, r) => sum + r.totalSalary, 0) /
+          payrollData.length
+        : 0,
+    pendingApproval: payrollData.filter((r) => r.status === "pending").length,
   };
 
   return (
@@ -409,15 +361,20 @@ export default function PayrollPage() {
                   className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
                 />
               </div>
-              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+              <Select
+                value={filterDepartment}
+                onValueChange={setFilterDepartment}
+              >
                 <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                   <SelectValue placeholder="Phòng ban" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả phòng ban</SelectItem>
-                  <SelectItem value="IT">IT</SelectItem>
-                  <SelectItem value="Marketing">Marketing</SelectItem>
-                  <SelectItem value="HR">HR</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -493,56 +450,71 @@ export default function PayrollPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((record, index) => (
-                    <motion.tr
-                      key={record.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.7 + index * 0.05 }}
-                      className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
-                    >
-                      <TableCell className="text-[var(--text-main)]">
-                        {record.employeeId}
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
+                          <p className="text-[var(--text-sub)]">
+                            Đang tải dữ liệu...
+                          </p>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-[var(--text-main)]">
-                        {record.employeeName}
-                      </TableCell>
-                      <TableCell className="text-[var(--text-sub)]">
-                        {record.department}
-                      </TableCell>
-                      <TableCell className="text-center text-[var(--text-main)]">
-                        {record.workDays}/{record.totalDays}
-                      </TableCell>
-                      <TableCell className="text-center text-[var(--text-main)]">
-                        {record.overtimeHours}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--text-main)]">
-                        {formatCurrency(record.baseSalary)}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--success)]">
-                        +{formatCurrency(record.overtimePay)}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--success)]">
-                        +{formatCurrency(record.bonus)}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--error)]">
-                        -{formatCurrency(record.deductions)}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--text-main)]">
-                        {formatCurrency(record.totalSalary)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className={getStatusColor(record.status)}>
-                          {getStatusLabel(record.status)}
-                        </Badge>
-                      </TableCell>
-                    </motion.tr>
-                  ))}
+                    </TableRow>
+                  ) : filteredData.length > 0 ? (
+                    filteredData.map((record, index) => (
+                      <motion.tr
+                        key={record._id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.7 + index * 0.05 }}
+                        className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
+                      >
+                        <TableCell className="text-[var(--text-main)]">
+                          {record.employeeId ||
+                            record.userId?.employeeId ||
+                            "N/A"}
+                        </TableCell>
+                        <TableCell className="text-[var(--text-main)]">
+                          {record.userId?.name || "N/A"}
+                        </TableCell>
+                        <TableCell className="text-[var(--text-sub)]">
+                          {record.department}
+                        </TableCell>
+                        <TableCell className="text-center text-[var(--text-main)]">
+                          {record.workDays}/{record.totalDays}
+                        </TableCell>
+                        <TableCell className="text-center text-[var(--text-main)]">
+                          {record.overtimeHours}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--text-main)]">
+                          {formatCurrency(record.baseSalary)}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--success)]">
+                          +{formatCurrency(record.overtimePay)}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--success)]">
+                          +{formatCurrency(record.bonus)}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--error)]">
+                          -{formatCurrency(record.deductions)}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--text-main)]">
+                          {formatCurrency(record.totalSalary)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={getStatusColor(record.status)}>
+                            {getStatusLabel(record.status)}
+                          </Badge>
+                        </TableCell>
+                      </motion.tr>
+                    ))
+                  ) : null}
                 </TableBody>
               </Table>
             </div>
 
-            {filteredData.length === 0 && (
+            {!loading && filteredData.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
