@@ -7,9 +7,9 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import api from "../../../services/api";
+import api from "@/services/api";
 import type { AxiosError } from "axios";
 
 const dataURLtoBlob = (dataURL: string): Blob => {

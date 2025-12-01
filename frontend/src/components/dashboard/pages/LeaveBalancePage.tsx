@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { useRolePath } from '../../../hooks/useRolePath'
+import { useRolePath } from '@/hooks/useRolePath'
 import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 import {
@@ -17,14 +17,14 @@ import {
   Award,
   Loader2,
 } from 'lucide-react'
-import { Card, CardContent } from '../../ui/card'
-import { Button } from '../../ui/button'
-import { Badge } from '../../ui/badge'
-import { Progress } from '../../ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { getLeaveBalance, getLeaveHistory } from '../../../services/dashboardService'
-import type { ErrorWithMessage } from '../../../types'
+import { getLeaveBalance, getLeaveHistory } from '@/services/dashboardService'
+import type { ErrorWithMessage } from '@/types'
 
 type LeaveStatus = 'approved' | 'pending' | 'rejected'
 

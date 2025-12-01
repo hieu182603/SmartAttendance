@@ -30,11 +30,11 @@ import {
   Award,
 
 } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
-import { useTheme } from "../ThemeProvider";
-import { Button } from "../ui/button";
-import NotificationCenter from "./NotificationCenter";
-import LanguageSwitcher from "../LanguageSwitcher";
+import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/components/ThemeProvider";
+import { Button } from "@/components/ui/button";
+import NotificationCenter from "@/components/dashboard/NotificationCenter";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
   UserRole,
   type UserRoleType,
@@ -42,8 +42,8 @@ import {
   getRoleName,
   getRoleColor,
   getRoleBasePath,
-} from "../../utils/roles";
-import { getMenuByPermissionsWithTranslations, type MenuItem } from "../../utils/menuItems";
+} from "@/utils/roles";
+import { getMenuByPermissionsWithTranslations, type MenuItem } from "@/utils/menuItems";
 
 
 interface NotificationBellProps {

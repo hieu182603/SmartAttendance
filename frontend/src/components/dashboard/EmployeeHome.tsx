@@ -12,9 +12,9 @@ import {
   CheckCircle2,
   FileText,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Badge } from "../ui/badge";
-import { useDashboardData } from "../../hooks/useDashboardData";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useDashboardData } from "@/hooks/useDashboardData";
 import { useNavigate } from "react-router-dom";
 
 type AttendanceStatus = "ontime" | "late" | "absent" | "unknown";

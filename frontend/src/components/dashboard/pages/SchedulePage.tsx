@@ -14,11 +14,11 @@ import {
   Target,
   Star,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Badge } from "../../ui/badge";
-import { Progress } from "../../ui/progress";
-import shiftService from "../../../services/shiftService";
-import { getAttendanceHistory } from "../../../services/attendanceService";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import shiftService from "@/services/shiftService";
+import { getAttendanceHistory } from "@/services/attendanceService";
 
 type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
 

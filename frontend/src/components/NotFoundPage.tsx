@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, ArrowLeft, SearchX } from 'lucide-react';
-import { Button } from './ui/button';
-import { useAuth } from '../context/AuthContext';
-import { getRoleBasePath, type UserRoleType } from '../utils/roles';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
+import { getRoleBasePath, type UserRoleType } from '@/utils/roles';
 
 export default function NotFoundPage() {
   const { t } = useTranslation(['common']);

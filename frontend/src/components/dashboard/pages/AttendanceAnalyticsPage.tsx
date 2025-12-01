@@ -9,11 +9,11 @@ import {
   Download,
   AlertCircle
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
-import { Button } from '../../ui/button'
-import { Badge } from '../../ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
-import { Progress } from '../../ui/progress'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 import {
   BarChart,
@@ -27,7 +27,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts'
-import { getAttendanceAnalytics, exportAttendanceAnalytics } from '../../../services/attendanceService'
+import { getAttendanceAnalytics, exportAttendanceAnalytics } from '@/services/attendanceService'
 
 type Period = '7days' | '30days' | '90days'
 

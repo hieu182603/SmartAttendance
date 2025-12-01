@@ -1,9 +1,9 @@
 import { AlertTriangle, Home } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { getRoleBasePath, UserRole, type UserRoleType } from '../utils/roles';
+import { useAuth } from '@/context/AuthContext';
+import { getRoleBasePath, UserRole, type UserRoleType } from '@/utils/roles';
 
 export default function UnauthorizedPage() {
   const { t } = useTranslation(['common']);

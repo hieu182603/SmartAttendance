@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { getMe, login as loginApi } from '../services/authService'
-import type { User, LoginResponse } from '../types'
+import { getMe, login as loginApi } from '@/services/authService'
+import type { User, LoginResponse } from '@/types'
 
 interface AuthContextType {
   token: string
