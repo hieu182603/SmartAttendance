@@ -13,15 +13,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Card, CardContent } from "../../ui/card";
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
+
 
 import {
   Dialog,
@@ -45,18 +42,11 @@ import {
 } from "@/components/ui/select";
 import { getMyRequests, createRequest as createRequestApi } from "@/services/requestService";
 import type { ErrorWithMessage } from "@/types";
-
-} from "../../ui/select";
-import {
-  getMyRequests,
-  createRequest as createRequestApi,
-  getRequestTypes,
-} from "../../../services/requestService";
+import { getRequestTypes } from "@/services/requestService";
 import type {
   RequestType as RequestTypeOption,
-} from "../../../services/requestService";
-import { getAllDepartments } from "../../../services/departmentService";
-import type { ErrorWithMessage } from "../../../types";
+} from "@/services/requestService";
+import { getAllDepartments } from "@/services/departmentService";
 
 
 type RequestStatus = "pending" | "approved" | "rejected";
@@ -151,7 +141,7 @@ const RequestsPage: React.FC = () => {
           getRequestTypes(),
           getAllDepartments({ limit: 1000, status: 'active' })
         ]);
-        
+
         if (isMounted) {
           setRequestTypes(typesResult.types || []);
           const deptOptions = deptsResult.departments.map(dept => ({
@@ -179,7 +169,7 @@ const RequestsPage: React.FC = () => {
         const pendingResult = await getMyRequests({ status: 'pending', limit: 1000 });
         const approvedResult = await getMyRequests({ status: 'approved', limit: 1000 });
         const rejectedResult = await getMyRequests({ status: 'rejected', limit: 1000 });
-        
+
         if (isMounted) {
           const allRequestsData = [
             ...(pendingResult.requests || []),
@@ -233,12 +223,12 @@ const RequestsPage: React.FC = () => {
         const result = await getMyRequests(params);
         if (isMounted) {
           let filteredRequests = (result.requests || []) as unknown as Request[];
-          
+
           // Client-side department filter (since getMyRequests only returns user's own requests)
           if (filterDepartment !== "all") {
             filteredRequests = filteredRequests.filter(req => req.department === filterDepartment);
           }
-          
+
           setRequests(filteredRequests);
           if (result.pagination) {
             setPagination(result.pagination);
@@ -295,21 +285,21 @@ const RequestsPage: React.FC = () => {
         reason: requestReason.trim(),
       };
       const newRequest = await createRequestApi(payload) as Request;
-      
+
       // The response from createRequest should already have all needed fields
       // Add to allRequests for stats
       setAllRequests((prev) => [newRequest, ...prev]);
-      
+
       // Add to current requests list if on pending tab or all tab
       if (selectedTab === 'pending' || selectedTab === 'all') {
         setRequests((prev) => [newRequest, ...prev]);
       }
-      
+
       // Switch to pending tab if not already there
       if (selectedTab !== 'pending') {
         setSelectedTab('pending');
       }
-      
+
       setIsCreateDialogOpen(false);
       setRequestType("");
       setRequestReason("");
@@ -418,8 +408,8 @@ const RequestsPage: React.FC = () => {
                     {request.urgency === "high"
                       ? "Gấp"
                       : request.urgency === "medium"
-                      ? "Bình thường"
-                      : "Không gấp"}
+                        ? "Bình thường"
+                        : "Không gấp"}
                   </Badge>
                 )}
                 <Badge
@@ -472,8 +462,8 @@ const RequestsPage: React.FC = () => {
                   request.status === "pending"
                     ? "bg-[var(--warning)]/20 text-[var(--warning)]"
                     : request.status === "approved"
-                    ? "bg-[var(--success)]/20 text-[var(--success)]"
-                    : "bg-[var(--error)]/20 text-[var(--error)]"
+                      ? "bg-[var(--success)]/20 text-[var(--success)]"
+                      : "bg-[var(--error)]/20 text-[var(--error)]"
                 }
               >
                 {request.status === "pending" ? (
@@ -525,15 +515,15 @@ const RequestsPage: React.FC = () => {
                   <SelectTrigger className="border-[var(--border)] bg-[var(--input-bg)]">
                     <SelectValue placeholder="Chọn loại đơn" />
                   </SelectTrigger>
-                <SelectContent>
-                  {(requestTypes.length
-                    ? requestTypes
-                    : FALLBACK_REQUEST_TYPES
-                  ).map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
+                  <SelectContent>
+                    {(requestTypes.length
+                      ? requestTypes
+                      : FALLBACK_REQUEST_TYPES
+                    ).map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -687,7 +677,7 @@ const RequestsPage: React.FC = () => {
 
             <TabsContent value="all" className="mt-6 space-y-4">
               {renderRequests("all")}
-            </TabsContent>        
+            </TabsContent>
             <TabsContent value="pending" className="mt-6 space-y-4">
               {renderRequests("pending")}
             </TabsContent>
@@ -696,9 +686,9 @@ const RequestsPage: React.FC = () => {
             </TabsContent>
             <TabsContent value="rejected" className="mt-6 space-y-4">
               {renderRequests("rejected")}
-            </TabsContent>            
+            </TabsContent>
           </Tabs>
-          
+
           {/* Pagination Controls */}
           {pagination.totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-[var(--border)]">
