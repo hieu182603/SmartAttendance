@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
@@ -78,6 +78,57 @@ const ApproveRequestsPage: React.FC = () => {
   const [actionType, setActionType] = useState<ActionType>(null)
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const typeLabelMap = useMemo(
+    () => ({
+      leave: t('dashboard:approveRequests.types.leave'),
+      overtime: t('dashboard:approveRequests.types.overtime'),
+      late: t('dashboard:approveRequests.types.late'),
+      remote: t('dashboard:approveRequests.types.remote'),
+    }),
+    [t]
+  )
+
+  const typeOptions = useMemo(
+    () => [
+      { value: 'all', label: t('dashboard:approveRequests.filters.allTypes') },
+      { value: 'leave', label: typeLabelMap.leave },
+      { value: 'overtime', label: typeLabelMap.overtime },
+      { value: 'late', label: typeLabelMap.late },
+      { value: 'remote', label: typeLabelMap.remote },
+    ],
+    [t, typeLabelMap]
+  )
+
+  const departmentOptions = useMemo(
+    () => [
+      { value: 'all', label: t('dashboard:approveRequests.filters.allDepartments') },
+      { value: 'IT', label: t('dashboard:approveRequests.departments.it') },
+      { value: 'Nhân sự', label: t('dashboard:approveRequests.departments.hr') },
+      { value: 'Kinh doanh', label: t('dashboard:approveRequests.departments.sales') },
+      { value: 'Marketing', label: t('dashboard:approveRequests.departments.marketing') },
+    ],
+    [t]
+  )
+
+  const urgencyLabels = useMemo(
+    () => ({
+      high: t('dashboard:approveRequests.urgency.high'),
+      medium: t('dashboard:approveRequests.urgency.medium'),
+      low: t('dashboard:approveRequests.urgency.low'),
+    }),
+    [t]
+  )
+
+  const getTypeLabel = useCallback(
+    (type: RequestType): string => typeLabelMap[type] ?? type,
+    [typeLabelMap]
+  )
+
+  const getUrgencyLabel = useCallback(
+    (urgency: Urgency): string => urgencyLabels[urgency],
+    [urgencyLabels]
+  )
 
   // Fetch tất cả requests để tính stats (không filter theo status)
   const fetchAllRequests = useCallback(async () => {
@@ -177,16 +228,6 @@ const ApproveRequestsPage: React.FC = () => {
       case 'late': return <Clock className="h-4 w-4" />
       case 'remote': return <Briefcase className="h-4 w-4" />
       default: return <FileText className="h-4 w-4" />
-    }
-  }
-
-  const getTypeLabel = (type: RequestType): string => {
-    switch (type) {
-      case 'leave': return 'Nghỉ phép'
-      case 'overtime': return 'Tăng ca'
-      case 'late': return 'Đi muộn'
-      case 'remote': return 'Remote'
-      default: return type
     }
   }
 
@@ -324,11 +365,11 @@ const ApproveRequestsPage: React.FC = () => {
                 <SelectValue placeholder={t('dashboard:approveRequests.filters.requestType')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('dashboard:approveRequests.filters.allTypes')}</SelectItem>
-                <SelectItem value="leave">Nghỉ phép</SelectItem>
-                <SelectItem value="overtime">Tăng ca</SelectItem>
-                <SelectItem value="late">Đi muộn</SelectItem>
-                <SelectItem value="remote">Remote</SelectItem>
+                {typeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filterDepartment} onValueChange={setFilterDepartment}>
@@ -336,11 +377,11 @@ const ApproveRequestsPage: React.FC = () => {
                 <SelectValue placeholder={t('dashboard:approveRequests.filters.department')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('dashboard:approveRequests.filters.allDepartments')}</SelectItem>
-                <SelectItem value="IT">IT</SelectItem>
-                <SelectItem value="Nhân sự">Nhân sự</SelectItem>
-                <SelectItem value="Kinh doanh">Kinh doanh</SelectItem>
-                <SelectItem value="Marketing">Marketing</SelectItem>
+                {departmentOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -350,7 +391,9 @@ const ApproveRequestsPage: React.FC = () => {
       {/* Requests List with Tabs */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">Danh sách yêu cầu</CardTitle>
+          <CardTitle className="text-[var(--text-main)]">
+            {t('dashboard:approveRequests.request.listTitle')}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v)}>
@@ -400,7 +443,7 @@ const ApproveRequestsPage: React.FC = () => {
                               </Badge>
                               {request.urgency && (
                                 <Badge className={getUrgencyColor(request.urgency)}>
-                                  {request.urgency === 'high' ? 'Gấp' : request.urgency === 'medium' ? 'Bình thường' : 'Không gấp'}
+                                  {getUrgencyLabel(request.urgency)}
                                 </Badge>
                               )}
                               <Badge variant="outline" className="border-[var(--border)] text-[var(--text-sub)]">
@@ -417,9 +460,13 @@ const ApproveRequestsPage: React.FC = () => {
                             <h4 className="text-[var(--text-main)] mb-2">{request.title}</h4>
                             <p className="text-sm text-[var(--text-sub)] mb-3">{request.description || request.reason}</p>
 
-                            <div className="text-xs text-[var(--text-sub)]">
-                              Gửi lúc: {request.submittedAt}
-                            </div>
+                            {request.submittedAt && (
+                              <div className="text-xs text-[var(--text-sub)]">
+                                {t('dashboard:approveRequests.request.sentAt', {
+                                  time: request.submittedAt,
+                                })}
+                              </div>
+                            )}
 
                             {request.approver && (
                               <div className="mt-3 p-3 rounded-lg bg-[var(--background)]/50 border border-[var(--border)]">
@@ -427,7 +474,13 @@ const ApproveRequestsPage: React.FC = () => {
                                   <MessageSquare className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5" />
                                   <div className="flex-1">
                                     <p className="text-xs text-[var(--text-sub)]">
-                                      {request.approver} • {request.approvedAt}
+                                      {t('dashboard:approveRequests.request.approvedBy', {
+                                        approver: request.approver,
+                                      })}
+                                      {request.approvedAt &&
+                                        ` • ${t('dashboard:approveRequests.request.atTime', {
+                                          time: request.approvedAt,
+                                        })}`}
                                     </p>
                                     <p className="text-sm text-[var(--text-main)] mt-1">{request.comments}</p>
                                   </div>
@@ -445,7 +498,7 @@ const ApproveRequestsPage: React.FC = () => {
                                   size="sm"
                                 >
                                   <CheckCircle2 className="h-4 w-4 mr-1" />
-                                  Duyệt
+                                  {t('dashboard:approveRequests.actions.approve')}
                                 </Button>
                                 <Button
                                   onClick={() => handleOpenDialog(request, 'reject')}

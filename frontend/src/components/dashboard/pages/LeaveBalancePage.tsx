@@ -56,33 +56,43 @@ interface LeaveHistory {
   approvedAt?: string
 }
 
+type TranslationFn = ReturnType<typeof useTranslation<['dashboard', 'common']>>['t']
+
 // Helper function để lấy icon và color dựa trên loại nghỉ phép
-const getLeaveTypeConfig = (typeId: string): LeaveTypeConfig => {
+const getLeaveTypeConfig = (typeId: string, t: TranslationFn): LeaveTypeConfig => {
+  const descriptions = {
+    annual: t('dashboard:leaveBalance.types.descriptions.annual'),
+    sick: t('dashboard:leaveBalance.types.descriptions.sick'),
+    unpaid: t('dashboard:leaveBalance.types.descriptions.unpaid'),
+    compensatory: t('dashboard:leaveBalance.types.descriptions.compensatory'),
+    maternity: t('dashboard:leaveBalance.types.descriptions.maternity'),
+  }
+
   const configs: Record<string, LeaveTypeConfig> = {
     annual: {
       icon: <Calendar className="h-5 w-5" />,
       color: 'bg-blue-500',
-      description: 'Nghỉ phép hàng năm theo quy định',
+      description: descriptions.annual,
     },
     sick: {
       icon: <AlertCircle className="h-5 w-5" />,
       color: 'bg-red-500',
-      description: 'Nghỉ ốm có lương',
+      description: descriptions.sick,
     },
     unpaid: {
       icon: <XCircle className="h-5 w-5" />,
       color: 'bg-gray-500',
-      description: 'Nghỉ không hưởng lương',
+      description: descriptions.unpaid,
     },
     compensatory: {
       icon: <TrendingUp className="h-5 w-5" />,
       color: 'bg-purple-500',
-      description: 'Nghỉ bù do làm thêm giờ',
+      description: descriptions.compensatory,
     },
     maternity: {
       icon: <Award className="h-5 w-5" />,
       color: 'bg-pink-500',
-      description: 'Nghỉ thai sản theo luật lao động',
+      description: descriptions.maternity,
     },
   }
   return configs[typeId] || {
@@ -177,7 +187,9 @@ const LeaveBalancePage: React.FC = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
-          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+          <p className="text-[var(--text-sub)]">
+            {t('dashboard:leaveBalance.loadingState.loading')}
+          </p>
         </div>
       </div>
     )
@@ -190,7 +202,7 @@ const LeaveBalancePage: React.FC = () => {
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-12 w-12 text-[var(--error)] mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-[var(--text-main)] mb-2">
-              Lỗi tải dữ liệu
+              {t('dashboard:leaveBalance.loadingState.errorTitle')}
             </h3>
             <p className="text-sm text-[var(--text-sub)] mb-4">{error}</p>
             <Button
@@ -198,7 +210,7 @@ const LeaveBalancePage: React.FC = () => {
               variant="outline"
               className="w-full"
             >
-              Thử lại
+              {t('dashboard:leaveBalance.loadingState.retry')}
             </Button>
           </CardContent>
         </Card>
@@ -328,7 +340,7 @@ const LeaveBalancePage: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {leaveTypes.map((type, index) => {
-                    const config = getLeaveTypeConfig(type.id)
+                    const config = getLeaveTypeConfig(type.id, t)
                     return (
                       <motion.div
                         key={type.id || index}
@@ -356,7 +368,7 @@ const LeaveBalancePage: React.FC = () => {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <h3 className="text-sm sm:text-base text-[var(--text-main)] truncate">
-                                    {type.name || 'Nghỉ phép'}
+                                    {type.name || t('dashboard:leaveBalance.types.defaultName')}
                                   </h3>
                                   <p className="text-xs text-[var(--text-sub)] line-clamp-1">
                                     {type.description || config.description}
@@ -498,15 +510,15 @@ const LeaveBalancePage: React.FC = () => {
                                 variant="outline"
                                 className="border-[var(--border)] text-[var(--text-main)]"
                               >
-                                {history.type || 'Nghỉ phép'}
+                                {history.type || t('dashboard:leaveBalance.types.defaultName')}
                               </Badge>
                               <Badge className={getStatusColor(history.status)}>
                                 <span className="mr-1">{getStatusIcon(history.status)}</span>
                                 {history.status === 'approved'
-                                  ? 'Đã duyệt'
+                                  ? t('dashboard:leaveBalance.status.approved')
                                   : history.status === 'pending'
-                                    ? 'Chờ duyệt'
-                                    : 'Từ chối'}
+                                    ? t('dashboard:leaveBalance.status.pending')
+                                    : t('dashboard:leaveBalance.status.rejected')}
                               </Badge>
                             </div>
 
@@ -532,8 +544,13 @@ const LeaveBalancePage: React.FC = () => {
 
                               {history.approver && (
                                 <p className="text-xs text-[var(--text-sub)]">
-                                  Phê duyệt bởi <strong>{history.approver}</strong>
-                                  {history.approvedAt && ` lúc ${history.approvedAt}`}
+                                  {t('dashboard:leaveBalance.history.approvedBy', {
+                                    approver: history.approver,
+                                  })}{' '}
+                                  {history.approvedAt &&
+                                    t('dashboard:leaveBalance.history.approvedAt', {
+                                      time: history.approvedAt,
+                                    })}
                                 </p>
                               )}
                             </div>
