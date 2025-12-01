@@ -20,8 +20,8 @@ export class AuthService {
         }
 
         // Validate name length
-        if (normalizedName.length < 2) {
-            throw new Error("Họ và tên phải có ít nhất 2 ký tự");
+        if (normalizedName.length < 5) {
+            throw new Error("Họ và tên phải có ít nhất 5 ký tự");
         }
 
         // Check if email already exists

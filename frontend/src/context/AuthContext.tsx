@@ -64,7 +64,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem('sa_token')
     setToken('')
     setUser(null)
-    setLoading(false) // Ensure loading is false immediately on logout
+    setLoading(false) 
   }
 
   const value = useMemo(() => ({ token, user, loading, login, logout, setUser, setToken }), [token, user, loading])

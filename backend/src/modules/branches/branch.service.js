@@ -24,7 +24,8 @@ export class BranchService {
     const branch = await BranchModel.create({
       name: data.name,
       code: data.code.toUpperCase(),
-      address: data.address,
+      latitude: data.latitude,
+      longitude: data.longitude,
       city: data.city,
       country: data.country || "Việt Nam",
       phone: data.phone,
@@ -179,7 +180,8 @@ export class BranchService {
     // Cập nhật
     if (data.name) branch.name = data.name;
     if (data.code) branch.code = data.code.toUpperCase();
-    if (data.address) branch.address = data.address;
+    if (data.latitude !== undefined) branch.latitude = data.latitude;
+    if (data.longitude !== undefined) branch.longitude = data.longitude;
     if (data.city) branch.city = data.city;
     if (data.country) branch.country = data.country;
     if (data.phone !== undefined) branch.phone = data.phone;
