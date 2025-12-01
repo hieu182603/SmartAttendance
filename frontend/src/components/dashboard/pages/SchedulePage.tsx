@@ -183,7 +183,7 @@ const SchedulePage: React.FC = () => {
           const currentDate = new Date(cursor);
           const dayOfWeek = currentDate.getDay();
 
-          if (dayOfWeek !== 0 && dayOfWeek !== 1) {
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
             const dateStr = currentDate.toISOString().split("T")[0];
             const isPast = currentDate < today;
             const attendance = attendanceMap.get(dateStr);
@@ -269,7 +269,9 @@ const SchedulePage: React.FC = () => {
     .filter((s) => {
       const date = new Date(s.date);
       date.setHours(0, 0, 0, 0);
-      return date > today && s.status === "scheduled";
+      const dayOfWeek = date.getDay();
+      // Loại bỏ Thứ 7 (6) và Chủ nhật (0)
+      return date > today && s.status === "scheduled" && dayOfWeek !== 0 && dayOfWeek !== 6;
     })
     .slice(0, 6);
 

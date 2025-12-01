@@ -68,3 +68,164 @@ export const getPayrollReports = async (req, res) => {
   }
 };
 
+
+/**
+ * Get payroll records (chi tiết bảng lương từng nhân viên)
+ */
+export const getPayrollRecords = async (req, res) => {
+  try {
+    const { PayrollRecordModel } = await import("./payroll.model.js");
+    const { month, status, department, page = 1, limit = 100 } = req.query;
+
+    // Build query
+    const query = {};
+    if (month) query.month = month;
+    if (status) query.status = status;
+    if (department) query.department = department;
+
+    // Pagination
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 1000);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Execute query
+    const [records, total] = await Promise.all([
+      PayrollRecordModel.find(query)
+        .populate("userId", "name email employeeId")
+        .sort({ month: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      PayrollRecordModel.countDocuments(query),
+    ]);
+
+    res.json({
+      records,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error("[payroll] get records error", error);
+    res.status(500).json({ message: "Không lấy được dữ liệu bảng lương" });
+  }
+};
+
+/**
+ * Get payroll record by ID
+ */
+export const getPayrollRecordById = async (req, res) => {
+  try {
+    const { PayrollRecordModel } = await import("./payroll.model.js");
+    const { id } = req.params;
+
+    const record = await PayrollRecordModel.findById(id)
+      .populate("userId", "name email employeeId department position")
+      .populate("approvedBy", "name email")
+      .lean();
+
+    if (!record) {
+      return res.status(404).json({ message: "Không tìm thấy bảng lương" });
+    }
+
+    res.json({ data: record });
+  } catch (error) {
+    console.error("[payroll] get record by id error", error);
+    res.status(500).json({ message: "Không lấy được chi tiết bảng lương" });
+  }
+};
+
+/**
+ * Approve payroll record
+ */
+export const approvePayrollRecord = async (req, res) => {
+  try {
+    const { PayrollRecordModel } = await import("./payroll.model.js");
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const record = await PayrollRecordModel.findById(id);
+    if (!record) {
+      return res.status(404).json({ message: "Không tìm thấy bảng lương" });
+    }
+
+    if (record.status !== "pending") {
+      return res.status(400).json({ message: "Bảng lương đã được duyệt" });
+    }
+
+    record.status = "approved";
+    record.approvedBy = userId;
+    record.approvedAt = new Date();
+    await record.save();
+
+    const updated = await PayrollRecordModel.findById(id)
+      .populate("userId", "name email employeeId")
+      .populate("approvedBy", "name email")
+      .lean();
+
+    res.json({ data: updated });
+  } catch (error) {
+    console.error("[payroll] approve record error", error);
+    res.status(500).json({ message: "Không thể duyệt bảng lương" });
+  }
+};
+
+/**
+ * Mark payroll as paid
+ */
+export const markPayrollAsPaid = async (req, res) => {
+  try {
+    const { PayrollRecordModel } = await import("./payroll.model.js");
+    const { id } = req.params;
+
+    const record = await PayrollRecordModel.findById(id);
+    if (!record) {
+      return res.status(404).json({ message: "Không tìm thấy bảng lương" });
+    }
+
+    if (record.status !== "approved") {
+      return res
+        .status(400)
+        .json({ message: "Bảng lương phải được duyệt trước khi thanh toán" });
+    }
+
+    record.status = "paid";
+    record.paidAt = new Date();
+    await record.save();
+
+    const updated = await PayrollRecordModel.findById(id)
+      .populate("userId", "name email employeeId")
+      .populate("approvedBy", "name email")
+      .lean();
+
+    res.json({ data: updated });
+  } catch (error) {
+    console.error("[payroll] mark as paid error", error);
+    res.status(500).json({ message: "Không thể cập nhật trạng thái thanh toán" });
+  }
+};
+
+/**
+ * Get unique departments from payroll records
+ */
+export const getDepartments = async (req, res) => {
+  try {
+    const { PayrollRecordModel } = await import("./payroll.model.js");
+    
+    // Get unique departments
+    const departments = await PayrollRecordModel.distinct("department");
+    
+    // Filter out null/empty values and sort
+    const validDepartments = departments
+      .filter((dept) => dept && dept.trim() !== "")
+      .sort();
+
+    res.json({ departments: validDepartments });
+  } catch (error) {
+    console.error("[payroll] get departments error", error);
+    res.status(500).json({ message: "Không lấy được danh sách phòng ban" });
+  }
+};
