@@ -170,12 +170,13 @@ payrollRecordSchema.index({ status: 1, createdAt: -1 });
 
 // Tính tổng lương tự động
 payrollRecordSchema.pre("save", function (next) {
-  this.totalSalary = this.baseSalary + this.overtimePay + this.bonus - this.deductions;
+  this.totalSalary =
+    this.baseSalary + this.overtimePay + this.bonus - this.deductions;
   next();
 });
 
-// export const PayrollRecordModel = mongoose.model(
-//   "PayrollRecord",
-//   payrollRecordSchema
-// );
+export const PayrollRecordModel = mongoose.model(
+  "PayrollRecord",
+  payrollRecordSchema
+);
 

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
@@ -12,10 +11,6 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Badge } from "../../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,125 +29,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../ui/select";
+} from "@/components/ui/select";
 import {
   getPayrollRecords,
   getDepartments,
-  type PayrollRecord,
 } from "../../../services/payrollService";
-} from "@/components/ui/select";
-
-interface PayrollRecord {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  department: string;
-  position: string;
-  workDays: number;
-  totalDays: number;
-  overtimeHours: number;
-  leaveDays: number;
-  lateDays: number;
-  baseSalary: number;
-  overtimePay: number;
-  bonus: number;
-  deductions: number;
-  totalSalary: number;
-  status: "pending" | "approved" | "paid";
-}
-
-const mockPayrollData: PayrollRecord[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Nguyễn Văn A",
-    department: "IT",
-    position: "Senior Developer",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 15,
-    leaveDays: 0,
-    lateDays: 1,
-    baseSalary: 25000000,
-    overtimePay: 2500000,
-    bonus: 5000000,
-    deductions: 500000,
-    totalSalary: 32000000,
-    status: "approved",
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Trần Thị B",
-    department: "IT",
-    position: "Frontend Developer",
-    workDays: 21,
-    totalDays: 22,
-    overtimeHours: 10,
-    leaveDays: 1,
-    lateDays: 0,
-    baseSalary: 18000000,
-    overtimePay: 1500000,
-    bonus: 3000000,
-    deductions: 200000,
-    totalSalary: 22300000,
-    status: "pending",
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Lê Văn C",
-    department: "Marketing",
-    position: "Marketing Manager",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 8,
-    leaveDays: 0,
-    lateDays: 0,
-    baseSalary: 22000000,
-    overtimePay: 1200000,
-    bonus: 4000000,
-    deductions: 300000,
-    totalSalary: 26900000,
-    status: "paid",
-  },
-  {
-    id: "4",
-    employeeId: "EMP004",
-    employeeName: "Phạm Thị D",
-    department: "HR",
-    position: "HR Specialist",
-    workDays: 20,
-    totalDays: 22,
-    overtimeHours: 5,
-    leaveDays: 2,
-    lateDays: 0,
-    baseSalary: 15000000,
-    overtimePay: 800000,
-    bonus: 2000000,
-    deductions: 100000,
-    totalSalary: 17700000,
-    status: "pending",
-  },
-  {
-    id: "5",
-    employeeId: "EMP005",
-    employeeName: "Hoàng Văn E",
-    department: "IT",
-    position: "Backend Developer",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 20,
-    leaveDays: 0,
-    lateDays: 2,
-    baseSalary: 20000000,
-    overtimePay: 3000000,
-    bonus: 4500000,
-    deductions: 800000,
-    totalSalary: 26700000,
-    status: "approved",
-  },
-];
 
 export default function PayrollPage() {
   const { t } = useTranslation(['dashboard', 'common']);
