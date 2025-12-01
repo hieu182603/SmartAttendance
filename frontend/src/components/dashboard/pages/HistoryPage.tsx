@@ -385,15 +385,15 @@ const HistoryPage: React.FC = () => {
         const currentTime = activeTab === 'checkin' ? selectedRecord.checkIn : selectedRecord.checkOut;
 
         return (
-          <div 
+          <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
             onClick={() => {
               setSelectedRecord(null);
               setActiveTab('checkin');
             }}
           >
-            <div 
-              className="relative bg-[var(--surface)] rounded-lg overflow-hidden w-full max-w-[800px]"
+            <div
+              className="relative bg-[var(--surface)] rounded-2xl overflow-hidden w-full max-w-3xl shadow-2xl border border-[var(--border)]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close Button */}
@@ -402,53 +402,82 @@ const HistoryPage: React.FC = () => {
                   setSelectedRecord(null);
                   setActiveTab('checkin');
                 }}
-                className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-[var(--shell)] hover:bg-[var(--border)] text-[var(--text-main)] transition-colors"
+                className="absolute top-4 right-4 z-10 p-2 rounded-full bg-[var(--shell)]/80 hover:bg-[var(--border)] text-[var(--text-main)] transition-all hover:scale-110 shadow-lg backdrop-blur-sm"
                 title="Đóng"
               >
                 <X className="h-5 w-5" />
               </button>
 
+              {/* Header with Record Info */}
+              <div className="px-6 py-4 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--primary)]/5 border-b border-[var(--border)] pr-16">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[var(--text-main)]">
+                        Chi tiết chấm công
+                      </h3>
+                      <p className="text-sm text-[var(--text-sub)] mt-0.5">
+                        {selectedRecord.date} - {selectedRecord.day}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {getStatusBadge(selectedRecord.status)}
+                  </div>
+                </div>
+              </div>
+
               {/* Tabs */}
-              <div className="flex border-b border-[var(--border)]">
+              <div className="flex border-b border-[var(--border)] bg-[var(--shell)]/30">
                 <button
                   onClick={() => setActiveTab('checkin')}
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-                    activeTab === 'checkin'
-                      ? 'text-[var(--primary)] bg-[var(--primary)]/5'
-                      : 'text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--shell)]'
-                  }`}
+                  className={`flex-1 px-6 py-4 text-sm font-medium transition-all relative ${activeTab === 'checkin'
+                    ? 'text-[var(--primary)] bg-[var(--primary)]/8'
+                    : 'text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--shell)]'
+                    }`}
                 >
-                  Check-in
+                  <span className="flex items-center justify-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${activeTab === 'checkin' ? 'bg-[var(--primary)]' : 'bg-[var(--text-sub)]'}`}></span>
+                    Check-in
+                  </span>
                   {activeTab === 'checkin' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent" />
                   )}
                 </button>
                 <button
                   onClick={() => setActiveTab('checkout')}
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
-                    activeTab === 'checkout'
-                      ? 'text-[var(--primary)] bg-[var(--primary)]/5'
-                      : 'text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--shell)]'
-                  }`}
+                  className={`flex-1 px-6 py-4 text-sm font-medium transition-all relative ${activeTab === 'checkout'
+                    ? 'text-[var(--primary)] bg-[var(--primary)]/8'
+                    : 'text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--shell)]'
+                    }`}
                 >
-                  Check-out
+                  <span className="flex items-center justify-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${activeTab === 'checkout' ? 'bg-[var(--primary)]' : 'bg-[var(--text-sub)]'}`}></span>
+                    Check-out
+                  </span>
                   {activeTab === 'checkout' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent" />
                   )}
                 </button>
               </div>
 
               {/* Image Container */}
-              <div className="bg-[var(--shell)] flex items-center justify-center">
+              <div className="bg-gradient-to-br from-[var(--shell)] to-[var(--shell)]/50 flex items-center justify-center p-6" style={{ minHeight: '250px', maxHeight: '350px' }}>
                 {currentUrl ? (
-                  <img
-                    src={currentUrl}
-                    alt={`Ảnh ${activeTab === 'checkin' ? 'check-in' : 'check-out'}`}
-                    className="w-full h-auto object-contain max-h-[80vh]"
-                  />
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <img
+                      src={currentUrl}
+                      alt={`Ảnh ${activeTab === 'checkin' ? 'check-in' : 'check-out'}`}
+                      className="w-full h-auto object-contain rounded-lg shadow-xl border border-[var(--border)]"
+                      style={{ maxHeight: '300px' }}
+                    />
+                  </div>
                 ) : (
-                  <div className="text-center py-24">
-                    <p className="text-[var(--text-sub)] text-sm">
+                  <div className="text-center py-32">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[var(--border)] mb-4">
+                      <Eye className="h-8 w-8 text-[var(--text-sub)]" />
+                    </div>
+                    <p className="text-[var(--text-sub)] text-base font-medium">
                       {activeTab === 'checkin' ? 'Không có ảnh check-in' : 'Chưa check-out'}
                     </p>
                   </div>
@@ -456,17 +485,17 @@ const HistoryPage: React.FC = () => {
               </div>
 
               {/* Info Footer */}
-              <div className="px-5 py-4 border-t border-[var(--border)] bg-[var(--shell)]/50">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-xs text-[var(--text-sub)] mb-1.5">Thời gian</p>
-                    <p className="text-base font-semibold text-[var(--text-main)]">
+              <div className="px-8 py-5 border-t border-[var(--border)] bg-gradient-to-r from-[var(--shell)]/80 to-[var(--shell)]/50">
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="flex flex-col">
+                    <p className="text-xs font-medium text-[var(--text-sub)] mb-2 uppercase tracking-wide">Thời gian</p>
+                    <p className="text-lg font-bold text-[var(--text-main)]">
                       {currentTime || '-'}
                     </p>
                   </div>
-                  <div className="border-l border-[var(--border)] pl-6">
-                    <p className="text-xs text-[var(--text-sub)] mb-1.5">Vị trí</p>
-                    <p className="text-base font-semibold text-[var(--text-main)] truncate">
+                  <div className="flex flex-col border-l border-[var(--border)] pl-8">
+                    <p className="text-xs font-medium text-[var(--text-sub)] mb-2 uppercase tracking-wide">Vị trí</p>
+                    <p className="text-lg font-bold text-[var(--text-main)] truncate">
                       {selectedRecord.location && !selectedRecord.location.startsWith('http')
                         ? selectedRecord.location
                         : 'Văn phòng'}
@@ -483,7 +512,3 @@ const HistoryPage: React.FC = () => {
 }
 
 export default HistoryPage
-
-
-
-
