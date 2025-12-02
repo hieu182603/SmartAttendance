@@ -197,7 +197,7 @@ const PayrollReportsPage: React.FC = () => {
                       <p className="text-2xl text-[var(--primary)] mt-2">
                         {formatCompactCurrency(currentPayroll.totalSalary)}
                       </p>
-                      {salaryChange && (
+                      {/* {salaryChange && (
                         <div className="flex items-center gap-1 mt-2">
                           {parseFloat(salaryChange) >= 0 ? (
                             <TrendingUp className="h-3 w-3 text-[var(--success)]" />
@@ -214,7 +214,7 @@ const PayrollReportsPage: React.FC = () => {
                             {salaryChange}%
                           </span>
                         </div>
-                      )}
+                      )} */}
                     </div>
                     <div className="h-12 w-12 rounded-full bg-[var(--primary)]/20 flex items-center justify-center">
                       <DollarSign className="h-6 w-6 text-[var(--primary)]" />
@@ -238,12 +238,12 @@ const PayrollReportsPage: React.FC = () => {
                       <p className="text-2xl text-[var(--accent-cyan)] mt-2">
                         {currentPayroll.totalEmployees}
                       </p>
-                      {previousPayroll && (
+                      {/* {previousPayroll && (
                         <Badge className="bg-[var(--success)]/20 text-[var(--success)] mt-2">
                           {employeeChange >= 0 ? "+" : ""}
                           {employeeChange} {t('dashboard:payrollReports.units.people')}
                         </Badge>
-                      )}
+                      )} */}
                     </div>
                     <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
                       <Users className="h-6 w-6 text-[var(--accent-cyan)]" />
