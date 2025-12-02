@@ -467,6 +467,78 @@
     "loading": "Đang tải...",
     "error": "Không thể tải dữ liệu"
   },
+  "departmentAttendance": {
+    "title": "Chấm công (Phòng)",
+    "description": "Theo dõi chấm công của nhân viên trong phòng ban",
+    "exportSuccess": "Xuất Excel thành công",
+    "export": "Xuất Excel",
+    "searchPlaceholder": "Tìm kiếm nhân viên...",
+    "error": "Không thể tải dữ liệu chấm công",
+    "stats": {
+      "total": "Tổng số",
+      "present": "Có mặt",
+      "late": "Đi muộn",
+      "absent": "Vắng mặt"
+    },
+    "filters": {
+      "ontime": "Đúng giờ",
+      "late": "Đi muộn",
+      "absent": "Vắng",
+      "overtime": "Tăng ca",
+      "weekend": "Cuối tuần"
+    },
+    "table": {
+      "employee": "Nhân viên",
+      "date": "Ngày",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "hours": "Tổng giờ",
+      "status": "Trạng thái",
+      "location": "Địa điểm",
+      "actions": "Thao tác",
+      "noData": "Không có dữ liệu",
+      "loading": "Đang tải..."
+    },
+    "pagination": {
+      "showing": "Hiển thị",
+      "of": "của",
+      "rowsPerPage": "Số dòng:",
+      "page": "Trang",
+      "prev": "Trước",
+      "next": "Sau",
+      "currentPage": "Trang {{page}} / {{totalPages}}"
+    },
+    "todayList": "Danh sách chấm công hôm nay"
+  },
+  "teamManagement": {
+    "title": "Quản lý nhóm",
+    "description": "Xem và quản lý danh sách nhân viên trong phòng ban của bạn",
+    "error": "Không thể tải danh sách nhóm",
+    "stats": {
+      "total": "Tổng số thành viên",
+      "active": "Đang hoạt động"
+    },
+    "searchPlaceholder": "Tìm kiếm theo tên, email, chức vụ...",
+    "table": {
+      "title": "Danh sách thành viên nhóm",
+      "name": "Họ tên",
+      "email": "Email",
+      "position": "Chức vụ",
+      "department": "Phòng ban",
+      "role": "Vai trò",
+      "loading": "Đang tải...",
+      "noTeam": "Bạn chưa có nhóm hoặc không có quyền xem danh sách nhóm",
+      "noResults": "Không tìm thấy kết quả",
+      "notSpecified": "Chưa xác định"
+    },
+    "viewMember": {
+      "title": "Thông tin thành viên",
+      "position": "Chức vụ",
+      "department": "Phòng ban",
+      "branch": "Chi nhánh",
+      "role": "Vai trò"
+    }
+  },
   "adminAttendance": {
     "title": "Quản lý chấm công",
     "filters": {
@@ -999,5 +1071,31 @@
     },
     "loading": "Đang tải...",
     "noResults": "Không tìm thấy phòng ban nào"
+  },
+  "adminReports": {
+    "title": "Báo cáo & Thống kê",
+    "description": "Phân tích chi tiết chấm công",
+    "export": "Xuất báo cáo",
+    "exportSuccess": "Xuất báo cáo thành công!",
+    "timeRange": {
+      "week": "Tuần này",
+      "month": "Tháng này",
+      "quarter": "Quý này",
+      "year": "Năm này"
+    },
+    "stats": {
+      "total": "Tổng công",
+      "ontime": "Đúng giờ",
+      "late": "Đi muộn",
+      "absent": "Vắng mặt"
+    },
+    "charts": {
+      "trend": "Xu hướng 6 tháng",
+      "department": "Phân bổ theo phòng ban",
+      "overtime": "Thống kê tăng ca",
+      "overtimeHours": "Giờ tăng ca",
+      "topPerformers": "Nhân viên xuất sắc",
+      "attendanceRate": "Tỷ lệ chấm công"
+    }
   }
 }
