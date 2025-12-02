@@ -166,6 +166,8 @@ export default function App() {
                 <Route path="attendance-analytics" element={<AttendanceAnalyticsPage />} />
                 <Route path="payroll-reports" element={<PayrollReportsPage />} />
                 <Route path="payroll" element={<PayrollPage />} />
+                <Route path="performance-review" element={<PerformanceReviewPage />} />
+                <Route path="shifts" element={<ShiftsPage />} />
                 <Route path="admin-attendance" element={<AdminAttendancePage />} />
                 <Route path="audit-logs" element={<AuditLogsPage />} />
                 {/* Catch-all: redirect invalid admin routes to 404 */}

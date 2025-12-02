@@ -797,6 +797,47 @@
       "monthlyTrend": "Xu hướng theo tháng"
     }
   },
+  "performanceReview": {
+    "title": "Đánh giá hiệu suất",
+    "searchPlaceholder": "Tìm kiếm theo tên nhân viên...",
+    "employee": "Nhân viên",
+    "filters": {
+      "status": "Trạng thái",
+      "period": "Kỳ đánh giá",
+      "all": "Tất cả",
+      "completed": "Hoàn thành",
+      "pending": "Chờ phê duyệt",
+      "draft": "Nháp",
+      "rejected": "Từ chối"
+    },
+    "stats": {
+      "total": "Tổng số",
+      "completed": "Hoàn thành",
+      "pending": "Chờ đánh giá",
+      "avgScore": "Điểm TB"
+    },
+    "categories": {
+      "technical": "Kỹ thuật",
+      "communication": "Giao tiếp",
+      "teamwork": "Teamwork",
+      "leadership": "Lãnh đạo",
+      "problemSolving": "Giải quyết vấn đề"
+    },
+    "status": {
+      "completed": "Hoàn thành",
+      "pending": "Chờ phê duyệt",
+      "draft": "Nháp",
+      "rejected": "Từ chối"
+    },
+    "actions": {
+      "create": "Tạo đánh giá",
+      "edit": "Sửa",
+      "view": "Xem",
+      "approve": "Phê duyệt",
+      "reject": "Từ chối",
+      "export": "Xuất báo cáo"
+    }
+  },
   "branches": {
     "title": "Quản lý chi nhánh",
     "add": "Thêm chi nhánh",
