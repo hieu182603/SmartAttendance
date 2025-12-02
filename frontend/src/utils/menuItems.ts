@@ -205,7 +205,7 @@ export function getMenuByPermissionsWithTranslations(
   
   return menu.map(item => ({
     ...item,
-    label: t(`menu:${item.id}`) || item.label, // Fallback to original label if translation not found
+    label: t(`menu:${item.id}`) || item.label,
   }));
 }
 

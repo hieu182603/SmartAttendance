@@ -516,6 +516,8 @@
     "export": "Export Excel",
     "searchPlaceholder": "Search by name or employee ID...",
     "filters": {
+      "department": "Department",
+      "allDepartments": "All Departments",
       "status": "Status",
       "all": "All",
       "pending": "Pending",
@@ -545,6 +547,8 @@
       "pending": "Pending"
     },
     "description": "Calculate and manage employee payroll",
+    "error": "Unable to load payroll data",
+    "filePrefix": "Payroll",
     "totalPayroll": "Total Payroll",
     "avgSalaryPerPerson": "Avg Salary/Person",
     "details": "Payroll Details",
@@ -562,16 +566,27 @@
     "stats": {
       "totalSalary": "Total Salary",
       "employees": "Employees",
-      "baseSalary": "Total Base Salary"
+      "baseSalary": "Total Base Salary",
+      "bonus": "Bonuses",
+      "avgSalary": "Average Salary",
+      "costPerEmployee": "Cost per Employee"
+    },
+    "units": {
+      "million": "million",
+      "people": "people"
     },
     "charts": {
       "departmentDistribution": "Department Distribution",
       "monthlyTrend": "Monthly Trend"
     },
+    "selectMonth": "Select month",
     "noDepartmentsMatch": "No matching departments found",
     "summarySection": {
+      "title": "Summary for {{month}}",
       "netPayTitle": "Total actual cost",
-      "netPayForEmployees": "For {{count}} employees"
+      "netPayForEmployees": "For {{count}} employees",
+      "totalBonuses": "Total bonuses",
+      "totalDeductions": "Total deductions"
     },
     "departmentDetailsTitle": "Department details"
   },

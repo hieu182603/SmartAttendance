@@ -82,16 +82,13 @@ const DashboardLayout: React.FC = () => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
 
-  // Get user role and menu items (permission-based)
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
   const basePath = getRoleBasePath(userRole);
-  // Fix type issue with t: pass only "common" for menu translation utility
   const tMenu = useTranslation("menu").t;
   const menu = getMenuByPermissionsWithTranslations(tMenu, userRole, basePath);
   const roleInfo = getRoleColor(userRole);
   const roleName = getRoleName(userRole);
 
-  // Filter menu for ADMIN/SUPER_ADMIN (only show company-calendar and profile in employee section)
   const filteredMenu = (() => {
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
       const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
@@ -100,7 +97,10 @@ const DashboardLayout: React.FC = () => {
       );
       return [...adminItems, ...employeeItems];
     }
-    return menu;
+    if (userRole === UserRole.HR_MANAGER || userRole === UserRole.MANAGER) {
+      return menu;
+    }
+    return menu.filter(item => item.section === 'employee');
   })();
 
   const getCurrentPage = (): string => {

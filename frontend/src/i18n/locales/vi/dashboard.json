@@ -754,6 +754,8 @@
     "export": "Xuất Excel",
     "searchPlaceholder": "Tìm theo tên hoặc mã nhân viên...",
     "filters": {
+      "department": "Phòng ban",
+      "allDepartments": "Tất cả phòng ban",
       "status": "Trạng thái",
       "all": "Tất cả",
       "pending": "Chờ duyệt",
@@ -783,6 +785,8 @@
       "pending": "Chờ xử lý"
     },
     "description": "Tính toán và quản lý bảng lương nhân viên",
+    "error": "Không thể tải dữ liệu bảng lương",
+    "filePrefix": "Bangluong",
     "totalPayroll": "Tổng bảng lương",
     "avgSalaryPerPerson": "Lương TB/nhân viên",
     "details": "Chi tiết bảng lương",
@@ -800,16 +804,27 @@
     "stats": {
       "totalSalary": "Tổng quỹ lương",
       "employees": "Số nhân viên",
-      "baseSalary": "Tổng lương cơ bản"
+      "baseSalary": "Tổng lương cơ bản",
+      "bonus": "Thưởng",
+      "avgSalary": "Lương TB",
+      "costPerEmployee": "Chi phí/người"
+    },
+    "units": {
+      "million": "triệu",
+      "people": "người"
     },
     "charts": {
       "departmentDistribution": "Phân bổ chi phí theo phòng ban",
       "monthlyTrend": "Xu hướng theo tháng"
     },
+    "selectMonth": "Chọn tháng",
     "noDepartmentsMatch": "Không tìm thấy phòng ban phù hợp",
     "summarySection": {
+      "title": "Tổng kết {{month}}",
       "netPayTitle": "Tổng chi phí thực tế",
-      "netPayForEmployees": "Cho {{count}} nhân viên"
+      "netPayForEmployees": "Cho {{count}} nhân viên",
+      "totalBonuses": "Tổng thưởng",
+      "totalDeductions": "Tổng khấu trừ"
     },
     "departmentDetailsTitle": "Chi tiết theo phòng ban"
   },
