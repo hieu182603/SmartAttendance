@@ -87,7 +87,7 @@ export function CreateEventDialog({
         endTime: formData.isAllDay ? undefined : formData.endTime,
       });
 
-      toast.success("✅ Tạo sự kiện thành công!");
+      toast.success(`✅ ${t('dashboard:eventDialogs.success.created')}`);
       onSuccess();
       onOpenChange(false);
 

@@ -67,7 +67,7 @@ export function UpdateEventDialog({ open, onOpenChange, onSuccess, event }: Upda
 
     // Validate required fields
     if (!formData.title.trim()) {
-      toast.error('Vui lòng nhập tiêu đề sự kiện');
+      toast.error(t('dashboard:eventDialogs.errors.titleRequired'));
       return;
     }
 
@@ -84,7 +84,7 @@ export function UpdateEventDialog({ open, onOpenChange, onSuccess, event }: Upda
         endTime: formData.isAllDay ? undefined : formData.endTime,
       });
 
-      toast.success('✅ Cập nhật sự kiện thành công!');
+      toast.success(`✅ ${t('dashboard:eventDialogs.success.updated')}`);
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {

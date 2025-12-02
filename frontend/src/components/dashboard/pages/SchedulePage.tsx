@@ -818,8 +818,8 @@ const SchedulePage: React.FC = () => {
                 ) : (
                   <div className="text-center py-8 text-[var(--text-sub)] text-lg">
                     {new Date().getDay() === 0
-                      ? "Hôm nay chú mày được nghỉ"
-                      : "Hôm nay chú mày không có việc làm"}
+                      ? t('dashboard:schedule.offToday')
+                      : t('dashboard:schedule.noWorkToday')}
                   </div>
                 )}
               </div>

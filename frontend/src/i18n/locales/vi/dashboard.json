@@ -32,7 +32,22 @@
     "checkOut": "Chấm công ra",
     "location": "Vị trí",
     "status": "Trạng thái",
-    "time": "Thời gian"
+    "time": "Thời gian",
+    "errors": {
+      "locationFailed": "Không thể lấy vị trí. ",
+      "locationPermissionDenied": "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.",
+      "locationUnavailable": "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.",
+      "locationTimeout": "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.",
+      "locationGeneric": "Vui lòng kiểm tra quyền truy cập và GPS.",
+      "cameraAccess": "Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.",
+      "waitOneHour": "Vui lòng chờ ít nhất 1 giờ sau khi check-in",
+      "checkInError": "Có lỗi xảy ra khi chấm công",
+      "checkOutError": "Có lỗi xảy ra khi check-out"
+    },
+    "success": {
+      "checkInSuccess": "Check-in thành công!",
+      "checkOutSuccess": "Check-out thành công!"
+    }
   },
   "history": {
     "title": "Lịch sử chấm công",
@@ -902,8 +917,13 @@
   },
   "performanceReview": {
     "title": "Đánh giá hiệu suất",
+    "description": "Quản lý và phê duyệt đánh giá hiệu suất",
     "searchPlaceholder": "Tìm kiếm theo tên nhân viên...",
     "employee": "Nhân viên",
+    "loading": "Đang tải...",
+    "noReviews": "Không có đánh giá nào",
+    "totalScore": "Điểm tổng quan",
+    "total": "Tổng số",
     "filters": {
       "status": "Trạng thái",
       "period": "Kỳ đánh giá",
@@ -939,6 +959,35 @@
       "approve": "Phê duyệt",
       "reject": "Từ chối",
       "export": "Xuất báo cáo"
+    },
+    "dialog": {
+      "viewTitle": "Chi tiết đánh giá",
+      "editTitle": "Chỉnh sửa đánh giá",
+      "createTitle": "Tạo đánh giá mới",
+      "period": "Kỳ đánh giá",
+      "selectEmployee": "Chọn nhân viên",
+      "selectPeriod": "Chọn kỳ đánh giá",
+      "overallScore": "Điểm tổng",
+      "notes": "Ghi chú",
+      "notesPlaceholder": "Ghi chú hoặc nhận xét cho đánh giá này...",
+      "rejectReason": "Lý do từ chối",
+      "rejectPlaceholder": "Nhập lý do từ chối...",
+      "save": "Lưu đánh giá",
+      "cancel": "Hủy",
+      "close": "Đóng",
+      "reject": "Từ chối",
+      "approve": "Phê duyệt"
+    },
+    "errors": {
+      "loadReviews": "Lỗi khi tải danh sách đánh giá",
+      "exportReport": "Lỗi khi xuất báo cáo",
+      "rejectReason": "Vui lòng nhập lý do reject",
+      "rejectError": "Lỗi khi reject đánh giá",
+      "generic": "Có lỗi xảy ra"
+    },
+    "success": {
+      "updateReview": "Cập nhật đánh giá thành công",
+      "createReview": "Tạo đánh giá thành công"
     }
   },
   "branches": {
@@ -1032,6 +1081,9 @@
       "hqError": "Không thể xóa trụ sở chính",
       "confirm": "Bạn có chắc muốn xóa chi nhánh \"{{name}}\"?",
       "success": "Đã xóa chi nhánh {{name}}"
+    },
+    "errors": {
+      "generic": "Có lỗi xảy ra"
     }
   },
   "departments": {
@@ -1096,6 +1148,321 @@
       "overtimeHours": "Giờ tăng ca",
       "topPerformers": "Nhân viên xuất sắc",
       "attendanceRate": "Tỷ lệ chấm công"
+    },
+    "departmentDetailsTitle": "Chi tiết phòng ban",
+    "loadError": "Không thể tải dữ liệu báo cáo"
+  },
+  "auditLogs": {
+    "title": "Nhật ký hệ thống",
+    "description": "Theo dõi tất cả hoạt động trong hệ thống",
+    "refresh": "Làm mới",
+    "autoRefresh": "Tự động làm mới",
+    "export": "Xuất nhật ký",
+    "exportCSV": "Xuất CSV",
+    "exportJSON": "Xuất JSON",
+    "loadingData": "Đang tải dữ liệu...",
+    "noLogsFound": "Không tìm thấy nhật ký nào",
+    "refreshSuccess": "Đã làm mới dữ liệu",
+    "refreshError": "Không thể làm mới dữ liệu",
+    "exportSuccess": "Đã xuất file {{format}} thành công!",
+    "loadError": "Không thể tải nhật ký hệ thống",
+    "stats": {
+      "total": "Tổng số",
+      "success": "Thành công",
+      "failed": "Thất bại",
+      "warning": "Cảnh báo"
+    },
+    "filters": {
+      "searchPlaceholder": "Tìm kiếm theo người dùng hoặc mô tả...",
+      "action": "Hành động",
+      "category": "Danh mục",
+      "all": "Tất cả"
+    },
+    "actions": {
+      "login": "Đăng nhập",
+      "register": "Đăng ký",
+      "update_user": "Cập nhật user",
+      "create_user": "Tạo user",
+      "checkin": "Check in",
+      "checkout": "Check out",
+      "create_request": "Tạo yêu cầu",
+      "approve_request": "Duyệt yêu cầu",
+      "reject_request": "Từ chối yêu cầu"
+    },
+    "categories": {
+      "auth": "Xác thực",
+      "user": "Người dùng",
+      "attendance": "Chấm công",
+      "request": "Yêu cầu",
+      "system": "Hệ thống",
+      "settings": "Cài đặt"
+    },
+    "table": {
+      "title": "Danh sách nhật ký",
+      "time": "Thời gian",
+      "user": "Người dùng",
+      "action": "Hành động",
+      "description": "Mô tả",
+      "status": "Trạng thái",
+      "details": "Chi tiết"
+    },
+    "tabs": {
+      "all": "Tất cả",
+      "success": "Thành công",
+      "failed": "Thất bại",
+      "warning": "Cảnh báo"
+    },
+    "pagination": {
+      "showing": "Hiển thị",
+      "of": "của",
+      "rowsPerPage": "Số dòng:",
+      "page": "Trang"
+    },
+    "dialog": {
+      "title": "Chi tiết nhật ký hệ thống",
+      "description": "Thông tin chi tiết về hoạt động này",
+      "userInfo": "Thông tin người dùng",
+      "userName": "Tên người dùng",
+      "userRole": "Vai trò",
+      "ipAddress": "Địa chỉ IP",
+      "metadata": "Dữ liệu bổ sung",
+      "close": "Đóng"
+    }
+  },
+  "shifts": {
+    "title": "Quản lý ca làm việc",
+    "description": "Tạo và quản lý các ca làm việc",
+    "createNew": "Tạo ca mới",
+    "loading": "Đang tải...",
+    "noShifts": "Chưa có ca làm việc nào",
+    "createSuccess": "Đã tạo ca làm việc {{name}}",
+    "updateSuccess": "Đã cập nhật ca làm việc {{name}}",
+    "deleteSuccess": "Đã xóa ca làm việc {{name}}",
+    "createError": "Có lỗi xảy ra khi tạo ca làm việc",
+    "updateError": "Có lỗi xảy ra khi cập nhật ca làm việc",
+    "deleteError": "Có lỗi xảy ra khi xóa ca làm việc",
+    "loadError": "Không thể tải danh sách ca làm việc",
+    "fillAllFields": "Vui lòng điền đầy đủ thông tin",
+    "form": {
+      "shiftName": "Tên ca",
+      "shiftNamePlaceholder": "Ca sáng",
+      "startTime": "Giờ bắt đầu",
+      "endTime": "Giờ kết thúc",
+      "breakDuration": "Thời gian nghỉ (phút)",
+      "breakPlaceholder": "60",
+      "description": "Mô tả (tùy chọn)",
+      "descriptionPlaceholder": "Mô tả về ca làm việc"
+    },
+    "card": {
+      "workingHours": "Thời gian làm việc",
+      "breakTime": "Thời gian nghỉ",
+      "employees": "Số nhân viên",
+      "employeeCount": "{{count}} người",
+      "status": "Trạng thái",
+      "minutes": "phút"
+    },
+    "status": {
+      "active": "Hoạt động",
+      "inactive": "Ngừng hoạt động"
+    },
+    "weekSchedule": {
+      "title": "Lịch tuần này",
+      "shiftColumn": "Ca làm",
+      "monday": "T2",
+      "tuesday": "T3",
+      "wednesday": "T4",
+      "thursday": "T5",
+      "friday": "T6",
+      "saturday": "T7",
+      "sunday": "CN"
+    },
+    "dialog": {
+      "create": {
+        "title": "Tạo ca làm việc mới",
+        "description": "Nhập thông tin ca làm việc"
+      },
+      "edit": {
+        "title": "Chỉnh sửa ca làm việc",
+        "description": "Cập nhật thông tin ca làm việc {{name}}"
+      },
+      "delete": {
+        "title": "Xác nhận xóa ca làm việc",
+        "description": "Bạn có chắc chắn muốn xóa ca làm việc này?",
+        "warning": "Hành động này sẽ ảnh hưởng đến {{count}} nhân viên đang trong ca này."
+      },
+      "cancel": "Hủy",
+      "create": "Tạo ca làm",
+      "update": "Cập nhật",
+      "delete": "Xóa ca làm"
+    }
+  },
+  "camera": {
+    "title": "Chấm công bằng Camera AI",
+    "description": "Nhận diện khuôn mặt để xác thực điểm danh.",
+    "notReady": "Tính năng sẽ sẵn sàng khi cấu hình camera hoàn tất",
+    "instructions": "Camera được cấu hình tại văn phòng của bạn sẽ xác thực tự động. Vui lòng đảm bảo nguồn sáng đủ và khuôn mặt trong khung hình.",
+    "checkConfig": "Kiểm tra cấu hình"
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "markAsRead": "Đánh dấu đã đọc",
+    "noNotifications": "Bạn chưa có thông báo mới",
+    "description": "Khi có cập nhật từ hệ thống, quản lý hoặc phòng nhân sự, thông báo sẽ xuất hiện tại đây để bạn theo dõi kịp thời."
+  },
+  "permissions": {
+    "camera": "Camera",
+    "location": "Vị trí",
+    "granted": "Đã cấp",
+    "denied": "Bị từ chối",
+    "requestMessage": "Vui lòng cấp quyền truy cập Camera và Vị trí trong cài đặt trình duyệt để tiếp tục."
+  },
+  "toasts": {
+    "success": {
+      "created": "Đã tạo thành công!",
+      "updated": "Đã cập nhật thành công!",
+      "deleted": "Đã xóa thành công!",
+      "saved": "Đã lưu thành công!",
+      "exported": "Đã xuất thành công!"
+    },
+    "error": {
+      "generic": "Có lỗi xảy ra",
+      "loadFailed": "Không thể tải dữ liệu",
+      "saveFailed": "Không thể lưu dữ liệu",
+      "deleteFailed": "Không thể xóa",
+      "updateFailed": "Không thể cập nhật"
+    }
+  },
+  "requests": {
+    "loading": "Đang tải yêu cầu...",
+    "noRequests": "Không có yêu cầu nào",
+    "totalRequests": "Tổng đơn",
+    "errors": {
+      "fillAllFields": "Vui lòng điền đầy đủ thông tin đơn yêu cầu"
+    }
+  },
+  "employeeManagement": {
+    "title": "Quản lý nhân viên",
+    "searchPlaceholder": "Tìm kiếm nhân viên...",
+    "filterByRole": "Lọc theo vai trò",
+    "filterByStatus": "Lọc theo trạng thái",
+    "allRoles": "Tất cả vai trò",
+    "allStatus": "Tất cả trạng thái",
+    "active": "Hoạt động",
+    "inactive": "Không hoạt động",
+    "stats": {
+      "total": "Tổng nhân viên",
+      "active": "Đang hoạt động",
+      "admin": "Quản trị viên",
+      "newThisMonth": "Mới tháng này"
+    },
+    "table": {
+      "title": "Danh sách nhân viên",
+      "employee": "Nhân viên",
+      "email": "Email",
+      "department": "Phòng ban",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "actions": "Thao tác",
+      "loading": "Đang tải...",
+      "noEmployees": "Không có nhân viên nào",
+      "viewDetails": "Xem chi tiết",
+      "edit": "Chỉnh sửa",
+      "disable": "Vô hiệu hóa"
+    },
+    "status": {
+      "active": "Hoạt động",
+      "inactive": "Ngừng hoạt động"
+    },
+    "pagination": {
+      "showing": "Hiển thị",
+      "of": "của",
+      "rowsPerPage": "Số dòng:",
+      "page": "Trang"
+    },
+    "viewDialog": {
+      "title": "Chi tiết nhân viên",
+      "description": "Thông tin chi tiết về nhân viên",
+      "id": "ID:",
+      "email": "Email",
+      "department": "Phòng ban",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "createdAt": "Ngày tạo",
+      "close": "Đóng"
+    },
+    "editDialog": {
+      "title": "Chỉnh sửa nhân viên",
+      "description": "Cập nhật thông tin nhân viên",
+      "name": "Họ và tên",
+      "email": "Email",
+      "department": "Phòng ban",
+      "selectDepartment": "Chọn phòng ban",
+      "role": "Vai trò",
+      "selectRole": "Chọn vai trò",
+      "cancel": "Hủy",
+      "save": "Lưu thay đổi"
+    },
+    "deleteDialog": {
+      "title": "Xác nhận vô hiệu hóa",
+      "description": "Bạn có chắc chắn muốn vô hiệu hóa nhân viên này?",
+      "warning": "Hành động này sẽ vô hiệu hóa tài khoản nhân viên. Họ sẽ không thể đăng nhập vào hệ thống.",
+      "cancel": "Hủy",
+      "confirm": "Vô hiệu hóa"
+    },
+    "validation": {
+      "nameRequired": "Vui lòng nhập họ và tên",
+      "emailRequired": "Vui lòng nhập email",
+      "roleRequired": "Vui lòng chọn vai trò",
+      "checkInfo": "Vui lòng kiểm tra lại thông tin"
+    },
+    "errors": {
+      "noPermission": "Bạn không có quyền thực hiện thao tác này",
+      "loadFailed": "Không thể tải danh sách nhân viên",
+      "loadDepartmentsFailed": "Không thể tải danh sách phòng ban",
+      "loadUserFailed": "Không thể tải thông tin nhân viên"
+    },
+    "success": {
+      "updateSuccess": "Cập nhật thông tin nhân viên thành công!",
+      "disableSuccess": "Vô hiệu hóa nhân viên thành công!"
+    }
+  },
+  "departments": {
+    "errors": {
+      "fillRequired": "Vui lòng điền đầy đủ thông tin bắt buộc",
+      "generic": "Có lỗi xảy ra"
+    },
+    "management": "Quản lý"
+  },
+  "schedule": {
+    "offToday": "Hôm nay chú mày được nghỉ",
+    "noWorkToday": "Hôm nay chú mày không có việc làm"
+  },
+  "companyCalendar": {
+    "loading": "Đang tải sự kiện..."
+  },
+  "overview": {
+    "quickAccess": "Truy cập nhanh các tính năng quản lý quan trọng",
+    "systemOverview": "Tổng quan và thống kê hệ thống",
+    "management": "Quản lý",
+    "attendanceAnalysis": "Phân tích chấm công",
+    "userManagement": "Quản lý User"
+  },
+  "notificationCenter": {
+    "title": "Thông báo",
+    "noNotifications": "Không có thông báo mới",
+    "samples": {
+      "checkoutReminder": "Bạn chưa check-out hôm nay. Vui lòng check-out trước 18:00",
+      "leaveApproved": "Yêu cầu nghỉ phép ngày 30/10 đã được quản lý phê duyệt",
+      "payrollReady": "Bảng lương tháng 10 đã được tính. Vui lòng kiểm tra"
+    }
+  },
+  "eventDialogs": {
+    "errors": {
+      "titleRequired": "Vui lòng nhập tiêu đề sự kiện"
+    },
+    "success": {
+      "created": "Tạo sự kiện thành công!",
+      "updated": "Cập nhật sự kiện thành công!"
     }
   }
 }

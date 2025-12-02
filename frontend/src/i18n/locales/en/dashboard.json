@@ -23,7 +23,12 @@
     "charts": {
       "attendanceTrend": "Attendance Trend",
       "attendanceByDay": "Attendance by Day"
-    }
+    },
+    "quickAccess": "Quick access to important management features",
+    "systemOverview": "System overview and statistics",
+    "management": "Management",
+    "attendanceAnalysis": "Attendance Analysis",
+    "userManagement": "User Management"
   },
   "scan": {
     "title": "Check-in",
@@ -32,7 +37,22 @@
     "checkOut": "Check Out",
     "location": "Location",
     "status": "Status",
-    "time": "Time"
+    "time": "Time",
+    "errors": {
+      "locationFailed": "Unable to get location. ",
+      "locationPermissionDenied": "Please grant location access in your browser settings.",
+      "locationUnavailable": "GPS signal unavailable. Try moving outdoors.",
+      "locationTimeout": "Unable to get location within allowed time. Check GPS and try again.",
+      "locationGeneric": "Please check access permissions and GPS.",
+      "cameraAccess": "Unable to access camera. Please check permissions.",
+      "waitOneHour": "Please wait at least 1 hour after check-in",
+      "checkInError": "An error occurred during check-in",
+      "checkOutError": "An error occurred during check-out"
+    },
+    "success": {
+      "checkInSuccess": "Check-in successful!",
+      "checkOutSuccess": "Check-out successful!"
+    }
   },
   "history": {
     "title": "Attendance History",
@@ -41,14 +61,6 @@
     "checkOut": "Check Out",
     "status": "Status",
     "location": "Location"
-  },
-  "requests": {
-    "title": "Requests & Applications",
-    "create": "Create Request",
-    "type": "Request Type",
-    "status": "Status",
-    "date": "Date",
-    "reason": "Reason"
   },
   "profile": {
     "title": "Personal Profile",
@@ -260,6 +272,8 @@
     "checkedIn": "Checked In",
     "loading": "Loading schedule...",
     "upcomingShifts": "upcoming shifts",
+    "offToday": "You have a day off today",
+    "noWorkToday": "You have no work scheduled today",
     "stats": {
       "thisMonth": "This Month",
       "checkedIn": "Checked In",
@@ -306,6 +320,7 @@
   },
   "companyCalendar": {
     "title": "Company Calendar",
+    "loading": "Loading events...",
     "description": "Track events, meetings and holidays",
     "createEvent": "Create Event",
     "stats": {
@@ -366,7 +381,8 @@
       "days": "days",
       "daysPerYear": "days/year",
       "reason": "Reason:"
-    },
+    }
+  },
   "departmentAttendance": {
     "title": "Department Attendance",
     "description": "Track attendance of employees in the department",
@@ -633,8 +649,13 @@
   },
   "performanceReview": {
     "title": "Performance Review",
+    "description": "Manage and approve performance reviews",
     "searchPlaceholder": "Search by employee name...",
     "employee": "Employee",
+    "loading": "Loading...",
+    "noReviews": "No reviews found",
+    "totalScore": "Overall Score",
+    "total": "Total",
     "filters": {
       "status": "Status",
       "period": "Review Period",
@@ -670,6 +691,35 @@
       "approve": "Approve",
       "reject": "Reject",
       "export": "Export Report"
+    },
+    "dialog": {
+      "viewTitle": "Review Details",
+      "editTitle": "Edit Review",
+      "createTitle": "Create New Review",
+      "period": "Review Period",
+      "selectEmployee": "Select Employee",
+      "selectPeriod": "Select Period",
+      "overallScore": "Overall Score",
+      "notes": "Notes",
+      "notesPlaceholder": "Notes or comments for this review...",
+      "rejectReason": "Rejection Reason",
+      "rejectPlaceholder": "Enter rejection reason...",
+      "save": "Save Review",
+      "cancel": "Cancel",
+      "close": "Close",
+      "reject": "Reject",
+      "approve": "Approve"
+    },
+    "errors": {
+      "loadReviews": "Error loading review list",
+      "exportReport": "Error exporting report",
+      "rejectReason": "Please enter rejection reason",
+      "rejectError": "Error rejecting review",
+      "generic": "An error occurred"
+    },
+    "success": {
+      "updateReview": "Review updated successfully",
+      "createReview": "Review created successfully"
     }
   },
   "branches": {
@@ -763,6 +813,9 @@
       "hqError": "Cannot delete headquarters",
       "confirm": "Are you sure you want to delete branch \"{{name}}\"?",
       "success": "Branch {{name}} deleted"
+    },
+    "errors": {
+      "generic": "An error occurred"
     }
   },
   "departments": {
@@ -801,8 +854,43 @@
     "loading": "Loading...",
     "noResults": "No departments found",
     "description": "Manage departments in the company",
-    "activeEmployees": "Active Employees"
+    "activeEmployees": "Active Employees",
+    "errors": {
+      "fillRequired": "Please fill in all required information",
+      "generic": "An error occurred"
     },
+    "management": "Management"
+  },
+  "adminReports": {
+    "title": "Reports & Statistics",
+    "description": "Detailed attendance analysis",
+    "export": "Export Report",
+    "exportSuccess": "Report exported successfully!",
+    "timeRange": {
+      "week": "This Week",
+      "month": "This Month",
+      "quarter": "This Quarter",
+      "year": "This Year"
+    },
+    "stats": {
+      "total": "Total",
+      "ontime": "On Time",
+      "late": "Late",
+      "absent": "Absent"
+    },
+    "charts": {
+      "trend": "6-Month Trend",
+      "department": "By Department",
+      "employeeDetail": "Employee Details",
+      "overtime": "Overtime Statistics",
+      "overtimeHours": "Overtime Hours",
+      "topPerformers": "Top Performers",
+      "attendanceRate": "Attendance Rate"
+    },
+    "departmentDetailsTitle": "Department Details",
+    "loadError": "Failed to load report data"
+  },
+  "leaveBalance": {
     "types": {
       "defaultName": "Leave",
       "descriptions": {
@@ -950,7 +1038,8 @@
       "success": "Attendance record updated successfully!"
     },
     "totalEmployees": "Total employees",
-    "currentRole": "Current role:"
+    "currentRole": "Current role:",
+    "todayList": "Today's Attendance List"
   },
   "common": {
     "loading": "Loading...",
@@ -1065,6 +1154,204 @@
     "success": {
       "updateSuccess": "Employee information updated successfully!",
       "disableSuccess": "Employee disabled successfully!"
+    }
+  },
+  "auditLogs": {
+    "title": "System Logs",
+    "description": "Track all system activities",
+    "refresh": "Refresh",
+    "autoRefresh": "Auto Refresh",
+    "export": "Export Logs",
+    "exportCSV": "Export CSV",
+    "exportJSON": "Export JSON",
+    "loadingData": "Loading data...",
+    "noLogsFound": "No logs found",
+    "refreshSuccess": "Data refreshed",
+    "refreshError": "Failed to refresh data",
+    "exportSuccess": "{{format}} file exported successfully!",
+    "loadError": "Failed to load system logs",
+    "stats": {
+      "total": "Total",
+      "success": "Success",
+      "failed": "Failed",
+      "warning": "Warning"
+    },
+    "filters": {
+      "searchPlaceholder": "Search by user or description...",
+      "action": "Action",
+      "category": "Category",
+      "all": "All"
+    },
+    "actions": {
+      "login": "Login",
+      "register": "Register",
+      "update_user": "Update User",
+      "create_user": "Create User",
+      "checkin": "Check In",
+      "checkout": "Check Out",
+      "create_request": "Create Request",
+      "approve_request": "Approve Request",
+      "reject_request": "Reject Request"
+    },
+    "categories": {
+      "auth": "Authentication",
+      "user": "User",
+      "attendance": "Attendance",
+      "request": "Request",
+      "system": "System",
+      "settings": "Settings"
+    },
+    "table": {
+      "title": "Log List",
+      "time": "Time",
+      "user": "User",
+      "action": "Action",
+      "description": "Description",
+      "status": "Status",
+      "details": "Details"
+    },
+    "tabs": {
+      "all": "All",
+      "success": "Success",
+      "failed": "Failed",
+      "warning": "Warning"
+    },
+    "pagination": {
+      "showing": "Showing",
+      "of": "of",
+      "rowsPerPage": "Rows:",
+      "page": "Page"
+    },
+    "dialog": {
+      "title": "System Log Details",
+      "description": "Detailed information about this activity",
+      "userInfo": "User Information",
+      "userName": "User Name",
+      "userRole": "Role",
+      "ipAddress": "IP Address",
+      "metadata": "Additional Data",
+      "close": "Close"
+    }
+  },
+  "shifts": {
+    "title": "Shift Management",
+    "description": "Create and manage work shifts",
+    "createNew": "Create New Shift",
+    "loading": "Loading...",
+    "noShifts": "No shifts available",
+    "createSuccess": "Shift {{name}} created successfully",
+    "updateSuccess": "Shift {{name}} updated successfully",
+    "deleteSuccess": "Shift {{name}} deleted successfully",
+    "createError": "Error creating shift",
+    "updateError": "Error updating shift",
+    "deleteError": "Error deleting shift",
+    "loadError": "Failed to load shifts",
+    "fillAllFields": "Please fill in all fields",
+    "form": {
+      "shiftName": "Shift Name",
+      "shiftNamePlaceholder": "Morning Shift",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "breakDuration": "Break Duration (minutes)",
+      "breakPlaceholder": "60",
+      "description": "Description (optional)",
+      "descriptionPlaceholder": "Description about the shift"
+    },
+    "card": {
+      "workingHours": "Working Hours",
+      "breakTime": "Break Time",
+      "employees": "Employees",
+      "employeeCount": "{{count}} employee(s)",
+      "status": "Status",
+      "minutes": "minutes"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "weekSchedule": {
+      "title": "This Week's Schedule",
+      "shiftColumn": "Shift",
+      "monday": "Mon",
+      "tuesday": "Tue",
+      "wednesday": "Wed",
+      "thursday": "Thu",
+      "friday": "Fri",
+      "saturday": "Sat",
+      "sunday": "Sun"
+    },
+    "dialog": {
+      "create": {
+        "title": "Create New Shift",
+        "description": "Enter shift information"
+      },
+      "edit": {
+        "title": "Edit Shift",
+        "description": "Update shift information for {{name}}"
+      },
+      "delete": {
+        "title": "Confirm Shift Deletion",
+        "description": "Are you sure you want to delete this shift?",
+        "warning": "This action will affect {{count}} employee(s) in this shift."
+      },
+      "cancel": "Cancel",
+      "create": "Create Shift",
+      "update": "Update",
+      "delete": "Delete Shift"
+    }
+  },
+  "camera": {
+    "title": "AI Camera Check-in",
+    "description": "Facial recognition for attendance verification.",
+    "notReady": "Feature will be available when camera configuration is complete",
+    "instructions": "Camera configured at your office will automatically authenticate. Please ensure adequate lighting and face within frame.",
+    "checkConfig": "Check Configuration"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAsRead": "Mark as Read",
+    "noNotifications": "You have no new notifications",
+    "description": "When there are updates from the system, management or HR department, notifications will appear here for you to follow in a timely manner."
+  },
+  "permissions": {
+    "camera": "Camera",
+    "location": "Location",
+    "granted": "Granted",
+    "denied": "Denied",
+    "requestMessage": "Please grant Camera and Location access in your browser settings to continue."
+  },
+  "toasts": {
+    "success": {
+      "created": "Created successfully!",
+      "updated": "Updated successfully!",
+      "deleted": "Deleted successfully!",
+      "saved": "Saved successfully!",
+      "exported": "Exported successfully!"
+    },
+    "error": {
+      "generic": "An error occurred",
+      "loadFailed": "Failed to load data",
+      "saveFailed": "Failed to save data",
+      "deleteFailed": "Failed to delete",
+      "updateFailed": "Failed to update"
+    }
+  },
+  "notificationCenter": {
+    "title": "Notifications",
+    "noNotifications": "No new notifications",
+    "samples": {
+      "checkoutReminder": "You haven't checked out today. Please check out before 6:00 PM",
+      "leaveApproved": "Your leave request for Oct 30 has been approved by management",
+      "payrollReady": "October payroll has been calculated. Please review"
+    }
+  },
+  "eventDialogs": {
+    "errors": {
+      "titleRequired": "Please enter event title"
+    },
+    "success": {
+      "created": "Event created successfully!",
+      "updated": "Event updated successfully!"
     }
   }
 }

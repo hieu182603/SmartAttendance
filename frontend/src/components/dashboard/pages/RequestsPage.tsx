@@ -272,7 +272,7 @@ const RequestsPage: React.FC = () => {
 
   const handleCreateRequest = async (): Promise<void> => {
     if (!requestType || !requestReason || !requestDateRange.start) {
-      toast.error("Vui lòng điền đầy đủ thông tin đơn yêu cầu");
+      toast.error(t('dashboard:requests.errors.fillAllFields'));
       return;
     }
 
@@ -363,7 +363,7 @@ const RequestsPage: React.FC = () => {
     if (loading) {
       return (
         <div className="py-12 text-center">
-          <p className="text-[var(--text-sub)]">Đang tải yêu cầu...</p>
+          <p className="text-[var(--text-sub)]">{t('dashboard:requests.loading')}</p>
         </div>
       );
     }
@@ -372,7 +372,7 @@ const RequestsPage: React.FC = () => {
       return (
         <div className="py-12 text-center">
           <AlertCircle className="mx-auto mb-4 h-10 w-10 text-[var(--text-sub)]" />
-          <p className="text-[var(--text-sub)]">Không có yêu cầu nào</p>
+          <p className="text-[var(--text-sub)]">{t('dashboard:requests.noRequests')}</p>
         </div>
       );
     }
@@ -610,7 +610,7 @@ const RequestsPage: React.FC = () => {
         </Card>
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-4 text-center">
-            <p className="text-sm text-[var(--text-sub)] pt-4">Tổng đơn</p>
+            <p className="text-sm text-[var(--text-sub)] pt-4">{t('dashboard:requests.totalRequests')}</p>
             <p className="mt-1 text-2xl text-[var(--accent-cyan)]">{stats.total}</p>
           </CardContent>
         </Card>

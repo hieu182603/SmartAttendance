@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
@@ -34,45 +34,168 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { getAttendanceAnalytics, exportAttendanceAnalytics } from "@/services/attendanceService";
 
-// Mock data - Replace with API calls
-const monthlyData = [
-  { month: "T1", ontime: 420, late: 15, absent: 10, overtime: 25 },
-  { month: "T2", ontime: 410, late: 20, absent: 15, overtime: 30 },
-  { month: "T3", ontime: 430, late: 12, absent: 8, overtime: 28 },
-  { month: "T4", ontime: 425, late: 18, absent: 12, overtime: 32 },
-  { month: "T5", ontime: 435, late: 10, absent: 9, overtime: 35 },
-  { month: "T6", ontime: 440, late: 8, absent: 7, overtime: 40 },
-];
+interface DailyData {
+  date: string;
+  present: number;
+  late: number;
+  absent: number;
+  overtime?: number;
+}
 
-const departmentData = [
-  { name: "IT", value: 18, color: "#6366F1" },
-  { name: "HR", value: 8, color: "#06B6D4" },
-  { name: "Sales", value: 12, color: "#10B981" },
-  { name: "Marketing", value: 10, color: "#F59E0B" },
-  { name: "Khác", value: 4, color: "#EF4444" },
-];
+interface DepartmentStat {
+  department: string;
+  onTime: number;
+  late: number;
+  absent: number;
+  totalEmployees?: number;
+}
 
-const topPerformers = [
-  { name: "Nguyễn Văn A", attendance: 98, rank: 1 },
-  { name: "Trần Thị B", attendance: 96, rank: 2 },
-  { name: "Lê Văn C", attendance: 95, rank: 3 },
-  { name: "Phạm Thị D", attendance: 94, rank: 4 },
-  { name: "Hoàng Văn E", attendance: 93, rank: 5 },
-];
+interface TopPerformer {
+  name: string;
+  avgCheckIn?: string;
+  onTime: number;
+  late: number;
+  absent: number;
+  punctuality: number;
+}
+
+interface AnalyticsData {
+  dailyData: DailyData[];
+  departmentStats: DepartmentStat[];
+  topPerformers: TopPerformer[];
+  summary: {
+    attendanceRate: number;
+    avgPresent: number;
+    avgLate: number;
+    avgAbsent: number;
+    trend: number;
+    totalEmployees?: number;
+    total?: number;
+    ontime?: number;
+    late?: number;
+    absent?: number;
+  };
+}
+
+interface AnalyticsParams {
+  from?: string;
+  to?: string;
+  department?: string;
+  [key: string]: unknown;
+}
 
 export default function AdminReportsPage() {
   const { t } = useTranslation(["dashboard", "common"]);
-  const [timeRange, setTimeRange] = useState("month");
+  const [timeRange, setTimeRange] = useState("week");
   const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<AnalyticsData>({
+    dailyData: [],
+    departmentStats: [],
+    topPerformers: [],
+    summary: {
+      attendanceRate: 0,
+      avgPresent: 0,
+      avgLate: 0,
+      avgAbsent: 0,
+      trend: 0,
+      total: 0,
+      ontime: 0,
+      late: 0,
+      absent: 0
+    }
+  });
 
-  const handleExport = () => {
+  // Fetch analytics data from API
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true);
-    // Simulate export
-    setTimeout(() => {
+    try {
+      const params: AnalyticsParams = {};
+      const today = new Date();
+      const from = new Date();
+
+      // Calculate date range based on selected timeRange
+      if (timeRange === "week") {
+        from.setDate(today.getDate() - 7);
+      } else if (timeRange === "month") {
+        from.setDate(today.getDate() - 30);
+      } else if (timeRange === "quarter") {
+        from.setDate(today.getDate() - 90);
+      } else if (timeRange === "year") {
+        from.setDate(today.getDate() - 365);
+      }
+
+      params.from = from.toISOString().split("T")[0];
+      params.to = today.toISOString().split("T")[0];
+
+      console.log('[AdminReports] Fetching with params:', params);
+      const result = (await getAttendanceAnalytics(params)) as AnalyticsData;
+      console.log('[AdminReports] API Response:', result);
+      
+      if (result) {
+        console.log('[AdminReports] Summary data:', result.summary);
+        console.log('[AdminReports] Daily data:', result.dailyData);
+        console.log('[AdminReports] Department stats:', result.departmentStats);
+        
+        setData({
+          dailyData: result.dailyData || [],
+          departmentStats: result.departmentStats || [],
+          topPerformers: result.topPerformers || [],
+          summary: {
+            attendanceRate: result.summary?.attendanceRate || 0,
+            avgPresent: result.summary?.avgPresent || 0,
+            avgLate: result.summary?.avgLate || 0,
+            avgAbsent: result.summary?.avgAbsent || 0,
+            trend: result.summary?.trend || 0,
+            total: result.summary?.total || 0,
+            ontime: result.summary?.ontime || 0,
+            late: result.summary?.late || 0,
+            absent: result.summary?.absent || 0,
+            totalEmployees: result.summary?.totalEmployees || 0,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("[AdminReports] fetch error:", error);
+      toast.error(t("dashboard:adminReports.loadError"));
+    } finally {
       setLoading(false);
-      toast.success(t("dashboard:adminReports.exportSuccess") || "Xuất báo cáo thành công!");
-    }, 1000);
+    }
+  }, [timeRange, t]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  const handleExport = async () => {
+    try {
+      const params: AnalyticsParams = {};
+      const today = new Date();
+      const from = new Date();
+
+      if (timeRange === "week") {
+        from.setDate(today.getDate() - 7);
+      } else if (timeRange === "month") {
+        from.setDate(today.getDate() - 30);
+      } else if (timeRange === "quarter") {
+        from.setDate(today.getDate() - 90);
+      } else if (timeRange === "year") {
+        from.setDate(today.getDate() - 365);
+      }
+
+      params.from = from.toISOString().split("T")[0];
+      params.to = today.toISOString().split("T")[0];
+
+      toast.loading("📥 Đang xuất báo cáo...", { id: "export" });
+      await exportAttendanceAnalytics(params);
+      toast.success(
+        t("dashboard:adminReports.exportSuccess") || "Xuất báo cáo thành công!",
+        { id: "export" }
+      );
+    } catch (error) {
+      toast.error("Xuất báo cáo thất bại", { id: "export" });
+    }
   };
 
   return (
@@ -134,10 +257,12 @@ export default function AdminReportsPage() {
                   <p className="text-sm text-[var(--text-sub)]">
                     {t("dashboard:adminReports.stats.total") || "Tổng công"}
                   </p>
-                  <p className="text-3xl mt-2 text-[var(--text-main)]">2,670</p>
+                  <p className="text-3xl mt-2 text-[var(--text-main)]">
+                    {loading ? "..." : data.summary.total || 0}
+                  </p>
                   <div className="flex items-center mt-2 text-sm text-[var(--success)]">
                     <TrendingUp className="h-4 w-4 mr-1" />
-                    <span>+8.2%</span>
+                    <span>+{data.summary.trend || 0}%</span>
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-[var(--accent-cyan)]/10">
@@ -160,8 +285,12 @@ export default function AdminReportsPage() {
                   <p className="text-sm text-[var(--text-sub)]">
                     {t("dashboard:adminReports.stats.ontime") || "Đúng giờ"}
                   </p>
-                  <p className="text-3xl mt-2 text-[var(--success)]">2,560</p>
-                  <p className="text-sm mt-2 text-[var(--text-sub)]">95.9%</p>
+                  <p className="text-3xl mt-2 text-[var(--success)]">
+                    {loading ? "..." : data.summary.ontime || 0}
+                  </p>
+                  <p className="text-sm mt-2 text-[var(--text-sub)]">
+                    {data.summary.attendanceRate || 0}%
+                  </p>
                 </div>
                 <div className="p-3 rounded-xl bg-[var(--success)]/10">
                   <Clock className="h-6 w-6 text-[var(--success)]" />
@@ -183,8 +312,14 @@ export default function AdminReportsPage() {
                   <p className="text-sm text-[var(--text-sub)]">
                     {t("dashboard:adminReports.stats.late") || "Đi muộn"}
                   </p>
-                  <p className="text-3xl mt-2 text-[var(--warning)]">83</p>
-                  <p className="text-sm mt-2 text-[var(--text-sub)]">3.1%</p>
+                  <p className="text-3xl mt-2 text-[var(--warning)]">
+                    {loading ? "..." : data.summary.late || 0}
+                  </p>
+                  <p className="text-sm mt-2 text-[var(--text-sub)]">
+                    {data.summary.total
+                      ? ((data.summary.late || 0) / data.summary.total * 100).toFixed(1)
+                      : 0}%
+                  </p>
                 </div>
                 <div className="p-3 rounded-xl bg-[var(--warning)]/10">
                   <TrendingUp className="h-6 w-6 text-[var(--warning)]" />
@@ -206,8 +341,14 @@ export default function AdminReportsPage() {
                   <p className="text-sm text-[var(--text-sub)]">
                     {t("dashboard:adminReports.stats.absent") || "Vắng mặt"}
                   </p>
-                  <p className="text-3xl mt-2 text-[var(--error)]">61</p>
-                  <p className="text-sm mt-2 text-[var(--text-sub)]">2.3%</p>
+                  <p className="text-3xl mt-2 text-[var(--error)]">
+                    {loading ? "..." : data.summary.absent || 0}
+                  </p>
+                  <p className="text-sm mt-2 text-[var(--text-sub)]">
+                    {data.summary.total
+                      ? ((data.summary.absent || 0) / data.summary.total * 100).toFixed(1)
+                      : 0}%
+                  </p>
                 </div>
                 <div className="p-3 rounded-xl bg-[var(--error)]/10">
                   <Users className="h-6 w-6 text-[var(--error)]" />
@@ -234,12 +375,12 @@ export default function AdminReportsPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={monthlyData}>
+                <LineChart data={data.dailyData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="var(--border)"
                   />
-                  <XAxis dataKey="month" stroke="var(--text-sub)" />
+                  <XAxis dataKey="date" stroke="var(--text-sub)" />
                   <YAxis stroke="var(--text-sub)" />
                   <Tooltip
                     contentStyle={{
@@ -252,24 +393,24 @@ export default function AdminReportsPage() {
                   <Legend />
                   <Line
                     type="monotone"
-                    dataKey="ontime"
+                    dataKey="present"
                     stroke="#10B981"
                     strokeWidth={2}
-                    name={t("dashboard:adminReports.charts.ontime") || "Đúng giờ"}
+                    name={t("dashboard:adminReports.stats.ontime")}
                   />
                   <Line
                     type="monotone"
                     dataKey="late"
                     stroke="#F59E0B"
                     strokeWidth={2}
-                    name={t("dashboard:adminReports.charts.late") || "Đi muộn"}
+                    name={t("dashboard:adminReports.stats.late")}
                   />
                   <Line
                     type="monotone"
                     dataKey="absent"
                     stroke="#EF4444"
                     strokeWidth={2}
-                    name={t("dashboard:adminReports.charts.absent") || "Vắng"}
+                    name={t("dashboard:adminReports.stats.absent")}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -291,34 +432,47 @@ export default function AdminReportsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={departmentData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) =>
-                      `${name}: ${(percent * 100).toFixed(0)}%`
-                    }
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {departmentData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--surface)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                      color: "var(--text-main)",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {loading || data.departmentStats.length === 0 ? (
+                <div className="h-[300px] flex items-center justify-center text-[var(--text-sub)]">
+                  {loading ? t("common:loading") : t("common:noData")}
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={data.departmentStats.map((dept, idx) => ({
+                        name: dept.department,
+                        value: dept.totalEmployees || dept.onTime || 1,
+                        color: ["#6366F1", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"][idx % 5]
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name}: ${(percent * 100).toFixed(0)}%`
+                      }
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {data.departmentStats.map((_, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={["#6366F1", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"][index % 5]} 
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "var(--surface)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                        color: "var(--text-main)",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -338,12 +492,12 @@ export default function AdminReportsPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData}>
+                <BarChart data={data.dailyData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="var(--border)"
                   />
-                  <XAxis dataKey="month" stroke="var(--text-sub)" />
+                  <XAxis dataKey="date" stroke="var(--text-sub)" />
                   <YAxis stroke="var(--text-sub)" />
                   <Tooltip
                     contentStyle={{
@@ -380,31 +534,37 @@ export default function AdminReportsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {topPerformers.map((emp) => (
-                  <motion.div
-                    key={emp.rank}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.9 + emp.rank * 0.1 }}
-                    className="flex items-center justify-between p-3 rounded-lg bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] flex items-center justify-center text-white text-sm font-semibold">
-                        {emp.rank}
+                {loading || data.topPerformers.length === 0 ? (
+                  <div className="text-center py-8 text-[var(--text-sub)]">
+                    {loading ? t("common:loading") : t("common:noData")}
+                  </div>
+                ) : (
+                  data.topPerformers.map((emp, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.9 + index * 0.1 }}
+                      className="flex items-center justify-between p-3 rounded-lg bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] flex items-center justify-center text-white text-sm font-semibold">
+                          {index + 1}
+                        </div>
+                        <span className="text-[var(--text-main)]">{emp.name}</span>
                       </div>
-                      <span className="text-[var(--text-main)]">{emp.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[var(--success)] font-semibold">
-                        {emp.attendance}%
-                      </p>
-                      <p className="text-xs text-[var(--text-sub)]">
-                        {t("dashboard:adminReports.charts.attendanceRate") ||
-                          "Tỷ lệ chấm công"}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
+                      <div className="text-right">
+                        <p className="text-[var(--success)] font-semibold">
+                          {emp.punctuality}%
+                        </p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          {t("dashboard:adminReports.charts.attendanceRate") ||
+                            "Tỷ lệ chấm công"}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

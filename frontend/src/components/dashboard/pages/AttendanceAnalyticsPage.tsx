@@ -74,12 +74,13 @@ interface AnalyticsParams {
   from?: string
   to?: string
   department?: string
+  [key: string]: unknown
 }
 
 const AttendanceAnalyticsPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common']);
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('7days')
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
+  const [selectedDepartment, _setSelectedDepartment] = useState<string>('all')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<AnalyticsData>({
     dailyData: [],
@@ -167,12 +168,12 @@ const AttendanceAnalyticsPage: React.FC = () => {
       toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
       await exportAttendanceAnalytics(params)
       toast.success(
-        t('dashboard:attendanceAnalytics.export') + ' ' + t('common:success'),
+        'Xuất báo cáo thành công!',
         { id: 'export' }
       )
     } catch (error) {
       toast.error(
-        t('dashboard:attendanceAnalytics.export') + ' ' + t('common:error'),
+        'Xuất báo cáo thất bại',
         { id: 'export' }
       )
     }
@@ -387,7 +388,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
           <div className="space-y-4">
             {departmentStats.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-[var(--text-sub)]">{t('common:noData')}</p>
+                <p className="text-[var(--text-sub)]">{t('common.noData')}</p>
               </div>
             ) : (
               departmentStats.map((dept, index) => (
@@ -448,7 +449,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
           <div className="space-y-3">
             {topPerformers.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-[var(--text-sub)]">{t('common:noData')}</p>
+                <p className="text-[var(--text-sub)]">{t('common.noData')}</p>
               </div>
             ) : (
               topPerformers.map((employee, index) => (
@@ -496,7 +497,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.vắng')}</p>
+                      <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.absent')}</p>
                       <p className="text-lg text-[var(--error)]">{employee.absent}</p>
                     </div>
                     <div className="text-center min-w-[80px]">

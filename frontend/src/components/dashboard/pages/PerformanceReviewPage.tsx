@@ -130,7 +130,7 @@ export default function PerformanceReviewPage() {
       });
       setReviews(data.reviews || []);
     } catch (error) {
-      toast.error("Lỗi khi tải danh sách đánh giá");
+      toast.error(t('dashboard:performanceReview.errors.loadReviews'));
       console.error(error);
     } finally {
       setLoading(false);
@@ -255,7 +255,7 @@ export default function PerformanceReviewPage() {
       fetchStats();
       setIsModalOpen(false);
     } catch (error: any) {
-      toast.error(error.message || "Có lỗi xảy ra");
+      toast.error(error.message || t('dashboard:performanceReview.errors.generic'));
     } finally {
       setFormLoading(false);
     }
@@ -274,7 +274,7 @@ export default function PerformanceReviewPage() {
 
       toast.success(`📥 Đã xuất ${data.total} đánh giá`);
     } catch (error) {
-      toast.error("Lỗi khi xuất báo cáo");
+      toast.error(t('dashboard:performanceReview.errors.exportReport'));
     }
   };
 
@@ -306,7 +306,7 @@ export default function PerformanceReviewPage() {
   const handleReject = async (review: PerformanceReview) => {
     const reason = prompt("Nhập lý do reject:");
     if (!reason || reason.trim() === "") {
-      toast.error("Vui lòng nhập lý do reject");
+      toast.error(t('dashboard:performanceReview.errors.rejectReason'));
       return;
     }
 
@@ -316,7 +316,7 @@ export default function PerformanceReviewPage() {
       fetchReviews();
       fetchStats();
     } catch (error) {
-      toast.error("Lỗi khi reject đánh giá");
+      toast.error(t('dashboard:performanceReview.errors.rejectError'));
     }
   };
 
@@ -331,7 +331,7 @@ export default function PerformanceReviewPage() {
           <p className="text-[var(--text-sub)] mt-2 select-none">
             {isManager
               ? "Tạo và gửi đánh giá hiệu suất cho nhân viên"
-              : "Quản lý và phê duyệt đánh giá hiệu suất"}
+              : t('dashboard:performanceReview.description')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -366,7 +366,7 @@ export default function PerformanceReviewPage() {
             <CardContent className="p-6 mt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)] select-none">Tổng số</p>
+                  <p className="text-sm text-[var(--text-sub)] select-none">{t('dashboard:performanceReview.total')}</p>
                   <p className="text-3xl text-[var(--primary)] mt-2 select-none">
                     {stats.total}
                   </p>
@@ -493,12 +493,12 @@ export default function PerformanceReviewPage() {
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-12 select-none">
-            <p className="text-[var(--text-sub)]">Đang tải...</p>
+            <p className="text-[var(--text-sub)]">{t('dashboard:performanceReview.loading')}</p>
           </div>
         ) : reviews.length === 0 ? (
           <div className="text-center py-12 select-none">
             <FileText className="h-16 w-16 text-[var(--text-sub)] mx-auto mb-4" />
-            <p className="text-[var(--text-sub)]">Không có đánh giá nào</p>
+            <p className="text-[var(--text-sub)]">{t('dashboard:performanceReview.noReviews')}</p>
           </div>
         ) : (
           reviews.map((review, index) => (
@@ -581,7 +581,7 @@ export default function PerformanceReviewPage() {
                           <div className="mb-4">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm text-[var(--text-sub)] select-none">
-                                Điểm tổng quan
+                                {t('dashboard:performanceReview.totalScore')}
                               </span>
                               <div className="flex items-center gap-2">
                                 <Star
@@ -784,7 +784,7 @@ export default function PerformanceReviewPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase">Điểm đánh giá</h3>
                   <div className="text-right bg-gradient-to-r from-[var(--primary)]/20 to-[var(--accent-cyan)]/20 px-4 py-2 rounded-lg border border-[var(--primary)]/30">
-                    <p className="text-xs text-[var(--text-sub)]">Điểm tổng quan</p>
+                    <p className="text-xs text-[var(--text-sub)]">{t('dashboard:performanceReview.totalScore')}</p>
                     <p className="text-3xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
                       {calculateOverallScore()}<span className="text-sm text-[var(--text-sub)]">/100</span>
                     </p>
