@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { AttendanceModel } from "../modules/attendance/attendance.model.js";
 import { UserModel } from "../modules/users/user.model.js";
 import { RequestModel } from "../modules/requests/request.model.js";
+import { ATTENDANCE_CONFIG } from "../config/app.config.js";
 
 /**
  * Cron job: Xử lý attendance cuối ngày
@@ -28,13 +29,13 @@ export const markAbsentJob = cron.schedule(
       }
 
       // === 1. Tự động check-out cho nhân viên quên check-out ===
-      const DEFAULT_CHECKOUT_HOUR = 18; 
-      const DEFAULT_CHECKOUT_MINUTE = 0;
+      const DEFAULT_CHECKOUT_HOUR = ATTENDANCE_CONFIG.DEFAULT_CHECKOUT_HOUR;
+      const DEFAULT_CHECKOUT_MINUTE = ATTENDANCE_CONFIG.DEFAULT_CHECKOUT_MINUTE;
 
       const notCheckedOut = await AttendanceModel.find({
         date: dateOnly,
-        checkIn: { $ne: null }, 
-        checkOut: null, 
+        checkIn: { $ne: null },
+        checkOut: null,
       });
 
       if (notCheckedOut.length > 0) {
@@ -44,12 +45,12 @@ export const markAbsentJob = cron.schedule(
         for (const attendance of notCheckedOut) {
           attendance.checkOut = autoCheckoutTime;
           attendance.calculateWorkHours();
-          
+
           const existingNotes = attendance.notes || "";
-          attendance.notes = existingNotes 
+          attendance.notes = existingNotes
             ? `${existingNotes}\n[Tự động check-out lúc ${DEFAULT_CHECKOUT_HOUR}:00 - Quên check-out]`
             : `[Tự động check-out lúc ${DEFAULT_CHECKOUT_HOUR}:00 - Quên check-out]`;
-          
+
           await attendance.save();
         }
       }
@@ -63,18 +64,18 @@ export const markAbsentJob = cron.schedule(
       }).select("userId type");
 
       const onLeaveUserIds = approvedLeaveRequests.map((r) => r.userId.toString());
-      
+
       // Tạo bản ghi "on_leave" cho những người nghỉ phép
       if (approvedLeaveRequests.length > 0) {
         const leaveRecords = [];
-        
+
         for (const request of approvedLeaveRequests) {
           // Kiểm tra xem đã có bản ghi chưa
           const existing = await AttendanceModel.findOne({
             userId: request.userId,
             date: dateOnly,
           });
-          
+
           if (!existing) {
             const leaveTypeMap = {
               leave: "Nghỉ phép năm",
@@ -83,7 +84,7 @@ export const markAbsentJob = cron.schedule(
               compensatory: "Nghỉ bù",
               maternity: "Nghỉ thai sản",
             };
-            
+
             leaveRecords.push({
               userId: request.userId,
               date: dateOnly,
@@ -93,7 +94,7 @@ export const markAbsentJob = cron.schedule(
             });
           }
         }
-        
+
         if (leaveRecords.length > 0) {
           await AttendanceModel.insertMany(leaveRecords);
         }
@@ -137,8 +138,8 @@ export const markAbsentJob = cron.schedule(
     }
   },
   {
-    scheduled: false, 
-    timezone: "Asia/Ho_Chi_Minh", 
+    scheduled: false,
+    timezone: "Asia/Ho_Chi_Minh",
   }
 );
 

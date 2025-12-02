@@ -2,6 +2,7 @@ import { AttendanceModel } from "./attendance.model.js";
 import { LocationModel } from "../locations/location.model.js";
 import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
+import { SHIFT_CONFIG, ATTENDANCE_CONFIG } from "../../config/app.config.js";
 
 const formatDateLabel = (date) => {
   const pad = (value) => String(value).padStart(2, "0");
@@ -37,7 +38,7 @@ const getUserSchedule = async (userId, date) => {
       userId,
       date: date,
     }).populate('shiftId').lean();
-    
+
     return schedule;
   } catch (error) {
     console.error('[getUserSchedule] Error:', error);
@@ -51,7 +52,7 @@ const getUserSchedule = async (userId, date) => {
 const getShiftInfo = async (schedule) => {
   try {
     const { ShiftModel } = await import('../shifts/shift.model.js');
-    
+
     if (schedule?.shiftId && typeof schedule.shiftId === 'object') {
       return {
         startTime: schedule.shiftId.startTime,
@@ -61,7 +62,7 @@ const getShiftInfo = async (schedule) => {
         isFlexible: schedule.shiftId.isFlexible || false,
       };
     }
-    
+
     if (schedule?.shiftId) {
       const shift = await ShiftModel.findById(schedule.shiftId).lean();
       if (shift) {
@@ -74,7 +75,7 @@ const getShiftInfo = async (schedule) => {
         };
       }
     }
-    
+
     if (schedule?.startTime && schedule?.endTime) {
       return {
         startTime: schedule.startTime,
@@ -84,16 +85,16 @@ const getShiftInfo = async (schedule) => {
         isFlexible: false,
       };
     }
-    
-    let defaultShift = await ShiftModel.findOne({ 
+
+    let defaultShift = await ShiftModel.findOne({
       isActive: true,
       name: { $regex: /full time|hành chính/i }
     }).lean();
-    
+
     if (!defaultShift) {
       defaultShift = await ShiftModel.findOne({ isActive: true }).sort({ createdAt: 1 }).lean();
     }
-    
+
     if (defaultShift) {
       return {
         startTime: defaultShift.startTime,
@@ -103,22 +104,22 @@ const getShiftInfo = async (schedule) => {
         isFlexible: defaultShift.isFlexible || false,
       };
     }
-    
+
     console.warn('[getShiftInfo] ⚠ Không tìm thấy shift trong DB, sử dụng giá trị mặc định');
     return {
-      startTime: "08:00",
-      endTime: "17:00",
-      breakDuration: 60,
-      shiftName: "Ca hành chính (mặc định)",
+      startTime: SHIFT_CONFIG.DEFAULT_START_TIME,
+      endTime: SHIFT_CONFIG.DEFAULT_END_TIME,
+      breakDuration: SHIFT_CONFIG.DEFAULT_BREAK_DURATION,
+      shiftName: SHIFT_CONFIG.DEFAULT_SHIFT_NAME,
       isFlexible: false,
     };
   } catch (error) {
     console.error('[getShiftInfo] ❌ Error:', error);
     return {
-      startTime: "08:00",
-      endTime: "17:00",
-      breakDuration: 60,
-      shiftName: "Ca hành chính (mặc định)",
+      startTime: SHIFT_CONFIG.DEFAULT_START_TIME,
+      endTime: SHIFT_CONFIG.DEFAULT_END_TIME,
+      breakDuration: SHIFT_CONFIG.DEFAULT_BREAK_DURATION,
+      shiftName: SHIFT_CONFIG.DEFAULT_SHIFT_NAME,
       isFlexible: false,
     };
   }
@@ -128,20 +129,20 @@ const getShiftInfo = async (schedule) => {
  * Kiểm tra đi muộn dựa trên shift info từ DB
  */
 const checkLateStatus = (checkInTime, shiftInfo) => {
-  const LATE_TOLERANCE_MINUTES = 30;
-  
+  const LATE_TOLERANCE_MINUTES = SHIFT_CONFIG.LATE_TOLERANCE_MINUTES;
+
   if (shiftInfo?.isFlexible) {
     return false;
   }
-  
-  const startTime = shiftInfo?.startTime || "08:00";
+
+  const startTime = shiftInfo?.startTime || SHIFT_CONFIG.DEFAULT_START_TIME;
   const [startHour, startMinute] = startTime.split(':').map(Number);
-  
+
   const dateOnly = new Date(checkInTime);
   dateOnly.setHours(0, 0, 0, 0);
   const lateTime = new Date(dateOnly);
   lateTime.setHours(startHour, startMinute + LATE_TOLERANCE_MINUTES, 0, 0);
-  
+
   const isLate = checkInTime > lateTime;
   return isLate;
 };
@@ -150,9 +151,9 @@ const checkLateStatus = (checkInTime, shiftInfo) => {
  * Kiểm tra về sớm/overtime dựa trên shift info từ DB
  */
 const checkEarlyLeaveOrOvertime = (checkOutTime, shiftInfo) => {
-  const EARLY_TOLERANCE_MINUTES = 15; // Cho phép về sớm 15 phút
-  const OVERTIME_THRESHOLD_MINUTES = 30;
-  
+  const EARLY_TOLERANCE_MINUTES = SHIFT_CONFIG.EARLY_LEAVE_TOLERANCE_MINUTES;
+  const OVERTIME_THRESHOLD_MINUTES = SHIFT_CONFIG.OVERTIME_THRESHOLD_MINUTES;
+
   if (shiftInfo?.isFlexible) {
     return {
       isEarlyLeave: false,
@@ -161,33 +162,33 @@ const checkEarlyLeaveOrOvertime = (checkOutTime, shiftInfo) => {
       minutesOvertime: 0,
     };
   }
-  
-  const endTime = shiftInfo?.endTime || "17:00";
+
+  const endTime = shiftInfo?.endTime || SHIFT_CONFIG.DEFAULT_END_TIME;
   const [endHour, endMinute] = endTime.split(':').map(Number);
-  
+
   const dateOnly = new Date(checkOutTime);
   dateOnly.setHours(0, 0, 0, 0);
   const shiftEndTime = new Date(dateOnly);
   shiftEndTime.setHours(endHour, endMinute, 0, 0);
-  
+
   const earliestLeaveTime = new Date(shiftEndTime);
   earliestLeaveTime.setMinutes(earliestLeaveTime.getMinutes() - EARLY_TOLERANCE_MINUTES);
-  
-  const minutesEarly = checkOutTime < earliestLeaveTime 
+
+  const minutesEarly = checkOutTime < earliestLeaveTime
     ? Math.round((earliestLeaveTime - checkOutTime) / (1000 * 60))
     : 0;
-    
+
   const minutesOvertime = checkOutTime > shiftEndTime
     ? Math.round((checkOutTime - shiftEndTime) / (1000 * 60))
     : 0;
-  
+
   const result = {
     isEarlyLeave: minutesEarly > 0,
     isOvertime: minutesOvertime >= OVERTIME_THRESHOLD_MINUTES,
     minutesEarly,
     minutesOvertime,
   };
-  
+
   return result;
 };
 
@@ -305,16 +306,21 @@ export const getAttendanceHistory = async (req, res) => {
       query.notes = { $regex: search, $options: 'i' };
     }
 
-    const allRecords = await AttendanceModel.find(query)
-      .populate("locationId")
-      .sort({ date: -1 }) // Sort từ mới → cũ
-      .lean();
-    
+    // Optimized pagination: Use MongoDB skip() and limit() instead of loading all records
     const pageNum = parseInt(page) || 1;
-    const limitNum = parseInt(limit) || 20;
+    const limitNum = Math.min(parseInt(limit) || 20, 100); // Max 100 records per page
     const skip = (pageNum - 1) * limitNum;
-    const total = allRecords.length;
-    const paginatedRecords = allRecords.slice(skip, skip + limitNum);
+
+    // Get total count and paginated records in parallel
+    const [total, paginatedRecords] = await Promise.all([
+      AttendanceModel.countDocuments(query),
+      AttendanceModel.find(query)
+        .populate("locationId")
+        .sort({ date: -1 }) // Sort từ mới → cũ
+        .skip(skip)
+        .limit(limitNum)
+        .lean()
+    ]);
 
     const data = paginatedRecords.map((doc) => {
       const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
@@ -436,7 +442,7 @@ export const checkIn = async (req, res) => {
 
     const schedule = await getUserSchedule(userId, dateOnly);
     const shiftInfo = await getShiftInfo(schedule);
-    
+
     if (!shiftInfo.isFlexible) {
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
@@ -445,7 +451,7 @@ export const checkIn = async (req, res) => {
       const [startHour, startMinute] = shiftInfo.startTime.split(':').map(Number);
       const workStartInMinutes = startHour * 60 + startMinute;
 
-      const EARLY_CHECKIN_MINUTES = 20;
+      const EARLY_CHECKIN_MINUTES = SHIFT_CONFIG.EARLY_CHECKIN_MINUTES;
       const earliestCheckInTime = workStartInMinutes - EARLY_CHECKIN_MINUTES;
 
       if (currentTimeInMinutes < earliestCheckInTime) {
@@ -475,10 +481,10 @@ export const checkIn = async (req, res) => {
 
       attendance.checkIn = now;
       attendance.locationId = validLocation._id;
-      
+
       const isLate = checkLateStatus(now, shiftInfo);
       attendance.status = isLate ? "late" : "present";
-      
+
       if (photoFile) {
         try {
           const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkins');
@@ -494,7 +500,7 @@ export const checkIn = async (req, res) => {
       }
     } else {
       const isLate = checkLateStatus(now, shiftInfo);
-      
+
       attendance = new AttendanceModel({
         userId,
         date: dateOnly,
@@ -519,7 +525,7 @@ export const checkIn = async (req, res) => {
 
     const checkInTime = formatTime(attendance.checkIn);
     const checkInDate = formatDateLabel(attendance.date);
-    
+
     const statusMsg = attendance.status === 'late' ? ' (Đi muộn)' : '';
     const message = `Chấm công thành công!${statusMsg} (${shiftInfo.shiftName})`;
 
@@ -611,7 +617,7 @@ export const checkOut = async (req, res) => {
       });
     }
 
-    if (accuracy && accuracy > 100) {
+    if (accuracy && accuracy > ATTENDANCE_CONFIG.GPS_ACCURACY_THRESHOLD) {
       return res.status(400).json({
         success: false,
         message: "Vị trí không chính xác. Vui lòng bật GPS và thử lại.",
@@ -648,22 +654,22 @@ export const checkOut = async (req, res) => {
 
     const schedule = await getUserSchedule(userId, dateOnly);
     const shiftInfo = await getShiftInfo(schedule);
-    
+
     const now = new Date();
     const checkInTime = new Date(attendance.checkIn);
     const hoursWorked = (now - checkInTime) / (1000 * 60 * 60);
 
-    let minWorkHours = 2;
-    
+    let minWorkHours = ATTENDANCE_CONFIG.MIN_WORK_HOURS;
+
     if (!shiftInfo.isFlexible && shiftInfo.startTime && shiftInfo.endTime) {
       const [startH, startM] = shiftInfo.startTime.split(':').map(Number);
       const [endH, endM] = shiftInfo.endTime.split(':').map(Number);
       const shiftDurationMinutes = (endH * 60 + endM) - (startH * 60 + startM) - (shiftInfo.breakDuration || 0);
       const shiftDurationHours = shiftDurationMinutes / 60;
-      
-      minWorkHours = Math.max(2, Math.floor(shiftDurationHours * 0.25));
+
+      minWorkHours = Math.max(ATTENDANCE_CONFIG.MIN_WORK_HOURS, Math.floor(shiftDurationHours * 0.25));
     }
-    
+
     if (hoursWorked < minWorkHours) {
       const remainingMinutes = Math.ceil((minWorkHours - hoursWorked) * 60);
       const hours = Math.floor(remainingMinutes / 60);
@@ -682,11 +688,11 @@ export const checkOut = async (req, res) => {
         }
       });
     }
-    
+
     attendance.checkOut = now;
 
     const checkOutInfo = checkEarlyLeaveOrOvertime(now, shiftInfo);
-    
+
     let additionalNote = '';
     if (checkOutInfo.isEarlyLeave) {
       additionalNote = `\n[Về sớm ${checkOutInfo.minutesEarly} phút - ${shiftInfo.shiftName}]`;
@@ -703,13 +709,13 @@ export const checkOut = async (req, res) => {
       } catch (e) {
         console.error("Upload to Cloudinary failed:", e);
         if (additionalNote) {
-          attendance.notes = attendance.notes 
+          attendance.notes = attendance.notes
             ? `${attendance.notes}${additionalNote}`
             : additionalNote.trim();
         }
       }
     } else if (additionalNote) {
-      attendance.notes = attendance.notes 
+      attendance.notes = attendance.notes
         ? `${attendance.notes}${additionalNote}`
         : additionalNote.trim();
     }

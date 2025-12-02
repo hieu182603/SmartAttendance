@@ -1,5 +1,40 @@
 import { UserModel } from "../modules/users/user.model.js";
 
+/**
+ * Helper function to get user role from token or DB (with caching per request)
+ * This prevents multiple DB queries for the same request
+ */
+const getUserRole = async (req) => {
+    // Role should always be in JWT token (from generateTokenFromUser)
+    // But handle legacy tokens that might not have role
+    if (req.user?.role) {
+        return req.user.role;
+    }
+
+    // If role not in token, fetch from DB once and cache in req.user
+    // This prevents race condition and multiple queries for the same request
+    if (!req.user?.userId) {
+        return null;
+    }
+
+    try {
+        const user = await UserModel.findById(req.user.userId).select("role").lean();
+        if (!user) {
+            return null;
+        }
+
+        // Cache role in req.user to avoid future queries in the same request
+        if (!req.user.role) {
+            req.user.role = user.role;
+        }
+
+        return user.role;
+    } catch (error) {
+        console.error("[roleMiddleware] Error fetching user role:", error);
+        return null;
+    }
+};
+
 export const requireRole = (allowedRoles) => {
     return async (req, res, next) => {
         try {
@@ -9,17 +44,12 @@ export const requireRole = (allowedRoles) => {
                 });
             }
 
-            let userRole = req.user.role;
+            const userRole = await getUserRole(req);
 
             if (!userRole) {
-                const user = await UserModel.findById(req.user.userId).select("role");
-                if (!user) {
-                    return res.status(404).json({
-                        message: "User not found"
-                    });
-                }
-                userRole = user.role;
-                req.user.role = userRole;
+                return res.status(404).json({
+                    message: "User not found"
+                });
             }
 
             if (!allowedRoles.includes(userRole)) {
@@ -51,16 +81,12 @@ export const requireAllRoles = (requiredRoles) => {
                 });
             }
 
-            let userRole = req.user.role;
+            const userRole = await getUserRole(req);
+
             if (!userRole) {
-                const user = await UserModel.findById(req.user.userId).select("role");
-                if (!user) {
-                    return res.status(404).json({
-                        message: "User not found"
-                    });
-                }
-                userRole = user.role;
-                req.user.role = userRole;
+                return res.status(404).json({
+                    message: "User not found"
+                });
             }
 
             if (!requiredRoles.includes(userRole)) {
@@ -111,16 +137,12 @@ export const requireMinimumRole = (minimumRole) => {
                 });
             }
 
-            let userRole = req.user.role;
+            const userRole = await getUserRole(req);
+
             if (!userRole) {
-                const user = await UserModel.findById(req.user.userId).select("role");
-                if (!user) {
-                    return res.status(404).json({
-                        message: "User not found"
-                    });
-                }
-                userRole = user.role;
-                req.user.role = userRole;
+                return res.status(404).json({
+                    message: "User not found"
+                });
             }
 
             if (!hasMinimumRole(userRole, minimumRole)) {
