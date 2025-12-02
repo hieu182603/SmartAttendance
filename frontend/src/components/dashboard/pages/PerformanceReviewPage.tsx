@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -34,10 +36,10 @@ import { toast } from "sonner";
 import {
   performanceService,
   type PerformanceReview,
+  type CreateReviewData,
 } from "@/services/performanceService";
 import { getAllUsers } from "@/services/userService";
 import { useAuth } from "@/context/AuthContext";
-import ReviewFormModal from "@/components/dashboard/pages/ReviewFormModal";
 import api from "@/services/api";
 
 export default function PerformanceReviewPage() {
@@ -56,13 +58,27 @@ export default function PerformanceReviewPage() {
     avgScore: 0,
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedReview, setSelectedReview] = useState<PerformanceReview | null>(
-    null
-  );
-  const [employees, setEmployees] = useState<
-    Array<{ _id: string; fullName: string; position: string }>
-  >([]);
+  const [selectedReview, setSelectedReview] = useState<PerformanceReview | null>(null);
+  const [employees, setEmployees] = useState<Array<{ _id: string; fullName: string; position: string }>>([]);
   const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
+  
+  // Form state
+  const [formData, setFormData] = useState<CreateReviewData>({
+    employeeId: "",
+    period: "",
+    status: "draft",
+    categories: {
+      technical: 0,
+      communication: 0,
+      teamwork: 0,
+      leadership: 0,
+      problemSolving: 0,
+    },
+    achievements: [],
+    improvements: [],
+    comments: "",
+  });
+  const [formLoading, setFormLoading] = useState(false);
 
   // Get user role from auth context
   const { user } = useAuth();
@@ -179,20 +195,71 @@ export default function PerformanceReviewPage() {
     }
   }, []);
 
+  const generatePeriodOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const options: Array<{ value: string; label: string }> = [];
+    for (let q = 1; q <= 4; q++) {
+      options.push({ value: `Q${q} ${currentYear}`, label: `Q${q} ${currentYear} (Quý ${q})` });
+    }
+    if (selectedReview?.period && !options.find(opt => opt.value === selectedReview.period)) {
+      options.push({ value: selectedReview.period, label: selectedReview.period });
+    }
+    return options;
+  };
+
+  const calculateOverallScore = () => {
+    const { technical = 0, communication = 0, teamwork = 0, leadership = 0, problemSolving = 0 } = formData.categories || {};
+    return Math.round((technical + communication + teamwork + leadership + problemSolving) / 5);
+  };
+
   const handleOpenReview = useCallback((review: PerformanceReview) => {
     setSelectedReview(review);
+    setFormData({
+      employeeId: review.employeeId?._id || "",
+      period: review.period || "",
+      status: review.status || "draft",
+      categories: review.categories || { technical: 0, communication: 0, teamwork: 0, leadership: 0, problemSolving: 0 },
+      achievements: review.achievements || [],
+      improvements: review.improvements || [],
+      comments: review.comments || "",
+    });
     setIsModalOpen(true);
   }, []);
 
   const handleCreateReview = useCallback(() => {
     setSelectedReview(null);
+    setFormData({
+      employeeId: "",
+      period: "",
+      status: "draft",
+      categories: { technical: 0, communication: 0, teamwork: 0, leadership: 0, problemSolving: 0 },
+      achievements: [],
+      improvements: [],
+      comments: "",
+    });
     setIsModalOpen(true);
   }, []);
 
-  const handleModalSuccess = useCallback(() => {
-    fetchReviews();
-    fetchStats();
-  }, [fetchReviews, fetchStats]);
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormLoading(true);
+    try {
+      if (selectedReview) {
+        await performanceService.updateReview(selectedReview._id, formData);
+        toast.success("Cập nhật đánh giá thành công");
+      } else {
+        await performanceService.createReview(formData);
+        toast.success("Tạo đánh giá thành công");
+      }
+      fetchReviews();
+      fetchStats();
+      setIsModalOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Có lỗi xảy ra");
+    } finally {
+      setFormLoading(false);
+    }
+  };
 
   const handleExport = async () => {
     try {
@@ -631,13 +698,139 @@ export default function PerformanceReviewPage() {
       </div>
 
       {/* Modal */}
-      <ReviewFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        review={selectedReview}
-        onSuccess={handleModalSuccess}
-        employees={employees}
-      />
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setIsModalOpen(false)}>
+          <div className="bg-[var(--surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--accent-cyan)]/10 border-b border-[var(--border)] p-6 flex items-start justify-between backdrop-blur-sm z-10">
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent select-none">
+                  {selectedReview ? "Chỉnh sửa đánh giá" : "Tạo đánh giá mới"}
+                </h2>
+                {selectedReview && (
+                  <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-[var(--text-sub)] select-none">
+                    <span>👤 <strong className="text-[var(--text-main)]">{selectedReview.reviewerId?.fullName || selectedReview.reviewerId?.name || "N/A"}</strong></span>
+                    {selectedReview.createdAt && <span>📅 {new Date(selectedReview.createdAt).toLocaleString("vi-VN")}</span>}
+                  </div>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)} className="text-[var(--text-sub)] hover:text-[var(--text-main)]">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <form onSubmit={handleSubmitForm} className="p-6 space-y-5">
+              {/* Basic Info */}
+              <div className="bg-[var(--shell)]/50 rounded-lg p-5 border border-[var(--border)] space-y-4">
+                <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase">Thông tin cơ bản</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-[var(--text-main)] mb-2 block">Nhân viên</Label>
+                    {selectedReview ? (
+                      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2.5 text-[var(--text-main)]">
+                        {selectedReview.employeeId?.fullName || selectedReview.employeeId?.name} - {selectedReview.employeeId?.position}
+                      </div>
+                    ) : (
+                      <Select value={formData.employeeId || undefined} onValueChange={(value) => setFormData({ ...formData, employeeId: value })}>
+                        <SelectTrigger className="bg-[var(--surface)] border-[var(--border)]">
+                          <SelectValue placeholder="Chọn nhân viên" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees.map((emp) => (
+                            <SelectItem key={emp._id} value={emp._id}>{emp.fullName} - {emp.position}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-[var(--text-main)] mb-2 block">Kỳ đánh giá</Label>
+                    <Select value={formData.period} onValueChange={(value) => setFormData({ ...formData, period: value })}>
+                      <SelectTrigger className="bg-[var(--surface)] border-[var(--border)]">
+                        <SelectValue placeholder="Chọn kỳ đánh giá" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {generatePeriodOptions().map((option) => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="bg-[var(--shell)]/50 rounded-lg p-5 border border-[var(--border)] space-y-3">
+                <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase">Trạng thái</h3>
+                <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger className="bg-[var(--surface)] border-[var(--border)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Nháp</SelectItem>
+                    <SelectItem value="pending">{isManager ? "Gửi đánh giá" : "Chờ phê duyệt"}</SelectItem>
+                    {isHROrAbove && (
+                      <>
+                        <SelectItem value="completed">Hoàn thành</SelectItem>
+                        <SelectItem value="rejected">Từ chối</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Categories */}
+              <div className="bg-[var(--shell)]/50 rounded-lg p-5 border border-[var(--border)] space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase">Điểm đánh giá</h3>
+                  <div className="text-right bg-gradient-to-r from-[var(--primary)]/20 to-[var(--accent-cyan)]/20 px-4 py-2 rounded-lg border border-[var(--primary)]/30">
+                    <p className="text-xs text-[var(--text-sub)]">Điểm tổng quan</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
+                      {calculateOverallScore()}<span className="text-sm text-[var(--text-sub)]">/100</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {Object.entries(formData.categories || {}).map(([key, value]) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label className="text-xs text-[var(--text-sub)] block text-center">
+                        {key === "technical" ? "🔧 Kỹ thuật" : key === "communication" ? "💬 Giao tiếp" : key === "teamwork" ? "👥 Teamwork" : key === "leadership" ? "⭐ Lãnh đạo" : "🧩 Giải quyết"}
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={value}
+                        onChange={(e) => setFormData({ ...formData, categories: { ...formData.categories, [key]: parseInt(e.target.value) || 0 } })}
+                        className="bg-[var(--surface)] border-[var(--border)] text-xl font-bold text-center h-14"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Comments */}
+              <div className="bg-[var(--shell)]/50 rounded-lg p-5 border border-[var(--border)] space-y-3">
+                <h3 className="text-sm font-semibold text-[var(--text-main)] uppercase">💬 Nhận xét chung</h3>
+                <Textarea
+                  value={formData.comments}
+                  onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
+                  placeholder="Nhập nhận xét chung..."
+                  className="bg-[var(--surface)] border-[var(--border)] min-h-[120px]"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 justify-end pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+                <Button type="submit" disabled={formLoading} className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white">
+                  {formLoading ? "Đang lưu..." : selectedReview ? "Cập nhật" : "Tạo mới"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
