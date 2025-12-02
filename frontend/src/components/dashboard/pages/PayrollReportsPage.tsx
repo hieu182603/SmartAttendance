@@ -37,6 +37,8 @@ import {
   type MonthlyTrendPoint,
 } from "@/services/payrollService";
 
+
+
 const COLORS = ["#8B5CF6", "#06B6D4", "#F59E0B", "#10B981", "#EF4444"];
 
 const formatCompactCurrency = (amount: number): string => {
