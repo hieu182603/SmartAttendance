@@ -346,7 +346,7 @@ const DepartmentAttendancePage: React.FC = () => {
                   }
                   disabled={pagination.page === 1}
                 >
-                  Trước
+                  {t('dashboard:departmentAttendance.pagination.prev')}
                 </Button>
                 <Button
                   variant="outline"
@@ -359,7 +359,7 @@ const DepartmentAttendancePage: React.FC = () => {
                   }
                   disabled={pagination.page === pagination.totalPages}
                 >
-                  Sau
+                  {t('dashboard:departmentAttendance.pagination.next')}
                 </Button>
               </div>
             </div>

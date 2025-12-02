@@ -136,11 +136,11 @@ export function BranchesPage() {
         page: currentPage,
         limit: itemsPerPage,
       };
-      
+
       if (searchQuery) {
         params.search = searchQuery;
       }
-      
+
       const response = await getAllBranches(params);
       const branchesData = response.branches.map((branch: BranchType) => ({
         id: branch._id || branch.id || '',
@@ -162,7 +162,7 @@ export function BranchesPage() {
         timezone: branch.timezone,
       }));
       setBranches(branchesData);
-      
+
       // Update pagination info from backend
       if (response.total !== undefined) {
         setPagination({
@@ -237,7 +237,7 @@ export function BranchesPage() {
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.code || !formData.latitude || !formData.longitude || !formData.city || !formData.managerId) {
-      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+      toast.error(t('dashboard:branches.validation.required'));
       return;
     }
 
@@ -245,12 +245,12 @@ export function BranchesPage() {
     const longitude = parseFloat(formData.longitude);
 
     if (isNaN(latitude) || latitude < -90 || latitude > 90) {
-      toast.error('Vĩ độ phải là số từ -90 đến 90');
+      toast.error(t('dashboard:branches.validation.invalidLatitude'));
       return;
     }
 
     if (isNaN(longitude) || longitude < -180 || longitude > 180) {
-      toast.error('Kinh độ phải là số từ -180 đến 180');
+      toast.error(t('dashboard:branches.validation.invalidLongitude'));
       return;
     }
 
@@ -294,13 +294,13 @@ export function BranchesPage() {
 
   const handleDelete = async (branch: Branch) => {
     if (branch.code === 'HQ') {
-      toast.error('Không thể xóa trụ sở chính');
+      toast.error(t('dashboard:branches.delete.hqError'));
       return;
     }
-    if (confirm(`Bạn có chắc muốn xóa chi nhánh "${branch.name}"?`)) {
+    if (confirm(t('dashboard:branches.delete.confirm', { name: branch.name }))) {
       try {
         await deleteBranch(branch._id || branch.id);
-        toast.success(`Đã xóa chi nhánh ${branch.name}`);
+        toast.success(t('dashboard:branches.delete.success', { name: branch.name }));
         await loadBranches();
         await loadStats();
       } catch (error: any) {
@@ -437,201 +437,207 @@ export function BranchesPage() {
           <p className="text-[var(--text-sub)]">{t('dashboard:branches.noResults')}</p>
         </div>
       ) : (
-      <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredBranches.map((branch, index) => (
-          <motion.div
-            key={branch.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-          >
-            <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--primary)] transition-all">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="h-12 w-12 rounded-lg bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] flex items-center justify-center text-white">
-                        <Building2 className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-xl text-[var(--text-main)]">{branch.name}</CardTitle>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="border-[var(--border)] text-[var(--text-sub)]">
-                            {branch.code}
-                          </Badge>
-                          <Badge className="bg-[var(--success)]/20 text-[var(--success)]">
-                            {branch.status === 'active' ? t('dashboard:branches.status.active') : t('dashboard:branches.status.inactive')}
-                          </Badge>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredBranches.map((branch, index) => (
+              <motion.div
+                key={branch.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--primary)] transition-all">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="h-12 w-12 rounded-lg bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] flex items-center justify-center text-white">
+                            <Building2 className="h-6 w-6" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-xl text-[var(--text-main)]">{branch.name}</CardTitle>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="border-[var(--border)] text-[var(--text-sub)]">
+                                {branch.code}
+                              </Badge>
+                              <Badge className="bg-[var(--success)]/20 text-[var(--success)]">
+                                {branch.status === 'active' ? t('dashboard:branches.status.active') : t('dashboard:branches.status.inactive')}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenDialog('edit', branch)}
+                          className="h-8 w-8 text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {branch.id !== 'HQ' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(branch)}
+                            className="h-8 w-8 text-[var(--error)] hover:bg-[var(--error)]/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleOpenDialog('edit', branch)}
-                      className="h-8 w-8 text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    {branch.id !== 'HQ' && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(branch)}
-                        className="h-8 w-8 text-[var(--error)] hover:bg-[var(--error)]/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
-                    <span className="text-[var(--text-sub)]">
-                      {branch.city}, {branch.country}
-                    </span>
-                  </div>
-                  {(branch.latitude !== undefined && branch.latitude !== null && branch.longitude !== undefined && branch.longitude !== null) && (
-                    <div className="flex items-start gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
-                      <span className="text-[var(--text-sub)]">
-                        Tọa độ: {typeof branch.latitude === 'number' ? branch.latitude.toFixed(6) : 'N/A'}, {typeof branch.longitude === 'number' ? branch.longitude.toFixed(6) : 'N/A'}
-                      </span>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2 text-sm">
+                        <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
+                        <span className="text-[var(--text-sub)]">
+                          {branch.city}, {branch.country}
+                        </span>
+                      </div>
+                      {(branch.latitude !== undefined && branch.latitude !== null && branch.longitude !== undefined && branch.longitude !== null) && (
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
+                          <span className="text-[var(--text-sub)]">
+                            Tọa độ: {typeof branch.latitude === 'number' ? branch.latitude.toFixed(6) : 'N/A'}, {typeof branch.longitude === 'number' ? branch.longitude.toFixed(6) : 'N/A'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-[var(--accent-cyan)]" />
+                        <span className="text-[var(--text-main)]">{branch.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="h-4 w-4 text-[var(--accent-cyan)]" />
+                        <span className="text-[var(--text-main)]">{branch.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Globe className="h-4 w-4 text-[var(--accent-cyan)]" />
+                        <span className="text-[var(--text-sub)]">Múi giờ: {branch.timezone}</span>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-[var(--accent-cyan)]" />
-                    <span className="text-[var(--text-main)]">{branch.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-[var(--accent-cyan)]" />
-                    <span className="text-[var(--text-main)]">{branch.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Globe className="h-4 w-4 text-[var(--accent-cyan)]" />
-                    <span className="text-[var(--text-sub)]">Múi giờ: {branch.timezone}</span>
-                  </div>
-                </div>
 
-                <Separator className="bg-[var(--border)]" />
+                    <Separator className="bg-[var(--border)]" />
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
                     <div className="flex items-center justify-center gap-1 text-[var(--text-sub)] text-xs mb-1">
                       <Users className="h-3 w-3" />
-                      Nhân viên
+                      {t('dashboard:branches.grid.employees')}
                     </div>
-                    <p className="text-xl text-[var(--accent-cyan)]">{branch.employeeCount}</p>
-                  </div>
-                  <div className="text-center">
+                        <p className="text-xl text-[var(--accent-cyan)]">{branch.employeeCount}</p>
+                      </div>
+                      <div className="text-center">
                     <div className="flex items-center justify-center gap-1 text-[var(--text-sub)] text-xs mb-1">
                       <Briefcase className="h-3 w-3" />
-                      Phòng ban
+                      {t('dashboard:branches.grid.departments')}
                     </div>
-                    <p className="text-xl text-[var(--warning)]">{branch.departmentCount}</p>
-                  </div>
-                  <div className="text-center">
+                        <p className="text-xl text-[var(--warning)]">{branch.departmentCount}</p>
+                      </div>
+                      <div className="text-center">
                     <div className="flex items-center justify-center gap-1 text-[var(--text-sub)] text-xs mb-1">
                       <Clock className="h-3 w-3" />
-                      Thành lập
+                      {t('dashboard:branches.grid.established')}
                     </div>
-                    <p className="text-sm text-[var(--text-main)]">
-                      {new Date(branch.establishedDate).getFullYear()}
-                    </p>
-                  </div>
-                </div>
+                        <p className="text-sm text-[var(--text-main)]">
+                          {new Date(branch.establishedDate).getFullYear()}
+                        </p>
+                      </div>
+                    </div>
 
-                <Separator className="bg-[var(--border)]" />
+                    <Separator className="bg-[var(--border)]" />
 
-                <div className="flex items-center justify-between">
-                  <div className="text-sm">
-                    <p className="text-[var(--text-sub)]">Giám đốc chi nhánh</p>
-                    <p className="text-[var(--text-main)]">{branch.managerName}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm">
+                        <p className="text-[var(--text-sub)]">
+                          {t('dashboard:branches.grid.branchManager')}
+                        </p>
+                        <p className="text-[var(--text-main)]">{branch.managerName}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedBranch(branch);
+                          setIsViewDialogOpen(true);
+                        }}
+                      >
+                        {t('dashboard:branches.grid.details')}
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {pagination.totalPages > 1 && (
+            <Card className="bg-[var(--surface)] border-[var(--border)]">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
+                    <span>
+                      {t('dashboard:branches.pagination.label', {
+                        from: (currentPage - 1) * itemsPerPage + 1,
+                        to: Math.min(currentPage * itemsPerPage, pagination.total),
+                        total: pagination.total,
+                      })}
+                    </span>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedBranch(branch);
-                      setIsViewDialogOpen(true);
-                    }}
-                  >
-                    Chi tiết
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+
+                    <span className="px-4 text-sm text-[var(--text-main)]">
+                      Trang {currentPage} / {pagination.totalPages}
+                    </span>
+
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+                      disabled={currentPage >= pagination.totalPages}
+                      className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCurrentPage(pagination.totalPages)}
+                      disabled={currentPage >= pagination.totalPages}
+                      className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-        ))}
-      </div>
-      
-      {/* Pagination Controls */}
-      {pagination.totalPages > 1 && (
-        <Card className="bg-[var(--surface)] border-[var(--border)]">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
-                <span>
-                  Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-
-                <span className="px-4 text-sm text-[var(--text-main)]">
-                  Trang {currentPage} / {pagination.totalPages}
-                </span>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
-                  disabled={currentPage >= pagination.totalPages}
-                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(pagination.totalPages)}
-                  disabled={currentPage >= pagination.totalPages}
-                  className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      </>
+          )}
+        </>
       )}
 
       {/* Create/Edit Dialog */}
@@ -642,7 +648,9 @@ export function BranchesPage() {
               {dialogMode === 'create' ? t('dashboard:branches.dialog.addTitle') : t('dashboard:branches.dialog.editTitle')}
             </DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              {dialogMode === 'create' ? 'Điền thông tin chi nhánh mới' : 'Cập nhật thông tin chi nhánh'}
+              {dialogMode === 'create'
+                ? t('dashboard:branches.dialog.addTitle')
+                : t('dashboard:branches.dialog.editTitle')}
             </DialogDescription>
           </DialogHeader>
 
@@ -668,7 +676,9 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Vĩ độ (Latitude) *</Label>
+              <Label className="text-[var(--text-main)]">
+                Vĩ độ (Latitude) *
+              </Label>
               <Input
                 type="number"
                 step="any"
@@ -680,7 +690,9 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Kinh độ (Longitude) *</Label>
+              <Label className="text-[var(--text-main)]">
+                Kinh độ (Longitude) *
+              </Label>
               <Input
                 type="number"
                 step="any"
@@ -733,13 +745,17 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Giám đốc chi nhánh *</Label>
+              <Label className="text-[var(--text-main)]">
+                {t('dashboard:branches.viewDialog.management.branchManager')} *
+              </Label>
               <select
                 value={formData.managerId}
                 onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
                 className="w-full h-10 px-3 rounded-md bg-[var(--shell)] border border-[var(--border)] text-[var(--text-main)]"
               >
-                <option value="">Chọn giám đốc</option>
+                <option value="">
+                  {t('dashboard:branches.viewDialog.management.branchManager')}
+                </option>
                 {managers.map(manager => (
                   <option key={manager.id} value={manager.id}>{manager.name} ({manager.role})</option>
                 ))}
@@ -747,7 +763,9 @@ export function BranchesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[var(--text-main)]">Múi giờ</Label>
+              <Label className="text-[var(--text-main)]">
+                {t('dashboard:branches.viewDialog.stats.timezone')}
+              </Label>
               <Input
                 placeholder="GMT+7"
                 value={formData.timezone}
@@ -779,9 +797,11 @@ export function BranchesPage() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-7xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Chi tiết chi nhánh</DialogTitle>
+            <DialogTitle>
+              {t('dashboard:branches.viewDialog.title')}
+            </DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              Xem đầy đủ thông tin và thống kê chi nhánh
+              {t('dashboard:branches.viewDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
@@ -813,7 +833,9 @@ export function BranchesPage() {
                 <Card className="bg-[var(--shell)] border-[var(--border)]">
                   <CardContent className="p-3 text-center mt-3">
                     <Users className="h-6 w-6 text-[var(--accent-cyan)] mx-auto mb-1" />
-                    <p className="text-xs text-[var(--text-sub)]">Nhân viên</p>
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {t('dashboard:branches.viewDialog.stats.employees')}
+                    </p>
                     <p className="text-xl text-[var(--text-main)] mt-1">{selectedBranch.employeeCount}</p>
                   </CardContent>
                 </Card>
@@ -821,7 +843,9 @@ export function BranchesPage() {
                 <Card className="bg-[var(--shell)] border-[var(--border)]">
                   <CardContent className="p-3 text-center mt-3">
                     <Briefcase className="h-6 w-6 text-[var(--warning)] mx-auto mb-1" />
-                    <p className="text-xs text-[var(--text-sub)]">Phòng ban</p>
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {t('dashboard:branches.viewDialog.stats.departments')}
+                    </p>
                     <p className="text-xl text-[var(--text-main)] mt-1">{selectedBranch.departmentCount}</p>
                   </CardContent>
                 </Card>
@@ -829,7 +853,9 @@ export function BranchesPage() {
                 <Card className="bg-[var(--shell)] border-[var(--border)]">
                   <CardContent className="p-3 text-center mt-3">
                     <Clock className="h-6 w-6 text-[var(--primary)] mx-auto mb-1" />
-                    <p className="text-xs text-[var(--text-sub)]">Ngày thành lập</p>
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {t('dashboard:branches.viewDialog.stats.establishedDate')}
+                    </p>
                     <p className="text-sm text-[var(--text-main)] mt-1">
                       {new Date(selectedBranch.establishedDate).toLocaleDateString('vi-VN')}
                     </p>
@@ -839,7 +865,9 @@ export function BranchesPage() {
                 <Card className="bg-[var(--shell)] border-[var(--border)]">
                   <CardContent className="p-3 text-center mt-3">
                     <Globe className="h-6 w-6 text-[var(--success)] mx-auto mb-1" />
-                    <p className="text-xs text-[var(--text-sub)]">Múi giờ</p>
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {t('dashboard:branches.viewDialog.stats.timezone')}
+                    </p>
                     <p className="text-lg text-[var(--text-main)] mt-1">{selectedBranch.timezone}</p>
                   </CardContent>
                 </Card>
@@ -852,14 +880,16 @@ export function BranchesPage() {
                 <div className="space-y-3">
                   <h4 className="text-base text-[var(--text-main)] flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-[var(--primary)]" />
-                    Thông tin liên hệ
+                    {t('dashboard:branches.viewDialog.contact.title')}
                   </h4>
 
                   <div className="space-y-2">
                     <div className="flex items-start space-x-2 p-2 rounded-lg bg-[var(--shell)]">
                       <MapPin className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5" />
                       <div>
-                        <p className="text-xs text-[var(--text-sub)]">Địa điểm</p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          {t('dashboard:branches.viewDialog.contact.location')}
+                        </p>
                         <p className="text-sm text-[var(--text-main)]">{selectedBranch.city}, {selectedBranch.country}</p>
                         {(selectedBranch.latitude !== undefined && selectedBranch.latitude !== null && selectedBranch.longitude !== undefined && selectedBranch.longitude !== null) && (
                           <p className="text-xs text-[var(--text-sub)] mt-1">
@@ -872,7 +902,9 @@ export function BranchesPage() {
                     <div className="flex items-start space-x-2 p-2 rounded-lg bg-[var(--shell)]">
                       <Phone className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5" />
                       <div>
-                        <p className="text-xs text-[var(--text-sub)]">Số điện thoại</p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          {t('dashboard:branches.viewDialog.contact.phone')}
+                        </p>
                         <p className="text-sm text-[var(--text-main)]">{selectedBranch.phone}</p>
                       </div>
                     </div>
@@ -880,7 +912,9 @@ export function BranchesPage() {
                     <div className="flex items-start space-x-2 p-2 rounded-lg bg-[var(--shell)]">
                       <Mail className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5" />
                       <div>
-                        <p className="text-xs text-[var(--text-sub)]">Email</p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          {t('dashboard:branches.viewDialog.contact.email')}
+                        </p>
                         <p className="text-sm text-[var(--text-main)]">{selectedBranch.email}</p>
                       </div>
                     </div>
@@ -890,25 +924,31 @@ export function BranchesPage() {
                 <div className="space-y-3">
                   <h4 className="text-base text-[var(--text-main)] flex items-center gap-2">
                     <Users className="h-4 w-4 text-[var(--primary)]" />
-                    Thông tin quản lý
+                    {t('dashboard:branches.viewDialog.management.title')}
                   </h4>
 
                   <div className="space-y-2">
                     <div className="flex items-start space-x-2 p-2 rounded-lg bg-[var(--shell)]">
                       <TrendingUp className="h-4 w-4 text-[var(--warning)] mt-0.5" />
                       <div>
-                        <p className="text-xs text-[var(--text-sub)]">Giám đốc chi nhánh</p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          {t('dashboard:branches.viewDialog.management.branchManager')}
+                        </p>
                         <p className="text-sm text-[var(--text-main)]">{selectedBranch.managerName}</p>
-                        <p className="text-xs text-[var(--text-sub)] truncate">ID: {typeof selectedBranch.managerId === 'string' ? selectedBranch.managerId : (selectedBranch.managerId as any)?._id || ''}</p>
+
                       </div>
                     </div>
 
                     <div className="flex items-start space-x-2 p-2 rounded-lg bg-[var(--shell)]">
                       <Building2 className="h-4 w-4 text-[var(--primary)] mt-0.5" />
                       <div>
-                        <p className="text-xs text-[var(--text-sub)]">Loại chi nhánh</p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          {t('dashboard:branches.viewDialog.management.branchType')}
+                        </p>
                         <p className="text-sm text-[var(--text-main)]">
-                          {selectedBranch.id === 'HQ' ? 'Trụ sở chính' : 'Chi nhánh'}
+                          {selectedBranch.id === 'HQ'
+                            ? t('dashboard:branches.viewDialog.management.hq')
+                            : t('dashboard:branches.viewDialog.management.branch')}
                         </p>
                       </div>
                     </div>
@@ -916,9 +956,13 @@ export function BranchesPage() {
                     <div className="flex items-start space-x-2 p-2 rounded-lg bg-[var(--shell)]">
                       <CheckCircle2 className="h-4 w-4 text-[var(--success)] mt-0.5" />
                       <div>
-                        <p className="text-xs text-[var(--text-sub)]">Trạng thái</p>
+                        <p className="text-xs text-[var(--text-sub)]">
+                          {t('dashboard:branches.viewDialog.management.status')}
+                        </p>
                         <p className="text-sm text-[var(--text-main)]">
-                          {selectedBranch.status === 'active' ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                          {selectedBranch.status === 'active'
+                            ? t('dashboard:branches.viewDialog.management.active')
+                            : t('dashboard:branches.viewDialog.management.inactive')}
                         </p>
                       </div>
                     </div>
@@ -928,16 +972,21 @@ export function BranchesPage() {
                 <div className="space-y-3">
                   <h4 className="text-base text-[var(--text-main)] flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-[var(--primary)]" />
-                    Hiệu suất hoạt động
+                    {t('dashboard:branches.viewDialog.performance.title')}
                   </h4>
 
                   <div className="p-3 rounded-lg bg-gradient-to-r from-[var(--primary)]/10 to-[var(--accent-cyan)]/10 border border-[var(--primary)]/30">
                     <div className="flex items-center space-x-2 mb-2">
                       <TrendingUp className="h-5 w-5 text-[var(--primary)]" />
-                      <p className="text-sm text-[var(--text-main)] font-medium">Tổng quan</p>
+                    <p className="text-sm text-[var(--text-main)] font-medium">
+                      {t('dashboard:branches.viewDialog.performance.overview')}
+                    </p>
                     </div>
                     <p className="text-xs text-[var(--text-sub)]">
-                      Chi nhánh đang quản lý {selectedBranch.employeeCount} nhân viên và {selectedBranch.departmentCount} phòng ban
+                      {t('dashboard:branches.viewDialog.performance.summary', {
+                        employees: selectedBranch.employeeCount,
+                        departments: selectedBranch.departmentCount,
+                      })}
                     </p>
                   </div>
 
@@ -951,7 +1000,7 @@ export function BranchesPage() {
                     className="w-full border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)]/10"
                   >
                     <Edit className="h-4 w-4 mr-2" />
-                    Chỉnh sửa chi nhánh
+                    {t('dashboard:branches.viewDialog.editBranch')}
                   </Button>
                 </div>
               </div>
@@ -966,7 +1015,7 @@ export function BranchesPage() {
               onClick={() => setIsViewDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
-              Đóng
+              {t('dashboard:branches.viewDialog.close')}
             </Button>
           </DialogFooter>
         </DialogContent>

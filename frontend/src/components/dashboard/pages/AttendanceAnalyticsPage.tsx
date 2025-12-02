@@ -166,9 +166,15 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
       toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
       await exportAttendanceAnalytics(params)
-      toast.success(t('dashboard:attendanceAnalytics.export') + ' ' + t('common:success'), { id: 'export' })
+      toast.success(
+        t('dashboard:attendanceAnalytics.export') + ' ' + t('common:success'),
+        { id: 'export' }
+      )
     } catch (error) {
-      toast.error(t('dashboard:attendanceAnalytics.export') + ' ' + t('common:error'), { id: 'export' })
+      toast.error(
+        t('dashboard:attendanceAnalytics.export') + ' ' + t('common:error'),
+        { id: 'export' }
+      )
     }
   }
 
@@ -190,12 +196,20 @@ const AttendanceAnalyticsPage: React.FC = () => {
         <div className="flex gap-2">
           <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as Period)}>
             <SelectTrigger className="w-[150px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-              <SelectValue placeholder="7 ngày qua" />
+              <SelectValue
+                placeholder={t('dashboard:attendanceAnalytics.periods.7days')}
+              />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7days">7 ngày qua</SelectItem>
-              <SelectItem value="30days">30 ngày qua</SelectItem>
-              <SelectItem value="90days">90 ngày qua</SelectItem>
+              <SelectItem value="7days">
+                {t('dashboard:attendanceAnalytics.periods.7days')}
+              </SelectItem>
+              <SelectItem value="30days">
+                {t('dashboard:attendanceAnalytics.periods.30days')}
+              </SelectItem>
+              <SelectItem value="90days">
+                {t('dashboard:attendanceAnalytics.periods.90days')}
+              </SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -216,8 +230,15 @@ const AttendanceAnalyticsPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.attendanceRate')}</p>
-                  <p className="text-3xl text-[var(--success)] mt-2">{summary.attendanceRate}%</p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">TB {summary.avgPresent}/{totalEmployees} người</p>
+                  <p className="text-3xl text-[var(--success)] mt-2">
+                    {summary.attendanceRate}%
+                  </p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">
+                    {t('dashboard:attendanceAnalytics.summary.avgPresentLabel', {
+                      present: summary.avgPresent,
+                      total: totalEmployees,
+                    })}
+                  </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
                   <Users className="h-6 w-6 text-[var(--success)]" />
@@ -233,8 +254,12 @@ const AttendanceAnalyticsPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.avgLate')}</p>
-                  <p className="text-3xl text-[var(--warning)] mt-2">{summary.avgLate}</p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">người/ngày</p>
+                  <p className="text-3xl text-[var(--warning)] mt-2">
+                    {summary.avgLate}
+                  </p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">
+                    {t('dashboard:attendanceAnalytics.perDayUnit')}
+                  </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--warning)]/20 flex items-center justify-center">
                   <Clock className="h-6 w-6 text-[var(--warning)]" />
@@ -250,8 +275,12 @@ const AttendanceAnalyticsPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.avgAbsent')}</p>
-                  <p className="text-3xl text-[var(--error)] mt-2">{summary.avgAbsent}</p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">người/ngày</p>
+                  <p className="text-3xl text-[var(--error)] mt-2">
+                    {summary.avgAbsent}
+                  </p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">
+                    {t('dashboard:attendanceAnalytics.perDayUnit')}
+                  </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--error)]/20 flex items-center justify-center">
                   <AlertCircle className="h-6 w-6 text-[var(--error)]" />
@@ -285,7 +314,9 @@ const AttendanceAnalyticsPage: React.FC = () => {
       {/* Charts */}
       {loading ? (
         <div className="text-center py-12">
-          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+          <p className="text-[var(--text-sub)]">
+            {t('dashboard:attendanceAnalytics.loading')}
+          </p>
         </div>
       ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -443,7 +474,10 @@ const AttendanceAnalyticsPage: React.FC = () => {
                     <div>
                       <h3 className="text-[var(--text-main)]">{employee.name}</h3>
                       <p className="text-sm text-[var(--text-sub)]">
-                        Giờ vào TB: {employee.avgCheckIn}
+                        {t(
+                          'dashboard:attendanceAnalytics.topPerformersSection.avgCheckInLabel'
+                        )}
+                        : {employee.avgCheckIn}
                       </p>
                     </div>
                   </div>
@@ -454,8 +488,12 @@ const AttendanceAnalyticsPage: React.FC = () => {
                       <p className="text-lg text-[var(--success)]">{employee.onTime}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-[var(--text-sub)]">Muộn</p>
-                      <p className="text-lg text-[var(--warning)]">{employee.late}</p>
+                      <p className="text-sm text-[var(--text-sub)]">
+                        {t('dashboard:attendanceAnalytics.stats.late')}
+                      </p>
+                      <p className="text-lg text-[var(--warning)]">
+                        {employee.late}
+                      </p>
                     </div>
                     <div className="text-center">
                       <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.vắng')}</p>

@@ -624,7 +624,15 @@
     "attendanceRateLabel": "Tỷ lệ chấm công",
     "departmentComparison": "So sánh phòng ban",
     "departmentDetails": "Chi tiết phòng ban",
-    "topPerformers": "Top 5 nhân viên chuyên cần"
+    "topPerformers": "Top 5 nhân viên chuyên cần",
+    "loading": "Đang tải dữ liệu...",
+    "summary": {
+      "avgPresentLabel": "TB {{present}}/{{total}} người"
+    },
+    "perDayUnit": "người/ngày",
+    "topPerformersSection": {
+      "avgCheckInLabel": "Giờ vào TB"
+    }
   },
   "common": {
     "loading": "Đang tải...",
@@ -746,6 +754,8 @@
     "export": "Xuất Excel",
     "searchPlaceholder": "Tìm theo tên hoặc mã nhân viên...",
     "filters": {
+      "department": "Phòng ban",
+      "allDepartments": "Tất cả phòng ban",
       "status": "Trạng thái",
       "all": "Tất cả",
       "pending": "Chờ duyệt",
@@ -775,11 +785,15 @@
       "pending": "Chờ xử lý"
     },
     "description": "Tính toán và quản lý bảng lương nhân viên",
+    "error": "Không thể tải dữ liệu bảng lương",
+    "filePrefix": "Bangluong",
     "totalPayroll": "Tổng bảng lương",
     "avgSalaryPerPerson": "Lương TB/nhân viên",
     "details": "Chi tiết bảng lương",
     "employeeCode": "Mã nhân viên",
-    "employeeName": "Họ và tên"
+    "employeeName": "Họ và tên",
+    "loading": "Đang tải dữ liệu...",
+    "noData": "Không tìm thấy dữ liệu"
   },
   "payrollReports": {
     "title": "Báo cáo lương",
@@ -790,12 +804,29 @@
     "stats": {
       "totalSalary": "Tổng quỹ lương",
       "employees": "Số nhân viên",
-      "baseSalary": "Tổng lương cơ bản"
+      "baseSalary": "Tổng lương cơ bản",
+      "bonus": "Thưởng",
+      "avgSalary": "Lương TB",
+      "costPerEmployee": "Chi phí/người"
+    },
+    "units": {
+      "million": "triệu",
+      "people": "người"
     },
     "charts": {
       "departmentDistribution": "Phân bổ chi phí theo phòng ban",
       "monthlyTrend": "Xu hướng theo tháng"
-    }
+    },
+    "selectMonth": "Chọn tháng",
+    "noDepartmentsMatch": "Không tìm thấy phòng ban phù hợp",
+    "summarySection": {
+      "title": "Tổng kết {{month}}",
+      "netPayTitle": "Tổng chi phí thực tế",
+      "netPayForEmployees": "Cho {{count}} nhân viên",
+      "totalBonuses": "Tổng thưởng",
+      "totalDeductions": "Tổng khấu trừ"
+    },
+    "departmentDetailsTitle": "Chi tiết theo phòng ban"
   },
   "performanceReview": {
     "title": "Đánh giá hiệu suất",
@@ -876,7 +907,60 @@
       "inactive": "Không hoạt động"
     },
     "loading": "Đang tải...",
-    "noResults": "Không tìm thấy chi nhánh nào"
+    "noResults": "Không tìm thấy chi nhánh nào",
+    "grid": {
+      "employees": "Nhân viên",
+      "departments": "Phòng ban",
+      "established": "Thành lập",
+      "branchManager": "Giám đốc chi nhánh",
+      "details": "Chi tiết"
+    },
+    "pagination": {
+      "label": "Hiển thị {{from}} - {{to}} của {{total}}"
+    },
+    "viewDialog": {
+      "title": "Chi tiết chi nhánh",
+      "description": "Xem đầy đủ thông tin và thống kê chi nhánh",
+      "stats": {
+        "employees": "Nhân viên",
+        "departments": "Phòng ban",
+        "establishedDate": "Ngày thành lập",
+        "timezone": "Múi giờ"
+      },
+      "contact": {
+        "title": "Thông tin liên hệ",
+        "location": "Địa điểm",
+        "phone": "Số điện thoại",
+        "email": "Email"
+      },
+      "management": {
+        "title": "Thông tin quản lý",
+        "branchManager": "Giám đốc chi nhánh",
+        "branchType": "Loại chi nhánh",
+        "hq": "Trụ sở chính",
+        "branch": "Chi nhánh",
+        "status": "Trạng thái",
+        "active": "Đang hoạt động",
+        "inactive": "Ngừng hoạt động"
+      },
+      "performance": {
+        "title": "Hiệu suất hoạt động",
+        "overview": "Tổng quan",
+        "summary": "Chi nhánh đang quản lý {{employees}} nhân viên và {{departments}} phòng ban"
+      },
+      "close": "Đóng",
+      "editBranch": "Chỉnh sửa chi nhánh"
+    },
+    "validation": {
+      "required": "Vui lòng điền đầy đủ thông tin bắt buộc",
+      "invalidLatitude": "Vĩ độ phải là số từ -90 đến 90",
+      "invalidLongitude": "Kinh độ phải là số từ -180 đến 180"
+    },
+    "delete": {
+      "hqError": "Không thể xóa trụ sở chính",
+      "confirm": "Bạn có chắc muốn xóa chi nhánh \"{{name}}\"?",
+      "success": "Đã xóa chi nhánh {{name}}"
+    }
   },
   "departments": {
     "title": "Quản lý phòng ban",
