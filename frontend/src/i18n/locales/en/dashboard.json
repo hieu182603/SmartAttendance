@@ -501,7 +501,15 @@
     "attendanceRateLabel": "Attendance Rate",
     "departmentComparison": "Department Comparison",
     "departmentDetails": "Department Details",
-    "topPerformers": "Top 5 Dedicated Employees"
+    "topPerformers": "Top 5 Dedicated Employees",
+    "loading": "Loading data...",
+    "summary": {
+      "avgPresentLabel": "Avg {{present}}/{{total}} employees"
+    },
+    "perDayUnit": "employees/day",
+    "topPerformersSection": {
+      "avgCheckInLabel": "Avg check-in time"
+    }
   },
   "payroll": {
     "title": "Payroll",
@@ -541,7 +549,9 @@
     "avgSalaryPerPerson": "Avg Salary/Person",
     "details": "Payroll Details",
     "employeeCode": "Employee Code",
-    "employeeName": "Full Name"
+    "employeeName": "Full Name",
+    "loading": "Loading data...",
+    "noData": "No payroll data found"
   },
   "payrollReports": {
     "title": "Payroll Reports",
@@ -557,7 +567,13 @@
     "charts": {
       "departmentDistribution": "Department Distribution",
       "monthlyTrend": "Monthly Trend"
-    }
+    },
+    "noDepartmentsMatch": "No matching departments found",
+    "summarySection": {
+      "netPayTitle": "Total actual cost",
+      "netPayForEmployees": "For {{count}} employees"
+    },
+    "departmentDetailsTitle": "Department details"
   },
   "performanceReview": {
     "title": "Performance Review",
@@ -610,7 +626,60 @@
       "inactive": "Inactive"
     },
     "loading": "Loading...",
-    "noResults": "No branches found"
+    "noResults": "No branches found",
+    "grid": {
+      "employees": "Employees",
+      "departments": "Departments",
+      "established": "Established",
+      "branchManager": "Branch Manager",
+      "details": "Details"
+    },
+    "pagination": {
+      "label": "Showing {{from}} - {{to}} of {{total}}"
+    },
+    "viewDialog": {
+      "title": "Branch details",
+      "description": "View full information and statistics of the branch",
+      "stats": {
+        "employees": "Employees",
+        "departments": "Departments",
+        "establishedDate": "Established date",
+        "timezone": "Timezone"
+      },
+      "contact": {
+        "title": "Contact information",
+        "location": "Location",
+        "phone": "Phone",
+        "email": "Email"
+      },
+      "management": {
+        "title": "Management information",
+        "branchManager": "Branch Manager",
+        "branchType": "Branch type",
+        "hq": "Headquarters",
+        "branch": "Branch",
+        "status": "Status",
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "performance": {
+        "title": "Performance",
+        "overview": "Overview",
+        "summary": "This branch manages {{employees}} employees and {{departments}} departments"
+      },
+      "close": "Close",
+      "editBranch": "Edit branch"
+    },
+    "validation": {
+      "required": "Please fill in all required fields",
+      "invalidLatitude": "Latitude must be a number between -90 and 90",
+      "invalidLongitude": "Longitude must be a number between -180 and 180"
+    },
+    "delete": {
+      "hqError": "Cannot delete headquarters",
+      "confirm": "Are you sure you want to delete branch \"{{name}}\"?",
+      "success": "Branch {{name}} deleted"
+    }
   },
   "departments": {
     "title": "Department Management",

@@ -667,8 +667,8 @@ export default function AuditLogsPage() {
                         <div className="space-y-5 py-2">
                             {/* Status Banner */}
                             <div className={`p-4 rounded-xl border-2 ${selectedLog.status === 'success' ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900' :
-                                    selectedLog.status === 'failed' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' :
-                                        'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900'
+                                selectedLog.status === 'failed' ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' :
+                                    'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-900'
                                 }`}>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -708,23 +708,6 @@ export default function AuditLogsPage() {
                                     <div className="space-y-1">
                                         <Label className="text-xs text-gray-600 dark:text-gray-400">Địa chỉ IP</Label>
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">{selectedLog.ipAddress || 'N/A'}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <Separator />
-
-                            {/* Action Details */}
-                            <div>
-                                <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">
-                                    Chi tiết hoạt động
-                                </h4>
-                                <div className="space-y-3">
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Mô tả</Label>
-                                        <p className="text-sm text-gray-900 dark:text-gray-100 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                                            {selectedLog.description}
-                                        </p>
                                     </div>
                                 </div>
                             </div>

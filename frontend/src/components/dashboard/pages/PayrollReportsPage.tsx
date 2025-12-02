@@ -298,7 +298,7 @@ const PayrollReportsPage: React.FC = () => {
             <Card className="bg-[var(--surface)] border-[var(--border)]">
               <CardHeader>
                 <CardTitle className="text-[var(--text-main)]">
-                  Xu hướng chi phí lương
+                  {t('dashboard:payrollReports.charts.monthlyTrend')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -378,14 +378,14 @@ const PayrollReportsPage: React.FC = () => {
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <CardTitle className="text-[var(--text-main)]">
-                Chi tiết theo phòng ban
+                {t('dashboard:payrollReports.departmentDetailsTitle')}
               </CardTitle>
               <div className="relative w-full md:w-80">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-sub)]" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm phòng ban..."
+                  placeholder={t('dashboard:payrollReports.charts.departmentDistribution')}
                   className="pl-10 bg-[var(--shell)] border-[var(--border)]"
                 />
               </div>
@@ -406,7 +406,7 @@ const PayrollReportsPage: React.FC = () => {
                           {dept.department}
                         </h3>
                         <p className="text-sm text-[var(--text-sub)]">
-                          {dept.employees} nhân viên
+                          {dept.employees} {t('dashboard:payrollReports.stats.employees')}
                         </p>
                       </div>
                       <Badge
@@ -452,7 +452,7 @@ const PayrollReportsPage: React.FC = () => {
                 ))}
                 {!filteredDepartments.length && (
                   <p className="text-center text-sm text-[var(--text-sub)] py-6">
-                    Không tìm thấy phòng ban phù hợp
+                    {t('dashboard:payrollReports.noDepartmentsMatch')}
                   </p>
                 )}
               </div>
@@ -494,13 +494,16 @@ const PayrollReportsPage: React.FC = () => {
                 <div className="space-y-4">
                   <div className="p-6 rounded-lg bg-gradient-to-r from-[var(--primary)]/10 to-[var(--accent-cyan)]/10 border border-[var(--border)]">
                     <p className="text-sm text-[var(--text-sub)] mb-2">
-                      Tổng chi phí thực tế
+                      {t('dashboard:payrollReports.summarySection.netPayTitle')}
                     </p>
                     <p className="text-3xl text-[var(--primary)]">
                       {formatFullCurrency(currentPayroll.netPay)}
                     </p>
                     <p className="text-sm text-[var(--text-sub)] mt-2">
-                      Cho {currentPayroll.totalEmployees} nhân viên
+                      {t(
+                        'dashboard:payrollReports.summarySection.netPayForEmployees',
+                        { count: currentPayroll.totalEmployees }
+                      )}
                     </p>
                   </div>
                 </div>
@@ -512,7 +515,7 @@ const PayrollReportsPage: React.FC = () => {
 
       {loading && (
         <div className="text-center text-sm text-[var(--text-sub)]">
-          Đang tải dữ liệu...
+          {t('common:loading')}
         </div>
       )}
     </div>

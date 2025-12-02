@@ -11,10 +11,6 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Badge } from "../../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../ui/table";
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -40,6 +36,7 @@ import {
 } from "../../../services/payrollService";
 
 export default function PayrollPage() {
+  const { t } = useTranslation("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -51,7 +48,6 @@ export default function PayrollPage() {
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch departments on mount
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
@@ -65,7 +61,6 @@ export default function PayrollPage() {
     fetchDepartments();
   }, []);
 
-  // Fetch payroll data
   useEffect(() => {
     const fetchPayrollData = async () => {
       try {
@@ -82,7 +77,7 @@ export default function PayrollPage() {
         const errorMsg =
           error.response?.data?.message ||
           error.message ||
-          "Không thể tải dữ liệu bảng lương";
+          t("payroll.error");
         toast.error(errorMsg);
 
         setPayrollData([]);
@@ -111,21 +106,21 @@ export default function PayrollPage() {
 
   const exportToExcel = () => {
     const headers = [
-      "Mã NV",
-      "Họ tên",
-      "Phòng ban",
-      "Chức vụ",
-      "Ngày công",
-      "Tổng ngày",
-      "Giờ tăng ca",
-      "Ngày nghỉ",
-      "Ngày đi muộn",
-      "Lương cơ bản",
-      "Lương tăng ca",
-      "Thưởng",
-      "Khấu trừ",
-      "Tổng lương",
-      "Trạng thái",
+      t("payroll.employeeCode"),
+      t("payroll.employeeName"),
+      t("payroll.table.department"),
+      t("payroll.table.position"),
+      t("payroll.table.workDays"),
+      t("payroll.table.totalDays"),
+      t("payroll.table.overtimeHours"),
+      t("payroll.table.leaveDays"),
+      t("payroll.table.lateDays"),
+      t("payroll.table.baseSalary"),
+      t("payroll.table.overtimePay"),
+      t("payroll.table.bonus"),
+      t("payroll.table.deductions"),
+      t("payroll.table.totalSalary"),
+      t("payroll.table.status"),
     ];
 
     const csvContent = [
@@ -159,7 +154,10 @@ export default function PayrollPage() {
     const url = URL.createObjectURL(blob);
 
     link.setAttribute("href", url);
-    link.setAttribute("download", `Bangluong_${selectedMonth}.csv`);
+    link.setAttribute(
+      "download",
+      `${t("payroll.filePrefix")}_${selectedMonth}.csv`
+    );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -182,11 +180,11 @@ export default function PayrollPage() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "paid":
-        return "Đã thanh toán";
+        return t("payroll.filters.paid");
       case "approved":
-        return "Đã duyệt";
+        return t("payroll.filters.approved");
       case "pending":
-        return "Chờ duyệt";
+        return t("payroll.filters.pending");
       default:
         return status;
     }
@@ -226,11 +224,9 @@ export default function PayrollPage() {
               >
                 💰
               </motion.span>
-              <span>Bảng lương</span>
+              <span>{t("payroll.title")}</span>
             </h1>
-            <p className="text-[var(--text-sub)]">
-              Tính công và quản lý lương nhân viên
-            </p>
+            <p className="text-[var(--text-sub)]">{t("payroll.description")}</p>
           </div>
 
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -239,7 +235,7 @@ export default function PayrollPage() {
               className="bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)] hover:opacity-90 shadow-lg"
             >
               <Download className="h-4 w-4 mr-2" />
-              Xuất Excel
+              {t("payroll.export")}
             </Button>
           </motion.div>
         </div>
@@ -249,7 +245,7 @@ export default function PayrollPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Tổng nhân viên",
+            label: t("payroll.stats.totalEmployees"),
             value: stats.totalEmployees,
             color: "primary",
             icon: Users,
@@ -257,7 +253,7 @@ export default function PayrollPage() {
             delay: 0.1,
           },
           {
-            label: "Tổng quỹ lương",
+            label: t("payroll.stats.totalSalary"),
             value: stats.totalPayroll,
             color: "success",
             icon: DollarSign,
@@ -265,7 +261,7 @@ export default function PayrollPage() {
             delay: 0.2,
           },
           {
-            label: "TB lương/người",
+            label: t("payroll.stats.avgSalary"),
             value: stats.avgSalary,
             color: "accent-cyan",
             icon: TrendingUp,
@@ -273,7 +269,7 @@ export default function PayrollPage() {
             delay: 0.3,
           },
           {
-            label: "Chờ duyệt",
+            label: t("payroll.stats.pending"),
             value: stats.pendingApproval,
             color: "warning",
             icon: Clock,
@@ -338,7 +334,7 @@ export default function PayrollPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
                   <Input
-                    placeholder="Tìm kiếm theo tên hoặc mã nhân viên..."
+                    placeholder={t("payroll.searchPlaceholder")}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -354,12 +350,17 @@ export default function PayrollPage() {
                   className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
                 />
               </div>
-              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+              <Select
+                value={filterDepartment}
+                onValueChange={setFilterDepartment}
+              >
                 <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                  <SelectValue placeholder="Phòng ban" />
+                  <SelectValue placeholder={t("payroll.filters.department")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả phòng ban</SelectItem>
+                  <SelectItem value="all">
+                    {t("payroll.filters.allDepartments")}
+                  </SelectItem>
                   {departments.map((dept) => (
                     <SelectItem key={dept} value={dept}>
                       {dept}
@@ -369,13 +370,21 @@ export default function PayrollPage() {
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                  <SelectValue placeholder="Trạng thái" />
+                  <SelectValue placeholder={t("payroll.filters.status")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="pending">Chờ duyệt</SelectItem>
-                  <SelectItem value="approved">Đã duyệt</SelectItem>
-                  <SelectItem value="paid">Đã thanh toán</SelectItem>
+                  <SelectItem value="all">
+                    {t("payroll.filters.all")}
+                  </SelectItem>
+                  <SelectItem value="pending">
+                    {t("payroll.filters.pending")}
+                  </SelectItem>
+                  <SelectItem value="approved">
+                    {t("payroll.filters.approved")}
+                  </SelectItem>
+                  <SelectItem value="paid">
+                    {t("payroll.filters.paid")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -392,7 +401,7 @@ export default function PayrollPage() {
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
             <CardTitle className="text-[var(--text-main)]">
-              Chi tiết bảng lương -{" "}
+              {t("payroll.details")} -{" "}
               {new Date(selectedMonth).toLocaleDateString("vi-VN", {
                 month: "long",
                 year: "numeric",
@@ -404,17 +413,39 @@ export default function PayrollPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-[var(--border)] hover:bg-transparent">
-                    <TableHead className="text-[var(--text-sub)]">Mã NV</TableHead>
-                    <TableHead className="text-[var(--text-sub)]">Họ tên</TableHead>
-                    <TableHead className="text-[var(--text-sub)]">Phòng ban</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">Ngày công</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">Tăng ca (h)</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Lương CB</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Tăng ca</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Thưởng</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Khấu trừ</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Tổng</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">Trạng thái</TableHead>
+                    <TableHead className="text-[var(--text-sub)]">
+                      {t("payroll.employeeCode")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)]">
+                      {t("payroll.employeeName")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)]">
+                      {t("payroll.table.department")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      {t("payroll.table.workDays")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      {t("payroll.table.overtimeHours")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.baseSalary")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.overtimePay")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.bonus")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.deductions")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.totalSalary")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      {t("payroll.table.status")}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -423,7 +454,9 @@ export default function PayrollPage() {
                       <TableCell colSpan={11} className="text-center py-12">
                         <div className="flex flex-col items-center gap-4">
                           <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
-                          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+                          <p className="text-[var(--text-sub)]">
+                            {t("payroll.loading")}
+                          </p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -485,7 +518,7 @@ export default function PayrollPage() {
                 className="text-center py-12"
               >
                 <div className="text-6xl mb-4">💼</div>
-                <p className="text-[var(--text-sub)]">Không tìm thấy dữ liệu</p>
+                <p className="text-[var(--text-sub)]">{t("payroll.noData")}</p>
               </motion.div>
             )}
           </CardContent>
