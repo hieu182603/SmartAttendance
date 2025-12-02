@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { getAllRequests, approveRequest, rejectRequest } from '@/services/requestService'
+import { getAllDepartments } from '@/services/departmentService'
 import type { ErrorWithMessage } from '@/types'
 
 type RequestStatus = 'pending' | 'approved' | 'rejected'
@@ -78,6 +79,7 @@ const ApproveRequestsPage: React.FC = () => {
   const [actionType, setActionType] = useState<ActionType>(null)
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState(false)
+  const [departments, setDepartments] = useState<Array<{ _id: string; name: string }>>([])
 
   const typeLabelMap = useMemo(
     () => ({
@@ -100,15 +102,34 @@ const ApproveRequestsPage: React.FC = () => {
     [t, typeLabelMap]
   )
 
+  // Fetch departments from API
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const response = await getAllDepartments({ limit: 1000 }) // Get all departments
+        const deptList = response.departments.map((dept) => ({
+          _id: dept._id,
+          name: dept.name,
+        }))
+        setDepartments(deptList)
+      } catch (error) {
+        console.error('[ApproveRequests] Failed to load departments:', error)
+        // Fallback to empty list if API fails
+        setDepartments([])
+      }
+    }
+    loadDepartments()
+  }, [])
+
   const departmentOptions = useMemo(
     () => [
       { value: 'all', label: t('dashboard:approveRequests.filters.allDepartments') },
-      { value: 'IT', label: t('dashboard:approveRequests.departments.it') },
-      { value: 'Nhân sự', label: t('dashboard:approveRequests.departments.hr') },
-      { value: 'Kinh doanh', label: t('dashboard:approveRequests.departments.sales') },
-      { value: 'Marketing', label: t('dashboard:approveRequests.departments.marketing') },
+      ...departments.map((dept) => ({
+        value: dept.name,
+        label: dept.name,
+      })),
     ],
-    [t]
+    [t, departments]
   )
 
   const urgencyLabels = useMemo(

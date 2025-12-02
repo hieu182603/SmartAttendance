@@ -101,57 +101,57 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.PAYROLL_VIEW,
     section: 'admin',
   },
-  // Phê duyệt yêu cầu
+  // Phê duyệt yêu cầu - có thể ở manager, hr, hoặc admin
   {
     id: 'approve-requests',
     label: 'Phê duyệt yêu cầu',
     icon: CheckCircle2,
-    path: '/admin/approve-requests',
+    path: '/admin/approve-requests', // Base path, sẽ được replace theo role
     permission: Permission.REQUESTS_APPROVE_DEPARTMENT,
     section: 'admin',
   },
-  // Đánh giá hiệu suất
+  // Đánh giá hiệu suất - có thể ở manager, hr, hoặc admin
   {
     id: 'performance-review',
     label: 'Đánh giá hiệu suất',
     icon: Award,
-    path: '/admin/performance-review',
+    path: '/admin/performance-review', // Base path, sẽ được replace theo role
     permission: Permission.USERS_VIEW,
     section: 'admin',
   },
-  // Chấm công
+  // Chấm công - chỉ HR và Admin
   {
     id: 'admin-attendance',
     label: 'Quản lý chấm công',
     icon: Clock,
-    path: '/admin/admin-attendance',
+    path: '/admin/admin-attendance', // Base path, sẽ được replace theo role
     permission: Permission.ATTENDANCE_VIEW_ALL,
     section: 'admin',
   },
-  // Ca làm việc
+  // Ca làm việc - có thể ở manager, hr, hoặc admin
   {
     id: 'shifts',
     label: 'Quản lý ca làm việc',
     icon: Clock,
-    path: '/admin/shifts',
+    path: '/admin/shifts', // Base path, sẽ được replace theo role
     permission: Permission.ATTENDANCE_VIEW_DEPARTMENT,
     section: 'admin',
   },
-  // Báo cáo và thống kê
+  // Báo cáo và thống kê - chỉ HR và Admin
   {
     id: 'admin-reports',
     label: 'Báo cáo & Thống kê',
     icon: FileBarChart,
-    path: '/admin/admin-reports',
+    path: '/admin/admin-reports', // Base path, sẽ được replace theo role
     permission: Permission.VIEW_REPORTS,
     section: 'admin',
   },
-
+  // Phân tích chấm công - có thể ở manager, hr, hoặc admin
   {
     id: 'attendance-analytics',
     label: 'Phân tích chấm công',
     icon: BarChart3,
-    path: '/admin/attendance-analytics',
+    path: '/admin/attendance-analytics', // Base path, sẽ được replace theo role
     permission: Permission.ANALYTICS_VIEW_DEPARTMENT,
     section: 'admin',
   },

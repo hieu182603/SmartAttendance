@@ -33,57 +33,53 @@ export default function ProtectedRoute({
   const navigate = useNavigate()
   const [showUnauthorized, setShowUnauthorized] = useState(false)
 
+  // Get user role once to avoid repeated access
+  const userRole = user?.role as UserRoleType | undefined
+
   // Synchronously check access before rendering - prevent race condition
   const hasAccess = useMemo(() => {
     // Don't check if still loading or no user
-    if (loading || !user || !user.role) {
+    if (loading || !user || !userRole) {
       return null // Still checking
     }
 
-    // Check permission (NEW - priority)
-    if (permission && !hasPermission(permission)) {
-      return false
+    // Priority 1: Check specific permission (most granular)
+    if (permission) {
+      return hasPermission(permission)
     }
     
-    // Check multiple permissions (NEW)
+    // Priority 2: Check multiple permissions
     if (permissions && permissions.length > 0) {
-      if (requireAll) {
-        if (!hasAllPermissions(permissions)) return false
-      } else {
-        if (!hasAnyPermission(permissions)) return false
-      }
+      return requireAll 
+        ? hasAllPermissions(permissions)
+        : hasAnyPermission(permissions)
     }
 
-    // Check role-based access if specified (backward compatibility)
-    if (allowedRoles && allowedRoles.length > 0) {
-      const userRole = user.role
-      if (!allowedRoles.includes(userRole)) {
-        return false
-      }
-    }
-
-    // Check minimum role level if specified (backward compatibility)
+    // Priority 3: Check minimum role level (backward compatibility)
     if (minimumRole) {
-      if (!hasMinimumRole(minimumRole as UserRoleType)) {
-        return false
-      }
+      return hasMinimumRole(minimumRole)
     }
 
+    // Priority 4: Check allowed roles (backward compatibility)
+    if (allowedRoles && allowedRoles.length > 0) {
+      return allowedRoles.includes(userRole)
+    }
+
+    // Default: allow access if authenticated
     return true
-  }, [loading, user, allowedRoles, minimumRole, permission, permissions, requireAll, hasPermission, hasAnyPermission, hasAllPermissions, hasMinimumRole])
+  }, [loading, user, userRole, allowedRoles, minimumRole, permission, permissions, requireAll, hasPermission, hasAnyPermission, hasAllPermissions, hasMinimumRole])
 
   // Handle redirect after unauthorized access
   useEffect(() => {
-    if (hasAccess === false) {
+    if (hasAccess === false && userRole) {
       setShowUnauthorized(true)
       const timer = setTimeout(() => {
-        const userRole = user?.role as UserRoleType | undefined
-        const redirectPath = userRole ? getRoleBasePath(userRole) : '/employee'
+        const redirectPath = getRoleBasePath(userRole)
         navigate(redirectPath, { replace: true })
       }, 2000)
       return () => clearTimeout(timer)
     }
-  }, [hasAccess, user, navigate])
+  }, [hasAccess, userRole, navigate])
 
   // Not authenticated - check this FIRST to avoid showing loading screen on logout
   if (!token) {

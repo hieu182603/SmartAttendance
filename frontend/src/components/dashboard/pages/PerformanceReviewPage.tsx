@@ -40,6 +40,9 @@ import {
 } from "@/services/performanceService";
 import { getAllUsers } from "@/services/userService";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { UserRole, Permission, type UserRoleType } from "@/utils/roles";
+import RoleGuard from "@/components/RoleGuard";
 import api from "@/services/api";
 
 export default function PerformanceReviewPage() {
@@ -80,11 +83,12 @@ export default function PerformanceReviewPage() {
   });
   const [formLoading, setFormLoading] = useState(false);
 
-  // Get user role from auth context
+  // Use permissions hook instead of hardcoded role checks
   const { user } = useAuth();
-  const userRole = user?.role || "EMPLOYEE";
-  const isManager = userRole === "MANAGER";
-  const isHROrAbove = ["HR_MANAGER", "ADMIN", "SUPER_ADMIN"].includes(userRole);
+  const { hasMinimumRole, role } = usePermissions();
+  const userRole = (role || user?.role || UserRole.EMPLOYEE) as UserRoleType;
+  const isManager = hasMinimumRole(UserRole.MANAGER) && userRole === UserRole.MANAGER;
+  const isHROrAbove = hasMinimumRole(UserRole.HR_MANAGER);
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -108,7 +112,7 @@ export default function PerformanceReviewPage() {
       console.error("Error fetching employees:", error);
       setEmployees([]);
     }
-  }, [isManager]);
+  }, [isManager, t]);
 
   const fetchAvailablePeriods = useCallback(async () => {
     try {
@@ -135,7 +139,7 @@ export default function PerformanceReviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterPeriod, filterStatus]);
+  }, [filterPeriod, filterStatus, searchQuery, t]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -149,12 +153,12 @@ export default function PerformanceReviewPage() {
   useEffect(() => {
     fetchEmployees();
     fetchAvailablePeriods();
-  }, []);
+  }, [fetchEmployees, fetchAvailablePeriods]);
 
   useEffect(() => {
     fetchReviews();
     fetchStats();
-  }, [filterPeriod, filterStatus]);
+  }, [filterPeriod, filterStatus, fetchReviews, fetchStats]);
 
   // Search with debounce
   useEffect(() => {
@@ -186,11 +190,11 @@ export default function PerformanceReviewPage() {
   const getStatusText = useCallback((status: string) => {
     switch (status) {
       case "completed":
-        return "Hoàn thành";
+        return t('dashboard:performanceReview.status.completed');
       case "pending":
-        return "Chờ đánh giá";
+        return t('dashboard:performanceReview.status.pending');
       case "rejected":
-        return "Bị từ chối";
+        return t('dashboard:performanceReview.status.rejected');
 
     }
   }, []);
@@ -246,10 +250,10 @@ export default function PerformanceReviewPage() {
     try {
       if (selectedReview) {
         await performanceService.updateReview(selectedReview._id, formData);
-        toast.success("Cập nhật đánh giá thành công");
+        toast.success(t('dashboard:performanceReview.success.updateSuccess'));
       } else {
         await performanceService.createReview(formData);
-        toast.success("Tạo đánh giá thành công");
+        toast.success(t('dashboard:performanceReview.success.createSuccess'));
       }
       fetchReviews();
       fetchStats();
@@ -304,7 +308,7 @@ export default function PerformanceReviewPage() {
   };
 
   const handleReject = async (review: PerformanceReview) => {
-    const reason = prompt("Nhập lý do reject:");
+    const reason = prompt(t('dashboard:performanceReview.dialog.rejectPrompt'));
     if (!reason || reason.trim() === "") {
       toast.error(t('dashboard:performanceReview.errors.rejectReason'));
       return;
@@ -312,7 +316,7 @@ export default function PerformanceReviewPage() {
 
     try {
       await performanceService.rejectReview(review._id, reason);
-      toast.success("Đã reject đánh giá");
+      toast.success(t('dashboard:performanceReview.success.rejectSuccess'));
       fetchReviews();
       fetchStats();
     } catch (error) {
@@ -330,12 +334,12 @@ export default function PerformanceReviewPage() {
           </h1>
           <p className="text-[var(--text-sub)] mt-2 select-none">
             {isManager
-              ? "Tạo và gửi đánh giá hiệu suất cho nhân viên"
+              ? t('dashboard:performanceReview.actions.createAndSend')
               : t('dashboard:performanceReview.description')}
           </p>
         </div>
         <div className="flex gap-2">
-          {isHROrAbove && (
+          <RoleGuard permission={Permission.VIEW_REPORTS} fallback={null}>
             <Button
               variant="outline"
               onClick={handleExport}
@@ -344,13 +348,13 @@ export default function PerformanceReviewPage() {
               <Download className="h-4 w-4 mr-2" />
               Xuất báo cáo
             </Button>
-          )}
+          </RoleGuard>
           <Button
             onClick={handleCreateReview}
             className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
-            {isManager ? "Tạo đánh giá" : "Tạo đánh giá"}
+            {t('dashboard:performanceReview.actions.create')}
           </Button>
         </div>
       </div>
@@ -463,7 +467,7 @@ export default function PerformanceReviewPage() {
             </div>
             <Select value={filterPeriod} onValueChange={setFilterPeriod}>
               <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                <SelectValue placeholder="Kỳ đánh giá" />
+                <SelectValue placeholder={t('dashboard:performanceReview.dialog.period')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả kỳ</SelectItem>
@@ -532,12 +536,25 @@ export default function PerformanceReviewPage() {
                             {getStatusText(review.status)}
                           </Badge>
 
-                          {/* Action Buttons */}
-                          {(isHROrAbove ||
-                            (isManager &&
-                              ["draft", "pending", "rejected"].includes(
-                                review.status
-                              ))) ? (
+                          {/* Action Buttons - Use RoleGuard for permission checks */}
+                          <RoleGuard
+                            permission={
+                              review.status === "pending"
+                                ? Permission.REQUESTS_APPROVE_ALL
+                                : Permission.USERS_UPDATE
+                            }
+                            fallback={
+                              <Button
+                                onClick={() => handleOpenReview(review)}
+                                variant="outline"
+                                size="sm"
+                                className="border-[var(--border)] text-[var(--text-main)]"
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Xem
+                              </Button>
+                            }
+                          >
                             <Button
                               onClick={() => handleOpenReview(review)}
                               variant="outline"
@@ -545,33 +562,26 @@ export default function PerformanceReviewPage() {
                               className="border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
                             >
                               <Edit className="h-4 w-4 mr-1" />
-                              {review.status === "pending" && isHROrAbove
-                                ? "Phê duyệt"
-                                : "Sửa"}
+                              {review.status === "pending" ? t('dashboard:performanceReview.actions.approve') : t('dashboard:performanceReview.actions.edit')}
                             </Button>
-                          ) : (
-                            <Button
-                              onClick={() => handleOpenReview(review)}
-                              variant="outline"
-                              size="sm"
-                              className="border-[var(--border)] text-[var(--text-main)]"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Xem
-                            </Button>
-                          )}
+                          </RoleGuard>
 
-                          {isHROrAbove && review.status === "pending" && (
-                            <Button
-                              onClick={() => handleReject(review)}
-                              variant="outline"
-                              size="sm"
-                              className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Từ chối
-                            </Button>
-                          )}
+                          <RoleGuard
+                            permission={Permission.REQUESTS_APPROVE_ALL}
+                            fallback={null}
+                          >
+                            {review.status === "pending" && (
+                              <Button
+                                onClick={() => handleReject(review)}
+                                variant="outline"
+                                size="sm"
+                                className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Từ chối
+                              </Button>
+                            )}
+                          </RoleGuard>
                         </div>
                       </div>
 
@@ -619,14 +629,14 @@ export default function PerformanceReviewPage() {
                                   </div>
                                   <div className="text-xs text-[var(--text-sub)] mt-1 select-none">
                                     {key === "technical"
-                                      ? "Kỹ thuật"
+                                      ? t('dashboard:performanceReview.categories.technical')
                                       : key === "communication"
-                                        ? "Giao tiếp"
+                                        ? t('dashboard:performanceReview.categories.communication')
                                         : key === "teamwork"
-                                          ? "Teamwork"
+                                          ? t('dashboard:performanceReview.categories.teamwork')
                                           : key === "leadership"
-                                            ? "Lãnh đạo"
-                                            : "Giải quyết"}
+                                            ? t('dashboard:performanceReview.categories.leadership')
+                                            : t('dashboard:performanceReview.categories.problemSolving')}
                                   </div>
                                 </div>
                               )
@@ -705,7 +715,7 @@ export default function PerformanceReviewPage() {
             <div className="sticky top-0 bg-gradient-to-r from-[var(--primary)]/10 to-[var(--accent-cyan)]/10 border-b border-[var(--border)] p-6 flex items-start justify-between backdrop-blur-sm z-10">
               <div className="flex-1">
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent select-none">
-                  {selectedReview ? "Chỉnh sửa đánh giá" : "Tạo đánh giá mới"}
+                  {selectedReview ? t('dashboard:performanceReview.dialog.editTitle') : t('dashboard:performanceReview.dialog.createTitle')}
                 </h2>
                 {selectedReview && (
                   <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-[var(--text-sub)] select-none">
@@ -733,7 +743,7 @@ export default function PerformanceReviewPage() {
                     ) : (
                       <Select value={formData.employeeId || undefined} onValueChange={(value) => setFormData({ ...formData, employeeId: value })}>
                         <SelectTrigger className="bg-[var(--surface)] border-[var(--border)]">
-                          <SelectValue placeholder="Chọn nhân viên" />
+                          <SelectValue placeholder={t('dashboard:performanceReview.dialog.selectEmployee')} />
                         </SelectTrigger>
                         <SelectContent>
                           {employees.map((emp) => (
@@ -747,7 +757,7 @@ export default function PerformanceReviewPage() {
                     <Label className="text-[var(--text-main)] mb-2 block">Kỳ đánh giá</Label>
                     <Select value={formData.period} onValueChange={(value) => setFormData({ ...formData, period: value })}>
                       <SelectTrigger className="bg-[var(--surface)] border-[var(--border)]">
-                        <SelectValue placeholder="Chọn kỳ đánh giá" />
+                        <SelectValue placeholder={t('dashboard:performanceReview.dialog.selectPeriod')} />
                       </SelectTrigger>
                       <SelectContent>
                         {generatePeriodOptions().map((option) => (
@@ -768,13 +778,13 @@ export default function PerformanceReviewPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Nháp</SelectItem>
-                    <SelectItem value="pending">{isManager ? "Gửi đánh giá" : "Chờ phê duyệt"}</SelectItem>
-                    {isHROrAbove && (
+                    <SelectItem value="pending">{isManager ? t('dashboard:performanceReview.actions.submit') : t('dashboard:performanceReview.actions.waitingApproval')}</SelectItem>
+                    <RoleGuard permission={Permission.REQUESTS_APPROVE_ALL} fallback={null}>
                       <>
                         <SelectItem value="completed">Hoàn thành</SelectItem>
                         <SelectItem value="rejected">Từ chối</SelectItem>
                       </>
-                    )}
+                    </RoleGuard>
                   </SelectContent>
                 </Select>
               </div>
@@ -815,16 +825,16 @@ export default function PerformanceReviewPage() {
                 <Textarea
                   value={formData.comments}
                   onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
-                  placeholder="Nhập nhận xét chung..."
+                  placeholder={t('dashboard:performanceReview.dialog.generalNotesPlaceholder')}
                   className="bg-[var(--surface)] border-[var(--border)] min-h-[120px]"
                 />
               </div>
 
               {/* Actions */}
               <div className="flex gap-3 justify-end pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Hủy</Button>
+                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>{t('dashboard:performanceReview.dialog.cancel')}</Button>
                 <Button type="submit" disabled={formLoading} className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white">
-                  {formLoading ? "Đang lưu..." : selectedReview ? "Cập nhật" : "Tạo mới"}
+                  {formLoading ? t('dashboard:performanceReview.actions.saving') : selectedReview ? t('dashboard:performanceReview.actions.update') : t('dashboard:performanceReview.actions.createNew')}
                 </Button>
               </div>
             </form>

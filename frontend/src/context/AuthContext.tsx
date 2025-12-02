@@ -37,9 +37,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         const me = await getMe()
         setUser(me)
+        // Update role in localStorage when user data is refreshed
+        if (me?.role) {
+          localStorage.setItem('sa_user_role', me.role)
+        }
       } catch (e) {
         // Token invalid or expired - clear auth state
         localStorage.removeItem('sa_token')
+        localStorage.removeItem('sa_user_role')
         setToken('')
         setUser(null)
       } finally {
@@ -57,11 +62,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const data = await loginApi({ email, password })
     setToken(data.token)
     setUser(data.user)
+    // Store user role in localStorage for API interceptor to use
+    if (data.user?.role) {
+      localStorage.setItem('sa_user_role', data.user.role)
+    }
     return data
   }
 
   const logout = () => {
     localStorage.removeItem('sa_token')
+    localStorage.removeItem('sa_user_role')
     setToken('')
     setUser(null)
     setLoading(false) 

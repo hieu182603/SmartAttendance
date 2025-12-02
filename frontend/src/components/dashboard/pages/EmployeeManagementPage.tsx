@@ -127,10 +127,10 @@ const getStatusBadge = (status?: boolean | string, t?: (key: string) => string):
 }
 
 // Helper function để lấy tên phòng ban
-const getDepartmentName = (department?: string | { _id: string; name: string; code?: string }): string => {
-  if (!department) return 'N/A'
+const getDepartmentName = (department?: string | { _id: string; name: string; code?: string }, t?: (key: string) => string): string => {
+  if (!department) return t ? t('dashboard:employeeManagement.editDialog.noDepartment') : 'N/A'
   if (typeof department === 'string') return department
-  return department.name || 'N/A'
+  return department.name || (t ? t('dashboard:employeeManagement.editDialog.noDepartment') : 'N/A')
 }
 
 // Helper function để lấy department ID (cho form)
@@ -320,7 +320,7 @@ const EmployeeManagementPage: React.FC = () => {
     } catch (error) {
       console.error('[EmployeeManagement] delete error:', error)
       const err = error as ErrorWithMessage
-      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể vô hiệu hóa nhân viên'
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.disableError')
       toast.error(errorMessage)
     }
   }
@@ -334,13 +334,13 @@ const EmployeeManagementPage: React.FC = () => {
     if (!formData.name || formData.name.trim().length === 0) {
       errors.name = t('dashboard:employeeManagement.validation.nameRequired')
     } else if (formData.name.trim().length < 2) {
-      errors.name = 'Tên phải có ít nhất 2 ký tự'
+      errors.name = t('dashboard:employeeManagement.validation.nameMinLength')
     }
 
     if (!formData.email || formData.email.trim().length === 0) {
       errors.email = t('dashboard:employeeManagement.validation.emailRequired')
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Email không hợp lệ'
+      errors.email = t('dashboard:employeeManagement.validation.emailInvalid')
     }
 
     if (!formData.role) {
@@ -349,7 +349,7 @@ const EmployeeManagementPage: React.FC = () => {
 
     if (formData.phone && formData.phone.trim().length > 0) {
       if (!/^[0-9]{10,11}$/.test(formData.phone.replace(/\s/g, ''))) {
-        errors.phone = 'Số điện thoại phải có 10-11 chữ số'
+        errors.phone = t('dashboard:employeeManagement.validation.phoneInvalid')
       }
     }
 
@@ -393,7 +393,7 @@ const EmployeeManagementPage: React.FC = () => {
       }
       
       // Hiển thị error message từ backend hoặc message mặc định
-      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Không thể cập nhật thông tin'
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.updateError')
       toast.error(errorMessage)
     }
   }
@@ -584,13 +584,13 @@ const EmployeeManagementPage: React.FC = () => {
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm text-[var(--text-main)] truncate">{user.name || 'N/A'}</p>
+                              <p className="text-sm text-[var(--text-main)] truncate">{user.name || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{user.email || 'N/A'}</td>
-                        <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getDepartmentName(user.department)}</td>
-                        <td className="py-2 px-3">{getRoleBadge(user.role)}</td>
+                        <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{user.email || t('dashboard:employeeManagement.viewDialog.notAvailable')}</td>
+                        <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getDepartmentName(user.department, t)}</td>
+                        <td className="py-2 px-3">{getRoleBadge(user.role, t)}</td>
                         <td className="py-2 px-3">{getStatusBadge(user.isActive, t)}</td>
                         <td className="py-2 px-3">
                           <div className="flex items-center justify-center space-x-1">
@@ -721,7 +721,7 @@ const EmployeeManagementPage: React.FC = () => {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="text-xl text-[var(--text-main)]">{selectedUser.name || 'N/A'}</h3>
+                  <h3 className="text-xl text-[var(--text-main)]">{selectedUser.name || t('dashboard:employeeManagement.viewDialog.notAvailable')}</h3>
                   <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.id')} {selectedUser._id || selectedUser.id}</p>
                   {getStatusBadge(selectedUser.isActive, t)}
                 </div>
@@ -732,24 +732,24 @@ const EmployeeManagementPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.email')}</Label>
-                  <p className="text-[var(--text-main)] mt-1">{selectedUser.email || 'N/A'}</p>
+                  <p className="text-[var(--text-main)] mt-1">{selectedUser.email || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
                 </div>
                 <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.department')}</Label>
-                  <p className="text-[var(--text-main)] mt-1">{getDepartmentName(selectedUser.department)}</p>
+                  <p className="text-[var(--text-main)] mt-1">{getDepartmentName(selectedUser.department, t)}</p>
                 </div>
                 <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.role')}</Label>
-                  <div className="mt-1">{getRoleBadge(selectedUser.role)}</div>
+                  <div className="mt-1">{getRoleBadge(selectedUser.role, t)}</div>
                 </div>
                 <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.phone')}</Label>
-                  <p className="text-[var(--text-main)] mt-1">{selectedUser.phone || 'N/A'}</p>
+                  <p className="text-[var(--text-main)] mt-1">{selectedUser.phone || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
                 </div>
                 <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.createdAt')}</Label>
                   <p className="text-[var(--text-main)] mt-1">
-                    {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                    {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('vi-VN') : t('dashboard:employeeManagement.viewDialog.notAvailable')}
                   </p>
                 </div>
                 <div>
@@ -792,7 +792,7 @@ const EmployeeManagementPage: React.FC = () => {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.fullName')} <span className="text-red-500">*</span></Label>
                 <Input
-                  placeholder="Nguyễn Văn A"
+                  placeholder={t('dashboard:employeeManagement.form.namePlaceholder')}
                   className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.name ? 'border-red-500' : ''}`}
                   value={formData.name}
                   onChange={(e) => {
@@ -811,7 +811,7 @@ const EmployeeManagementPage: React.FC = () => {
                 <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.email')} <span className="text-red-500">*</span></Label>
                 <Input
                   type="email"
-                  placeholder="email@company.com"
+                  placeholder={t('dashboard:employeeManagement.form.emailPlaceholder')}
                   className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.email ? 'border-red-500' : ''}`}
                   value={formData.email}
                   onChange={(e) => {
@@ -829,7 +829,7 @@ const EmployeeManagementPage: React.FC = () => {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.phone')}</Label>
                 <Input
-                  placeholder="0123456789"
+                  placeholder={t('dashboard:employeeManagement.form.phonePlaceholder')}
                   className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.phone ? 'border-red-500' : ''}`}
                   value={formData.phone}
                   onChange={(e) => {
@@ -859,7 +859,7 @@ const EmployeeManagementPage: React.FC = () => {
                     <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectDepartment')} />
                   </SelectTrigger>
                   <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
-                    <SelectItem value="">N/A</SelectItem>
+                    <SelectItem value="">{t('dashboard:employeeManagement.editDialog.noDepartment')}</SelectItem>
                     {departments.map((dept) => (
                       <SelectItem key={dept._id} value={dept._id}>
                         {dept.name} ({dept.code})
@@ -985,9 +985,9 @@ const EmployeeManagementPage: React.FC = () => {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-[var(--text-main)]">{selectedUser.name || 'N/A'}</p>
-                  <p className="text-sm text-[var(--text-sub)]">{selectedUser.email || 'N/A'}</p>
-                  <p className="text-xs text-[var(--text-sub)]">{getDepartmentName(selectedUser.department)}</p>
+                  <p className="text-[var(--text-main)]">{selectedUser.name || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
+                  <p className="text-sm text-[var(--text-sub)]">{selectedUser.email || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
+                  <p className="text-xs text-[var(--text-sub)]">{getDepartmentName(selectedUser.department, t)}</p>
                 </div>
               </div>
               <p className="text-red-500 text-sm mt-4">

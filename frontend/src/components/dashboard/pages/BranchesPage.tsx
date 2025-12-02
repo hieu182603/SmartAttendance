@@ -225,7 +225,7 @@ export function BranchesPage() {
         latitude: '',
         longitude: '',
         city: '',
-        country: 'Việt Nam',
+        country: '',
         phone: '',
         email: '',
         managerId: '',
@@ -658,7 +658,7 @@ export function BranchesPage() {
             <div className="space-y-2">
               <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.name')} *</Label>
               <Input
-                placeholder="Ví dụ: Chi nhánh Hà Nội"
+                placeholder={t('dashboard:branches.dialog.namePlaceholder')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -668,7 +668,7 @@ export function BranchesPage() {
             <div className="space-y-2">
               <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.code')} *</Label>
               <Input
-                placeholder="Ví dụ: HN"
+                placeholder={t('dashboard:branches.dialog.codePlaceholder')}
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -677,12 +677,12 @@ export function BranchesPage() {
 
             <div className="space-y-2">
               <Label className="text-[var(--text-main)]">
-                Vĩ độ (Latitude) *
+                {t('dashboard:branches.dialog.latitude')} *
               </Label>
               <Input
                 type="number"
                 step="any"
-                placeholder="Ví dụ: 21.0285"
+                placeholder={t('dashboard:branches.dialog.latitudePlaceholder')}
                 value={formData.latitude}
                 onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -691,12 +691,12 @@ export function BranchesPage() {
 
             <div className="space-y-2">
               <Label className="text-[var(--text-main)]">
-                Kinh độ (Longitude) *
+                {t('dashboard:branches.dialog.longitude')} *
               </Label>
               <Input
                 type="number"
                 step="any"
-                placeholder="Ví dụ: 105.8542"
+                placeholder={t('dashboard:branches.dialog.longitudePlaceholder')}
                 value={formData.longitude}
                 onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -706,7 +706,7 @@ export function BranchesPage() {
             <div className="space-y-2">
               <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.city')} *</Label>
               <Input
-                placeholder="Ví dụ: Hà Nội"
+                placeholder={t('dashboard:branches.dialog.cityPlaceholder')}
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -716,7 +716,7 @@ export function BranchesPage() {
             <div className="space-y-2">
               <Label className="text-[var(--text-main)]">{t('dashboard:branches.dialog.country')} *</Label>
               <Input
-                placeholder="Việt Nam"
+                placeholder={t('dashboard:branches.dialog.countryPlaceholder')}
                 value={formData.country}
                 onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -820,7 +820,7 @@ export function BranchesPage() {
                       ? 'bg-[var(--success)]/20 text-[var(--success)]'
                       : 'bg-[var(--error)]/20 text-[var(--error)]'
                       }`}>
-                      {selectedBranch.status === 'active' ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                      {selectedBranch.status === 'active' ? t('dashboard:branches.dialog.status.active') : t('dashboard:branches.dialog.status.inactive')}
                     </Badge>
                   </div>
                 </div>
