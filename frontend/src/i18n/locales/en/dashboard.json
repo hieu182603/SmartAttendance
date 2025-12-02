@@ -47,7 +47,8 @@
       "cameraAccess": "Unable to access camera. Please check permissions.",
       "waitOneHour": "Please wait at least 1 hour after check-in",
       "checkInError": "An error occurred during check-in",
-      "checkOutError": "An error occurred during check-out"
+      "checkOutError": "An error occurred during check-out",
+      "captureFailed": "Failed to capture photo"
     },
     "success": {
       "checkInSuccess": "Check-in successful!",
@@ -264,17 +265,39 @@
     "types": {
       "leave": "Leave",
       "overtime": "Overtime",
-      "correction": "Correction"
-    },
-    "dialog": {
-      "selectType": "Select request type",
-      "startDate": "From date",
-      "endDate": "To date",
-      "reasonPlaceholder": "Enter detailed reason..."
+      "correction": "Correction",
+      "remote": "Remote"
     },
     "loading": "Loading requests...",
     "noRequests": "No requests",
     "totalRequests": "Total requests",
+    "urgency": {
+      "high": "Urgent",
+      "medium": "Normal",
+      "low": "Not urgent"
+    },
+    "filters": {
+      "searchPlaceholder": "Search by employee name or title...",
+      "typePlaceholder": "Request type",
+      "allTypes": "All types",
+      "departmentPlaceholder": "Department",
+      "allDepartments": "All departments"
+    },
+    "dialog": {
+      "title": "Create New Request",
+      "description": "Fill in detailed information for your request",
+      "selectType": "Select request type",
+      "startDate": "From date",
+      "endDate": "To date",
+      "reasonPlaceholder": "Enter detailed reason...",
+      "submit": "Submit Request",
+      "submitting": "Submitting..."
+    },
+    "success": {
+      "createSuccess": "Request submitted successfully!",
+      "loadError": "Failed to load requests",
+      "createError": "Failed to submit request"
+    },
     "errors": {
       "fillAllFields": "Please fill in all required information"
     }
@@ -293,7 +316,31 @@
       "totalHours": "Total Hours",
       "performance": "Performance",
       "avgHours": "Avg Hours/Day",
-      "streak": "Day Streak"
+      "streak": "Day Streak",
+      "streakDays": "days",
+      "performanceMessages": {
+        "excellent": "Excellent!",
+        "veryGood": "Very Good",
+        "good": "Good",
+        "needsImprovement": "Needs Improvement"
+      },
+      "streakMessages": {
+        "keepGoing": "Keep it up!",
+        "startNew": "Start a new streak!"
+      }
+    },
+    "defaults": {
+      "location": "Main Office",
+      "team": "Dev Team",
+      "shiftName": "Full time"
+    },
+    "notes": {
+      "title": "Notes",
+      "sample": {
+        "teamMeeting": "Team meeting 9:00 AM",
+        "codeReview": "Code review 2:00 PM",
+        "submitReport": "Submit report 5:00 PM"
+      }
     },
     "todayShift": "Today's Shift",
     "timeRemaining": "Remaining",
@@ -567,9 +614,21 @@
     "departments": {
       "all": "All Departments"
     },
+    "exportLoading": "📥 Exporting analytics report...",
+    "exportSuccess": "Report exported successfully!",
+    "exportError": "Failed to export report",
     "error": "Failed to load analytics data",
+    "loading": "Loading data...",
     "trend": "Trend",
     "comparedToLastWeek": "Compared to last week",
+    "perDayUnit": "days/day",
+    "departmentDetails": "Department Details",
+    "summary": {
+      "avgPresentLabel": "Average {{present}}/{{total}} employees"
+    },
+    "topPerformersSection": {
+      "avgCheckInLabel": "Average check-in time"
+    },
     "attendanceRateLabel": "Attendance Rate",
     "departmentComparison": "Department Comparison",
     "departmentDetails": "Department Details",
@@ -701,11 +760,17 @@
     },
     "actions": {
       "create": "Create Review",
+      "createAndSend": "Create and send performance review for employees",
       "edit": "Edit",
       "view": "View",
       "approve": "Approve",
       "reject": "Reject",
-      "export": "Export Report"
+      "export": "Export Report",
+      "submit": "Submit Review",
+      "waitingApproval": "Waiting for Approval",
+      "saving": "Saving...",
+      "update": "Update",
+      "createNew": "Create New"
     },
     "dialog": {
       "viewTitle": "Review Details",
@@ -717,8 +782,10 @@
       "overallScore": "Overall Score",
       "notes": "Notes",
       "notesPlaceholder": "Notes or comments for this review...",
+      "generalNotesPlaceholder": "Enter general comments...",
       "rejectReason": "Rejection Reason",
       "rejectPlaceholder": "Enter rejection reason...",
+      "rejectPrompt": "Enter reject reason:",
       "save": "Save Review",
       "cancel": "Cancel",
       "close": "Close",
@@ -747,12 +814,22 @@
       "name": "Branch Name",
       "namePlaceholder": "Example: Hanoi Branch",
       "code": "Branch Code",
-      "codePlaceholder": "Example: HN001",
+      "codePlaceholder": "Example: HN",
+      "latitude": "Latitude",
+      "latitudePlaceholder": "Example: 21.0285",
+      "longitude": "Longitude",
+      "longitudePlaceholder": "Example: 105.8542",
       "city": "City",
+      "cityPlaceholder": "Example: Hanoi",
       "country": "Country",
+      "countryPlaceholder": "Vietnam",
       "phone": "Phone",
       "email": "Email",
       "manager": "Manager",
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
       "selectManager": "Select Manager",
       "status": "Status",
       "active": "Active",
@@ -841,6 +918,7 @@
       "addTitle": "Add New Department",
       "editTitle": "Edit Department",
       "name": "Department Name",
+      "code": "Department Code",
       "description": "Description",
       "descriptionPlaceholder": "Describe the department...",
       "branch": "Branch",
@@ -883,7 +961,9 @@
     "title": "Reports & Statistics",
     "description": "Detailed attendance analysis",
     "export": "Export Report",
+    "exportLoading": "📥 Exporting report...",
     "exportSuccess": "Report exported successfully!",
+    "exportError": "Failed to export report",
     "timeRange": {
       "week": "This Week",
       "month": "This Month",
@@ -899,10 +979,13 @@
     "charts": {
       "trend": "6-Month Trend",
       "department": "By Department",
+      "departmentDistribution": "Department Distribution",
       "employeeDetail": "Employee Details",
       "overtime": "Overtime Statistics",
+      "overtimeStats": "Overtime Statistics",
       "overtimeHours": "Overtime Hours",
       "topPerformers": "Top Performers",
+      "topEmployees": "Top Employees",
       "attendanceRate": "Attendance Rate"
     },
     "departmentDetailsTitle": "Department Details",
@@ -1159,7 +1242,8 @@
       "phone": "Phone Number",
       "createdAt": "Created Date",
       "status": "Status",
-      "close": "Close"
+      "close": "Close",
+      "notAvailable": "N/A"
     },
     "editDialog": {
       "title": "Edit Employee Information",
@@ -1171,14 +1255,20 @@
       "phone": "Phone Number",
       "department": "Department",
       "selectDepartment": "Select Department",
+      "noDepartment": "N/A",
       "role": "Role",
       "selectRole": "Select Role",
       "accountStatus": "Account Status",
       "selectStatus": "Select Status",
-      "roleChangeWarning": "Only Admin and Super Admin can change roles",
-      "inactiveWarning": "Employee will not be able to login when account is disabled",
+      "roleChangeWarning": "⚠️ Only Admin and Super Admin can change roles",
+      "inactiveWarning": "⚠️ Employee will not be able to login when account is disabled",
       "cancel": "Cancel",
       "update": "Update"
+    },
+    "form": {
+      "namePlaceholder": "Enter full name",
+      "emailPlaceholder": "Enter email",
+      "phonePlaceholder": "Enter phone number"
     },
     "deleteDialog": {
       "title": "Confirm Disable Employee",

@@ -278,10 +278,10 @@ export function DepartmentsPage() {
     };
 
     const handleDelete = async (department: Department) => {
-        if (confirm(`Bạn có chắc muốn xóa phòng ban "${department.name}"?`)) {
+        if (confirm(t('dashboard:departments.delete.confirm', { name: department.name }))) {
             try {
                 await deleteDepartment(department._id || department.id);
-                toast.success(`Đã xóa phòng ban ${department.name}`);
+                toast.success(t('dashboard:departments.delete.success', { name: department.name }));
                 await loadDepartments();
                 await loadStats();
             } catch (error: any) {
@@ -610,7 +610,7 @@ export function DepartmentsPage() {
                             {dialogMode === 'create' ? t('dashboard:departments.dialog.addTitle') : t('dashboard:departments.dialog.editTitle')}
                         </DialogTitle>
                         <DialogDescription className="text-[var(--text-sub)]">
-                            {dialogMode === 'create' ? 'Điền thông tin phòng ban mới' : 'Cập nhật thông tin phòng ban'}
+                            {dialogMode === 'create' ? t('dashboard:departments.dialog.createDescription') : t('dashboard:departments.dialog.editDescription')}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -618,7 +618,7 @@ export function DepartmentsPage() {
                         <div className="space-y-2">
                             <Label className="text-[var(--text-main)]">{t('dashboard:departments.dialog.name')} *</Label>
                             <Input
-                                placeholder="Ví dụ: Công nghệ thông tin"
+                                placeholder={t('dashboard:departments.dialog.namePlaceholder')}
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -626,9 +626,9 @@ export function DepartmentsPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-[var(--text-main)]">Mã phòng ban *</Label>
+                            <Label className="text-[var(--text-main)]">{t('dashboard:departments.dialog.code')} *</Label>
                             <Input
-                                placeholder="Ví dụ: IT"
+                                placeholder={t('dashboard:departments.dialog.codePlaceholder')}
                                 value={formData.code}
                                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -636,9 +636,9 @@ export function DepartmentsPage() {
                         </div>
 
                         <div className="space-y-2 col-span-2">
-                            <Label className="text-[var(--text-main)]">Mô tả</Label>
+                            <Label className="text-[var(--text-main)]">{t('dashboard:departments.dialog.description')}</Label>
                             <Textarea
-                                placeholder="Mô tả về phòng ban..."
+                                placeholder={t('dashboard:departments.dialog.descriptionPlaceholder')}
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -786,7 +786,7 @@ export function DepartmentsPage() {
 
                                 <div className="flex flex-col items-center text-center p-3 rounded-lg bg-[var(--shell)] mt-4">
                                     <Briefcase className="h-8 w-8 text-[var(--warning)] mb-2" />
-                                    <p className="text-sm text-[var(--text-sub)]">Mã phòng ban</p>
+                                    <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departments.dialog.code')}</p>
                                     <p className="text-[var(--text-main)] font-medium mt-1">{selectedDepartment.code}</p>
                                 </div>
 

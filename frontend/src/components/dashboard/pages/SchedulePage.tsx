@@ -95,7 +95,7 @@ const SchedulePage: React.FC = () => {
         }
 
         const fullTimeShift =
-          availableShifts.find((s: any) => s.name === "Full time") ||
+          availableShifts.find((s: any) => s.name === t('dashboard:schedule.defaults.shiftName')) ||
           availableShifts[0];
 
         if (!fullTimeShift) {
@@ -219,8 +219,8 @@ const SchedulePage: React.FC = () => {
                 breakDuration: fullTimeShift.breakDuration || 60,
               },
               status,
-              location: attendance?.location || "Văn phòng chính",
-              team: "Dev Team",
+              location: attendance?.location || t('dashboard:schedule.defaults.location'),
+              team: t('dashboard:schedule.defaults.team'),
               notes: fullTimeShift.description,
               attendanceRecord: attendance,
             });
@@ -1137,10 +1137,10 @@ const SchedulePage: React.FC = () => {
               {(() => {
                 // Calculate on-time rate from month data
                 const onTimeRate = stats.onTimeRate;
-                let onTimeMessage = "Xuất sắc!";
-                if (onTimeRate < 50) onTimeMessage = "Cần cải thiện";
-                else if (onTimeRate < 80) onTimeMessage = "Tốt";
-                else if (onTimeRate < 95) onTimeMessage = "Rất tốt";
+                let onTimeMessage = t('dashboard:schedule.stats.performanceMessages.excellent');
+                if (onTimeRate < 50) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.needsImprovement');
+                else if (onTimeRate < 80) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.good');
+                else if (onTimeRate < 95) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.veryGood');
 
                 // Calculate current streak (consecutive days with attendance)
                 let currentStreak = 0;
@@ -1190,7 +1190,7 @@ const SchedulePage: React.FC = () => {
                           {t('dashboard:schedule.stats.streak')}: {currentStreak} {t('dashboard:schedule.streakDays')}
                         </p>
                         <p className="text-xs text-[var(--text-sub)]">
-                          {currentStreak > 0 ? "Giữ vững phong độ!" : "Bắt đầu streak mới!"}
+                          {currentStreak > 0 ? t('dashboard:schedule.stats.streakMessages.keepGoing') : t('dashboard:schedule.stats.streakMessages.startNew')}
                         </p>
                       </div>
                     </div>

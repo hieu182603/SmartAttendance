@@ -266,7 +266,7 @@ console.error("Error accessing camera:", error);
     try {
       const photoData = capturePhoto();
       if (!photoData) {
-        throw new Error("Không thể chụp ảnh");
+        throw new Error(t('dashboard:scan.errors.captureFailed'));
       }
 
       const formData = new FormData();
@@ -328,7 +328,7 @@ console.error("Error accessing camera:", error);
     try {
       const photoData = capturePhoto();
       if (!photoData) {
-        throw new Error("Không thể chụp ảnh");
+        throw new Error(t('dashboard:scan.errors.captureFailed'));
       }
 
       const formData = new FormData();

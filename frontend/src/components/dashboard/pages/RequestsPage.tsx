@@ -92,12 +92,7 @@ interface TypeIconLabel {
   label: string;
 }
 
-const FALLBACK_REQUEST_TYPES: RequestTypeOption[] = [
-  { value: "leave", label: "Nghỉ phép" },
-  { value: "overtime", label: "Tăng ca" },
-  { value: "remote", label: "Remote" },
-  { value: "correction", label: "Sửa công" },
-];
+// FALLBACK_REQUEST_TYPES will be created with i18n in component
 
 const RequestsPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common']);
@@ -131,6 +126,14 @@ const RequestsPage: React.FC = () => {
     limit: 20,
     totalPages: 0,
   });
+
+  // Fallback request types with i18n
+  const FALLBACK_REQUEST_TYPES: RequestTypeOption[] = [
+    { value: "leave", label: t('dashboard:requests.types.leave') },
+    { value: "overtime", label: t('dashboard:requests.types.overtime') },
+    { value: "remote", label: t('dashboard:requests.types.remote') },
+    { value: "correction", label: t('dashboard:requests.types.correction') },
+  ];
 
   // Fetch request types and departments
   useEffect(() => {
@@ -236,7 +239,7 @@ const RequestsPage: React.FC = () => {
         }
       } catch (error) {
         const err = error as ErrorWithMessage;
-        toast.error(err.message || "Không thể tải yêu cầu");
+        toast.error(err.message || t('dashboard:requests.success.loadError'));
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -304,10 +307,10 @@ const RequestsPage: React.FC = () => {
       setRequestType("");
       setRequestReason("");
       setRequestDateRange({ start: "", end: "" });
-      toast.success("Đơn yêu cầu đã được gửi!");
+      toast.success(t('dashboard:requests.success.createSuccess'));
     } catch (error) {
       const err = error as ErrorWithMessage;
-      toast.error(err.message || "Không thể gửi yêu cầu");
+      toast.error(err.message || t('dashboard:requests.success.createError'));
     } finally {
       setSubmitting(false);
     }
@@ -324,10 +327,10 @@ const RequestsPage: React.FC = () => {
       case "overtime":
         return { icon: <Sun className="h-4 w-4" />, label: t('dashboard:requests.types.overtime') };
       case "remote":
-        return { icon: <Briefcase className="h-4 w-4" />, label: "Remote" };
+        return { icon: <Briefcase className="h-4 w-4" />, label: t('dashboard:requests.types.remote') };
       case "correction":
       default:
-        return { icon: <Clock className="h-4 w-4" />, label: "Sửa công" };
+        return { icon: <Clock className="h-4 w-4" />, label: t('dashboard:requests.types.correction') };
     }
   };
 
@@ -406,10 +409,10 @@ const RequestsPage: React.FC = () => {
                 {request.urgency && (
                   <Badge className={getUrgencyColor(request.urgency)}>
                     {request.urgency === "high"
-                      ? "Gấp"
+                      ? t('dashboard:requests.urgency.high')
                       : request.urgency === "medium"
-                        ? "Bình thường"
-                        : "Không gấp"}
+                        ? t('dashboard:requests.urgency.medium')
+                        : t('dashboard:requests.urgency.low')}
                   </Badge>
                 )}
                 <Badge
@@ -498,14 +501,14 @@ const RequestsPage: React.FC = () => {
           <DialogTrigger asChild>
             <Button className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90">
               <Plus className="mr-2 h-4 w-4" />
-              Tạo đơn mới
+              {t('dashboard:requests.create')}
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
             <DialogHeader>
-              <DialogTitle>Tạo đơn yêu cầu mới</DialogTitle>
+              <DialogTitle>{t('dashboard:requests.dialog.title')}</DialogTitle>
               <DialogDescription className="text-[var(--text-sub)]">
-                Điền thông tin chi tiết cho đơn yêu cầu của bạn
+                {t('dashboard:requests.dialog.description')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
@@ -582,7 +585,7 @@ const RequestsPage: React.FC = () => {
                 disabled={submitting}
                 className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
               >
-                {submitting ? "Đang gửi..." : "Gửi yêu cầu"}
+                {submitting ? t('dashboard:requests.dialog.submitting') : t('dashboard:requests.dialog.submit')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -625,17 +628,17 @@ const RequestsPage: React.FC = () => {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm theo tên nhân viên hoặc tiêu đề..."
+                  placeholder={t('dashboard:requests.filters.searchPlaceholder')}
                   className="border-[var(--border)] bg-[var(--shell)] pl-10"
                 />
               </div>
             </div>
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-full border-[var(--border)] bg-[var(--shell)] text-left md:w-[200px]">
-                <SelectValue placeholder="Loại yêu cầu" />
+                <SelectValue placeholder={t('dashboard:requests.filters.typePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả loại</SelectItem>
+                <SelectItem value="all">{t('dashboard:requests.filters.allTypes')}</SelectItem>
                 {(requestTypes.length
                   ? requestTypes
                   : FALLBACK_REQUEST_TYPES
@@ -648,10 +651,10 @@ const RequestsPage: React.FC = () => {
             </Select>
             <Select value={filterDepartment} onValueChange={setFilterDepartment}>
               <SelectTrigger className="w-full border-[var(--border)] bg-[var(--shell)] text-left md:w-[200px]">
-                <SelectValue placeholder="Phòng ban" />
+                <SelectValue placeholder={t('dashboard:requests.filters.departmentPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả phòng ban</SelectItem>
+                <SelectItem value="all">{t('dashboard:requests.filters.allDepartments')}</SelectItem>
                 {departments.map((dept) => (
                   <SelectItem key={dept.value} value={dept.value}>
                     {dept.label}

@@ -165,15 +165,15 @@ const AttendanceAnalyticsPage: React.FC = () => {
         params.department = selectedDepartment
       }
 
-      toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
+      toast.loading(t('dashboard:attendanceAnalytics.exportLoading'), { id: 'export' })
       await exportAttendanceAnalytics(params)
       toast.success(
-        'Xuất báo cáo thành công!',
+        t('dashboard:attendanceAnalytics.exportSuccess'),
         { id: 'export' }
       )
     } catch (error) {
       toast.error(
-        'Xuất báo cáo thất bại',
+        t('dashboard:attendanceAnalytics.exportError'),
         { id: 'export' }
       )
     }
