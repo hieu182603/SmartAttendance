@@ -78,6 +78,12 @@
     "loading": "Đang tải yêu cầu...",
     "noRequests": "Không có yêu cầu nào",
     "totalRequests": "Tổng đơn",
+    "dialog": {
+      "selectType": "Chọn loại đơn",
+      "startDate": "Từ ngày",
+      "endDate": "Đến ngày",
+      "reasonPlaceholder": "Nhập lý do chi tiết..."
+    },
     "errors": {
       "fillAllFields": "Vui lòng điền đầy đủ thông tin đơn yêu cầu"
     }
@@ -407,7 +413,10 @@
     "tabs": {
       "holiday": "Ngày lễ",
       "event": "Sự kiện",
-      "all": "Tất cả"
+      "all": "Tất cả",
+      "meeting": "Cuộc họp",
+      "deadline": "Hạn chót",
+      "training": "Đào tạo"
     },
     "selectedDate": "Ngày đã chọn",
     "events": "sự kiện",
@@ -609,6 +618,33 @@
     "locations": {
       "loading": "Đang tải...",
       "empty": "Không có địa điểm nào"
+    },
+    "todayList": "Danh sách chấm công",
+    "currentRole": "Vai trò hiện tại:",
+    "totalEmployees": "Tổng nhân viên",
+    "viewDialog": {
+      "title": "Chi tiết chấm công",
+      "description": "Xem thông tin chi tiết bản ghi chấm công"
+    },
+    "editDialog": {
+      "title": "Chỉnh sửa chấm công",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "location": "Địa điểm",
+      "selectLocation": "Chọn địa điểm",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "success": "Cập nhật chấm công thành công!",
+      "error": "Không thể cập nhật chấm công"
+    },
+    "details": {
+      "employeeCode": "Mã nhân viên",
+      "attendanceInfo": "Thông tin chấm công",
+      "workDate": "Ngày làm việc",
+      "totalHours": "Tổng giờ",
+      "workLocation": "Địa điểm làm việc",
+      "close": "Đóng"
     },
     "roles": {
       "manager": {
@@ -1127,7 +1163,12 @@
       "inactive": "Không hoạt động"
     },
     "loading": "Đang tải...",
-    "noResults": "Không tìm thấy phòng ban nào"
+    "noResults": "Không tìm thấy phòng ban nào",
+    "errors": {
+      "fillRequired": "Vui lòng điền đầy đủ thông tin bắt buộc",
+      "generic": "Có lỗi xảy ra"
+    },
+    "management": "Quản lý"
   },
   "adminReports": {
     "title": "Báo cáo & Thống kê",
@@ -1422,13 +1463,6 @@
       "updateSuccess": "Cập nhật thông tin nhân viên thành công!",
       "disableSuccess": "Vô hiệu hóa nhân viên thành công!"
     }
-  },
-  "departments": {
-    "errors": {
-      "fillRequired": "Vui lòng điền đầy đủ thông tin bắt buộc",
-      "generic": "Có lỗi xảy ra"
-    },
-    "management": "Quản lý"
   },
   "notificationCenter": {
     "title": "Thông báo",

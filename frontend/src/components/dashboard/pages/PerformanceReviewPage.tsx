@@ -40,6 +40,9 @@ import {
 } from "@/services/performanceService";
 import { getAllUsers } from "@/services/userService";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { UserRole, Permission, type UserRoleType } from "@/utils/roles";
+import RoleGuard from "@/components/RoleGuard";
 import api from "@/services/api";
 
 export default function PerformanceReviewPage() {
@@ -80,11 +83,12 @@ export default function PerformanceReviewPage() {
   });
   const [formLoading, setFormLoading] = useState(false);
 
-  // Get user role from auth context
+  // Use permissions hook instead of hardcoded role checks
   const { user } = useAuth();
-  const userRole = user?.role || "EMPLOYEE";
-  const isManager = userRole === "MANAGER";
-  const isHROrAbove = ["HR_MANAGER", "ADMIN", "SUPER_ADMIN"].includes(userRole);
+  const { hasMinimumRole, role } = usePermissions();
+  const userRole = (role || user?.role || UserRole.EMPLOYEE) as UserRoleType;
+  const isManager = hasMinimumRole(UserRole.MANAGER) && userRole === UserRole.MANAGER;
+  const isHROrAbove = hasMinimumRole(UserRole.HR_MANAGER);
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -108,7 +112,7 @@ export default function PerformanceReviewPage() {
       console.error("Error fetching employees:", error);
       setEmployees([]);
     }
-  }, [isManager]);
+  }, [isManager, t]);
 
   const fetchAvailablePeriods = useCallback(async () => {
     try {
@@ -135,7 +139,7 @@ export default function PerformanceReviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterPeriod, filterStatus]);
+  }, [filterPeriod, filterStatus, searchQuery, t]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -149,12 +153,12 @@ export default function PerformanceReviewPage() {
   useEffect(() => {
     fetchEmployees();
     fetchAvailablePeriods();
-  }, []);
+  }, [fetchEmployees, fetchAvailablePeriods]);
 
   useEffect(() => {
     fetchReviews();
     fetchStats();
-  }, [filterPeriod, filterStatus]);
+  }, [filterPeriod, filterStatus, fetchReviews, fetchStats]);
 
   // Search with debounce
   useEffect(() => {
@@ -335,7 +339,7 @@ export default function PerformanceReviewPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {isHROrAbove && (
+          <RoleGuard permission={Permission.VIEW_REPORTS} fallback={null}>
             <Button
               variant="outline"
               onClick={handleExport}
@@ -344,7 +348,7 @@ export default function PerformanceReviewPage() {
               <Download className="h-4 w-4 mr-2" />
               Xuất báo cáo
             </Button>
-          )}
+          </RoleGuard>
           <Button
             onClick={handleCreateReview}
             className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
@@ -532,12 +536,25 @@ export default function PerformanceReviewPage() {
                             {getStatusText(review.status)}
                           </Badge>
 
-                          {/* Action Buttons */}
-                          {(isHROrAbove ||
-                            (isManager &&
-                              ["draft", "pending", "rejected"].includes(
-                                review.status
-                              ))) ? (
+                          {/* Action Buttons - Use RoleGuard for permission checks */}
+                          <RoleGuard
+                            permission={
+                              review.status === "pending"
+                                ? Permission.REQUESTS_APPROVE_ALL
+                                : Permission.USERS_UPDATE
+                            }
+                            fallback={
+                              <Button
+                                onClick={() => handleOpenReview(review)}
+                                variant="outline"
+                                size="sm"
+                                className="border-[var(--border)] text-[var(--text-main)]"
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Xem
+                              </Button>
+                            }
+                          >
                             <Button
                               onClick={() => handleOpenReview(review)}
                               variant="outline"
@@ -545,33 +562,26 @@ export default function PerformanceReviewPage() {
                               className="border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
                             >
                               <Edit className="h-4 w-4 mr-1" />
-                              {review.status === "pending" && isHROrAbove
-                                ? "Phê duyệt"
-                                : "Sửa"}
+                              {review.status === "pending" ? "Phê duyệt" : "Sửa"}
                             </Button>
-                          ) : (
-                            <Button
-                              onClick={() => handleOpenReview(review)}
-                              variant="outline"
-                              size="sm"
-                              className="border-[var(--border)] text-[var(--text-main)]"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Xem
-                            </Button>
-                          )}
+                          </RoleGuard>
 
-                          {isHROrAbove && review.status === "pending" && (
-                            <Button
-                              onClick={() => handleReject(review)}
-                              variant="outline"
-                              size="sm"
-                              className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Từ chối
-                            </Button>
-                          )}
+                          <RoleGuard
+                            permission={Permission.REQUESTS_APPROVE_ALL}
+                            fallback={null}
+                          >
+                            {review.status === "pending" && (
+                              <Button
+                                onClick={() => handleReject(review)}
+                                variant="outline"
+                                size="sm"
+                                className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Từ chối
+                              </Button>
+                            )}
+                          </RoleGuard>
                         </div>
                       </div>
 
@@ -769,12 +779,12 @@ export default function PerformanceReviewPage() {
                   <SelectContent>
                     <SelectItem value="draft">Nháp</SelectItem>
                     <SelectItem value="pending">{isManager ? "Gửi đánh giá" : "Chờ phê duyệt"}</SelectItem>
-                    {isHROrAbove && (
+                    <RoleGuard permission={Permission.REQUESTS_APPROVE_ALL} fallback={null}>
                       <>
                         <SelectItem value="completed">Hoàn thành</SelectItem>
                         <SelectItem value="rejected">Từ chối</SelectItem>
                       </>
-                    )}
+                    </RoleGuard>
                   </SelectContent>
                 </Select>
               </div>

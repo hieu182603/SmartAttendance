@@ -420,7 +420,7 @@ export function DepartmentsPage() {
                                 <SelectValue placeholder={t('dashboard:departments.dialog.branch')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Tất cả chi nhánh</SelectItem>
+                                <SelectItem value="all">{t('dashboard:departments.filters.allBranches')}</SelectItem>
                                 {branches.map(branch => (
                                     <SelectItem key={branch._id} value={branch._id}>{branch.name}</SelectItem>
                                 ))}

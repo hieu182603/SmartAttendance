@@ -265,6 +265,18 @@
       "leave": "Leave",
       "overtime": "Overtime",
       "correction": "Correction"
+    },
+    "dialog": {
+      "selectType": "Select request type",
+      "startDate": "From date",
+      "endDate": "To date",
+      "reasonPlaceholder": "Enter detailed reason..."
+    },
+    "loading": "Loading requests...",
+    "noRequests": "No requests",
+    "totalRequests": "Total requests",
+    "errors": {
+      "fillAllFields": "Please fill in all required information"
     }
   },
   "schedule": {
@@ -332,7 +344,10 @@
     "tabs": {
       "holiday": "Holidays",
       "event": "Events",
-      "all": "All"
+      "all": "All",
+      "meeting": "Meeting",
+      "deadline": "Deadline",
+      "training": "Training"
     },
     "selectedDate": "Selected Date",
     "events": "events",
@@ -855,6 +870,9 @@
     "noResults": "No departments found",
     "description": "Manage departments in the company",
     "activeEmployees": "Active Employees",
+    "filters": {
+      "allBranches": "All branches"
+    },
     "errors": {
       "fillRequired": "Please fill in all required information",
       "generic": "An error occurred"
@@ -966,6 +984,33 @@
     "locations": {
       "loading": "Loading...",
       "empty": "No locations available"
+    },
+    "todayList": "Today's Attendance List",
+    "currentRole": "Current role:",
+    "totalEmployees": "Total Employees",
+    "viewDialog": {
+      "title": "Attendance Details",
+      "description": "View detailed attendance record information"
+    },
+    "editDialog": {
+      "title": "Edit Attendance",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "location": "Location",
+      "selectLocation": "Select Location",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving...",
+      "success": "Attendance updated successfully!",
+      "error": "Failed to update attendance"
+    },
+    "details": {
+      "employeeCode": "Employee Code",
+      "attendanceInfo": "Attendance Information",
+      "workDate": "Work Date",
+      "totalHours": "Total Hours",
+      "workLocation": "Work Location",
+      "close": "Close"
     },
     "roles": {
       "manager": {

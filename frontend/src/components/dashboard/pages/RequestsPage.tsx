@@ -510,10 +510,10 @@ const RequestsPage: React.FC = () => {
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label>Loại đơn</Label>
+                <Label>{t('dashboard:requests.type')}</Label>
                 <Select value={requestType} onValueChange={setRequestType}>
                   <SelectTrigger className="border-[var(--border)] bg-[var(--input-bg)]">
-                    <SelectValue placeholder="Chọn loại đơn" />
+                    <SelectValue placeholder={t('dashboard:requests.dialog.selectType')} />
                   </SelectTrigger>
                   <SelectContent>
                     {(requestTypes.length
@@ -530,7 +530,7 @@ const RequestsPage: React.FC = () => {
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Từ ngày</Label>
+                  <Label>{t('dashboard:requests.dialog.startDate')}</Label>
                   <Input
                     type="date"
                     value={requestDateRange.start}
@@ -544,7 +544,7 @@ const RequestsPage: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Đến ngày</Label>
+                  <Label>{t('dashboard:requests.dialog.endDate')}</Label>
                   <Input
                     type="date"
                     value={requestDateRange.end}
@@ -560,11 +560,11 @@ const RequestsPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Lý do</Label>
+                <Label>{t('dashboard:requests.reason')}</Label>
                 <Textarea
                   value={requestReason}
                   onChange={(e) => setRequestReason(e.target.value)}
-                  placeholder="Nhập lý do chi tiết..."
+                  placeholder={t('dashboard:requests.dialog.reasonPlaceholder')}
                   className="min-h-[120px] border-[var(--border)] bg-[var(--input-bg)]"
                 />
               </div>

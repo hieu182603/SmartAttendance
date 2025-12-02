@@ -23,14 +23,67 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 api.interceptors.response.use(
     (res: AxiosResponse) => res,
     (error: AxiosError) => {
-        // Xử lý validation errors từ backend (Zod validation)
-        if (error?.response?.status === 400 && (error.response.data as { errors?: unknown })?.errors) {
-            const errors = (error.response.data as { errors: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } }).errors
+        const status = error?.response?.status
+        const responseData = error?.response?.data as { message?: string; errors?: unknown } | undefined
+
+        // Handle 401 Unauthorized - Token expired or invalid
+        if (status === 401) {
+            // Clear auth state
+            localStorage.removeItem('sa_token')
+            
+            // Only redirect if we're not already on login page
+            if (window.location.pathname !== '/login') {
+                // Use setTimeout to avoid navigation during render
+                setTimeout(() => {
+                    window.location.href = '/login'
+                }, 0)
+            }
+            
+            const message = responseData?.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+            const apiError = new Error(message) as ValidationError
+            apiError.response = error.response
+            return Promise.reject(apiError)
+        }
+
+        // Handle 403 Forbidden - Insufficient permissions
+        if (status === 403) {
+            const message = responseData?.message || 'Bạn không có quyền thực hiện hành động này.'
+            const apiError = new Error(message) as ValidationError
+            apiError.response = error.response
+            
+            // Store error message for toast notification (components will handle this)
+            // Redirect to user's base path if not already there
+            const currentPath = window.location.pathname
+            const userRole = localStorage.getItem('sa_user_role')
+            const basePaths = ['/employee', '/manager', '/hr', '/admin']
+            const isOnBasePath = basePaths.some(path => currentPath.startsWith(path))
+            
+            if (!isOnBasePath && userRole) {
+                const roleBasePaths: Record<string, string> = {
+                    'EMPLOYEE': '/employee',
+                    'MANAGER': '/manager',
+                    'HR_MANAGER': '/hr',
+                    'ADMIN': '/admin',
+                    'SUPER_ADMIN': '/admin'
+                }
+                const redirectPath = roleBasePaths[userRole] || '/employee'
+                // Use window.location.href for redirect in interceptor (can't use navigate hook here)
+                setTimeout(() => {
+                    window.location.href = redirectPath
+                }, 2000) // Redirect after 2 seconds to show error message
+            }
+            
+            return Promise.reject(apiError)
+        }
+
+        // Handle 400 Bad Request - Validation errors
+        if (status === 400 && responseData?.errors) {
+            const errors = (responseData as { errors: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } }).errors
             const fieldErrors = errors.fieldErrors || {}
             const formErrors = errors.formErrors || []
             
             // Lấy message từ field errors hoặc form errors
-            let message = (error.response.data as { message?: string })?.message || 'Dữ liệu không hợp lệ'
+            let message = responseData?.message || 'Dữ liệu không hợp lệ'
             
             // Nếu có field errors, hiển thị chi tiết
             if (Object.keys(fieldErrors).length > 0) {
@@ -51,8 +104,8 @@ api.interceptors.response.use(
             return Promise.reject(validationError)
         }
         
-        // Xử lý các lỗi khác (401, 403, 404, 500, etc.)
-        const message = (error?.response?.data as { message?: string })?.message || error.message || 'Request failed'
+        // Handle other errors (404, 500, etc.)
+        const message = responseData?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.'
         const apiError = new Error(message) as ValidationError
         apiError.response = error.response
         return Promise.reject(apiError)

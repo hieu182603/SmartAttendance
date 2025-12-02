@@ -317,7 +317,7 @@ const CompanyCalendarPage: React.FC = () => {
               <TabsTrigger value="meeting">{getTypeLabel('meeting')}</TabsTrigger>
               <TabsTrigger value="event">{t('dashboard:companyCalendar.tabs.event')}</TabsTrigger>
               <TabsTrigger value="deadline">{getTypeLabel('deadline')}</TabsTrigger>
-              <TabsTrigger value="training">Đào tạo</TabsTrigger>
+              <TabsTrigger value="training">{t('dashboard:companyCalendar.tabs.training')}</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardContent>
