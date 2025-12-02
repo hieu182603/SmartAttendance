@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   DollarSign,
@@ -15,10 +14,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Badge } from "../../ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -33,10 +28,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "../../ui/select";
 import {
   getPayrollRecords,
   getDepartments,
+  type PayrollRecord,
 } from "../../../services/payrollService";
 
 export default function PayrollPage() {
@@ -45,7 +41,10 @@ export default function PayrollPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
   });
   const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -204,7 +203,8 @@ export default function PayrollPage() {
     totalPayroll: payrollData.reduce((sum, r) => sum + r.totalSalary, 0),
     avgSalary:
       payrollData.length > 0
-        ? payrollData.reduce((sum, r) => sum + r.totalSalary, 0) / payrollData.length
+        ? payrollData.reduce((sum, r) => sum + r.totalSalary, 0) /
+          payrollData.length
         : 0,
     pendingApproval: payrollData.filter((r) => r.status === "pending").length,
   };
@@ -307,7 +307,8 @@ export default function PayrollPage() {
                       transition={{ delay: stat.delay + 0.2, type: "spring" }}
                     >
                       {stat.format === "currency"
-                        ? formatCurrency(stat.value).replace("₫", "").trim() + "đ"
+                        ? formatCurrency(stat.value).replace("₫", "").trim() +
+                          "đ"
                         : stat.value + (stat.suffix || "")}
                     </motion.p>
                   </div>
@@ -316,7 +317,9 @@ export default function PayrollPage() {
                     whileHover={{ rotate: 360, scale: 1.1 }}
                     transition={{ duration: 0.5 }}
                   >
-                    <stat.icon className={`h-6 w-6 text-[var(--${stat.color})]`} />
+                    <stat.icon
+                      className={`h-6 w-6 text-[var(--${stat.color})]`}
+                    />
                   </motion.div>
                 </div>
               </CardContent>
@@ -354,14 +357,26 @@ export default function PayrollPage() {
                   className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
                 />
               </div>
-              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+              <Select
+                value={filterDepartment}
+                onValueChange={setFilterDepartment}
+              >
                 <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                   <SelectValue placeholder="Phòng ban" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả phòng ban</SelectItem>
+                <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                  <SelectItem
+                    value="all"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Tất cả phòng ban
+                  </SelectItem>
                   {departments.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
+                    <SelectItem
+                      key={dept}
+                      value={dept}
+                      className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                    >
                       {dept}
                     </SelectItem>
                   ))}
@@ -371,11 +386,31 @@ export default function PayrollPage() {
                 <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                   <SelectValue placeholder="Trạng thái" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value="pending">Chờ duyệt</SelectItem>
-                  <SelectItem value="approved">Đã duyệt</SelectItem>
-                  <SelectItem value="paid">Đã thanh toán</SelectItem>
+                <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                  <SelectItem
+                    value="all"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Tất cả trạng thái
+                  </SelectItem>
+                  <SelectItem
+                    value="pending"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Chờ duyệt
+                  </SelectItem>
+                  <SelectItem
+                    value="approved"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Đã duyệt
+                  </SelectItem>
+                  <SelectItem
+                    value="paid"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Đã thanh toán
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -404,17 +439,36 @@ export default function PayrollPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-[var(--border)] hover:bg-transparent">
-                    <TableHead className="text-[var(--text-sub)]">Mã NV</TableHead>
-                    <TableHead className="text-[var(--text-sub)]">Họ tên</TableHead>
-                    <TableHead className="text-[var(--text-sub)]">Phòng ban</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">Ngày công</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">Tăng ca (h)</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Lương CB</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Tăng ca</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Thưởng</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Khấu trừ</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">Tổng</TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">Trạng thái</TableHead>
+                    <TableHead className="text-[var(--text-sub)]">
+                      Họ tên
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)]">
+                      Phòng ban
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      Ngày công
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      Tăng ca (h)
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      Lương CB
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      Tăng ca
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      Thưởng
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      Khấu trừ
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      Tổng
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      Trạng thái
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -423,7 +477,9 @@ export default function PayrollPage() {
                       <TableCell colSpan={11} className="text-center py-12">
                         <div className="flex flex-col items-center gap-4">
                           <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
-                          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+                          <p className="text-[var(--text-sub)]">
+                            Đang tải dữ liệu...
+                          </p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -436,9 +492,6 @@ export default function PayrollPage() {
                         transition={{ delay: 0.7 + index * 0.05 }}
                         className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
                       >
-                        <TableCell className="text-[var(--text-main)]">
-                          {record.employeeId || record.userId?.employeeId || "N/A"}
-                        </TableCell>
                         <TableCell className="text-[var(--text-main)]">
                           {record.userId?.name || "N/A"}
                         </TableCell>
