@@ -171,16 +171,16 @@ const ScanPage: React.FC = () => {
     } catch (error: any) {
       console.error("Error getting location:", error);
       
-      let errorMessage = "Không thể lấy vị trí. ";
+      let errorMessage = t('dashboard:scan.errors.locationFailed');
       
       if (error.code === 1) { // PERMISSION_DENIED
-        errorMessage += "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.";
+        errorMessage += t('dashboard:scan.errors.locationPermissionDenied');
       } else if (error.code === 2) { // POSITION_UNAVAILABLE
-        errorMessage += "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.";
+        errorMessage += t('dashboard:scan.errors.locationUnavailable');
       } else if (error.code === 3) { // TIMEOUT
-        errorMessage += "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.";
+        errorMessage += t('dashboard:scan.errors.locationTimeout');
       } else {
-        errorMessage += "Vui lòng kiểm tra quyền truy cập và GPS.";
+        errorMessage += t('dashboard:scan.errors.locationGeneric');
       }
       
       setLocationError(errorMessage);
@@ -209,7 +209,7 @@ const ScanPage: React.FC = () => {
       }
     } catch (error) {
 console.error("Error accessing camera:", error);
-      toast.error("Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.");
+      toast.error(t('dashboard:scan.errors.cameraAccess'));
       setPermissions(prev => ({ ...prev, camera: false }));
     }
   }, []);
@@ -300,12 +300,12 @@ console.error("Error accessing camera:", error);
           } : null);
         }
         
-        toast.success(response.data.message || "Check-in thành công!");
+        toast.success(response.data.message || t('dashboard:scan.success.checkInSuccess'));
       }
     } catch (error) {
       console.error("Check-in error:", error);
       const err = error as AxiosError<CheckInError>;
-      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi chấm công";
+      const errorMessage = err.response?.data?.message || err.message || t('dashboard:scan.errors.checkInError');
 
       if (err.response?.data?.code === 'ALREADY_CHECKED_IN') {
         toast.info(errorMessage);
@@ -356,12 +356,12 @@ console.error("Error accessing camera:", error);
           } : null);
         }
         
-        toast.success(response.data.message || "Check-out thành công!");
+        toast.success(response.data.message || t('dashboard:scan.success.checkOutSuccess'));
       }
     } catch (error) {
       console.error("Check-out error:", error);
       const err = error as AxiosError<CheckInError>;
-      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi check-out";
+      const errorMessage = err.response?.data?.message || err.message || t('dashboard:scan.errors.checkOutError');
 
       if (err.response?.data?.code === 'NOT_CHECKED_IN') {
         toast.warning(errorMessage);
@@ -572,14 +572,14 @@ console.error("Error accessing camera:", error);
                   }`}
                 >
                   {granted ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                  {key === 'camera' ? 'Camera' : 'Vị trí'} - {granted ? "Đã cấp" : "Bị từ chối"}
+                  {t(`permissions.${key}`)} - {granted ? t('permissions.granted') : t('permissions.denied')}
                 </span>
               ))}
             </div>
             {(!permissions.camera || !permissions.location) && (
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <p>Vui lòng cấp quyền truy cập Camera và Vị trí trong cài đặt trình duyệt để tiếp tục.</p>
+                <p>{t('permissions.requestMessage')}</p>
               </div>
             )}
           </div>
@@ -767,7 +767,7 @@ console.error("Error accessing camera:", error);
               onClick={handleCheckOut}
               disabled={isProcessing || !permissions.camera || !permissions.location || !locationData || !hasCheckedIn || hasCheckedOut || !canCheckOut}
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? "Vui lòng chờ ít nhất 1 giờ sau khi check-in" : ""}
+              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? t('dashboard:scan.errors.waitOneHour') : ""}
             >
               {isProcessing && hasCheckedIn && !hasCheckedOut ? (
                 <>

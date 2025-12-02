@@ -931,6 +931,12 @@ export const getAttendanceAnalytics = async (req, res) => {
     const avgAbsent = totalDays > 0 ? Math.round(dailyData.reduce((sum, d) => sum + d.absent, 0) / totalDays) : 0
     const attendanceRate = totalEmployees > 0 ? Math.round((avgPresent / totalEmployees) * 100) : 0
 
+    // Tính tổng số cho từng loại
+    const totalPresent = dailyData.reduce((sum, d) => sum + d.present, 0)
+    const totalLate = dailyData.reduce((sum, d) => sum + d.late, 0)
+    const totalAbsent = dailyData.reduce((sum, d) => sum + d.absent, 0)
+    const totalRecords = totalPresent + totalLate + totalAbsent
+
     // Tính trend: so sánh tuần hiện tại với tuần trước
     let trend = 0
     if (totalDays >= 7) {
@@ -955,7 +961,12 @@ export const getAttendanceAnalytics = async (req, res) => {
         avgLate,
         avgAbsent,
         trend,
-        totalEmployees
+        totalEmployees,
+        // Thêm các trường cho AdminReportsPage
+        total: totalRecords,
+        ontime: totalPresent,
+        late: totalLate,
+        absent: totalAbsent
       }
     })
   } catch (error) {

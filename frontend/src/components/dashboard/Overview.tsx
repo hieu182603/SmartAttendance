@@ -373,7 +373,7 @@ export const DashboardOverview: React.FC = () => {
               </CardTitle>
             </div>
             <p className="text-sm text-[var(--text-sub)] mt-1">
-              Truy cập nhanh các tính năng quản lý quan trọng
+              {t('dashboard:overview.quickAccess')}
             </p>
           </CardHeader>
           <CardContent>
@@ -405,7 +405,7 @@ export const DashboardOverview: React.FC = () => {
                     <Badge className="bg-white/20 text-white border-white/30">Trang chính</Badge>
                   </div>
                   <h3 className="text-xl font-bold mb-2">Admin Dashboard</h3>
-                  <p className="text-sm opacity-90">Tổng quan và thống kê hệ thống</p>
+                  <p className="text-sm opacity-90">{t('dashboard:overview.systemOverview')}</p>
                 </div>
               </motion.button>
 
@@ -425,7 +425,7 @@ export const DashboardOverview: React.FC = () => {
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-3">
                     <FileText className="h-10 w-10" />
-                    <Badge className="bg-white/20 text-white border-white/30">Quản lý</Badge>
+                    <Badge className="bg-white/20 text-white border-white/30">{t('dashboard:overview.management')}</Badge>
                   </div>
                   <h3 className="text-xl font-bold mb-2">Phê duyệt yêu cầu</h3>
                   <p className="text-sm opacity-90">Xử lý đơn nghỉ phép, WFH</p>
@@ -450,7 +450,7 @@ export const DashboardOverview: React.FC = () => {
                     <BarChart3 className="h-10 w-10" />
                     <Badge className="bg-white/20 text-white border-white/30">Phân tích</Badge>
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Phân tích chấm công</h3>
+                  <h3 className="text-xl font-bold mb-2">{t('dashboard:overview.attendanceAnalysis')}</h3>
                   <p className="text-sm opacity-90">Báo cáo và insights chi tiết</p>
                 </div>
               </motion.button>
@@ -567,7 +567,7 @@ export const DashboardOverview: React.FC = () => {
                 <div className="text-2xl mb-2">
                   <Users className="h-8 w-8 mx-auto text-[var(--primary)]" />
                 </div>
-                <div className="text-sm">Quản lý User</div>
+                <div className="text-sm">{t('dashboard:overview.userManagement')}</div>
                 <div className="text-xs text-[var(--text-sub)] mt-1">Sắp ra mắt</div>
               </motion.button>
               <motion.button

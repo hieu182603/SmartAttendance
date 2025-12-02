@@ -332,19 +332,19 @@ const EmployeeManagementPage: React.FC = () => {
     const errors: ValidationErrors = {}
 
     if (!formData.name || formData.name.trim().length === 0) {
-      errors.name = 'Vui lòng nhập họ và tên'
+      errors.name = t('dashboard:employeeManagement.validation.nameRequired')
     } else if (formData.name.trim().length < 2) {
       errors.name = 'Tên phải có ít nhất 2 ký tự'
     }
 
     if (!formData.email || formData.email.trim().length === 0) {
-      errors.email = 'Vui lòng nhập email'
+      errors.email = t('dashboard:employeeManagement.validation.emailRequired')
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Email không hợp lệ'
     }
 
     if (!formData.role) {
-      errors.role = 'Vui lòng chọn vai trò'
+      errors.role = t('dashboard:employeeManagement.validation.roleRequired')
     }
 
     if (formData.phone && formData.phone.trim().length > 0) {
@@ -355,7 +355,7 @@ const EmployeeManagementPage: React.FC = () => {
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors)
-      toast.error('Vui lòng kiểm tra lại thông tin')
+      toast.error(t('dashboard:employeeManagement.validation.checkInfo'))
       return
     }
 
@@ -372,7 +372,7 @@ const EmployeeManagementPage: React.FC = () => {
       
       // Xử lý 403 Forbidden - không có quyền
       if (err.response?.status === 403 || err.message?.includes('Insufficient permissions') || err.message?.includes('403')) {
-        const errorMessage = err.message || (err.response?.data as { message?: string })?.message || 'Bạn không có quyền thực hiện thao tác này'
+        const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.noPermission')
         toast.error(errorMessage)
         return
       }
@@ -387,7 +387,7 @@ const EmployeeManagementPage: React.FC = () => {
         })
         if (Object.keys(backendErrors).length > 0) {
           setValidationErrors(backendErrors)
-          toast.error('Vui lòng kiểm tra lại thông tin')
+          toast.error(t('dashboard:employeeManagement.validation.checkInfo'))
           return
         }
       }

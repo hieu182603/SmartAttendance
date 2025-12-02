@@ -22,6 +22,7 @@
   "departments": "Department Management",
   "branches": "Branch Management",
   "audit-logs": "Audit Logs",
-  "camera-checkin": "Camera Check-in"
+  "camera-checkin": "Camera Check-in",
+  "admin-reports": "Reports & Statistics"
 }
 

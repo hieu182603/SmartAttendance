@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -28,7 +29,7 @@ const mockNotifications: Notification[] = [
     type: "warning",
     category: "attendance",
     title: "Nhắc nhở check-out",
-    message: "Bạn chưa check-out hôm nay. Vui lòng check-out trước 18:00",
+    message: "dashboard:notificationCenter.samples.checkoutReminder",
     time: "5 phút trước",
     read: false,
   },
@@ -37,7 +38,7 @@ const mockNotifications: Notification[] = [
     type: "success",
     category: "leave",
     title: "Yêu cầu được duyệt",
-    message: "Yêu cầu nghỉ phép ngày 30/10 đã được quản lý phê duyệt",
+    message: "dashboard:notificationCenter.samples.leaveApproved",
     time: "1 giờ trước",
     read: false,
   },

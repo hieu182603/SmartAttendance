@@ -288,7 +288,7 @@ export function BranchesPage() {
       await loadBranches();
       await loadStats();
     } catch (error: any) {
-      toast.error(error.message || 'Có lỗi xảy ra');
+      toast.error(error.message || t('dashboard:branches.errors.generic'));
     }
   };
 
@@ -304,7 +304,7 @@ export function BranchesPage() {
         await loadBranches();
         await loadStats();
       } catch (error: any) {
-        toast.error(error.message || 'Có lỗi xảy ra');
+        toast.error(error.message || t('dashboard:branches.errors.generic'));
       }
     }
   };

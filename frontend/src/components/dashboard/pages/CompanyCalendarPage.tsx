@@ -655,7 +655,7 @@ const CompanyCalendarPage: React.FC = () => {
             {loading ? (
               <div className="text-center py-12">
                 <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-[var(--text-sub)]">Đang tải sự kiện...</p>
+                <p className="text-[var(--text-sub)]">{t('dashboard:companyCalendar.loading')}</p>
               </div>
             ) : filteredEvents.length > 0 ? (
               filteredEvents

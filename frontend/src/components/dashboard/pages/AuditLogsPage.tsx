@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import {
     FileText,
@@ -43,6 +44,7 @@ interface AuditLogPage extends AuditLog {
 }
 
 export default function AuditLogsPage() {
+    const { t } = useTranslation('dashboard');
     const [logs, setLogs] = useState<AuditLogPage[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -131,7 +133,7 @@ export default function AuditLogsPage() {
                 setPagination(result.pagination);
             } catch (error) {
                 console.error('[AuditLogsPage] Fetch logs error:', error);
-                toast.error('Không thể tải nhật ký hệ thống');
+                toast.error(t('auditLogs.loadError'));
             } finally {
                 setLoading(false);
             }
@@ -251,7 +253,7 @@ export default function AuditLogsPage() {
         link.download = `audit_logs_${new Date().toISOString()}.csv`;
         link.click();
 
-        toast.success('📥 Đã xuất file CSV thành công!');
+        toast.success(`📥 ${t('auditLogs.exportSuccess', { format: 'CSV' })}`);
     };
 
     const handleExportJSON = () => {
@@ -262,7 +264,7 @@ export default function AuditLogsPage() {
         link.download = `audit_logs_${new Date().toISOString()}.json`;
         link.click();
 
-        toast.success('📥 Đã xuất file JSON thành công!');
+        toast.success(`📥 ${t('auditLogs.exportSuccess', { format: 'JSON' })}`);
     };
 
     const handleViewDetails = (log: AuditLogPage) => {
@@ -307,10 +309,10 @@ export default function AuditLogsPage() {
             setLogs(result.logs as AuditLogPage[]);
             setPagination(result.pagination);
             setStats(statsData);
-            toast.success('Đã làm mới dữ liệu');
+            toast.success(t('auditLogs.refreshSuccess'));
         } catch (error) {
             console.error('[AuditLogsPage] Refresh error:', error);
-            toast.error('Không thể làm mới dữ liệu');
+            toast.error(t('auditLogs.refreshError'));
         } finally {
             setLoading(false);
         }
@@ -323,10 +325,10 @@ export default function AuditLogsPage() {
                 <div>
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent flex items-center gap-2">
                         <Shield className="h-8 w-8 text-blue-600" />
-                        Nhật ký hệ thống
+                        {t('auditLogs.title')}
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400 mt-2">
-                        Theo dõi tất cả hoạt động trong hệ thống
+                        {t('auditLogs.description')}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -338,12 +340,12 @@ export default function AuditLogsPage() {
                         className="border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                     >
                         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                        Làm mới
+                        {t('auditLogs.refresh')}
                     </Button>
                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                         <RefreshCw className={`h-4 w-4 text-gray-600 dark:text-gray-400 ${autoRefresh ? 'animate-spin' : ''}`} />
                         <Label htmlFor="auto-refresh" className="text-sm text-gray-900 dark:text-gray-100 cursor-pointer">
-                            Tự động làm mới
+                            {t('auditLogs.autoRefresh')}
                         </Label>
                         <Switch
                             id="auto-refresh"
@@ -357,11 +359,11 @@ export default function AuditLogsPage() {
                     }}>
                         <SelectTrigger className="w-[180px] bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none">
                             <Download className="h-4 w-4 mr-2" />
-                            <span>Xuất nhật ký</span>
+                            <span>{t('auditLogs.export')}</span>
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="csv">Xuất CSV</SelectItem>
-                            <SelectItem value="json">Xuất JSON</SelectItem>
+                            <SelectItem value="csv">{t('auditLogs.exportCSV')}</SelectItem>
+                            <SelectItem value="json">{t('auditLogs.exportJSON')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -374,7 +376,7 @@ export default function AuditLogsPage() {
                         <CardContent className="p-6 mt-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Tổng số</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{t('auditLogs.stats.total')}</p>
                                     <p className="text-3xl text-cyan-500 mt-2">{stats.total}</p>
                                 </div>
                                 <div className="h-12 w-12 rounded-full bg-cyan-500/20 flex items-center justify-center">
@@ -390,7 +392,7 @@ export default function AuditLogsPage() {
                         <CardContent className="p-6 mt-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Thành công</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{t('auditLogs.stats.success')}</p>
                                     <p className="text-3xl text-green-500 mt-2">{stats.success}</p>
                                 </div>
                                 <div className="h-12 w-12 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -406,7 +408,7 @@ export default function AuditLogsPage() {
                         <CardContent className="p-6 mt-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Thất bại</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{t('auditLogs.stats.failed')}</p>
                                     <p className="text-3xl text-red-500 mt-2">{stats.failed}</p>
                                 </div>
                                 <div className="h-12 w-12 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -422,7 +424,7 @@ export default function AuditLogsPage() {
                         <CardContent className="p-6 mt-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">Cảnh báo</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{t('auditLogs.stats.warning')}</p>
                                     <p className="text-3xl text-yellow-500 mt-2">{stats.warning}</p>
                                 </div>
                                 <div className="h-12 w-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
@@ -442,7 +444,7 @@ export default function AuditLogsPage() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-600 dark:text-gray-400" />
                                 <Input
-                                    placeholder="Tìm kiếm theo người dùng hoặc mô tả..."
+                                    placeholder={t('auditLogs.filters.searchPlaceholder')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="pl-10 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
@@ -451,33 +453,33 @@ export default function AuditLogsPage() {
                         </div>
                         <Select value={filterAction} onValueChange={setFilterAction}>
                             <SelectTrigger className="w-full md:w-[180px] bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                                <SelectValue placeholder="Hành động" />
+                                <SelectValue placeholder={t('auditLogs.filters.action')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Tất cả</SelectItem>
-                                <SelectItem value="login">Đăng nhập</SelectItem>
-                                <SelectItem value="register">Đăng ký</SelectItem>
-                                <SelectItem value="update_user">Cập nhật user</SelectItem>
-                                <SelectItem value="create_user">Tạo user</SelectItem>
-                                <SelectItem value="checkin">Check in</SelectItem>
-                                <SelectItem value="checkout">Check out</SelectItem>
-                                <SelectItem value="create_request">Tạo yêu cầu</SelectItem>
-                                <SelectItem value="approve_request">Duyệt yêu cầu</SelectItem>
-                                <SelectItem value="reject_request">Từ chối yêu cầu</SelectItem>
+                                <SelectItem value="all">{t('auditLogs.filters.all')}</SelectItem>
+                                <SelectItem value="login">{t('auditLogs.actions.login')}</SelectItem>
+                                <SelectItem value="register">{t('auditLogs.actions.register')}</SelectItem>
+                                <SelectItem value="update_user">{t('auditLogs.actions.update_user')}</SelectItem>
+                                <SelectItem value="create_user">{t('auditLogs.actions.create_user')}</SelectItem>
+                                <SelectItem value="checkin">{t('auditLogs.actions.checkin')}</SelectItem>
+                                <SelectItem value="checkout">{t('auditLogs.actions.checkout')}</SelectItem>
+                                <SelectItem value="create_request">{t('auditLogs.actions.create_request')}</SelectItem>
+                                <SelectItem value="approve_request">{t('auditLogs.actions.approve_request')}</SelectItem>
+                                <SelectItem value="reject_request">{t('auditLogs.actions.reject_request')}</SelectItem>
                             </SelectContent>
                         </Select>
                         <Select value={filterCategory} onValueChange={setFilterCategory}>
                             <SelectTrigger className="w-full md:w-[180px] bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                                <SelectValue placeholder="Danh mục" />
+                                <SelectValue placeholder={t('auditLogs.filters.category')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Tất cả</SelectItem>
-                                <SelectItem value="auth">Xác thực</SelectItem>
-                                <SelectItem value="user">Người dùng</SelectItem>
-                                <SelectItem value="attendance">Chấm công</SelectItem>
-                                <SelectItem value="request">Yêu cầu</SelectItem>
-                                <SelectItem value="system">Hệ thống</SelectItem>
-                                <SelectItem value="settings">Cài đặt</SelectItem>
+                                <SelectItem value="all">{t('auditLogs.filters.all')}</SelectItem>
+                                <SelectItem value="auth">{t('auditLogs.categories.auth')}</SelectItem>
+                                <SelectItem value="user">{t('auditLogs.categories.user')}</SelectItem>
+                                <SelectItem value="attendance">{t('auditLogs.categories.attendance')}</SelectItem>
+                                <SelectItem value="request">{t('auditLogs.categories.request')}</SelectItem>
+                                <SelectItem value="system">{t('auditLogs.categories.system')}</SelectItem>
+                                <SelectItem value="settings">{t('auditLogs.categories.settings')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -487,15 +489,15 @@ export default function AuditLogsPage() {
             {/* Logs Table */}
             <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                 <CardHeader>
-                    <CardTitle className="text-gray-900 dark:text-gray-100">Danh sách nhật ký</CardTitle>
+                    <CardTitle className="text-gray-900 dark:text-gray-100">{t('auditLogs.table.title')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)}>
                         <TabsList className="grid w-full grid-cols-4 mb-6">
-                            <TabsTrigger value="all">Tất cả ({stats.total})</TabsTrigger>
-                            <TabsTrigger value="success">Thành công ({stats.success})</TabsTrigger>
-                            <TabsTrigger value="failed">Thất bại ({stats.failed})</TabsTrigger>
-                            <TabsTrigger value="warning">Cảnh báo ({stats.warning})</TabsTrigger>
+                            <TabsTrigger value="all">{t('auditLogs.tabs.all')} ({stats.total})</TabsTrigger>
+                            <TabsTrigger value="success">{t('auditLogs.tabs.success')} ({stats.success})</TabsTrigger>
+                            <TabsTrigger value="failed">{t('auditLogs.tabs.failed')} ({stats.failed})</TabsTrigger>
+                            <TabsTrigger value="warning">{t('auditLogs.tabs.warning')} ({stats.warning})</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value={selectedTab}>
@@ -503,25 +505,25 @@ export default function AuditLogsPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="border-gray-200 dark:border-gray-700">
-                                            <TableHead className="text-gray-600 dark:text-gray-400">Thời gian</TableHead>
-                                            <TableHead className="text-gray-600 dark:text-gray-400">Người dùng</TableHead>
-                                            <TableHead className="text-gray-600 dark:text-gray-400">Hành động</TableHead>
-                                            <TableHead className="text-gray-600 dark:text-gray-400">Mô tả</TableHead>
-                                            <TableHead className="text-gray-600 dark:text-gray-400">Trạng thái</TableHead>
-                                            <TableHead className="text-gray-600 dark:text-gray-400 text-center">Chi tiết</TableHead>
+                                            <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.time')}</TableHead>
+                                            <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.user')}</TableHead>
+                                            <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.action')}</TableHead>
+                                            <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.description')}</TableHead>
+                                            <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.status')}</TableHead>
+                                            <TableHead className="text-gray-600 dark:text-gray-400 text-center">{t('auditLogs.table.details')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {loading ? (
                                             <TableRow>
                                                 <TableCell colSpan={6} className="text-center py-8 text-gray-600 dark:text-gray-400">
-                                                    Đang tải dữ liệu...
+                                                    {t('auditLogs.loadingData')}
                                                 </TableCell>
                                             </TableRow>
                                         ) : filteredLogs.length === 0 ? (
                                             <TableRow>
                                                 <TableCell colSpan={6} className="text-center py-8 text-gray-600 dark:text-gray-400">
-                                                    Không tìm thấy nhật ký nào
+                                                    {t('auditLogs.noLogsFound')}
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -584,11 +586,11 @@ export default function AuditLogsPage() {
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4">
                                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                         <span>
-                                            Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, pagination.total)} của {pagination.total}
+                                            {t('auditLogs.pagination.showing')} {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, pagination.total)} {t('auditLogs.pagination.of')} {pagination.total}
                                         </span>
                                         <span className="hidden sm:inline">•</span>
                                         <div className="flex items-center gap-2">
-                                            <span>Số dòng:</span>
+                                            <span>{t('auditLogs.pagination.rowsPerPage')}</span>
                                             <Select value={pageSize.toString()} onValueChange={(v) => handlePageSizeChange(Number(v))}>
                                                 <SelectTrigger className="w-20 h-8 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                                                     <SelectValue />
@@ -624,7 +626,7 @@ export default function AuditLogsPage() {
                                         </Button>
 
                                         <span className="px-4 text-sm text-gray-900 dark:text-gray-100">
-                                            Trang {currentPage} / {pagination.totalPages}
+                                            {t('auditLogs.pagination.page')} {currentPage} / {pagination.totalPages}
                                         </span>
 
                                         <Button
@@ -657,9 +659,9 @@ export default function AuditLogsPage() {
             <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
                 <DialogContent className="max-w-3xl bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chi tiết nhật ký hệ thống</DialogTitle>
+                        <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('auditLogs.dialog.title')}</DialogTitle>
                         <DialogDescription className="text-gray-600 dark:text-gray-400">
-                            Thông tin chi tiết về hoạt động này
+                            {t('auditLogs.dialog.description')}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -694,19 +696,19 @@ export default function AuditLogsPage() {
                             {/* User Information */}
                             <div>
                                 <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">
-                                    Thông tin người dùng
+                                    {t('auditLogs.dialog.userInfo')}
                                 </h4>
                                 <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Tên người dùng</Label>
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">{t('auditLogs.dialog.userName')}</Label>
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedLog.userName}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Vai trò</Label>
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">{t('auditLogs.dialog.userRole')}</Label>
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedLog.userRole}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-xs text-gray-600 dark:text-gray-400">Địa chỉ IP</Label>
+                                        <Label className="text-xs text-gray-600 dark:text-gray-400">{t('auditLogs.dialog.ipAddress')}</Label>
                                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">{selectedLog.ipAddress || 'N/A'}</p>
                                     </div>
                                 </div>
@@ -719,7 +721,7 @@ export default function AuditLogsPage() {
                                     <div>
                                         <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
                                             <Info className="h-4 w-4" />
-                                            Dữ liệu bổ sung
+                                            {t('auditLogs.dialog.metadata')}
                                         </h4>
                                         <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 overflow-auto max-h-64">
                                             <pre className="text-xs text-gray-900 dark:text-gray-100 font-mono">
@@ -738,7 +740,7 @@ export default function AuditLogsPage() {
                             onClick={() => setIsDetailsOpen(false)}
                             className="border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
-                            Đóng
+                            {t('auditLogs.dialog.close')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

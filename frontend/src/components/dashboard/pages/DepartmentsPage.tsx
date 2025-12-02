@@ -243,7 +243,7 @@ export function DepartmentsPage() {
 
     const handleSubmit = async () => {
         if (!formData.name || !formData.code || !formData.branchId || !formData.managerId) {
-            toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+            toast.error(t('dashboard:departments.errors.fillRequired'));
             return;
         }
 
@@ -273,7 +273,7 @@ export function DepartmentsPage() {
             await loadDepartments();
             await loadStats();
         } catch (error: any) {
-            toast.error(error.message || 'Có lỗi xảy ra');
+            toast.error(error.message || t('dashboard:departments.errors.generic'));
         }
     };
 
@@ -285,7 +285,7 @@ export function DepartmentsPage() {
                 await loadDepartments();
                 await loadStats();
             } catch (error: any) {
-                toast.error(error.message || 'Có lỗi xảy ra');
+                toast.error(error.message || t('dashboard:departments.errors.generic'));
             }
         }
     };
@@ -780,7 +780,7 @@ export function DepartmentsPage() {
 
                                 <div className="flex flex-col items-center text-center p-3 rounded-lg bg-[var(--shell)] mt-4">
                                     <Users className="h-8 w-8 text-[var(--accent-cyan)] mb-2" />
-                                    <p className="text-sm text-[var(--text-sub)]">Quản lý</p>
+                                    <p className="text-sm text-[var(--text-sub)]">{t('dashboard:departments.management')}</p>
                                     <p className="text-[var(--text-main)] font-medium mt-1">{selectedDepartment.managerName}</p>
                                 </div>
 
