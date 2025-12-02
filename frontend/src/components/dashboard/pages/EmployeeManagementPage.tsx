@@ -550,8 +550,8 @@ const EmployeeManagementPage: React.FC = () => {
               <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.loading')}</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full table-fixed">
+            <div className="w-full">
+              <table className="w-full">
                 <thead>
                   <tr className="bg-[var(--shell)]">
                     <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[20%]">{t('dashboard:employeeManagement.table.employee')}</th>
