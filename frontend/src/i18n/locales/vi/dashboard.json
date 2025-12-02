@@ -23,7 +23,12 @@
     "charts": {
       "attendanceTrend": "Xu hướng chấm công",
       "attendanceByDay": "Chấm công theo ngày"
-    }
+    },
+    "quickAccess": "Truy cập nhanh các tính năng quản lý quan trọng",
+    "systemOverview": "Tổng quan và thống kê hệ thống",
+    "management": "Quản lý",
+    "attendanceAnalysis": "Phân tích chấm công",
+    "userManagement": "Quản lý User"
   },
   "scan": {
     "title": "Chấm công",
@@ -59,11 +64,23 @@
   },
   "requests": {
     "title": "Yêu cầu & Đơn từ",
-    "create": "Tạo yêu cầu",
+    "description": "Quản lý nghỉ phép, tăng ca, sửa công và phê duyệt trực tiếp",
+    "create": "Tạo đơn mới",
     "type": "Loại yêu cầu",
     "status": "Trạng thái",
     "date": "Ngày",
-    "reason": "Lý do"
+    "reason": "Lý do",
+    "types": {
+      "leave": "Nghỉ phép",
+      "overtime": "Tăng ca",
+      "correction": "Sửa công"
+    },
+    "loading": "Đang tải yêu cầu...",
+    "noRequests": "Không có yêu cầu nào",
+    "totalRequests": "Tổng đơn",
+    "errors": {
+      "fillAllFields": "Vui lòng điền đầy đủ thông tin đơn yêu cầu"
+    }
   },
   "profile": {
     "title": "Hồ sơ cá nhân",
@@ -326,25 +343,13 @@
       "checkout": "Chưa check-out"
     }
   },
-  "requests": {
-    "title": "Yêu cầu & Đơn từ",
-    "description": "Quản lý nghỉ phép, tăng ca, sửa công và phê duyệt trực tiếp",
-    "create": "Tạo đơn mới",
-    "type": "Loại yêu cầu",
-    "status": "Trạng thái",
-    "date": "Ngày",
-    "reason": "Lý do",
-    "types": {
-      "leave": "Nghỉ phép",
-      "overtime": "Tăng ca",
-      "correction": "Sửa công"
-    }
-  },
   "schedule": {
     "title": "Lịch làm việc",
     "checkedIn": "Đã điểm danh",
     "loading": "Đang tải lịch làm việc...",
     "upcomingShifts": "ca sắp tới",
+    "offToday": "Hôm nay bạn được nghỉ",
+    "noWorkToday": "Hôm nay bạn không có ca làm việc",
     "stats": {
       "thisMonth": "Tháng này",
       "checkedIn": "Đã điểm danh",
@@ -1332,14 +1337,6 @@
       "updateFailed": "Không thể cập nhật"
     }
   },
-  "requests": {
-    "loading": "Đang tải yêu cầu...",
-    "noRequests": "Không có yêu cầu nào",
-    "totalRequests": "Tổng đơn",
-    "errors": {
-      "fillAllFields": "Vui lòng điền đầy đủ thông tin đơn yêu cầu"
-    }
-  },
   "employeeManagement": {
     "title": "Quản lý nhân viên",
     "searchPlaceholder": "Tìm kiếm nhân viên...",
@@ -1432,20 +1429,6 @@
       "generic": "Có lỗi xảy ra"
     },
     "management": "Quản lý"
-  },
-  "schedule": {
-    "offToday": "Hôm nay chú mày được nghỉ",
-    "noWorkToday": "Hôm nay chú mày không có việc làm"
-  },
-  "companyCalendar": {
-    "loading": "Đang tải sự kiện..."
-  },
-  "overview": {
-    "quickAccess": "Truy cập nhanh các tính năng quản lý quan trọng",
-    "systemOverview": "Tổng quan và thống kê hệ thống",
-    "management": "Quản lý",
-    "attendanceAnalysis": "Phân tích chấm công",
-    "userManagement": "Quản lý User"
   },
   "notificationCenter": {
     "title": "Thông báo",
