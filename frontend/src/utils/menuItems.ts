@@ -111,7 +111,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Đánh giá hiệu suất',
     icon: Award,
     path: '/admin/performance-review',
-    permission: Permission.ANALYTICS_VIEW_DEPARTMENT,
+    permission: Permission.USERS_VIEW,
     section: 'admin',
   },
   {

@@ -562,15 +562,43 @@
   "performanceReview": {
     "title": "Performance Review",
     "searchPlaceholder": "Search by employee name...",
+    "employee": "Employee",
     "filters": {
       "status": "Status",
+      "period": "Review Period",
       "all": "All",
       "completed": "Completed",
       "pending": "Pending",
       "draft": "Draft",
       "rejected": "Rejected"
     },
-    "employee": "Employee"
+    "stats": {
+      "total": "Total",
+      "completed": "Completed",
+      "pending": "Pending",
+      "avgScore": "Avg Score"
+    },
+    "categories": {
+      "technical": "Technical",
+      "communication": "Communication",
+      "teamwork": "Teamwork",
+      "leadership": "Leadership",
+      "problemSolving": "Problem Solving"
+    },
+    "status": {
+      "completed": "Completed",
+      "pending": "Pending",
+      "draft": "Draft",
+      "rejected": "Rejected"
+    },
+    "actions": {
+      "create": "Create Review",
+      "edit": "Edit",
+      "view": "View",
+      "approve": "Approve",
+      "reject": "Reject",
+      "export": "Export Report"
+    }
   },
   "branches": {
     "title": "Branch Management",
