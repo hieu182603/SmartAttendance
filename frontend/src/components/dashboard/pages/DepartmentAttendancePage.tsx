@@ -82,11 +82,11 @@ const DepartmentAttendancePage: React.FC = () => {
       );
     } catch (error) {
       console.error("[DepartmentAttendance] fetch error:", error);
-      toast.error(t('dashboard:adminAttendance.error'));
+      toast.error(t('dashboard:departmentAttendance.error'));
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, searchTerm, pagination.page, pagination.limit]);
+  }, [selectedDate, searchTerm, pagination.page, pagination.limit, t]);
 
   useEffect(() => {
     fetchData();
@@ -98,7 +98,7 @@ const DepartmentAttendancePage: React.FC = () => {
         from: selectedDate,
         to: selectedDate,
       });
-      toast.success(t('dashboard:adminAttendance.export') + ' ' + t('common:success'));
+      toast.success(t('dashboard:departmentAttendance.exportSuccess'));
     } catch (error) {
       console.error("[DepartmentAttendance] export error:", error);
       toast.error(t('dashboard:departmentAttendance.export') + ' ' + t('common:error'));
@@ -110,25 +110,25 @@ const DepartmentAttendancePage: React.FC = () => {
       case "ontime":
         return (
           <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
-            {t('dashboard:adminAttendance.filters.ontime')}
+            {t('dashboard:departmentAttendance.filters.ontime')}
           </Badge>
         );
       case "late":
         return (
           <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30">
-            {t('dashboard:adminAttendance.filters.late')}
+            {t('dashboard:departmentAttendance.filters.late')}
           </Badge>
         );
       case "absent":
         return (
           <Badge className="bg-red-500/20 text-red-500 border-red-500/30">
-            {t('dashboard:adminAttendance.filters.absent')}
+            {t('dashboard:departmentAttendance.filters.absent')}
           </Badge>
         );
       case "overtime":
         return (
           <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30">
-            {t('dashboard:adminAttendance.filters.overtime')}
+            {t('dashboard:departmentAttendance.filters.overtime')}
           </Badge>
         );
       default:
@@ -267,7 +267,7 @@ const DepartmentAttendancePage: React.FC = () => {
                     <TableHead>{t('dashboard:departmentAttendance.table.hours')}</TableHead>
                     <TableHead>{t('dashboard:departmentAttendance.table.location')}</TableHead>
                     <TableHead>{t('dashboard:departmentAttendance.table.status')}</TableHead>
-                    <TableHead>{t('dashboard:adminAttendance.table.actions')}</TableHead>
+                    <TableHead>{t('dashboard:departmentAttendance.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -332,7 +332,10 @@ const DepartmentAttendancePage: React.FC = () => {
           {pagination.totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-[var(--text-sub)]">
-                Trang {pagination.page} / {pagination.totalPages}
+                {t('dashboard:departmentAttendance.pagination.currentPage', {
+                  page: pagination.page,
+                  totalPages: pagination.totalPages
+                })}
               </p>
               <div className="flex gap-2">
                 <Button

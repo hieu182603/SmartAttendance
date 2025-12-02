@@ -9,6 +9,7 @@
   "profile": "Hồ sơ",
   "notifications": "Thông báo",
   "approve-requests": "Phê duyệt yêu cầu",
+  "team-management": "Quản lý nhóm",
   "department-attendance": "Chấm công (Phòng)",
   "attendance-analytics": "Phân tích chấm công",
   "admin-attendance": "Quản lý chấm công",
@@ -20,6 +21,7 @@
   "departments": "Quản lý phòng ban",
   "branches": "Quản lý chi nhánh",
   "audit-logs": "Nhật ký hệ thống",
-  "camera-checkin": "Chấm công bằng camera"
+  "camera-checkin": "Chấm công bằng camera",
+  "admin-reports": "Báo cáo & Thống kê"
 }
 

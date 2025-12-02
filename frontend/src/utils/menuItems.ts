@@ -2,11 +2,10 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Home, Camera, History, FileText, Clock, CalendarDays, Calendar,
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
-  DollarSign, TrendingUp, Award
+  DollarSign, TrendingUp, Award, FileBarChart
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
-import { Permission, type PermissionType } from '@/utils/roles';
-import { getRoleBasePath, ROLE_PERMISSIONS, type UserRoleType } from '@/utils/roles';
+import { Permission, type PermissionType, UserRole, ROLE_PERMISSIONS, type UserRoleType } from '@/utils/roles';
 
 export interface MenuItem {
   id: string;
@@ -74,54 +73,8 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/employee/profile',
     section: 'employee',
   },
-  {
-    id: 'approve-requests',
-    label: 'Phê duyệt yêu cầu',
-    icon: CheckCircle2,
-    path: '/admin/approve-requests',
-    permission: Permission.REQUESTS_APPROVE_DEPARTMENT,
-    section: 'admin',
-  },
-  {
-    id: 'department-attendance',
-    label: 'Chấm công (Phòng)',
-    icon: CheckCircle2,
-    path: '/admin/department-attendance',
-    permission: Permission.ATTENDANCE_VIEW_DEPARTMENT,
-    section: 'admin',
-  },
-  {
-    id: 'attendance-analytics',
-    label: 'Phân tích chấm công',
-    icon: BarChart3,
-    path: '/admin/attendance-analytics',
-    permission: Permission.ANALYTICS_VIEW_DEPARTMENT,
-    section: 'admin',
-  },
-  {
-    id: 'admin-attendance',
-    label: 'Quản lý chấm công',
-    icon: Clock,
-    path: '/admin/admin-attendance',
-    permission: Permission.ATTENDANCE_VIEW_ALL,
-    section: 'admin',
-  },
-  {
-    id: 'performance-review',
-    label: 'Đánh giá hiệu suất',
-    icon: Award,
-    path: '/admin/performance-review',
-    permission: Permission.USERS_VIEW,
-    section: 'admin',
-  },
-  {
-    id: 'shifts',
-    label: 'Quản lý ca làm việc',
-    icon: Clock,
-    path: '/admin/shifts',
-    permission: Permission.ATTENDANCE_VIEW_DEPARTMENT,
-    section: 'admin',
-  },
+  // Admin Dashboard (home) - moved to admin section for admin roles in getMenuByPermissionsWithTranslations
+  // Quản lý nhân viên
   {
     id: 'employee-management',
     label: 'Quản lý nhân viên',
@@ -130,6 +83,16 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.USERS_VIEW,
     section: 'admin',
   },
+  // Bảng lương
+  {
+    id: 'payroll',
+    label: 'Bảng lương',
+    icon: DollarSign,
+    path: '/admin/payroll',
+    permission: Permission.PAYROLL_VIEW,
+    section: 'admin',
+  },
+  // Báo cáo lương
   {
     id: 'payroll-reports',
     label: 'Báo cáo lương',
@@ -138,12 +101,58 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.PAYROLL_VIEW,
     section: 'admin',
   },
+  // Phê duyệt yêu cầu
   {
-    id: 'payroll',
-    label: 'Bảng lương',
-    icon: DollarSign,
-    path: '/admin/payroll',
-    permission: Permission.PAYROLL_VIEW,
+    id: 'approve-requests',
+    label: 'Phê duyệt yêu cầu',
+    icon: CheckCircle2,
+    path: '/admin/approve-requests',
+    permission: Permission.REQUESTS_APPROVE_DEPARTMENT,
+    section: 'admin',
+  },
+  // Đánh giá hiệu suất
+  {
+    id: 'performance-review',
+    label: 'Đánh giá hiệu suất',
+    icon: Award,
+    path: '/admin/performance-review',
+    permission: Permission.USERS_VIEW,
+    section: 'admin',
+  },
+  // Chấm công
+  {
+    id: 'admin-attendance',
+    label: 'Quản lý chấm công',
+    icon: Clock,
+    path: '/admin/admin-attendance',
+    permission: Permission.ATTENDANCE_VIEW_ALL,
+    section: 'admin',
+  },
+  // Ca làm việc
+  {
+    id: 'shifts',
+    label: 'Quản lý ca làm việc',
+    icon: Clock,
+    path: '/admin/shifts',
+    permission: Permission.ATTENDANCE_VIEW_DEPARTMENT,
+    section: 'admin',
+  },
+  // Báo cáo và thống kê
+  {
+    id: 'admin-reports',
+    label: 'Báo cáo & Thống kê',
+    icon: FileBarChart,
+    path: '/admin/admin-reports',
+    permission: Permission.VIEW_REPORTS,
+    section: 'admin',
+  },
+
+  {
+    id: 'attendance-analytics',
+    label: 'Phân tích chấm công',
+    icon: BarChart3,
+    path: '/admin/attendance-analytics',
+    permission: Permission.ANALYTICS_VIEW_DEPARTMENT,
     section: 'admin',
   },
   {
@@ -172,6 +181,21 @@ export const MENU_ITEMS: MenuItem[] = [
   },
 ];
 
+// Helper function to check if user has permission (including higher level permissions)
+function hasPermission(userPermissions: PermissionType[], requiredPermission: PermissionType): boolean {
+  if (userPermissions.includes(requiredPermission)) return true;
+  
+  // Check for higher level permissions
+  const permissionHierarchy: Record<string, string[]> = {
+    [Permission.REQUESTS_APPROVE_DEPARTMENT]: [Permission.REQUESTS_APPROVE_ALL],
+    [Permission.ATTENDANCE_VIEW_DEPARTMENT]: [Permission.ATTENDANCE_VIEW_ALL],
+    [Permission.ANALYTICS_VIEW_DEPARTMENT]: [Permission.ANALYTICS_VIEW_ALL],
+  };
+  
+  const higherPermissions = permissionHierarchy[requiredPermission] || [];
+  return higherPermissions.some(perm => userPermissions.includes(perm));
+}
+
 export function getMenuByPermissions(
   userRole: UserRoleType,
   basePath: string
@@ -181,7 +205,7 @@ export function getMenuByPermissions(
   return MENU_ITEMS
     .filter(item => {
       if (!item.permission) return true;
-      return userPermissions.includes(item.permission);
+      return hasPermission(userPermissions, item.permission);
     })
     .map(item => ({
       ...item,
@@ -203,9 +227,22 @@ export function getMenuByPermissionsWithTranslations(
 ): MenuItem[] {
   const menu = getMenuByPermissions(userRole, basePath);
   
-  return menu.map(item => ({
-    ...item,
-    label: t(`menu:${item.id}`) || item.label,
-  }));
+  // Move "Trang chủ" (home) from employee section to admin section for admin roles
+  const adminRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER];
+  const isAdminRole = adminRoles.includes(userRole);
+  
+  return menu.map(item => {
+    const menuItem = {
+      ...item,
+      label: t(`menu:${item.id}`) || item.label,
+    };
+    
+    // Change section of "home" item to 'admin' for admin roles
+    if (item.id === 'home' && isAdminRole) {
+      menuItem.section = 'admin';
+    }
+    
+    return menuItem;
+  });
 }
 

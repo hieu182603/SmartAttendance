@@ -4,11 +4,7 @@ import { canAccessAdminPanel, type UserRoleType } from '@/utils/roles'
 import DashboardOverview from '@/components/dashboard/Overview'
 import EmployeeHome from '@/components/dashboard/EmployeeHome'
 
-/**
- * Component wrapper để render đúng trang chủ theo role
- * - MANAGER+ → Dashboard Admin
- * - EMPLOYEE → Employee Home
- */
+
 export default function HomePageWrapper(): React.JSX.Element {
   const { user } = useAuth()
   const userRole = user?.role as UserRoleType | undefined

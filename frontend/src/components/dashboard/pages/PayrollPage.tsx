@@ -10,16 +10,12 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Badge } from "../../ui/badge";
 
 import {
   Table,
@@ -371,18 +367,12 @@ export default function PayrollPage() {
                 <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                   <SelectValue placeholder={t("payroll.filters.department")} />
                 </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="all">
-                    {t("payroll.filters.allDepartments")}
-
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
                   <SelectItem
                     value="all"
                     className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
                   >
-                    Tất cả phòng ban
-
+                    {t("payroll.filters.allDepartments")}
                   </SelectItem>
                   {departments.map((dept) => (
                     <SelectItem
@@ -399,45 +389,30 @@ export default function PayrollPage() {
                 <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                   <SelectValue placeholder={t("payroll.filters.status")} />
                 </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="all">
-                    {t("payroll.filters.all")}
-                  </SelectItem>
-                  <SelectItem value="pending">
-                    {t("payroll.filters.pending")}
-                  </SelectItem>
-                  <SelectItem value="approved">
-                    {t("payroll.filters.approved")}
-                  </SelectItem>
-                  <SelectItem value="paid">
-                    {t("payroll.filters.paid")}
-
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
                   <SelectItem
                     value="all"
                     className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
                   >
-                    Tất cả trạng thái
+                    {t("payroll.filters.all")}
                   </SelectItem>
                   <SelectItem
                     value="pending"
                     className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
                   >
-                    Chờ duyệt
+                    {t("payroll.filters.pending")}
                   </SelectItem>
                   <SelectItem
                     value="approved"
                     className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
                   >
-                    Đã duyệt
+                    {t("payroll.filters.approved")}
                   </SelectItem>
                   <SelectItem
                     value="paid"
                     className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
                   >
-                    Đã thanh toán
-
+                    {t("payroll.filters.paid")}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -468,7 +443,6 @@ export default function PayrollPage() {
                 <TableHeader>
                   <TableRow className="border-[var(--border)] hover:bg-transparent">
                     <TableHead className="text-[var(--text-sub)]">
-
                       {t("payroll.employeeCode")}
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)]">
@@ -500,36 +474,6 @@ export default function PayrollPage() {
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)] text-center">
                       {t("payroll.table.status")}
-
-                      Họ tên
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)]">
-                      Phòng ban
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">
-                      Ngày công
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">
-                      Tăng ca (h)
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">
-                      Lương CB
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">
-                      Tăng ca
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">
-                      Thưởng
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">
-                      Khấu trừ
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">
-                      Tổng
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">
-                      Trạng thái
-
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -540,24 +484,20 @@ export default function PayrollPage() {
                         <div className="flex flex-col items-center gap-4">
                           <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
                           <p className="text-[var(--text-sub)]">
-
                             {t("payroll.loading")}
-
-                            Đang tải dữ liệu...
-
                           </p>
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : filteredData.length > 0 ? (
                     filteredData.map((record, index) => (
-                      <motion.tr
+                      <TableRow
                         key={record._id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.7 + index * 0.05 }}
                         className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
                       >
+                        <TableCell className="text-[var(--text-main)]">
+                          {record.employeeId || record.userId?.employeeId || "N/A"}
+                        </TableCell>
                         <TableCell className="text-[var(--text-main)]">
                           {record.userId?.name || "N/A"}
                         </TableCell>
@@ -590,7 +530,7 @@ export default function PayrollPage() {
                             {getStatusLabel(record.status)}
                           </Badge>
                         </TableCell>
-                      </motion.tr>
+                      </TableRow>
                     ))
                   ) : null}
                 </TableBody>

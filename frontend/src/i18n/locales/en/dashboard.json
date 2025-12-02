@@ -373,11 +373,19 @@
     "exportSuccess": "Excel exported successfully",
     "export": "Export Excel",
     "searchPlaceholder": "Search employees...",
+    "error": "Failed to load attendance data",
     "stats": {
       "total": "Total",
       "present": "Present",
       "late": "Late",
       "absent": "Absent"
+    },
+    "filters": {
+      "ontime": "On Time",
+      "late": "Late",
+      "absent": "Absent",
+      "overtime": "Overtime",
+      "weekend": "Weekend"
     },
     "table": {
       "employee": "Employee",
@@ -387,6 +395,7 @@
       "hours": "Total Hours",
       "status": "Status",
       "location": "Location",
+      "actions": "Actions",
       "noData": "No data",
       "loading": "Loading..."
     },
@@ -394,9 +403,41 @@
       "showing": "Showing",
       "of": "of",
       "rowsPerPage": "Rows per page:",
-      "page": "Page"
+      "page": "Page",
+      "prev": "Previous",
+      "next": "Next",
+      "currentPage": "Page {{page}} / {{totalPages}}"
     },
     "todayList": "Today's Attendance List"
+  },
+  "teamManagement": {
+    "title": "Team Management",
+    "description": "View and manage your department team members",
+    "error": "Failed to load team list",
+    "stats": {
+      "total": "Total Members",
+      "active": "Active"
+    },
+    "searchPlaceholder": "Search by name, email, position...",
+    "table": {
+      "title": "Team Members List",
+      "name": "Name",
+      "email": "Email",
+      "position": "Position",
+      "department": "Department",
+      "role": "Role",
+      "loading": "Loading...",
+      "noTeam": "You don't have a team or don't have permission to view team list",
+      "noResults": "No results found",
+      "notSpecified": "Not specified"
+    },
+    "viewMember": {
+      "title": "Member Information",
+      "position": "Position",
+      "department": "Department",
+      "branch": "Branch",
+      "role": "Role"
+    }
   },
   "approveRequests": {
     "title": "Approve Requests",
