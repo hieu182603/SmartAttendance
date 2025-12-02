@@ -1,4 +1,4 @@
-import axios, { type AxiosRequestConfig, type AxiosError, type AxiosResponse } from 'axios'
+import axios, { type InternalAxiosRequestConfig, type AxiosError, type AxiosResponse } from 'axios'
 
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
 
@@ -12,7 +12,7 @@ export const api = axios.create({
     withCredentials: false,
 })
 
-api.interceptors.request.use((config: AxiosRequestConfig) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('sa_token')
     if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`

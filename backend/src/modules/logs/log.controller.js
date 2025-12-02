@@ -61,6 +61,29 @@ export const LogController = {
         message: error.message || "Không thể lấy thống kê audit logs",
       });
     }
+  },
+
+  /**
+   * GET /api/logs/:id
+   * Lấy chi tiết một log entry
+   * Chỉ dành cho SUPER_ADMIN và ADMIN
+   */
+  async getLogById(req, res) {
+    try {
+      const { id } = req.params;
+
+      const log = await LogService.getLogById(id);
+
+      res.status(200).json({ log });
+    } catch (error) {
+      if (error.message === "Log not found") {
+        return res.status(404).json({ message: "Không tìm thấy log" });
+      }
+      console.error("[LogController] Get log by ID error:", error);
+      res.status(500).json({
+        message: error.message || "Không thể lấy chi tiết log",
+      });
+    }
   }
 }
 

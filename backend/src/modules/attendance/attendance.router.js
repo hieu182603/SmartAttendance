@@ -11,6 +11,8 @@ import {
   getAllAttendance,
   exportAttendanceAnalytics,
   getDepartmentAttendance,
+  updateAttendanceRecord,
+  deleteAttendanceRecord,
 } from "./attendance.controller.js";
 
 export const attendanceRouter = Router();
@@ -46,6 +48,16 @@ attendanceRouter.get(
   "/all",
   requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
   getAllAttendance
+);
+attendanceRouter.patch(
+  "/:id",
+  requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
+  updateAttendanceRecord
+);
+attendanceRouter.delete(
+  "/:id",
+  requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
+  deleteAttendanceRecord
 );
 attendanceRouter.get(
   "/department",

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import {
   Clock,
@@ -11,10 +12,14 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Card, CardContent } from "../../ui/card";
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+
+
 import {
   Dialog,
   DialogContent,
@@ -23,27 +28,26 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../../ui/dialog";
-import { Label } from "../../ui/label";
-import { Input } from "../../ui/input";
-import { Textarea } from "../../ui/textarea";
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../ui/select";
-import {
-  getMyRequests,
-  createRequest as createRequestApi,
-  getRequestTypes,
-} from "../../../services/requestService";
+
+} from "@/components/ui/select";
+import { getMyRequests, createRequest as createRequestApi } from "@/services/requestService";
+import type { ErrorWithMessage } from "@/types";
+import { getRequestTypes } from "@/services/requestService";
 import type {
   RequestType as RequestTypeOption,
-} from "../../../services/requestService";
-import { getAllDepartments } from "../../../services/departmentService";
-import type { ErrorWithMessage } from "../../../types";
+} from "@/services/requestService";
+import { getAllDepartments } from "@/services/departmentService";
+
 
 type RequestStatus = "pending" | "approved" | "rejected";
 type RequestType = string;
@@ -96,6 +100,7 @@ const FALLBACK_REQUEST_TYPES: RequestTypeOption[] = [
 ];
 
 const RequestsPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [allRequests, setAllRequests] = useState<Request[]>([]); // Store all requests for stats calculation
   const [requests, setRequests] = useState<Request[]>([]); // Current page requests
   const [selectedTab, setSelectedTab] = useState<string>("pending");
@@ -136,7 +141,7 @@ const RequestsPage: React.FC = () => {
           getRequestTypes(),
           getAllDepartments({ limit: 1000, status: 'active' })
         ]);
-        
+
         if (isMounted) {
           setRequestTypes(typesResult.types || []);
           const deptOptions = deptsResult.departments.map(dept => ({
@@ -164,7 +169,7 @@ const RequestsPage: React.FC = () => {
         const pendingResult = await getMyRequests({ status: 'pending', limit: 1000 });
         const approvedResult = await getMyRequests({ status: 'approved', limit: 1000 });
         const rejectedResult = await getMyRequests({ status: 'rejected', limit: 1000 });
-        
+
         if (isMounted) {
           const allRequestsData = [
             ...(pendingResult.requests || []),
@@ -218,12 +223,12 @@ const RequestsPage: React.FC = () => {
         const result = await getMyRequests(params);
         if (isMounted) {
           let filteredRequests = (result.requests || []) as unknown as Request[];
-          
+
           // Client-side department filter (since getMyRequests only returns user's own requests)
           if (filterDepartment !== "all") {
             filteredRequests = filteredRequests.filter(req => req.department === filterDepartment);
           }
-          
+
           setRequests(filteredRequests);
           if (result.pagination) {
             setPagination(result.pagination);
@@ -280,21 +285,21 @@ const RequestsPage: React.FC = () => {
         reason: requestReason.trim(),
       };
       const newRequest = await createRequestApi(payload) as Request;
-      
+
       // The response from createRequest should already have all needed fields
       // Add to allRequests for stats
       setAllRequests((prev) => [newRequest, ...prev]);
-      
+
       // Add to current requests list if on pending tab or all tab
       if (selectedTab === 'pending' || selectedTab === 'all') {
         setRequests((prev) => [newRequest, ...prev]);
       }
-      
+
       // Switch to pending tab if not already there
       if (selectedTab !== 'pending') {
         setSelectedTab('pending');
       }
-      
+
       setIsCreateDialogOpen(false);
       setRequestType("");
       setRequestReason("");
@@ -315,9 +320,9 @@ const RequestsPage: React.FC = () => {
   const getTypeIconLabel = (type: RequestType): TypeIconLabel => {
     switch (type) {
       case "leave":
-        return { icon: <Moon className="h-4 w-4" />, label: "Nghỉ phép" };
+        return { icon: <Moon className="h-4 w-4" />, label: t('dashboard:requests.types.leave') };
       case "overtime":
-        return { icon: <Sun className="h-4 w-4" />, label: "Tăng ca" };
+        return { icon: <Sun className="h-4 w-4" />, label: t('dashboard:requests.types.overtime') };
       case "remote":
         return { icon: <Briefcase className="h-4 w-4" />, label: "Remote" };
       case "correction":
@@ -379,7 +384,7 @@ const RequestsPage: React.FC = () => {
           key={request.id}
           className="bg-[var(--shell)] border border-[var(--border)] transition-all hover:border-[var(--accent-cyan)]"
         >
-          <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between">
+          <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between mt-4">
             <div className="flex flex-1 flex-col gap-3">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white flex items-center justify-center">
@@ -403,8 +408,8 @@ const RequestsPage: React.FC = () => {
                     {request.urgency === "high"
                       ? "Gấp"
                       : request.urgency === "medium"
-                      ? "Bình thường"
-                      : "Không gấp"}
+                        ? "Bình thường"
+                        : "Không gấp"}
                   </Badge>
                 )}
                 <Badge
@@ -457,8 +462,8 @@ const RequestsPage: React.FC = () => {
                   request.status === "pending"
                     ? "bg-[var(--warning)]/20 text-[var(--warning)]"
                     : request.status === "approved"
-                    ? "bg-[var(--success)]/20 text-[var(--success)]"
-                    : "bg-[var(--error)]/20 text-[var(--error)]"
+                      ? "bg-[var(--success)]/20 text-[var(--success)]"
+                      : "bg-[var(--error)]/20 text-[var(--error)]"
                 }
               >
                 {request.status === "pending" ? (
@@ -483,9 +488,9 @@ const RequestsPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl text-[var(--text-main)]">Yêu cầu & Đơn từ</h1>
+          <h1 className="text-3xl text-[var(--text-main)]">{t('dashboard:requests.title')}</h1>
           <p className="text-[var(--text-sub)]">
-            Quản lý nghỉ phép, tăng ca, sửa công và phê duyệt trực tiếp
+            {t('dashboard:requests.description')}
           </p>
         </div>
 
@@ -510,15 +515,15 @@ const RequestsPage: React.FC = () => {
                   <SelectTrigger className="border-[var(--border)] bg-[var(--input-bg)]">
                     <SelectValue placeholder="Chọn loại đơn" />
                   </SelectTrigger>
-                <SelectContent>
-                  {(requestTypes.length
-                    ? requestTypes
-                    : FALLBACK_REQUEST_TYPES
-                  ).map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
+                  <SelectContent>
+                    {(requestTypes.length
+                      ? requestTypes
+                      : FALLBACK_REQUEST_TYPES
+                    ).map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -658,6 +663,7 @@ const RequestsPage: React.FC = () => {
 
           <Tabs value={selectedTab} onValueChange={setSelectedTab}>
             <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="all">Tất cả ({stats.total})</TabsTrigger>
               <TabsTrigger value="pending">
                 Chờ duyệt ({stats.pending})
               </TabsTrigger>
@@ -667,12 +673,11 @@ const RequestsPage: React.FC = () => {
               <TabsTrigger value="rejected">
                 Từ chối ({stats.rejected})
               </TabsTrigger>
-              <TabsTrigger value="all">Tất cả ({stats.total})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="mt-6 space-y-4">
               {renderRequests("all")}
-            </TabsContent>        
+            </TabsContent>
             <TabsContent value="pending" className="mt-6 space-y-4">
               {renderRequests("pending")}
             </TabsContent>
@@ -681,9 +686,9 @@ const RequestsPage: React.FC = () => {
             </TabsContent>
             <TabsContent value="rejected" className="mt-6 space-y-4">
               {renderRequests("rejected")}
-            </TabsContent>            
+            </TabsContent>
           </Tabs>
-          
+
           {/* Pagination Controls */}
           {pagination.totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-[var(--border)]">

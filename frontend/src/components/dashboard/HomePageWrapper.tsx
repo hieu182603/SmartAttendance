@@ -1,8 +1,8 @@
 import React from 'react'
-import { useAuth } from '../../context/AuthContext'
-import { canAccessAdminPanel, type UserRoleType } from '../../utils/roles'
-import DashboardOverview from './Overview'
-import EmployeeHome from './EmployeeHome'
+import { useAuth } from '@/context/AuthContext'
+import { canAccessAdminPanel, type UserRoleType } from '@/utils/roles'
+import DashboardOverview from '@/components/dashboard/Overview'
+import EmployeeHome from '@/components/dashboard/EmployeeHome'
 
 /**
  * Component wrapper để render đúng trang chủ theo role

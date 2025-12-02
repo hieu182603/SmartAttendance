@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -15,18 +16,18 @@ import {
   Moon,
   Sunset,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
-import { Button } from '../../ui/button'
-import { Input } from '../../ui/input'
-import { Textarea } from '../../ui/textarea'
-import { Badge } from '../../ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../ui/dialog'
-import { Label } from '../../ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { getAllRequests, approveRequest, rejectRequest } from '../../../services/requestService'
-import type { ErrorWithMessage } from '../../../types'
+import { getAllRequests, approveRequest, rejectRequest } from '@/services/requestService'
+import type { ErrorWithMessage } from '@/types'
 
 type RequestStatus = 'pending' | 'approved' | 'rejected'
 type RequestType = 'leave' | 'overtime' | 'late' | 'remote'
@@ -65,6 +66,7 @@ interface Stats {
 }
 
 const ApproveRequestsPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [allRequests, setAllRequests] = useState<Request[]>([]) // Lưu tất cả requests để tính stats
   const [requests, setRequests] = useState<Request[]>([]) // Requests đã filter theo tab
   const [selectedTab, setSelectedTab] = useState<string>('pending')
@@ -76,6 +78,57 @@ const ApproveRequestsPage: React.FC = () => {
   const [actionType, setActionType] = useState<ActionType>(null)
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const typeLabelMap = useMemo(
+    () => ({
+      leave: t('dashboard:approveRequests.types.leave'),
+      overtime: t('dashboard:approveRequests.types.overtime'),
+      late: t('dashboard:approveRequests.types.late'),
+      remote: t('dashboard:approveRequests.types.remote'),
+    }),
+    [t]
+  )
+
+  const typeOptions = useMemo(
+    () => [
+      { value: 'all', label: t('dashboard:approveRequests.filters.allTypes') },
+      { value: 'leave', label: typeLabelMap.leave },
+      { value: 'overtime', label: typeLabelMap.overtime },
+      { value: 'late', label: typeLabelMap.late },
+      { value: 'remote', label: typeLabelMap.remote },
+    ],
+    [t, typeLabelMap]
+  )
+
+  const departmentOptions = useMemo(
+    () => [
+      { value: 'all', label: t('dashboard:approveRequests.filters.allDepartments') },
+      { value: 'IT', label: t('dashboard:approveRequests.departments.it') },
+      { value: 'Nhân sự', label: t('dashboard:approveRequests.departments.hr') },
+      { value: 'Kinh doanh', label: t('dashboard:approveRequests.departments.sales') },
+      { value: 'Marketing', label: t('dashboard:approveRequests.departments.marketing') },
+    ],
+    [t]
+  )
+
+  const urgencyLabels = useMemo(
+    () => ({
+      high: t('dashboard:approveRequests.urgency.high'),
+      medium: t('dashboard:approveRequests.urgency.medium'),
+      low: t('dashboard:approveRequests.urgency.low'),
+    }),
+    [t]
+  )
+
+  const getTypeLabel = useCallback(
+    (type: RequestType): string => typeLabelMap[type] ?? type,
+    [typeLabelMap]
+  )
+
+  const getUrgencyLabel = useCallback(
+    (urgency: Urgency): string => urgencyLabels[urgency],
+    [urgencyLabels]
+  )
 
   // Fetch tất cả requests để tính stats (không filter theo status)
   const fetchAllRequests = useCallback(async () => {
@@ -90,7 +143,7 @@ const ApproveRequestsPage: React.FC = () => {
       setAllRequests(result.requests || [])
     } catch (error) {
       console.error('[ApproveRequests] fetch all error:', error)
-      toast.error('Không thể tải danh sách yêu cầu')
+      toast.error(t('dashboard:approveRequests.actions.error'))
       setAllRequests([])
     }
   }, [filterType, filterDepartment, searchQuery])
@@ -150,10 +203,10 @@ const ApproveRequestsPage: React.FC = () => {
     try {
       if (actionType === 'approve') {
         await approveRequest(selectedRequest.id, comments)
-        toast.success(`Đã phê duyệt yêu cầu`)
+        toast.success(t('dashboard:approveRequests.actions.approveSuccess'))
       } else {
         await rejectRequest(selectedRequest.id, comments)
-        toast.success(` Đã từ chối yêu cầu`)
+        toast.success(t('dashboard:approveRequests.actions.rejectSuccess'))
       }
       setIsDialogOpen(false)
       setSelectedRequest(null)
@@ -164,7 +217,7 @@ const ApproveRequestsPage: React.FC = () => {
     } catch (error) {
       console.error('[ApproveRequests] action error:', error)
       const err = error as ErrorWithMessage
-      toast.error((err.response?.data as { message?: string })?.message || err.message || 'Có lỗi xảy ra')
+      toast.error((err.response?.data as { message?: string })?.message || err.message || t('dashboard:approveRequests.actions.error'))
     }
   }
 
@@ -175,16 +228,6 @@ const ApproveRequestsPage: React.FC = () => {
       case 'late': return <Clock className="h-4 w-4" />
       case 'remote': return <Briefcase className="h-4 w-4" />
       default: return <FileText className="h-4 w-4" />
-    }
-  }
-
-  const getTypeLabel = (type: RequestType): string => {
-    switch (type) {
-      case 'leave': return 'Nghỉ phép'
-      case 'overtime': return 'Tăng ca'
-      case 'late': return 'Đi muộn'
-      case 'remote': return 'Remote'
-      default: return type
     }
   }
 
@@ -212,10 +255,10 @@ const ApproveRequestsPage: React.FC = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-          Phê duyệt yêu cầu
+          {t('dashboard:approveRequests.title')}
         </h1>
         <p className="text-[var(--text-sub)] mt-2">
-          Quản lý và phê duyệt các yêu cầu của nhân viên
+          {t('dashboard:approveRequests.description')}
         </p>
       </div>
 
@@ -230,7 +273,7 @@ const ApproveRequestsPage: React.FC = () => {
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Chờ duyệt</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:approveRequests.stats.pending')}</p>
                   <p className="text-3xl text-[var(--warning)] mt-2">{stats.pending}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--warning)]/20 flex items-center justify-center">
@@ -250,7 +293,7 @@ const ApproveRequestsPage: React.FC = () => {
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Đã duyệt</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:approveRequests.stats.approved')}</p>
                   <p className="text-3xl text-[var(--success)] mt-2">{stats.approved}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
@@ -270,7 +313,7 @@ const ApproveRequestsPage: React.FC = () => {
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Từ chối</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:approveRequests.stats.rejected')}</p>
                   <p className="text-3xl text-[var(--error)] mt-2">{stats.rejected}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--error)]/20 flex items-center justify-center">
@@ -290,7 +333,7 @@ const ApproveRequestsPage: React.FC = () => {
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Tổng số</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:approveRequests.stats.total')}</p>
                   <p className="text-3xl text-[var(--accent-cyan)] mt-2">{stats.total}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
@@ -310,7 +353,7 @@ const ApproveRequestsPage: React.FC = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
                 <Input
-                  placeholder="Tìm theo tên nhân viên hoặc tiêu đề..."
+                  placeholder={t('dashboard:approveRequests.filters.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
@@ -319,26 +362,26 @@ const ApproveRequestsPage: React.FC = () => {
             </div>
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                <SelectValue placeholder="Loại yêu cầu" />
+                <SelectValue placeholder={t('dashboard:approveRequests.filters.requestType')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="leave">Nghỉ phép</SelectItem>
-                <SelectItem value="overtime">Tăng ca</SelectItem>
-                <SelectItem value="late">Đi muộn</SelectItem>
-                <SelectItem value="remote">Remote</SelectItem>
+                {typeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filterDepartment} onValueChange={setFilterDepartment}>
               <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                <SelectValue placeholder="Phòng ban" />
+                <SelectValue placeholder={t('dashboard:approveRequests.filters.department')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả phòng ban</SelectItem>
-                <SelectItem value="IT">IT</SelectItem>
-                <SelectItem value="Nhân sự">Nhân sự</SelectItem>
-                <SelectItem value="Kinh doanh">Kinh doanh</SelectItem>
-                <SelectItem value="Marketing">Marketing</SelectItem>
+                {departmentOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -348,26 +391,28 @@ const ApproveRequestsPage: React.FC = () => {
       {/* Requests List with Tabs */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">Danh sách yêu cầu</CardTitle>
+          <CardTitle className="text-[var(--text-main)]">
+            {t('dashboard:approveRequests.request.listTitle')}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v)}>
             <TabsList className="grid w-full grid-cols-4 mb-6">
-              <TabsTrigger value="pending">Chờ duyệt ({stats.pending})</TabsTrigger>
-              <TabsTrigger value="approved">Đã duyệt ({stats.approved})</TabsTrigger>
-              <TabsTrigger value="rejected">Từ chối ({stats.rejected})</TabsTrigger>
-              <TabsTrigger value="all">Tất cả ({stats.total})</TabsTrigger>
+              <TabsTrigger value="pending">{t('dashboard:approveRequests.tabs.pending')} ({stats.pending})</TabsTrigger>
+              <TabsTrigger value="approved">{t('dashboard:approveRequests.tabs.approved')} ({stats.approved})</TabsTrigger>
+              <TabsTrigger value="rejected">{t('dashboard:approveRequests.tabs.rejected')} ({stats.rejected})</TabsTrigger>
+              <TabsTrigger value="all">{t('dashboard:approveRequests.tabs.all')} ({stats.total})</TabsTrigger>
             </TabsList>
 
             <TabsContent value={selectedTab} className="space-y-4">
               {loading ? (
                 <div className="text-center py-12">
-                  <p className="text-[var(--text-sub)]">Đang tải...</p>
+                  <p className="text-[var(--text-sub)]">{t('dashboard:approveRequests.request.loading')}</p>
                 </div>
               ) : filteredRequests.length === 0 ? (
                 <div className="text-center py-12">
                   <AlertCircle className="h-12 w-12 text-[var(--text-sub)] mx-auto mb-4" />
-                  <p className="text-[var(--text-sub)]">Không có yêu cầu nào</p>
+                  <p className="text-[var(--text-sub)]">{t('dashboard:approveRequests.request.noRequests')}</p>
                 </div>
               ) : (
                 filteredRequests.map((request, index) => (
@@ -398,7 +443,7 @@ const ApproveRequestsPage: React.FC = () => {
                               </Badge>
                               {request.urgency && (
                                 <Badge className={getUrgencyColor(request.urgency)}>
-                                  {request.urgency === 'high' ? 'Gấp' : request.urgency === 'medium' ? 'Bình thường' : 'Không gấp'}
+                                  {getUrgencyLabel(request.urgency)}
                                 </Badge>
                               )}
                               <Badge variant="outline" className="border-[var(--border)] text-[var(--text-sub)]">
@@ -415,9 +460,13 @@ const ApproveRequestsPage: React.FC = () => {
                             <h4 className="text-[var(--text-main)] mb-2">{request.title}</h4>
                             <p className="text-sm text-[var(--text-sub)] mb-3">{request.description || request.reason}</p>
 
-                            <div className="text-xs text-[var(--text-sub)]">
-                              Gửi lúc: {request.submittedAt}
-                            </div>
+                            {request.submittedAt && (
+                              <div className="text-xs text-[var(--text-sub)]">
+                                {t('dashboard:approveRequests.request.sentAt', {
+                                  time: request.submittedAt,
+                                })}
+                              </div>
+                            )}
 
                             {request.approver && (
                               <div className="mt-3 p-3 rounded-lg bg-[var(--background)]/50 border border-[var(--border)]">
@@ -425,7 +474,13 @@ const ApproveRequestsPage: React.FC = () => {
                                   <MessageSquare className="h-4 w-4 text-[var(--accent-cyan)] mt-0.5" />
                                   <div className="flex-1">
                                     <p className="text-xs text-[var(--text-sub)]">
-                                      {request.approver} • {request.approvedAt}
+                                      {t('dashboard:approveRequests.request.approvedBy', {
+                                        approver: request.approver,
+                                      })}
+                                      {request.approvedAt &&
+                                        ` • ${t('dashboard:approveRequests.request.atTime', {
+                                          time: request.approvedAt,
+                                        })}`}
                                     </p>
                                     <p className="text-sm text-[var(--text-main)] mt-1">{request.comments}</p>
                                   </div>
@@ -443,7 +498,7 @@ const ApproveRequestsPage: React.FC = () => {
                                   size="sm"
                                 >
                                   <CheckCircle2 className="h-4 w-4 mr-1" />
-                                  Duyệt
+                                  {t('dashboard:approveRequests.actions.approve')}
                                 </Button>
                                 <Button
                                   onClick={() => handleOpenDialog(request, 'reject')}
@@ -452,12 +507,12 @@ const ApproveRequestsPage: React.FC = () => {
                                   size="sm"
                                 >
                                   <XCircle className="h-4 w-4 mr-1" />
-                                  Từ chối
+                                  {t('dashboard:approveRequests.actions.reject')}
                                 </Button>
                               </>
                             ) : (
                               <Badge className={request.status === 'approved' ? 'bg-[var(--success)]/20 text-[var(--success)]' : 'bg-red-500/20 text-red-500'}>
-                                {request.status === 'approved' ? '✓ Đã duyệt' : '✗ Đã từ chối'}
+                                {request.status === 'approved' ? `✓ ${t('dashboard:approveRequests.stats.approved')}` : `✗ ${t('dashboard:approveRequests.stats.rejected')}`}
                               </Badge>
                             )}
                           </div>
@@ -477,7 +532,7 @@ const ApproveRequestsPage: React.FC = () => {
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
           <DialogHeader>
             <DialogTitle>
-              {actionType === 'approve' ? 'Phê duyệt yêu cầu' : 'Từ chối yêu cầu'}
+              {actionType === 'approve' ? t('dashboard:approveRequests.actions.approveTitle') : t('dashboard:approveRequests.actions.rejectTitle')}
             </DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
               {selectedRequest && (
@@ -490,9 +545,9 @@ const ApproveRequestsPage: React.FC = () => {
 
           <div className="space-y-4">
             <div>
-              <Label className="text-[var(--text-main)]">Nhận xét (tùy chọn)</Label>
+              <Label className="text-[var(--text-main)]">{t('dashboard:approveRequests.actions.comments')}</Label>
               <Textarea
-                placeholder={actionType === 'approve' ? 'Nhập nhận xét về yêu cầu...' : 'Nhập lý do từ chối...'}
+                placeholder={t('dashboard:approveRequests.actions.commentsPlaceholder')}
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
                 className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)] mt-2"
@@ -507,7 +562,7 @@ const ApproveRequestsPage: React.FC = () => {
               onClick={() => setIsDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
-              Hủy
+              {t('dashboard:approveRequests.actions.cancel')}
             </Button>
             <Button
               onClick={handleSubmitAction}
@@ -517,7 +572,7 @@ const ApproveRequestsPage: React.FC = () => {
               }
             >
               <Send className="h-4 w-4 mr-2" />
-              {actionType === 'approve' ? 'Xác nhận duyệt' : 'Xác nhận từ chối'}
+              {t('dashboard:approveRequests.actions.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

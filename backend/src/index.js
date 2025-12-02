@@ -16,9 +16,12 @@ import { branchRouter } from "./modules/branches/branch.router.js";
 import { departmentRouter } from "./modules/departments/department.router.js";
 import { shiftRouter } from "./modules/shifts/shift.router.js";
 import { locationRouter } from "./modules/locations/location.router.js";
+import { payrollRouter } from "./modules/payroll/payroll.router.js";
+import { eventRouter } from "./modules/events/event.router.js";
+import { performanceRouter } from "./modules/performance/performance.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
 
-// ⭐ THÊM ROUTER LOGS
+
 import { logRouter } from "./modules/logs/log.router.js";
 
 dotenv.config();
@@ -61,8 +64,11 @@ app.use("/api/branches", branchRouter);
 app.use("/api/departments", departmentRouter);
 app.use("/api/shifts", shiftRouter);
 app.use("/api/locations", locationRouter);
+app.use("/api/payroll", payrollRouter);
+app.use("/api/events", eventRouter);
+app.use("/api/performance", performanceRouter);
 
-// ⭐ THÊM ROUTE LOGS
+
 app.use("/api/logs", logRouter);
 
 // Error handler

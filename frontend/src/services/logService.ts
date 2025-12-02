@@ -1,4 +1,4 @@
-import api from './api'
+import api from '@/services/api'
 
 interface LogParams {
   page?: number
@@ -74,6 +74,16 @@ export const getLogStats = async (params: { startDate?: string; endDate?: string
       failed: 0,
       warning: 0,
     }
+  }
+}
+
+export const getLogById = async (id: string): Promise<{ log: AuditLog }> => {
+  try {
+    const { data } = await api.get(`/logs/${id}`)
+    return data as { log: AuditLog }
+  } catch (error) {
+    console.error('[logService] getLogById error:', error)
+    throw error
   }
 }
 

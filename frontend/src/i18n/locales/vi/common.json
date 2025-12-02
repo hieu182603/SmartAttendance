@@ -1,0 +1,88 @@
+{
+  "buttons": {
+    "submit": "Gửi",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "back": "Quay lại",
+    "next": "Tiếp theo",
+    "previous": "Trước",
+    "confirm": "Xác nhận",
+    "close": "Đóng",
+    "search": "Tìm kiếm",
+    "filter": "Lọc",
+    "export": "Xuất",
+    "import": "Nhập",
+    "refresh": "Làm mới",
+    "add": "Thêm",
+    "update": "Cập nhật",
+    "view": "Xem",
+    "download": "Tải xuống",
+    "upload": "Tải lên"
+  },
+  "labels": {
+    "email": "Email",
+    "password": "Mật khẩu",
+    "name": "Tên",
+    "phone": "Số điện thoại",
+    "fullName": "Họ và tên",
+    "confirmPassword": "Xác nhận mật khẩu",
+    "rememberMe": "Ghi nhớ đăng nhập",
+    "forgotPassword": "Quên mật khẩu?",
+    "noAccount": "Chưa có tài khoản?",
+    "hasAccount": "Đã có tài khoản?",
+    "register": "Đăng ký ngay",
+    "login": "Đăng nhập ngay"
+  },
+  "messages": {
+    "loading": "Đang tải...",
+    "success": "Thành công",
+    "error": "Lỗi",
+    "noData": "Không có dữ liệu",
+    "processing": "Đang xử lý...",
+    "saved": "Đã lưu",
+    "deleted": "Đã xóa",
+    "updated": "Đã cập nhật",
+    "created": "Đã tạo",
+    "pleaseWait": "Vui lòng chờ..."
+  },
+  "actions": {
+    "login": "Đăng nhập",
+    "logout": "Đăng xuất",
+    "register": "Đăng ký",
+    "forgotPassword": "Quên mật khẩu",
+    "resetPassword": "Đặt lại mật khẩu",
+    "verifyOtp": "Xác thực OTP"
+  },
+  "time": {
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "thisWeek": "Tuần này",
+    "thisMonth": "Tháng này",
+    "thisYear": "Năm này"
+  },
+  "notFound": {
+    "title": "Oops! Trang không tồn tại",
+    "description": "Trang bạn đang tìm kiếm có thể đã bị xóa, đổi tên hoặc tạm thời không khả dụng.",
+    "goBack": "Quay lại",
+    "goHome": "Về trang chủ",
+    "contactSupport": "Nếu bạn cho rằng đây là một lỗi, vui lòng",
+    "contactLink": "liên hệ với bộ phận hỗ trợ"
+  },
+  "unauthorized": {
+    "title": "Không có quyền truy cập",
+    "description": "Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên nếu bạn cần quyền truy cập.",
+    "goHome": "Về trang chủ"
+  },
+  "dashboard": {
+    "logout": "Đăng xuất",
+    "user": "Người dùng",
+    "sections": {
+      "admin": "Quản trị",
+      "employee": "Cá nhân",
+      "system": "Hệ thống"
+    }
+  }
+}
+

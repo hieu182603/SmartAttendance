@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { AuthLayout } from './AuthLayout'
-import { Button } from '../ui/button'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '../ui/input-otp'
+import { useTranslation } from 'react-i18next'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { Button } from '@/components/ui/button'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { Mail, ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
-import { resendOtp, verifyOtp, verifyResetOtp } from '../../services/authService'
-import { useAuth } from '../../context/AuthContext'
+import { resendOtp, verifyOtp, verifyResetOtp } from '@/services/authService'
+import { useAuth } from '@/context/AuthContext'
 import { toast } from 'sonner'
-import type { ErrorWithMessage, LocationState } from '../../types'
-import { getRoleBasePath, type UserRoleType } from '../../utils/roles'
+import type { ErrorWithMessage, LocationState } from '@/types'
+import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
 
 export default function VerifyOtp() {
+  const { t } = useTranslation(['auth', 'common'])
   const location = useLocation()
   const navigate = useNavigate()
   const { setToken, setUser } = useAuth()
@@ -51,10 +53,10 @@ export default function VerifyOtp() {
       if (purpose === 'reset') {
         const data = await verifyResetOtp({ email, otp })
         if (data?.success) {
-          toast.success('Xác thực OTP thành công!')
+          toast.success(t('auth:verifyOtp.verifySuccess'))
           navigate('/reset-password', { state: { email } })
         } else {
-          toast.error(data?.message || 'Xác thực thất bại')
+          toast.error(data?.message || t('auth:verifyOtp.verifyError'))
           setOtp('')
         }
       } else {
@@ -62,19 +64,19 @@ export default function VerifyOtp() {
         if (data?.token) {
           setToken(data.token)
           if (data?.user) setUser(data.user)
-          toast.success('Xác thực thành công!')
+          toast.success(t('auth:verifyOtp.success'))
           const redirectPath = data?.user?.role 
             ? getRoleBasePath(data.user.role as UserRoleType)
             : '/employee'
           setTimeout(() => navigate(redirectPath), 1000)
         } else {
-          toast.error('Xác thực thất bại')
+          toast.error(t('auth:verifyOtp.verifyError'))
           setOtp('')
         }
       }
     } catch (err) {
       const error = err as ErrorWithMessage
-      toast.error(error.message || 'Xác thực OTP thất bại')
+      toast.error(error.message || t('auth:verifyOtp.error'))
       setOtp('')
     } finally {
       setIsLoading(false)
@@ -87,13 +89,13 @@ export default function VerifyOtp() {
     setIsLoading(true)
     try {
       await resendOtp({ email })
-      toast.success('OTP đã được gửi lại.')
+      toast.success(t('auth:verifyOtp.resendSuccess'))
       setCountdown(60)
       setCanResend(false)
       setOtp('')
     } catch (err) {
       const error = err as ErrorWithMessage
-      toast.error(error.message || 'Gửi lại OTP thất bại')
+      toast.error(error.message || t('auth:verifyOtp.resendError'))
     } finally {
       setIsLoading(false)
     }
@@ -101,8 +103,8 @@ export default function VerifyOtp() {
 
   return (
     <AuthLayout 
-      title="Xác thực OTP" 
-      subtitle={`Mã OTP đã được gửi đến ${email}`}
+      title={t('auth:verifyOtp.title')} 
+      subtitle={`${t('auth:verifyOtp.subtitle')} ${email}`}
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -116,7 +118,7 @@ export default function VerifyOtp() {
           className="flex items-center space-x-2 text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors group"
         >
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Quay lại</span>
+          <span>{t('auth:verifyOtp.back')}</span>
         </Link>
 
         {/* Info Box */}
@@ -125,10 +127,10 @@ export default function VerifyOtp() {
             <Mail className="h-5 w-5 text-[var(--accent-cyan)] mt-0.5 flex-shrink-0" />
             <div className="flex-1">
               <p className="text-sm text-[var(--text-sub)]">
-                Vui lòng nhập mã OTP 6 số đã được gửi đến email của bạn.
+                {t('auth:verifyOtp.info')}
               </p>
               <p className="text-xs text-[var(--text-sub)] mt-1 opacity-70">
-                Mã OTP có hiệu lực trong 5 phút.
+                {t('auth:verifyOtp.expiry')}
               </p>
             </div>
           </div>
@@ -153,7 +155,7 @@ export default function VerifyOtp() {
           </InputOTP>
 
           <p className="text-sm text-[var(--text-main)]">
-            {otp.length}/6 số
+            {otp.length}/6 {t('auth:verifyOtp.otpLength')}
           </p>
         </div>
 
@@ -167,10 +169,10 @@ export default function VerifyOtp() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Đang xác thực...
+                {t('auth:verifyOtp.submitting')}
               </>
             ) : (
-              'Xác thực OTP'
+              t('auth:verifyOtp.submit')
             )}
           </Button>
         </motion.div>
@@ -186,11 +188,11 @@ export default function VerifyOtp() {
               className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center justify-center space-x-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className="h-4 w-4" />
-              <span>Gửi lại mã OTP</span>
+              <span>{t('auth:verifyOtp.resend')}</span>
             </motion.button>
           ) : (
             <p className="text-sm text-[var(--text-sub)]">
-              Gửi lại mã OTP sau{' '}
+              {t('auth:verifyOtp.resendAfter')}{' '}
               <span className="text-[var(--accent-cyan)] font-medium">
                 {countdown}s
               </span>
@@ -198,7 +200,7 @@ export default function VerifyOtp() {
           )}
 
           <p className="text-xs text-[var(--text-sub)] opacity-70">
-            Không nhận được mã? Kiểm tra thư mục spam hoặc yêu cầu gửi lại.
+            {t('auth:verifyOtp.notReceived')}
           </p>
         </div>
       </motion.div>

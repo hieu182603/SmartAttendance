@@ -1,11 +1,12 @@
 import { AttendanceModel } from "./attendance.model.js";
 import { LocationModel } from "../locations/location.model.js";
+import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
 
 const formatDateLabel = (date) => {
   const pad = (value) => String(value).padStart(2, "0");
   const d = new Date(date);
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 };
 
 const formatTime = (value) => {
@@ -25,6 +26,214 @@ const deriveStatus = (doc) => {
   if (doc.workHours && doc.workHours > 8) return "overtime";
   if (!doc.checkIn && !doc.checkOut) return "absent";
   return "ontime";
+};
+
+/**
+ * Lấy schedule của nhân viên trong ngày (với populate shift)
+ */
+const getUserSchedule = async (userId, date) => {
+  try {
+    const schedule = await EmployeeScheduleModel.findOne({
+      userId,
+      date: date,
+    }).populate('shiftId').lean();
+    
+    return schedule;
+  } catch (error) {
+    console.error('[getUserSchedule] Error:', error);
+    return null;
+  }
+};
+
+/**
+ * Lấy thông tin shift từ schedule hoặc tìm shift mặc định trong DB
+ */
+const getShiftInfo = async (schedule) => {
+  try {
+    const { ShiftModel } = await import('../shifts/shift.model.js');
+    
+    if (schedule?.shiftId && typeof schedule.shiftId === 'object') {
+      return {
+        startTime: schedule.shiftId.startTime,
+        endTime: schedule.shiftId.endTime,
+        breakDuration: schedule.shiftId.breakDuration || 0,
+        shiftName: schedule.shiftId.name,
+        isFlexible: schedule.shiftId.isFlexible || false,
+      };
+    }
+    
+    if (schedule?.shiftId) {
+      const shift = await ShiftModel.findById(schedule.shiftId).lean();
+      if (shift) {
+        return {
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          breakDuration: shift.breakDuration || 0,
+          shiftName: shift.name,
+          isFlexible: shift.isFlexible || false,
+        };
+      }
+    }
+    
+    if (schedule?.startTime && schedule?.endTime) {
+      return {
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        breakDuration: 0,
+        shiftName: schedule.shiftName || 'Ca làm việc',
+        isFlexible: false,
+      };
+    }
+    
+    let defaultShift = await ShiftModel.findOne({ 
+      isActive: true,
+      name: { $regex: /full time|hành chính/i }
+    }).lean();
+    
+    if (!defaultShift) {
+      defaultShift = await ShiftModel.findOne({ isActive: true }).sort({ createdAt: 1 }).lean();
+    }
+    
+    if (defaultShift) {
+      return {
+        startTime: defaultShift.startTime,
+        endTime: defaultShift.endTime,
+        breakDuration: defaultShift.breakDuration || 0,
+        shiftName: defaultShift.name,
+        isFlexible: defaultShift.isFlexible || false,
+      };
+    }
+    
+    console.warn('[getShiftInfo] ⚠ Không tìm thấy shift trong DB, sử dụng giá trị mặc định');
+    return {
+      startTime: "08:00",
+      endTime: "17:00",
+      breakDuration: 60,
+      shiftName: "Ca hành chính (mặc định)",
+      isFlexible: false,
+    };
+  } catch (error) {
+    console.error('[getShiftInfo] ❌ Error:', error);
+    return {
+      startTime: "08:00",
+      endTime: "17:00",
+      breakDuration: 60,
+      shiftName: "Ca hành chính (mặc định)",
+      isFlexible: false,
+    };
+  }
+};
+
+/**
+ * Kiểm tra đi muộn dựa trên shift info từ DB
+ */
+const checkLateStatus = (checkInTime, shiftInfo) => {
+  const LATE_TOLERANCE_MINUTES = 30;
+  
+  if (shiftInfo?.isFlexible) {
+    return false;
+  }
+  
+  const startTime = shiftInfo?.startTime || "08:00";
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  
+  const dateOnly = new Date(checkInTime);
+  dateOnly.setHours(0, 0, 0, 0);
+  const lateTime = new Date(dateOnly);
+  lateTime.setHours(startHour, startMinute + LATE_TOLERANCE_MINUTES, 0, 0);
+  
+  const isLate = checkInTime > lateTime;
+  return isLate;
+};
+
+/**
+ * Kiểm tra về sớm/overtime dựa trên shift info từ DB
+ */
+const checkEarlyLeaveOrOvertime = (checkOutTime, shiftInfo) => {
+  const EARLY_TOLERANCE_MINUTES = 15; // Cho phép về sớm 15 phút
+  const OVERTIME_THRESHOLD_MINUTES = 30;
+  
+  if (shiftInfo?.isFlexible) {
+    return {
+      isEarlyLeave: false,
+      isOvertime: false,
+      minutesEarly: 0,
+      minutesOvertime: 0,
+    };
+  }
+  
+  const endTime = shiftInfo?.endTime || "17:00";
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  
+  const dateOnly = new Date(checkOutTime);
+  dateOnly.setHours(0, 0, 0, 0);
+  const shiftEndTime = new Date(dateOnly);
+  shiftEndTime.setHours(endHour, endMinute, 0, 0);
+  
+  const earliestLeaveTime = new Date(shiftEndTime);
+  earliestLeaveTime.setMinutes(earliestLeaveTime.getMinutes() - EARLY_TOLERANCE_MINUTES);
+  
+  const minutesEarly = checkOutTime < earliestLeaveTime 
+    ? Math.round((earliestLeaveTime - checkOutTime) / (1000 * 60))
+    : 0;
+    
+  const minutesOvertime = checkOutTime > shiftEndTime
+    ? Math.round((checkOutTime - shiftEndTime) / (1000 * 60))
+    : 0;
+  
+  const result = {
+    isEarlyLeave: minutesEarly > 0,
+    isOvertime: minutesOvertime >= OVERTIME_THRESHOLD_MINUTES,
+    minutesEarly,
+    minutesOvertime,
+  };
+  
+  return result;
+};
+
+const formatWorkHours = (hours) => {
+  if (!hours && hours !== 0) return "-";
+  const whole = Math.floor(hours);
+  const minutes = Math.round((hours - whole) * 60);
+  return `${whole}h ${minutes}m`;
+};
+
+const buildAttendanceRecordResponse = (doc) => {
+  if (!doc) return null;
+  const populatedUser =
+    doc.userId && typeof doc.userId === "object" ? doc.userId : null;
+  const name = populatedUser?.name || "N/A";
+  const departmentValue =
+    populatedUser?.department && typeof populatedUser.department === "object"
+      ? populatedUser.department.name || "N/A"
+      : populatedUser?.department || "N/A";
+
+  return {
+    id: doc._id.toString(),
+    userId: populatedUser?._id?.toString() || doc.userId?.toString(),
+    name,
+    role: populatedUser?.role || "N/A",
+    email: populatedUser?.email || "N/A",
+    department: departmentValue,
+    date: formatDateLabel(doc.date),
+    checkIn: formatTime(doc.checkIn),
+    checkOut: formatTime(doc.checkOut),
+    hours: formatWorkHours(doc.workHours),
+    status: deriveStatus(doc),
+    location: doc.locationId?.name || "-",
+    notes: doc.notes || "",
+  };
+};
+
+const applyTimeToDate = (baseDate, timeString) => {
+  if (!timeString || typeof timeString !== "string") return null;
+  const [hourStr, minuteStr] = timeString.split(":");
+  const hour = Number(hourStr);
+  const minute = Number(minuteStr);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  const result = new Date(baseDate);
+  result.setHours(hour, minute, 0, 0);
+  return result;
 };
 
 export const getRecentAttendance = async (req, res) => {
@@ -80,38 +289,34 @@ export const getAttendanceHistory = async (req, res) => {
 
     const query = { userId };
 
-    // Date range filter
     if (from || to) {
       query.date = {};
-      if (from) query.date.$gte = new Date(from);
+      if (from) {
+        const fromDate = new Date(from + 'T00:00:00.000Z');
+        query.date.$gte = fromDate;
+      }
       if (to) {
-        const toDate = new Date(to);
-        toDate.setHours(23, 59, 59, 999); // End of day
+        const toDate = new Date(to + 'T23:59:59.999Z');
         query.date.$lte = toDate;
       }
     }
 
-    // Search filter - search in notes
     if (search) {
       query.notes = { $regex: search, $options: 'i' };
     }
 
-    // Pagination
+    const allRecords = await AttendanceModel.find(query)
+      .populate("locationId")
+      .sort({ date: -1 }) // Sort từ mới → cũ
+      .lean();
+    
     const pageNum = parseInt(page) || 1;
     const limitNum = parseInt(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
+    const total = allRecords.length;
+    const paginatedRecords = allRecords.slice(skip, skip + limitNum);
 
-    const [docs, total] = await Promise.all([
-      AttendanceModel.find(query)
-        .populate("locationId")
-        .sort({ date: -1 })
-        .skip(skip)
-        .limit(limitNum),
-      AttendanceModel.countDocuments(query)
-    ]);
-
-    // Map and format data
-    const data = docs.map((doc) => {
+    const data = paginatedRecords.map((doc) => {
       const dayLabel = new Date(doc.date).toLocaleDateString("vi-VN", {
         weekday: "long",
       });
@@ -151,7 +356,6 @@ export const getAttendanceHistory = async (req, res) => {
 export const checkIn = async (req, res) => {
   try {
     const userId = req.user.userId;
-    // If request is multipart/form-data (via multer), small fields are in req.body and file in req.file
     const {
       latitude: latRaw,
       longitude: lonRaw,
@@ -159,13 +363,11 @@ export const checkIn = async (req, res) => {
       ssid,
       bssid,
     } = req.body || {};
-    const photoFile = req.file || null; // multer will populate req.file when upload.single('photo') used
+    const photoFile = req.file || null;
 
-    // Convert numeric inputs
     const latitude = latRaw !== undefined ? Number(latRaw) : undefined;
     const longitude = lonRaw !== undefined ? Number(lonRaw) : undefined;
 
-    // Validate input
     if (
       latitude === undefined ||
       longitude === undefined ||
@@ -190,13 +392,11 @@ export const checkIn = async (req, res) => {
       });
     }
 
-    // Tìm địa điểm chấm công hợp lệ (sử dụng GPS, BSSID, hoặc SSID)
     const locations = await LocationModel.find({ isActive: true });
 
     let validLocation = null;
     let validationResult = null;
 
-    // Ưu tiên kiểm tra BSSID/SSID trước (chính xác hơn GPS)
     for (const location of locations) {
       validationResult = location.validateLocation(
         latitude,
@@ -219,7 +419,6 @@ export const checkIn = async (req, res) => {
       });
     }
 
-    // Kiểm tra độ chính xác vị trí (nếu accuracy quá lớn, có thể không đáng tin)
     if (accuracy && accuracy > 100) {
       return res.status(400).json({
         success: false,
@@ -227,32 +426,7 @@ export const checkIn = async (req, res) => {
       });
     }
 
-    // Kiểm tra giờ check-in (chỉ cho phép check-in trước giờ làm 20 phút)
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTimeInMinutes = currentHour * 60 + currentMinute;
-
-    // Giờ làm: 8:00 (480 phút từ 00:00)
-    const WORK_START_HOUR = 8;
-    const WORK_START_MINUTE = 0;
-    const workStartInMinutes = WORK_START_HOUR * 60 + WORK_START_MINUTE;
-
-    // Cho phép check-in từ 7:40 (trước 20 phút)
-    const EARLY_CHECKIN_MINUTES = 20;
-    const earliestCheckInTime = workStartInMinutes - EARLY_CHECKIN_MINUTES;
-
-    if (currentTimeInMinutes < earliestCheckInTime) {
-      const earliestHour = Math.floor(earliestCheckInTime / 60);
-      const earliestMinute = earliestCheckInTime % 60;
-      return res.status(400).json({
-        success: false,
-        message: `Chưa đến giờ chấm công. Vui lòng chấm công sau ${earliestHour}:${earliestMinute.toString().padStart(2, '0')}.`,
-        code: "TOO_EARLY",
-      });
-    }
-
-    // Lấy ngày hiện tại (chỉ lấy phần ngày, không có giờ)
     const today = new Date();
     const dateOnly = new Date(
       today.getFullYear(),
@@ -260,27 +434,53 @@ export const checkIn = async (req, res) => {
       today.getDate()
     );
 
-    // Tìm hoặc tạo bản ghi chấm công hôm nay
+    const schedule = await getUserSchedule(userId, dateOnly);
+    const shiftInfo = await getShiftInfo(schedule);
+    
+    if (!shiftInfo.isFlexible) {
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+      const [startHour, startMinute] = shiftInfo.startTime.split(':').map(Number);
+      const workStartInMinutes = startHour * 60 + startMinute;
+
+      const EARLY_CHECKIN_MINUTES = 20;
+      const earliestCheckInTime = workStartInMinutes - EARLY_CHECKIN_MINUTES;
+
+      if (currentTimeInMinutes < earliestCheckInTime) {
+        const earliestHour = Math.floor(earliestCheckInTime / 60);
+        const earliestMinute = earliestCheckInTime % 60;
+        return res.status(400).json({
+          success: false,
+          message: `Chưa đến giờ chấm công (${shiftInfo.shiftName}). Vui lòng chấm công sau ${earliestHour}:${earliestMinute.toString().padStart(2, '0')}.`,
+          code: "TOO_EARLY",
+        });
+      }
+    }
+
     let attendance = await AttendanceModel.findOne({
       userId,
       date: dateOnly,
     });
 
     if (attendance) {
-      // Nếu đã check-in rồi
       if (attendance.checkIn) {
         return res.status(400).json({
           success: false,
           message: "Bạn đã chấm công vào hôm nay rồi.",
+          code: "ALREADY_CHECKED_IN",
         });
       }
 
-      // Cập nhật check-in
       attendance.checkIn = now;
       attendance.locationId = validLocation._id;
+      
+      const isLate = checkLateStatus(now, shiftInfo);
+      attendance.status = isLate ? "late" : "present";
+      
       if (photoFile) {
         try {
-          // Upload lên Cloudinary
           const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkins');
           attendance.notes = attendance.notes
             ? `${attendance.notes}\n[Ảnh: ${result.url}]`
@@ -293,19 +493,19 @@ export const checkIn = async (req, res) => {
         }
       }
     } else {
-      // Tạo mới bản ghi chấm công
+      const isLate = checkLateStatus(now, shiftInfo);
+      
       attendance = new AttendanceModel({
         userId,
         date: dateOnly,
         checkIn: now,
         locationId: validLocation._id,
-        status: "present",
+        status: isLate ? "late" : "present",
         notes: "",
       });
 
       if (photoFile) {
         try {
-          // Upload lên Cloudinary
           const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkins');
           attendance.notes = `[Ảnh: ${result.url}]`;
         } catch (e) {
@@ -317,27 +517,32 @@ export const checkIn = async (req, res) => {
 
     await attendance.save();
 
-    // Tính toán thời gian check-in
     const checkInTime = formatTime(attendance.checkIn);
     const checkInDate = formatDateLabel(attendance.date);
+    
+    const statusMsg = attendance.status === 'late' ? ' (Đi muộn)' : '';
+    const message = `Chấm công thành công!${statusMsg} (${shiftInfo.shiftName})`;
 
     res.json({
       success: true,
-      message: "Chấm công thành công!",
+      message,
       data: {
         checkInTime,
         checkInDate,
         location: validLocation.name,
-        validationMethod: validationResult.method, // 'bssid', 'ssid', hoặc 'gps'
+        validationMethod: validationResult.method,
         distance: validationResult.distance
           ? `${validationResult.distance}m`
           : null,
+        shiftName: shiftInfo.shiftName,
+        shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
+        status: attendance.status,
       },
     });
   } catch (error) {
     console.error("[attendance] check-in error", error);
 
-    // Xử lý lỗi duplicate (nếu có)
+
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -362,12 +567,10 @@ export const checkOut = async (req, res) => {
     let { latitude, longitude, accuracy } = req.body;
     const photoFile = req.file;
 
-    // Parse sang number nếu là string (từ FormData)
     latitude = parseFloat(latitude);
     longitude = parseFloat(longitude);
     accuracy = accuracy ? parseFloat(accuracy) : null;
 
-    // Validate vị trí
     if (!latitude || !longitude) {
       return res.status(400).json({
         success: false,
@@ -382,7 +585,6 @@ export const checkOut = async (req, res) => {
       });
     }
 
-    // Tìm địa điểm hợp lệ
     const locations = await LocationModel.find({ isActive: true });
     let validLocation = null;
     let validationResult = null;
@@ -409,7 +611,6 @@ export const checkOut = async (req, res) => {
       });
     }
 
-    // Kiểm tra độ chính xác
     if (accuracy && accuracy > 100) {
       return res.status(400).json({
         success: false,
@@ -417,7 +618,6 @@ export const checkOut = async (req, res) => {
       });
     }
 
-    // Lấy ngày hiện tại
     const today = new Date();
     const dateOnly = new Date(
       today.getFullYear(),
@@ -425,7 +625,6 @@ export const checkOut = async (req, res) => {
       today.getDate()
     );
 
-    // Tìm bản ghi chấm công hôm nay
     let attendance = await AttendanceModel.findOne({
       userId,
       date: dateOnly,
@@ -447,60 +646,95 @@ export const checkOut = async (req, res) => {
       });
     }
 
-    // Kiểm tra thời gian làm việc tối thiểu
-    // Ca Full time: 08:00-17:00 = 9 giờ (trừ 1 giờ nghỉ trưa = 8 giờ làm việc)
+    const schedule = await getUserSchedule(userId, dateOnly);
+    const shiftInfo = await getShiftInfo(schedule);
+    
     const now = new Date();
     const checkInTime = new Date(attendance.checkIn);
-    const hoursWorked = (now - checkInTime) / (1000 * 60 * 60); // Chuyển sang giờ
+    const hoursWorked = (now - checkInTime) / (1000 * 60 * 60);
+
+    let minWorkHours = 2;
     
-    const MIN_WORK_HOURS = 8; // Tối thiểu 8 giờ (theo ca Full time)
-    if (hoursWorked < MIN_WORK_HOURS) {
-      const remainingMinutes = Math.ceil((MIN_WORK_HOURS - hoursWorked) * 60);
+    if (!shiftInfo.isFlexible && shiftInfo.startTime && shiftInfo.endTime) {
+      const [startH, startM] = shiftInfo.startTime.split(':').map(Number);
+      const [endH, endM] = shiftInfo.endTime.split(':').map(Number);
+      const shiftDurationMinutes = (endH * 60 + endM) - (startH * 60 + startM) - (shiftInfo.breakDuration || 0);
+      const shiftDurationHours = shiftDurationMinutes / 60;
+      
+      minWorkHours = Math.max(2, Math.floor(shiftDurationHours * 0.25));
+    }
+    
+    if (hoursWorked < minWorkHours) {
+      const remainingMinutes = Math.ceil((minWorkHours - hoursWorked) * 60);
       const hours = Math.floor(remainingMinutes / 60);
       const minutes = remainingMinutes % 60;
       const timeStr = hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
-      
+
       return res.status(400).json({
         success: false,
-        message: `Bạn cần làm việc ít nhất ${MIN_WORK_HOURS} giờ. Vui lòng chờ thêm ${timeStr} nữa.`,
+        message: `Bạn cần làm việc ít nhất ${minWorkHours} giờ (${shiftInfo.shiftName}). Vui lòng chờ thêm ${timeStr} nữa.`,
         code: "INSUFFICIENT_WORK_HOURS",
         data: {
           hoursWorked: Math.floor(hoursWorked * 100) / 100,
-          minRequired: MIN_WORK_HOURS,
-          remainingMinutes
+          minRequired: minWorkHours,
+          remainingMinutes,
+          shiftName: shiftInfo.shiftName
         }
       });
     }
-
-    // Cập nhật check-out
+    
     attendance.checkOut = now;
+
+    const checkOutInfo = checkEarlyLeaveOrOvertime(now, shiftInfo);
+    
+    let additionalNote = '';
+    if (checkOutInfo.isEarlyLeave) {
+      additionalNote = `\n[Về sớm ${checkOutInfo.minutesEarly} phút - ${shiftInfo.shiftName}]`;
+    } else if (checkOutInfo.isOvertime) {
+      additionalNote = `\n[Tăng ca ${checkOutInfo.minutesOvertime} phút - ${shiftInfo.shiftName}]`;
+    }
 
     if (photoFile) {
       try {
         const result = await uploadToCloudinary(photoFile.buffer, 'attendance/checkouts');
         attendance.notes = attendance.notes
-          ? `${attendance.notes}\n[Ảnh check-out: ${result.url}]`
-          : `[Ảnh check-out: ${result.url}]`;
+          ? `${attendance.notes}\n[Ảnh check-out: ${result.url}]${additionalNote}`
+          : `[Ảnh check-out: ${result.url}]${additionalNote}`;
       } catch (e) {
         console.error("Upload to Cloudinary failed:", e);
+        if (additionalNote) {
+          attendance.notes = attendance.notes 
+            ? `${attendance.notes}${additionalNote}`
+            : additionalNote.trim();
+        }
       }
+    } else if (additionalNote) {
+      attendance.notes = attendance.notes 
+        ? `${attendance.notes}${additionalNote}`
+        : additionalNote.trim();
     }
 
-    // Tính giờ làm việc (updateStatus sẽ tự động chạy trong pre-save hook)
     attendance.calculateWorkHours();
 
     await attendance.save();
 
-    // Format response
     const checkOutTime = formatTime(attendance.checkOut);
     const checkOutDate = formatDateLabel(attendance.date);
-    const workHours = attendance.workHours 
+    const workHours = attendance.workHours
       ? `${Math.floor(attendance.workHours)}h ${Math.round((attendance.workHours % 1) * 60)}m`
       : '0h';
 
+    // Tạo message động dựa trên tình huống
+    let message = `Check-out thành công! (${shiftInfo.shiftName})`;
+    if (checkOutInfo.isEarlyLeave) {
+      message = `Check-out thành công! Về sớm ${checkOutInfo.minutesEarly} phút (${shiftInfo.shiftName})`;
+    } else if (checkOutInfo.isOvertime) {
+      message = `Check-out thành công! Tăng ca ${checkOutInfo.minutesOvertime} phút (${shiftInfo.shiftName})`;
+    }
+
     res.json({
       success: true,
-      message: "Check-out thành công!",
+      message,
       data: {
         checkOutTime,
         checkOutDate,
@@ -509,6 +743,12 @@ export const checkOut = async (req, res) => {
         distance: validationResult.distance
           ? `${validationResult.distance}m`
           : null,
+        shiftName: shiftInfo.shiftName,
+        shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
+        isEarlyLeave: checkOutInfo.isEarlyLeave,
+        isOvertime: checkOutInfo.isOvertime,
+        minutesEarly: checkOutInfo.minutesEarly,
+        minutesOvertime: checkOutInfo.minutesOvertime,
       },
     });
   } catch (error) {
@@ -726,100 +966,259 @@ export const getAttendanceAnalytics = async (req, res) => {
 
 export const getAllAttendance = async (req, res) => {
   try {
-    const { date, search, page = 1, limit = 20 } = req.query
+    const { date, search, status, page = 1, limit = 20 } = req.query;
 
-    const query = {}
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 20;
+    const skip = (pageNum - 1) * limitNum;
 
-    if (date) {
-      const dateOnly = new Date(date)
-      dateOnly.setHours(0, 0, 0, 0)
-      const nextDay = new Date(dateOnly)
-      nextDay.setDate(nextDay.getDate() + 1)
-      query.date = { $gte: dateOnly, $lt: nextDay }
-    } else {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      query.date = { $gte: today, $lt: tomorrow }
-    }
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
 
-    const UserModel = (await import('../users/user.model.js')).UserModel
+    const dateQuery = { $gte: targetDate, $lt: nextDay };
 
-    let userQuery = {}
+    const UserModel = (await import("../users/user.model.js")).UserModel;
+
+    const userQuery = {};
     if (search) {
-      userQuery = {
-        $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } }
-        ]
-      }
+      userQuery.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
     }
 
-    const users = await UserModel.find(userQuery).select('_id name email department')
-    const userIds = users.map(u => u._id)
+    const usersForScope = await UserModel.find(userQuery)
+      .select("_id name email department role")
+      .sort({ name: 1 });
+    const totalUsers = usersForScope.length;
 
-    if (userIds.length > 0) {
-      query.userId = { $in: userIds }
-    } else if (search) {
+    if (totalUsers === 0) {
       return res.json({
         records: [],
         summary: { total: 0, present: 0, late: 0, absent: 0 },
-        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 }
-      })
+        pagination: { page: 1, limit: limitNum, total: 0, totalPages: 0 },
+      });
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const allUserIds = usersForScope.map((u) => u._id);
 
-    const [docs, total] = await Promise.all([
-      AttendanceModel.find(query)
-        .populate('userId', 'name email department')
-        .populate('locationId', 'name')
-        .sort({ checkIn: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
-      AttendanceModel.countDocuments(query)
-    ])
-
-    const records = docs.map(doc => {
-      const status = deriveStatus(doc)
-      return {
-        id: doc._id.toString(),
-        userId: doc.userId?._id?.toString(),
-        name: doc.userId?.name || 'N/A',
-        email: doc.userId?.email || 'N/A',
-        department: doc.userId?.department || 'N/A',
-        date: formatDateLabel(doc.date),
-        checkIn: formatTime(doc.checkIn),
-        checkOut: formatTime(doc.checkOut),
-        hours: doc.workHours ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m` : '-',
-        status,
-        location: doc.locationId?.name || '-'
-      }
+    const attendanceDocs = await AttendanceModel.find({
+      userId: { $in: allUserIds },
+      date: dateQuery,
     })
+      .populate("userId", "name email department role")
+      .populate("locationId", "name")
+      .sort({ checkIn: -1 });
+
+    const attendanceMap = new Map();
+    attendanceDocs.forEach((doc) => {
+      const populatedUser =
+        doc.userId && typeof doc.userId === "object" ? doc.userId : null;
+      const key = populatedUser?._id?.toString() || doc.userId?.toString();
+      if (key && !attendanceMap.has(key)) {
+        attendanceMap.set(key, doc);
+      }
+    });
+
+    const formatDepartment = (department) => {
+      if (!department) return "N/A";
+      if (typeof department === "object" && department.name) {
+        return department.name;
+      }
+      return department.toString();
+    };
+
+    const allRecords = usersForScope.map((user) => {
+      const userId = user._id.toString();
+      const attendance = attendanceMap.get(userId);
+      if (attendance) {
+        return buildAttendanceRecordResponse(attendance);
+      }
+      return {
+        id: `absent-${userId}`,
+        userId,
+        name: user.name || "N/A",
+        role: user.role || "N/A",
+        email: user.email || "N/A",
+        department: formatDepartment(user.department),
+        date: formatDateLabel(targetDate),
+        checkIn: "-",
+        checkOut: "-",
+        hours: "-",
+        status: "absent",
+        location: "-",
+        notes: "",
+      };
+    });
+
+    const statusFilter =
+      typeof status === "string" ? status.toLowerCase() : "all";
+
+    const filteredRecords =
+      statusFilter && statusFilter !== "all"
+        ? allRecords.filter((record) => record.status === statusFilter)
+        : allRecords;
+
+    const paginatedRecords = filteredRecords.slice(
+      skip,
+      skip + limitNum
+    );
 
     const summary = {
-      total: total,
-      present: records.filter(r => r.status === 'ontime').length,
-      late: records.filter(r => r.status === 'late').length,
-      absent: records.filter(r => r.status === 'absent').length
-    }
+      total: totalUsers,
+      present: allRecords.filter((record) => record.status === "ontime").length,
+      late: allRecords.filter((record) => record.status === "late").length,
+      absent: allRecords.filter((record) => record.status === "absent").length,
+    };
 
     res.json({
-      records,
+      records: paginatedRecords,
       summary,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        totalPages: Math.ceil(total / parseInt(limit))
-      }
-    })
+        page: pageNum,
+        limit: limitNum,
+        total: filteredRecords.length,
+        totalPages: Math.ceil(filteredRecords.length / limitNum),
+      },
+    });
   } catch (error) {
-    console.error('[attendance] getAllAttendance error', error)
-    res.status(500).json({ message: 'Không lấy được danh sách chấm công' })
+    console.error("[attendance] getAllAttendance error", error);
+    res.status(500).json({ message: "Không lấy được danh sách chấm công" });
   }
-}
+};
+
+export const updateAttendanceRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { checkIn, checkOut, locationId, locationName, notes, date } = req.body || {};
+
+    let attendance = null;
+
+    // Kiểm tra xem ID có bắt đầu bằng "absent-" không (record vắng chưa có trong DB)
+    if (id.startsWith("absent-")) {
+      const userIdStr = id.replace("absent-", "");
+
+      // Validate ObjectId
+      const mongoose = (await import("mongoose")).default;
+      if (!mongoose.Types.ObjectId.isValid(userIdStr)) {
+        return res.status(400).json({ message: "ID nhân viên không hợp lệ" });
+      }
+
+      const userId = new mongoose.Types.ObjectId(userIdStr);
+
+      // Lấy thông tin user
+      const UserModel = (await import("../users/user.model.js")).UserModel;
+      const user = await UserModel.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "Không tìm thấy nhân viên" });
+      }
+
+      // Xác định ngày (từ body hoặc từ query date nếu có)
+      let targetDate = date ? new Date(date) : new Date();
+      targetDate.setHours(0, 0, 0, 0);
+
+      // Kiểm tra xem đã có record cho ngày này chưa
+      attendance = await AttendanceModel.findOne({
+        userId: userId,
+        date: targetDate,
+      });
+
+      // Nếu chưa có, tạo mới
+      if (!attendance) {
+        attendance = new AttendanceModel({
+          userId: userId,
+          date: targetDate,
+          status: "absent",
+        });
+      }
+    } else {
+      // ID là ObjectId hợp lệ, tìm record trong DB
+      attendance = await AttendanceModel.findById(id);
+      if (!attendance) {
+        return res.status(404).json({ message: "Không tìm thấy bản ghi chấm công" });
+      }
+    }
+
+    if (checkIn !== undefined) {
+      if (!checkIn) {
+        attendance.checkIn = null;
+      } else {
+        const parsedCheckIn = applyTimeToDate(attendance.date, checkIn);
+        if (!parsedCheckIn) {
+          return res.status(400).json({ message: "Giờ vào không hợp lệ" });
+        }
+        attendance.checkIn = parsedCheckIn;
+      }
+    }
+
+    if (checkOut !== undefined) {
+      if (!checkOut) {
+        attendance.checkOut = null;
+      } else {
+        const parsedCheckOut = applyTimeToDate(attendance.date, checkOut);
+        if (!parsedCheckOut) {
+          return res.status(400).json({ message: "Giờ ra không hợp lệ" });
+        }
+        attendance.checkOut = parsedCheckOut;
+      }
+    }
+
+    if (notes !== undefined) {
+      attendance.notes = notes;
+    }
+
+    if (locationId !== undefined || locationName !== undefined) {
+      if (locationId === null || locationName === null || locationName === "") {
+        attendance.locationId = undefined;
+      } else {
+        let resolvedLocation = null;
+        if (locationId) {
+          resolvedLocation = await LocationModel.findById(locationId);
+        } else if (locationName) {
+          resolvedLocation = await LocationModel.findOne({
+            name: { $regex: `^${locationName}$`, $options: "i" },
+          });
+        }
+
+        if (!resolvedLocation) {
+          return res.status(404).json({ message: "Không tìm thấy địa điểm phù hợp" });
+        }
+        attendance.locationId = resolvedLocation._id;
+      }
+    }
+
+    await attendance.save();
+
+    // Lấy lại record đã được cập nhật (có thể là record mới được tạo)
+    const updated = await AttendanceModel.findById(attendance._id)
+      .populate("userId", "name email department role")
+      .populate("locationId", "name");
+
+    res.json({
+      message: "Đã cập nhật bản ghi chấm công",
+      record: buildAttendanceRecordResponse(updated),
+    });
+  } catch (error) {
+    console.error("[attendance] update error", error);
+    res.status(500).json({ message: "Không thể cập nhật bản ghi chấm công" });
+  }
+};
+
+export const deleteAttendanceRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await AttendanceModel.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Không tìm thấy bản ghi chấm công" });
+    }
+    res.json({ message: "Đã xóa bản ghi chấm công" });
+  } catch (error) {
+    console.error("[attendance] delete error", error);
+    res.status(500).json({ message: "Không thể xóa bản ghi chấm công" });
+  }
+};
 
 export const exportAttendanceAnalytics = async (req, res) => {
   try {
@@ -1026,7 +1425,7 @@ export const getDepartmentAttendance = async (req, res) => {
 
     const [docs, total] = await Promise.all([
       AttendanceModel.find(query)
-        .populate('userId', 'name email')
+        .populate('userId', 'name email role')
         .populate('locationId', 'name')
         .sort({ checkIn: -1 })
         .skip(skip)
@@ -1034,32 +1433,17 @@ export const getDepartmentAttendance = async (req, res) => {
       AttendanceModel.countDocuments(query)
     ]);
 
-    const records = docs.map(doc => {
-      const status = deriveStatus(doc);
-      return {
-        id: doc._id.toString(),
-        userId: doc.userId?._id?.toString(),
-        name: doc.userId?.name || 'N/A',
-        email: doc.userId?.email || 'N/A',
-        employeeId: doc.userId?._id?.toString().slice(-3) || 'N/A',
-        date: formatDateLabel(doc.date),
-        checkIn: formatTime(doc.checkIn),
-        checkOut: formatTime(doc.checkOut),
-        hours: doc.workHours
-          ? `${Math.floor(doc.workHours)}h ${Math.round((doc.workHours % 1) * 60)}m`
-          : '-',
-        status,
-        location: doc.locationId?.name || '-'
-      };
-    });
+    const records = docs.map(doc => ({
+      ...buildAttendanceRecordResponse(doc),
+      employeeId: doc.userId?._id?.toString().slice(-3) || 'N/A'
+    }));
 
-    // Tính summary từ tất cả records trong ngày (không chỉ trang hiện tại)
     const allDocs = await AttendanceModel.find(query)
       .populate('userId', 'name email')
       .select('status checkIn checkOut');
 
     const summary = {
-      total: users.length, // Tổng số nhân viên trong phòng ban
+      total: users.length,
       present: allDocs.filter(d => {
         const s = deriveStatus(d);
         return s === 'ontime';
@@ -1068,7 +1452,7 @@ export const getDepartmentAttendance = async (req, res) => {
         const s = deriveStatus(d);
         return s === 'late';
       }).length,
-      absent: users.length - allDocs.length // Số người chưa chấm công
+      absent: users.length - allDocs.length
     };
 
     res.json({

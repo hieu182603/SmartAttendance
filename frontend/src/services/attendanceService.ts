@@ -1,4 +1,4 @@
-import api from './api'
+import api from '@/services/api'
 import type { AxiosRequestConfig } from 'axios'
 
 interface AttendanceParams {
@@ -8,12 +8,23 @@ interface AttendanceParams {
   endDate?: string
   from?: string
   to?: string
+  date?: string
   search?: string
+  status?: string
   [key: string]: unknown
 }
 
 interface AttendanceRecord {
   [key: string]: unknown
+}
+
+interface UpdateAttendancePayload {
+  checkIn?: string | null
+  checkOut?: string | null
+  locationId?: string | null
+  locationName?: string | null
+  notes?: string | null
+  date?: string
 }
 
 interface AnalyticsSummary {
@@ -150,6 +161,16 @@ export const getDepartmentAttendance = async (params: AttendanceParams = {}): Pr
     console.warn('[attendance] getDepartmentAttendance unavailable', (error as Error).message)
     return { records: [], summary: { total: 0, present: 0, late: 0, absent: 0 }, pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }
   }
+}
+
+export const updateAttendanceRecord = async (id: string, payload: UpdateAttendancePayload) => {
+  const { data } = await api.patch(`/attendance/${id}`, payload)
+  return data as { message: string; record: AttendanceRecord }
+}
+
+export const deleteAttendanceRecord = async (id: string) => {
+  const { data } = await api.delete(`/attendance/${id}`)
+  return data as { message: string }
 }
 
 

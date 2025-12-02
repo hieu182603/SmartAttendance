@@ -1,5 +1,5 @@
-import api from './api'
-import type { User, ValidationError } from '../types'
+import api from '@/services/api'
+import type { User, ValidationError } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
 interface UpdateUserData {
@@ -9,6 +9,18 @@ interface UpdateUserData {
   birthday?: string
   bankAccount?: string
   bankName?: string
+}
+
+interface UpdateUserByAdminData {
+  name?: string
+  email?: string
+  phone?: string
+  role?: string
+  department?: string // ObjectId or empty string for null
+  branch?: string // ObjectId or empty string for null
+  isActive?: boolean
+  avatar?: string
+  avatarUrl?: string
 }
 
 interface UpdateUserResponse {
@@ -62,7 +74,7 @@ export const getUserById = async (id: string): Promise<unknown> => {
   }
 }
 
-export const updateUserByAdmin = async (id: string, userData: UpdateUserData): Promise<unknown> => {
+export const updateUserByAdmin = async (id: string, userData: UpdateUserByAdminData): Promise<unknown> => {
   try {
     const { data } = await api.put(`/users/${id}`, userData)
     return data

@@ -1,5 +1,5 @@
 // src/services/shiftService.ts
-import api from "./api"; // chính là file bạn vừa gửi
+import api from "@/services/api"; // chính là file bạn vừa gửi
 
 const shiftService = {
   // Lấy tất cả các loại ca làm việc (Ca sáng, Ca chiều, Ca đêm...)

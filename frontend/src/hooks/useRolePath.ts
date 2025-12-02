@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { getRoleBasePath, type UserRoleType } from '../utils/roles'
+import { useAuth } from '@/context/AuthContext'
+import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
 
 /**
  * Hook to get the current role-based base path from URL or user role

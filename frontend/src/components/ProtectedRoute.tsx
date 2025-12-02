@@ -1,17 +1,35 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { hasMinimumLevel, UserRole, getRoleBasePath, type UserRoleType } from '../utils/roles'
+import { useAuth } from '@/context/AuthContext'
+import { hasMinimumLevel, UserRole, getRoleBasePath, type UserRoleType } from '@/utils/roles'
+import { type PermissionType } from '@/utils/roles'
+import { usePermissions } from '@/hooks/usePermissions'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Shield } from 'lucide-react'
+import UnauthorizedPage from '@/components/UnauthorizedPage'
 
 interface ProtectedRouteProps {
   allowedRoles?: string[]
   minimumRole?: string
+  permission?: PermissionType // NEW: Check specific permission
+  permissions?: PermissionType[] // NEW: Check multiple permissions
+  requireAll?: boolean // NEW: If true, require all permissions (AND logic)
 }
 
-export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedRouteProps) {
+export default function ProtectedRoute({ 
+  allowedRoles, 
+  minimumRole,
+  permission,
+  permissions,
+  requireAll = false,
+}: ProtectedRouteProps) {
   const { token, loading, user } = useAuth()
+  const { 
+    hasPermission, 
+    hasAnyPermission, 
+    hasAllPermissions,
+    hasMinimumRole 
+  } = usePermissions()
   const navigate = useNavigate()
   const [showUnauthorized, setShowUnauthorized] = useState(false)
 
@@ -22,7 +40,21 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
       return null // Still checking
     }
 
-    // Check role-based access if specified
+    // Check permission (NEW - priority)
+    if (permission && !hasPermission(permission)) {
+      return false
+    }
+    
+    // Check multiple permissions (NEW)
+    if (permissions && permissions.length > 0) {
+      if (requireAll) {
+        if (!hasAllPermissions(permissions)) return false
+      } else {
+        if (!hasAnyPermission(permissions)) return false
+      }
+    }
+
+    // Check role-based access if specified (backward compatibility)
     if (allowedRoles && allowedRoles.length > 0) {
       const userRole = user.role
       if (!allowedRoles.includes(userRole)) {
@@ -30,15 +62,15 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
       }
     }
 
-    // Check minimum role level if specified
+    // Check minimum role level if specified (backward compatibility)
     if (minimumRole) {
-      if (!hasMinimumLevel(user.role as UserRoleType, minimumRole as UserRoleType)) {
+      if (!hasMinimumRole(minimumRole as UserRoleType)) {
         return false
       }
     }
 
     return true
-  }, [loading, user, allowedRoles, minimumRole])
+  }, [loading, user, allowedRoles, minimumRole, permission, permissions, requireAll, hasPermission, hasAnyPermission, hasAllPermissions, hasMinimumRole])
 
   // Handle redirect after unauthorized access
   useEffect(() => {
@@ -84,31 +116,8 @@ export default function ProtectedRoute({ allowedRoles, minimumRole }: ProtectedR
 
   // Show unauthorized message if needed
   if (hasAccess === false || showUnauthorized) {
-    return (
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-4 max-w-md mx-auto p-6"
-        >
-          <motion.div
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <AlertTriangle className="h-16 w-16 text-[var(--warning)] mx-auto" />
-          </motion.div>
-          <div className="space-y-2">
-            <h3 className="text-xl text-[var(--text-main)]">Không có quyền truy cập</h3>
-            <p className="text-sm text-[var(--text-sub)]">
-              {minimumRole 
-                ? `Trang này yêu cầu quyền tối thiểu: ${minimumRole}`
-                : 'Bạn không có quyền truy cập trang này'}
-            </p>
-            <p className="text-xs text-[var(--text-sub)] mt-4">Đang chuyển hướng...</p>
-          </div>
-        </motion.div>
-      </div>
-    )
+    // Use UnauthorizedPage component for better UX
+    return <UnauthorizedPage />
   }
 
   // User has access - render child routes

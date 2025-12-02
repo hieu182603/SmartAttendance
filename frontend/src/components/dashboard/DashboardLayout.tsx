@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import {
   Home,
@@ -25,15 +26,15 @@ import {
   Briefcase,
   Building2,
   DollarSign,
-
-
+  TrendingUp,
   Award,
 
 } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
-import { useTheme } from "../ThemeProvider";
-import { Button } from "../ui/button";
-import NotificationCenter from "./NotificationCenter";
+import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/components/ThemeProvider";
+import { Button } from "@/components/ui/button";
+import NotificationCenter from "@/components/dashboard/NotificationCenter";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
   UserRole,
   type UserRoleType,
@@ -41,129 +42,9 @@ import {
   getRoleName,
   getRoleColor,
   getRoleBasePath,
-} from "../../utils/roles";
+} from "@/utils/roles";
+import { getMenuByPermissionsWithTranslations, type MenuItem } from "@/utils/menuItems";
 
-interface MenuItem {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  path: string;
-  section: "admin" | "employee" | "system";
-}
-
-// Helper function to generate menu based on role
-function getMenuByRole(role: UserRoleType): MenuItem[] {
-  const basePath = getRoleBasePath(role);
-
-  // Base employee menu (all roles have access, excluding home for admin roles)
-  const baseMenu: MenuItem[] = [
-    { id: "scan", label: "Quét QR", icon: Camera, path: `${basePath}/scan`, section: "employee" },
-    { id: "history", label: "Lịch sử", icon: History, path: `${basePath}/history`, section: "employee" },
-    { id: "requests", label: "Yêu cầu", icon: FileText, path: `${basePath}/requests`, section: "employee" },
-    { id: "leave-balance", label: "Số ngày phép", icon: CalendarDays, path: `${basePath}/leave-balance`, section: "employee" },
-    { id: "schedule", label: "Lịch làm việc", icon: Clock, path: `${basePath}/schedule`, section: "employee" },
-    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: `${basePath}/company-calendar`, section: "employee" },
-    { id: "profile", label: "Hồ sơ", icon: User, path: `${basePath}/profile`, section: "employee" },
-  ];
-
-  // Simplified menu for admin roles (only company calendar and profile)
-  const adminEmployeeMenu: MenuItem[] = [
-    { id: "company-calendar", label: "Lịch công ty", icon: Calendar, path: `${basePath}/company-calendar`, section: "employee" },
-    { id: "profile", label: "Hồ sơ", icon: User, path: `${basePath}/profile`, section: "employee" },
-  ];
-
-  // Home menu item
-  const homeMenu: MenuItem = { id: "home", label: "Trang chủ", icon: Home, path: basePath, section: "admin" };
-
-  // Admin menus for different roles (home is first in admin section)
-  const adminMenus: Partial<Record<UserRoleType, MenuItem[]>> = {
-    [UserRole.MANAGER]: [
-      homeMenu,
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "department-attendance", label: "Chấm công (Phòng)", icon: CheckCircle2, path: `${basePath}/department-attendance`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-      { id: "shifts", label: "Quản lý ca làm việc", icon: Clock, path: `${basePath}/shifts`, section: "admin" },
-    ],
-    [UserRole.HR_MANAGER]: [
-      homeMenu,
-
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: DollarSign, path: "/employee/payroll-reports", section: "admin" },
-    ],
-    [UserRole.ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: "/employee/departments", section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: "/employee/branches", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: DollarSign, path: "/employee/payroll-reports", section: "admin" },
-
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
-    ],
-    [UserRole.SUPER_ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: "/employee/employee-management", section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: "/employee/departments", section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: "/employee/branches", section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: "/employee/approve-requests", section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: "/employee/attendance-analytics", section: "admin" },
-      { id: "payroll-reports", label: "Báo cáo lương", icon: DollarSign, path: "/employee/payroll-reports", section: "admin" },
-
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: "/employee/audit-logs", section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: "/employee/system-settings", section: "system" },
-
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-      { id: "payroll", label: "Bảng lương", icon: DollarSign, path: `${basePath}/payroll`, section: "admin" },
-      { id: "performance-review", label: "Đánh giá hiệu suất", icon: Award, path: `${basePath}/performance-review`, section: "admin" },
-      { id: "admin-attendance", label: "Quản lý chấm công", icon: Clock, path: `${basePath}/admin-attendance`, section: "admin" },
-    ],
-    [UserRole.ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
-    ],
-    [UserRole.SUPER_ADMIN]: [
-      homeMenu,
-      { id: "employee-management", label: "Quản lý nhân viên", icon: Users, path: `${basePath}/employee-management`, section: "admin" },
-      { id: "departments", label: "Quản lý phòng ban", icon: Briefcase, path: `${basePath}/departments`, section: "admin" },
-      { id: "branches", label: "Quản lý chi nhánh", icon: Building2, path: `${basePath}/branches`, section: "admin" },
-      { id: "approve-requests", label: "Phê duyệt yêu cầu", icon: CheckCircle2, path: `${basePath}/approve-requests`, section: "admin" },
-      { id: "attendance-analytics", label: "Phân tích chấm công", icon: BarChart3, path: `${basePath}/attendance-analytics`, section: "admin" },
-
-      { id: "audit-logs", label: "Nhật ký hệ thống", icon: Shield, path: `${basePath}/audit-logs`, section: "system" },
-      { id: "system-settings", label: "Cài đặt hệ thống", icon: Settings, path: `${basePath}/system-settings`, section: "system" },
-
-    ],
-  };
-
-  // Get additional menus for the role
-  const additionalMenus = adminMenus[role] || [];
-
-  // For ADMIN and SUPER_ADMIN roles, use simplified employee menu
-  if (role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN) {
-    return [...additionalMenus, ...adminEmployeeMenu];
-  }
-
-  // For other roles with admin access (MANAGER, HR_MANAGER), show full employee menu
-  if (canAccessAdminPanel(role)) {
-    return [...additionalMenus, ...baseMenu];
-  }
-
-  // For EMPLOYEE, add home to employee section
-  return [{ id: "home", label: "Trang chủ", icon: Home, path: basePath, section: "employee" }, ...baseMenu];
-}
 
 interface NotificationBellProps {
   onClick: () => void;
@@ -194,17 +75,33 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onClick }) => {
 };
 
 const DashboardLayout: React.FC = () => {
+  const { t } = useTranslation(['menu', 'common']);
   const { user, logout } = useAuth();
   const { toggleTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
 
-  // Get user role and menu items
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
-  const menu = getMenuByRole(userRole);
+  const basePath = getRoleBasePath(userRole);
+  const tMenu = useTranslation("menu").t;
+  const menu = getMenuByPermissionsWithTranslations(tMenu, userRole, basePath);
   const roleInfo = getRoleColor(userRole);
   const roleName = getRoleName(userRole);
+
+  const filteredMenu = (() => {
+    if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
+      const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
+      const employeeItems = menu.filter(item => 
+        item.section === 'employee' && (item.id === 'company-calendar' || item.id === 'profile')
+      );
+      return [...adminItems, ...employeeItems];
+    }
+    if (userRole === UserRole.HR_MANAGER || userRole === UserRole.MANAGER) {
+      return menu;
+    }
+    return menu.filter(item => item.section === 'employee');
+  })();
 
   const getCurrentPage = (): string => {
     const basePath = getRoleBasePath(userRole);
@@ -246,6 +143,9 @@ const DashboardLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2 md:space-x-4">
+            {/* Language Switcher */}
+            <LanguageSwitcher />
+            
             {/* Theme Toggle */}
             <Button
               onClick={toggleTheme}
@@ -263,7 +163,7 @@ const DashboardLayout: React.FC = () => {
 
             <div className="hidden md:block text-right">
               <p className="text-sm text-[var(--text-main)]">
-                {user?.email || "Người dùng"}
+                {user?.email || t('common:dashboard.user')}
               </p>
               <p className="text-xs text-[var(--text-sub)]">{roleName}</p>
             </div>
@@ -274,7 +174,7 @@ const DashboardLayout: React.FC = () => {
               className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--surface)]"
             >
               <LogOut className="h-4 w-4 mr-2" />
-              <span className="hidden md:inline">Đăng xuất</span>
+              <span className="hidden md:inline">{t('common:dashboard.logout')}</span>
             </Button>
           </div>
         </div>
@@ -296,9 +196,9 @@ const DashboardLayout: React.FC = () => {
             {/* Group menu items by section */}
             {(() => {
               const sections: { admin: MenuItem[]; employee: MenuItem[]; system: MenuItem[] } = {
-                admin: menu.filter(item => item.section === 'admin'),
-                employee: menu.filter(item => item.section === 'employee'),
-                system: menu.filter(item => item.section === 'system'),
+                admin: filteredMenu.filter(item => item.section === 'admin'),
+                employee: filteredMenu.filter(item => item.section === 'employee'),
+                system: filteredMenu.filter(item => item.section === 'system'),
               };
 
               return (
@@ -307,7 +207,7 @@ const DashboardLayout: React.FC = () => {
                   {sections.admin.length > 0 && (
                     <div className="mb-4">
                       <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                        Quản trị
+                        {t('common:dashboard.sections.admin')}
                       </div>
                       {sections.admin.map((item) => {
                         const Icon = item.icon;
@@ -339,7 +239,7 @@ const DashboardLayout: React.FC = () => {
                     <div className="mb-4">
                       {sections.admin.length > 0 && (
                         <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                          Cá nhân
+                          {t('common:dashboard.sections.employee')}
                         </div>
                       )}
                       {sections.employee.map((item) => {
@@ -375,7 +275,7 @@ const DashboardLayout: React.FC = () => {
                   {sections.system.length > 0 && (
                     <div className="mb-4">
                       <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                        Hệ thống
+                        {t('common:dashboard.sections.system')}
                       </div>
                       {sections.system.map((item) => {
                         const Icon = item.icon;

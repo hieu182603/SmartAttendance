@@ -168,4 +168,44 @@ input[type="date"]::-moz-calendar-picker-indicator {
   opacity: 0.9;
 }
 
+/* Month Input Styling */
+input[type="month"] {
+  position: relative;
+  padding-right: 2.5rem;
+  color-scheme: dark;
+}
 
+input[type="month"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0.75rem;
+  cursor: pointer;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
+input[type="month"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* For Firefox */
+input[type="month"]::-moz-calendar-picker-indicator {
+  position: absolute;
+  right: 0.75rem;
+  cursor: pointer;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
+/* Time Input Styling */
+.time-input {
+  color-scheme: dark;
+}
+
+.time-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+
+.time-input::-moz-focus-inner {
+  border: 0;
+}

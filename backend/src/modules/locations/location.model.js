@@ -67,7 +67,7 @@ locationSchema.index({ latitude: 1, longitude: 1 });
 locationSchema.methods.isWithinRadius = function (userLat, userLng) {
   const toRad = (value) => (value * Math.PI) / 180;
 
-  const R = 6371e3; // Bán kính Trái Đất (mét)
+  const R = 6371e3; 
   const φ1 = toRad(this.latitude);
   const φ2 = toRad(userLat);
   const Δφ = toRad(userLat - this.latitude);
@@ -78,9 +78,9 @@ locationSchema.methods.isWithinRadius = function (userLat, userLng) {
     Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  const distance = R * c; // Khoảng cách (mét)
+  const distance = R * c; 
 
-  return distance <= this.radius; // true nếu trong bán kính cho phép
+  return distance <= this.radius; 
 };
 
 /**

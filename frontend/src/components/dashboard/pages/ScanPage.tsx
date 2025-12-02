@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Camera,
   MapPin,
@@ -6,12 +7,11 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import api from "../../../services/api";
+import api from "@/services/api";
 import type { AxiosError } from "axios";
 
-// Helper: Convert base64 to Blob
 const dataURLtoBlob = (dataURL: string): Blob => {
   const arr = dataURL.split(',');
   const mimeMatch = arr[0].match(/:(.*?);/);
@@ -30,8 +30,6 @@ interface State {
   isCameraReady: boolean;
   isProcessing: boolean;
   locationLoading: boolean;
-  checkInStatus: "success" | "error" | "already" | null;
-  checkOutStatus: "success" | "error" | "not_checked_in" | "insufficient_hours" | null;
   hasCheckedIn: boolean;
   hasCheckedOut: boolean;
   checkInTime: Date | null;
@@ -47,18 +45,18 @@ interface LocationData {
   latitude: number;
   longitude: number;
   accuracy: number;
-  distance?: number; // Khoảng cách đến văn phòng gần nhất (mét)
-  nearestOffice?: string; // Tên văn phòng gần nhất
+  distance?: number; 
+  nearestOffice?: string; 
 }
 
 interface Office {
   _id: string;
   name: string;
-  address: string;
   latitude: number;
   longitude: number;
   radius: number;
 }
+
 
 interface CheckInResponse {
   success: boolean;
@@ -71,7 +69,7 @@ interface CheckInResponse {
     workHours?: string;
     location?: string;
     validationMethod?: string;
-    distance?: string; // Format: "123m"
+    distance?: string; 
   };
 }
 
@@ -87,13 +85,11 @@ interface CheckInError {
 }
 
 const ScanPage: React.FC = () => {
-  // Gom state liên quan
+  const { t } = useTranslation(['dashboard', 'common']);
   const [state, setState] = useState<State>({
     isCameraReady: false,
     isProcessing: false,
     locationLoading: false,
-    checkInStatus: null,
-    checkOutStatus: null,
     hasCheckedIn: false,
     hasCheckedOut: false,
     checkInTime: null,
@@ -112,10 +108,9 @@ const ScanPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Hàm tính khoảng cách giữa 2 tọa độ (Haversine formula)
   const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const toRad = (value: number) => (value * Math.PI) / 180;
-    const R = 6371e3; // Bán kính Trái Đất (mét)
+    const R = 6371e3; // Bán kính trái đất (mét)
     
     const φ1 = toRad(lat1);
     const φ2 = toRad(lat2);
@@ -125,10 +120,9 @@ const ScanPage: React.FC = () => {
     const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     
-    return R * c; // Khoảng cách (mét)
+    return R * c;
   }, []);
 
-  // Tìm văn phòng gần nhất
   const findNearestOffice = useCallback((lat: number, lon: number) => {
     if (offices.length === 0) return null;
     
@@ -146,7 +140,6 @@ const ScanPage: React.FC = () => {
     return { office: nearest, distance: Math.round(minDistance) };
   }, [offices, calculateDistance]);
 
-  // Lấy vị trí GPS
   const getLocation = useCallback(async () => {
     setState(prev => ({ ...prev, locationLoading: true }));
     setLocationError(null);
@@ -155,7 +148,7 @@ const ScanPage: React.FC = () => {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 30000, 
           maximumAge: 0,
         });
       });
@@ -166,7 +159,6 @@ const ScanPage: React.FC = () => {
         accuracy: position.coords.accuracy,
       };
 
-      // Tính khoảng cách đến văn phòng gần nhất
       const nearest = findNearestOffice(location.latitude, location.longitude);
       if (nearest) {
         location.distance = nearest.distance;
@@ -175,16 +167,29 @@ const ScanPage: React.FC = () => {
 
       setLocationData(location);
       setPermissions(prev => ({ ...prev, location: true }));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error getting location:", error);
-      setLocationError("Không thể lấy vị trí. Vui lòng kiểm tra quyền truy cập.");
+      
+      let errorMessage = "Không thể lấy vị trí. ";
+      
+      if (error.code === 1) { // PERMISSION_DENIED
+        errorMessage += "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.";
+      } else if (error.code === 2) { // POSITION_UNAVAILABLE
+        errorMessage += "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.";
+      } else if (error.code === 3) { // TIMEOUT
+        errorMessage += "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.";
+      } else {
+        errorMessage += "Vui lòng kiểm tra quyền truy cập và GPS.";
+      }
+      
+      setLocationError(errorMessage);
       setPermissions(prev => ({ ...prev, location: false }));
+      toast.error(errorMessage);
     } finally {
       setState(prev => ({ ...prev, locationLoading: false }));
     }
   }, [findNearestOffice]);
 
-  // Bật camera
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -202,13 +207,12 @@ const ScanPage: React.FC = () => {
         setPermissions(prev => ({ ...prev, camera: true }));
       }
     } catch (error) {
-      console.error("Error accessing camera:", error);
+console.error("Error accessing camera:", error);
       toast.error("Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.");
       setPermissions(prev => ({ ...prev, camera: false }));
     }
   }, []);
 
-  // Tắt camera
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -220,7 +224,6 @@ const ScanPage: React.FC = () => {
     setState(prev => ({ ...prev, isCameraReady: false }));
   }, []);
 
-  // Chụp ảnh và resize
   const capturePhoto = useCallback((): string | null => {
     if (!videoRef.current || !state.isCameraReady) return null;
 
@@ -247,16 +250,17 @@ const ScanPage: React.FC = () => {
     canvas.height = height;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
+    ctx.translate(width, 0);
+    ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, width, height);
 
     return canvas.toDataURL("image/jpeg", 0.6);
   }, [state.isCameraReady]);
 
-  // Xử lý check-in
   const handleCheckIn = useCallback(async () => {
     if (!locationData) return;
     
-    setState(prev => ({ ...prev, isProcessing: true, checkInStatus: null }));
+    setState(prev => ({ ...prev, isProcessing: true }));
 
     try {
       const photoData = capturePhoto();
@@ -269,7 +273,6 @@ const ScanPage: React.FC = () => {
       formData.append('longitude', locationData.longitude.toString());
       formData.append('accuracy', locationData.accuracy.toString());
 
-      // Convert base64 to Blob
       const blob = dataURLtoBlob(photoData);
       formData.append('photo', blob, `checkin-${Date.now()}.jpg`);
 
@@ -281,50 +284,44 @@ const ScanPage: React.FC = () => {
         const now = new Date();
         setState(prev => ({ 
           ...prev, 
-          checkInStatus: "success", 
           hasCheckedIn: true,
           checkInTime: now,
           canCheckOut: false
         }));
         
-        // Cập nhật khoảng cách từ response
-        if (response.data.data?.distance) {
-          const distanceValue = parseInt(response.data.data.distance);
-          setLocationData(prev => prev ? { ...prev, distance: distanceValue } : null);
+        if (response.data.data) {
+          const { distance, location } = response.data.data;
+          setLocationData(prev => prev ? { 
+            ...prev, 
+            distance: distance ? parseInt(distance) : prev.distance,
+            nearestOffice: location || prev.nearestOffice
+          } : null);
         }
         
-        toast.success("Check-in thành công!");
-
-        setTimeout(() => {
-          setState(prev => ({ ...prev, checkInStatus: null }));
-        }, 3000);
+        toast.success(response.data.message || "Check-in thành công!");
       }
     } catch (error) {
       console.error("Check-in error:", error);
       const err = error as AxiosError<CheckInError>;
       const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi chấm công";
 
-      // Check error code thay vì regex
       if (err.response?.data?.code === 'ALREADY_CHECKED_IN') {
         toast.info(errorMessage);
-        setState(prev => ({ ...prev, checkInStatus: "already", hasCheckedIn: true }));
+        setState(prev => ({ ...prev, hasCheckedIn: true }));
       } else if (err.response?.data?.code === 'TOO_EARLY') {
         toast.warning(errorMessage);
-        setState(prev => ({ ...prev, checkInStatus: "error" }));
       } else {
         toast.error(errorMessage);
-        setState(prev => ({ ...prev, checkInStatus: "error" }));
       }
     } finally {
       setState(prev => ({ ...prev, isProcessing: false }));
     }
   }, [locationData, capturePhoto]);
 
-  // Xử lý check-out
   const handleCheckOut = useCallback(async () => {
     if (!locationData) return;
     
-    setState(prev => ({ ...prev, isProcessing: true, checkOutStatus: null }));
+    setState(prev => ({ ...prev, isProcessing: true }));
 
     try {
       const photoData = capturePhoto();
@@ -345,14 +342,18 @@ const ScanPage: React.FC = () => {
       });
 
       if (response.data.success) {
-        setState(prev => ({ ...prev, checkOutStatus: "success", hasCheckedOut: true }));
+        setState(prev => ({ ...prev, hasCheckedOut: true }));
         
-        const workHours = response.data.data?.workHours || '0h';
-        toast.success(`Check-out thành công! Tổng giờ làm: ${workHours}`);
-
-        setTimeout(() => {
-          setState(prev => ({ ...prev, checkOutStatus: null }));
-        }, 3000);
+        if (response.data.data) {
+          const { distance, location } = response.data.data;
+          setLocationData(prev => prev ? { 
+            ...prev, 
+            distance: distance ? parseInt(distance) : prev.distance,
+            nearestOffice: location || prev.nearestOffice
+          } : null);
+        }
+        
+        toast.success(response.data.message || "Check-out thành công!");
       }
     } catch (error) {
       console.error("Check-out error:", error);
@@ -361,23 +362,19 @@ const ScanPage: React.FC = () => {
 
       if (err.response?.data?.code === 'NOT_CHECKED_IN') {
         toast.warning(errorMessage);
-        setState(prev => ({ ...prev, checkOutStatus: "not_checked_in" }));
       } else if (err.response?.data?.code === 'ALREADY_CHECKED_OUT') {
         toast.info(errorMessage);
-        setState(prev => ({ ...prev, checkOutStatus: "success", hasCheckedOut: true }));
+        setState(prev => ({ ...prev, hasCheckedOut: true }));
       } else if (err.response?.data?.code === 'INSUFFICIENT_WORK_HOURS') {
         toast.warning(errorMessage);
-        setState(prev => ({ ...prev, checkOutStatus: "insufficient_hours" }));
       } else {
         toast.error(errorMessage);
-        setState(prev => ({ ...prev, checkOutStatus: "error" }));
       }
     } finally {
       setState(prev => ({ ...prev, isProcessing: false }));
     }
   }, [locationData, capturePhoto]);
 
-  // Load danh sách offices và check trạng thái attendance khi mount
   useEffect(() => {
     const loadOffices = async () => {
       try {
@@ -396,20 +393,16 @@ const ScanPage: React.FC = () => {
         if (response.data && response.data.length > 0) {
           const latestAttendance = response.data[0];
           
-          // Lấy ngày hôm nay (chỉ ngày, không có giờ)
           const today = new Date();
           const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
           
-          // Parse ngày từ response (format: "Thứ Hai, 25 tháng 11, 2025" hoặc "25/11/2025")
           const dateMatch = latestAttendance.date.match(/(\d{1,2})\s*(?:tháng\s*)?(\d{1,2})(?:,\s*|\s+)(\d{4})/);
           
           if (dateMatch) {
             const [, day, month, year] = dateMatch;
             const attendanceStr = `${parseInt(day)}/${parseInt(month)}/${year}`;
             
-            // So sánh ngày
             if (attendanceStr === todayStr) {
-              // Parse thời gian check-in từ response (format: "08:30")
               let checkInTime = null;
               if (latestAttendance.checkIn) {
                 const [hours, minutes] = latestAttendance.checkIn.split(':').map(Number);
@@ -422,7 +415,7 @@ const ScanPage: React.FC = () => {
                 hasCheckedIn: !!latestAttendance.checkIn,
                 hasCheckedOut: !!latestAttendance.checkOut,
                 checkInTime: checkInTime,
-                canCheckOut: false // Sẽ được tính lại bởi useEffect
+                canCheckOut: false 
               }));
             }
           }
@@ -436,42 +429,44 @@ const ScanPage: React.FC = () => {
     checkTodayAttendance();
   }, []);
 
-  // Tự động lấy vị trí khi offices đã load
   useEffect(() => {
     if (offices.length > 0) {
       getLocation();
     }
-  }, [offices.length]); // Chỉ chạy khi offices được load lần đầu
+  }, [offices.length, getLocation]);
 
-  // Reset state khi sang ngày mới (kiểm tra mỗi phút)
   useEffect(() => {
     let lastCheckDate = new Date().toDateString();
 
     const checkNewDay = setInterval(() => {
       const currentDate = new Date().toDateString();
       if (currentDate !== lastCheckDate) {
-        // Sang ngày mới - reset state
         setState(prev => ({
           ...prev,
           hasCheckedIn: false,
           hasCheckedOut: false,
           checkInTime: null,
           canCheckOut: false,
-          checkInStatus: null,
-          checkOutStatus: null
         }));
         lastCheckDate = currentDate;
       }
-    }, 60000); // Kiểm tra mỗi phút
+    }, 60000); 
 
     return () => clearInterval(checkNewDay);
   }, []);
 
-  // Kiểm tra thời gian làm việc để enable nút check-out
   useEffect(() => {
     if (!state.checkInTime || state.hasCheckedOut) return;
 
-    const MIN_WORK_HOURS = 8; // Ca Full time: 8 giờ làm việc
+    const MIN_WORK_HOURS = 1; 
+    const now = new Date();
+    const hoursWorked = (now.getTime() - state.checkInTime.getTime()) / (1000 * 60 * 60);
+    
+    if (hoursWorked >= MIN_WORK_HOURS) {
+      setState(prev => ({ ...prev, canCheckOut: true }));
+      return; 
+    }
+
     const checkInterval = setInterval(() => {
       const now = new Date();
       const hoursWorked = (now.getTime() - state.checkInTime!.getTime()) / (1000 * 60 * 60);
@@ -480,25 +475,17 @@ const ScanPage: React.FC = () => {
         setState(prev => ({ ...prev, canCheckOut: true }));
         clearInterval(checkInterval);
       }
-    }, 60000); // Kiểm tra mỗi phút
-
-    // Kiểm tra ngay lập tức
-    const now = new Date();
-    const hoursWorked = (now.getTime() - state.checkInTime.getTime()) / (1000 * 60 * 60);
-    if (hoursWorked >= 8) { // 8 giờ làm việc
-      setState(prev => ({ ...prev, canCheckOut: true }));
-    }
+    }, 60000);
 
     return () => clearInterval(checkInterval);
   }, [state.checkInTime, state.hasCheckedOut]);
 
-  // Init camera khi mount
   useEffect(() => {
     startCamera();
     return () => {
       stopCamera();
     };
-  }, [startCamera, stopCamera]);
+  }, []); 
 
   const { isCameraReady, isProcessing, locationLoading, hasCheckedIn, hasCheckedOut, canCheckOut } = state;
 
@@ -507,17 +494,17 @@ const ScanPage: React.FC = () => {
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            Chấm công hôm nay
+            {t('dashboard:scan.checkInToday')}
           </CardTitle>
           <p className="text-sm text-[var(--text-sub)] mt-2">
-            Chụp ảnh và xác nhận vị trí để chấm công
+            {t('dashboard:scan.description')}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Trạng thái quyền */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">
-              Trạng thái quyền truy cập
+              {t('dashboard:scan.permissionStatus')}
             </h3>
             <div className="flex flex-wrap gap-2">
               {Object.entries(permissions).map(([key, granted]) => (
@@ -526,7 +513,7 @@ const ScanPage: React.FC = () => {
                   className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
                     granted
                       ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                   }`}
                 >
                   {granted ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
@@ -554,6 +541,7 @@ const ScanPage: React.FC = () => {
                 playsInline
                 muted
                 className={`h-full w-full object-cover ${isCameraReady ? "block" : "hidden"}`}
+                style={{ transform: 'scaleX(-1)' }}
               />
 
               {!isCameraReady && (
@@ -571,17 +559,47 @@ const ScanPage: React.FC = () => {
               <MapPin className="h-4 w-4" />
               Thông tin vị trí
             </h3>
-            {locationLoading ? (
+            {!locationData && !locationError ? (
               <div className="flex items-center justify-center gap-2 py-4 text-sm text-[var(--text-sub)]">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--primary)] border-t-transparent" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Đang lấy vị trí...
               </div>
             ) : locationError ? (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                {locationError}
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <p>{locationError}</p>
+                </div>
+                <button
+                  onClick={getLocation}
+                  disabled={locationLoading}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {locationLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang thử lại...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="h-4 w-4" />
+                      Thử lại
+                    </>
+                  )}
+                </button>
               </div>
             ) : locationData ? (
-              <>
+              <div className="relative">
+                {/* Loading overlay khi đang refresh */}
+                {locationLoading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[var(--shell)]/80 backdrop-blur-sm">
+                    <div className="flex items-center gap-2 text-sm text-[var(--text-main)]">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang làm mới...
+                    </div>
+                  </div>
+                )}
+                
                 <div className="space-y-2 text-sm">
                   {locationData.nearestOffice && (
                     <div className="flex justify-between items-start">
@@ -618,17 +636,14 @@ const ScanPage: React.FC = () => {
                 </div>
                 <button
                   onClick={getLocation}
-                  className="mt-2 text-xs text-[var(--primary)] hover:underline"
+                  disabled={locationLoading}
+                  className="mt-3 flex items-center justify-center gap-2 w-full rounded-lg border border-[var(--border)] bg-[var(--shell)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
+                  <MapPin className="h-4 w-4" />
                   Làm mới vị trí
                 </button>
-              </>
-            ) : (
-              <div className="flex items-center justify-center gap-2 py-4 text-sm text-[var(--text-sub)]">
-                <MapPin className="h-4 w-4" />
-                Đang lấy vị trí...
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Nút check-in và check-out */}
@@ -646,7 +661,7 @@ const ScanPage: React.FC = () => {
                 </>
               ) : hasCheckedIn ? (
                 <>
-                  <CheckCircle2 className="h-4 w-4" />
+<CheckCircle2 className="h-4 w-4" />
                   Đã check-in
                 </>
               ) : (
@@ -657,12 +672,11 @@ const ScanPage: React.FC = () => {
               )}
             </button>
 
-            {/* Nút Check-out */}
             <button
               onClick={handleCheckOut}
               disabled={isProcessing || !permissions.camera || !permissions.location || !locationData || !hasCheckedIn || hasCheckedOut || !canCheckOut}
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? "Cần làm việc ít nhất 8 giờ (ca Full time)" : ""}
+              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? "Vui lòng chờ ít nhất 1 giờ sau khi check-in" : ""}
             >
               {isProcessing && hasCheckedIn && !hasCheckedOut ? (
                 <>
@@ -689,7 +703,3 @@ const ScanPage: React.FC = () => {
 };
 
 export default ScanPage;
-
-
-
-

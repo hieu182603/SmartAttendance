@@ -1,0 +1,16 @@
+{
+  "required": "Trường này là bắt buộc",
+  "email": "Email không hợp lệ",
+  "minLength": "Phải có ít nhất {{min}} ký tự",
+  "maxLength": "Không được vượt quá {{max}} ký tự",
+  "passwordMatch": "Mật khẩu không khớp",
+  "phone": "Số điện thoại không hợp lệ",
+  "number": "Phải là số",
+  "positive": "Phải là số dương"
+}
+
+
+
+
+
+

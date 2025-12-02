@@ -14,17 +14,16 @@ const attendanceSchema = new mongoose.Schema(
     date: {
       type: Date,
       required: true,
-      // Chỉ lưu ngày (không giờ phút giây)
       set: (v) => {
         const d = new Date(v);
-        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       },
     },
-    checkIn: { type: Date }, // Giờ vào
-    checkOut: { type: Date }, // Giờ ra
+    checkIn: { type: Date }, 
+    checkOut: { type: Date }, 
     status: {
       type: String,
-      enum: ["present", "absent", "late"],
+      enum: ["present", "absent", "late", "on_leave"],
       default: "absent",
     },
     workHours: {
@@ -46,8 +45,8 @@ attendanceSchema.index({ userId: 1, date: 1 }, { unique: true });
 // === Tính giờ làm việc tự động ===
 attendanceSchema.methods.calculateWorkHours = function () {
   if (this.checkIn && this.checkOut) {
-    const diff = (this.checkOut - this.checkIn) / (1000 * 60 * 60); // giờ
-    this.workHours = Math.round(diff * 100) / 100; // làm tròn 2 chữ số
+    const diff = (this.checkOut - this.checkIn) / (1000 * 60 * 60);
+    this.workHours = Math.round(diff * 100) / 100; 
   } else {
     this.workHours = 0;
   }
@@ -56,27 +55,17 @@ attendanceSchema.methods.calculateWorkHours = function () {
 
 // === Tự động cập nhật status và giờ làm ===
 attendanceSchema.pre("save", function (next) {
-  // Chuẩn hóa ngày
   const d = new Date(this.date);
-  this.date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  this.date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
   // Tính giờ
   this.calculateWorkHours();
 
-  // Cập nhật trạng thái
+  // Cập nhật trạng thái cơ bản
+  // Note: Logic đi muộn sẽ được xử lý ở controller (cần async để lấy schedule)
   if (this.checkIn) {
-    // Kiểm tra đi muộn
-    // Giờ bắt đầu ca: 08:00, cho phép muộn 30 phút → 08:30
-    const SHIFT_START_HOUR = 8;
-    const SHIFT_START_MINUTE = 0;
-    const LATE_TOLERANCE_MINUTES = 30; // Cho phép muộn 30 phút
-    
-    const lateTime = new Date(this.date);
-    lateTime.setHours(SHIFT_START_HOUR, SHIFT_START_MINUTE + LATE_TOLERANCE_MINUTES, 0, 0);
-    
-    if (this.checkIn > lateTime) {
-      this.status = "late";
-    } else {
+    // Nếu status chưa được set từ controller, mặc định là present
+    if (!this.status || this.status === "absent") {
       this.status = "present";
     }
   } else {

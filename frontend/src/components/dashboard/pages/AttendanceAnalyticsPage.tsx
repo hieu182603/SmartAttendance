@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
   BarChart3,
@@ -8,11 +9,11 @@ import {
   Download,
   AlertCircle
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card'
-import { Button } from '../../ui/button'
-import { Badge } from '../../ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select'
-import { Progress } from '../../ui/progress'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 import {
   BarChart,
@@ -26,7 +27,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts'
-import { getAttendanceAnalytics, exportAttendanceAnalytics } from '../../../services/attendanceService'
+import { getAttendanceAnalytics, exportAttendanceAnalytics } from '@/services/attendanceService'
 
 type Period = '7days' | '30days' | '90days'
 
@@ -76,6 +77,7 @@ interface AnalyticsParams {
 }
 
 const AttendanceAnalyticsPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('7days')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [loading, setLoading] = useState(false)
@@ -130,7 +132,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
       }
     } catch (error) {
       console.error('[AttendanceAnalytics] fetch error:', error)
-      toast.error('Không thể tải dữ liệu phân tích')
+      toast.error(t('dashboard:attendanceAnalytics.error'))
     } finally {
       setLoading(false)
     }
@@ -164,9 +166,15 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
       toast.loading('📥 Đang xuất báo cáo phân tích...', { id: 'export' })
       await exportAttendanceAnalytics(params)
-      toast.success(' Đã xuất báo cáo thành công!', { id: 'export' })
+      toast.success(
+        t('dashboard:attendanceAnalytics.export') + ' ' + t('common:success'),
+        { id: 'export' }
+      )
     } catch (error) {
-      toast.error(' Không thể xuất báo cáo', { id: 'export' })
+      toast.error(
+        t('dashboard:attendanceAnalytics.export') + ' ' + t('common:error'),
+        { id: 'export' }
+      )
     }
   }
 
@@ -179,21 +187,29 @@ const AttendanceAnalyticsPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            Phân tích chấm công
+            {t('dashboard:attendanceAnalytics.title')}
           </h1>
           <p className="text-[var(--text-sub)] mt-2">
-            Thống kê và phân tích xu hướng chấm công
+            {t('dashboard:attendanceAnalytics.description')}
           </p>
         </div>
         <div className="flex gap-2">
           <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as Period)}>
             <SelectTrigger className="w-[150px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-              <SelectValue placeholder="7 ngày qua" />
+              <SelectValue
+                placeholder={t('dashboard:attendanceAnalytics.periods.7days')}
+              />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7days">7 ngày qua</SelectItem>
-              <SelectItem value="30days">30 ngày qua</SelectItem>
-              <SelectItem value="90days">90 ngày qua</SelectItem>
+              <SelectItem value="7days">
+                {t('dashboard:attendanceAnalytics.periods.7days')}
+              </SelectItem>
+              <SelectItem value="30days">
+                {t('dashboard:attendanceAnalytics.periods.30days')}
+              </SelectItem>
+              <SelectItem value="90days">
+                {t('dashboard:attendanceAnalytics.periods.90days')}
+              </SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -201,7 +217,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
             className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
           >
             <Download className="h-4 w-4 mr-2" />
-            Xuất báo cáo
+            {t('dashboard:attendanceAnalytics.export')}
           </Button>
         </div>
       </div>
@@ -213,9 +229,16 @@ const AttendanceAnalyticsPage: React.FC = () => {
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Tỷ lệ đi làm</p>
-                  <p className="text-3xl text-[var(--success)] mt-2">{summary.attendanceRate}%</p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">TB {summary.avgPresent}/{totalEmployees} người</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.attendanceRate')}</p>
+                  <p className="text-3xl text-[var(--success)] mt-2">
+                    {summary.attendanceRate}%
+                  </p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">
+                    {t('dashboard:attendanceAnalytics.summary.avgPresentLabel', {
+                      present: summary.avgPresent,
+                      total: totalEmployees,
+                    })}
+                  </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
                   <Users className="h-6 w-6 text-[var(--success)]" />
@@ -230,9 +253,13 @@ const AttendanceAnalyticsPage: React.FC = () => {
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Đi muộn TB</p>
-                  <p className="text-3xl text-[var(--warning)] mt-2">{summary.avgLate}</p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">người/ngày</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.avgLate')}</p>
+                  <p className="text-3xl text-[var(--warning)] mt-2">
+                    {summary.avgLate}
+                  </p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">
+                    {t('dashboard:attendanceAnalytics.perDayUnit')}
+                  </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--warning)]/20 flex items-center justify-center">
                   <Clock className="h-6 w-6 text-[var(--warning)]" />
@@ -247,9 +274,13 @@ const AttendanceAnalyticsPage: React.FC = () => {
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Vắng mặt TB</p>
-                  <p className="text-3xl text-[var(--error)] mt-2">{summary.avgAbsent}</p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">người/ngày</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.avgAbsent')}</p>
+                  <p className="text-3xl text-[var(--error)] mt-2">
+                    {summary.avgAbsent}
+                  </p>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">
+                    {t('dashboard:attendanceAnalytics.perDayUnit')}
+                  </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--error)]/20 flex items-center justify-center">
                   <AlertCircle className="h-6 w-6 text-[var(--error)]" />
@@ -264,12 +295,12 @@ const AttendanceAnalyticsPage: React.FC = () => {
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">Xu hướng</p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.trend')}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <TrendingUp className="h-6 w-6 text-[var(--success)]" />
                     <p className="text-2xl text-[var(--success)]">+{summary.trend}%</p>
                   </div>
-                  <p className="text-xs text-[var(--text-sub)] mt-2">So với tuần trước</p>
+                  <p className="text-xs text-[var(--text-sub)] mt-2">{t('dashboard:attendanceAnalytics.comparedToLastWeek')}</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
                   <BarChart3 className="h-6 w-6 text-[var(--accent-cyan)]" />
@@ -283,14 +314,16 @@ const AttendanceAnalyticsPage: React.FC = () => {
       {/* Charts */}
       {loading ? (
         <div className="text-center py-12">
-          <p className="text-[var(--text-sub)]">Đang tải dữ liệu...</p>
+          <p className="text-[var(--text-sub)]">
+            {t('dashboard:attendanceAnalytics.loading')}
+          </p>
         </div>
       ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Daily Trend */}
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
-            <CardTitle className="text-[var(--text-main)]">Xu hướng hàng ngày</CardTitle>
+            <CardTitle className="text-[var(--text-main)]">{t('dashboard:attendanceAnalytics.charts.dailyTrend')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -307,9 +340,9 @@ const AttendanceAnalyticsPage: React.FC = () => {
                   }}
                 />
                 <Legend />
-                <Line type="monotone" dataKey="present" stroke="#10B981" name="Đi làm" strokeWidth={2} />
-                <Line type="monotone" dataKey="late" stroke="#F59E0B" name="Đi muộn" strokeWidth={2} />
-                <Line type="monotone" dataKey="absent" stroke="#EF4444" name="Vắng mặt" strokeWidth={2} />
+                <Line type="monotone" dataKey="present" stroke="#10B981" name={t('dashboard:attendanceAnalytics.stats.avgPresent')} strokeWidth={2} />
+                <Line type="monotone" dataKey="late" stroke="#F59E0B" name={t('dashboard:attendanceAnalytics.stats.late')} strokeWidth={2} />
+                <Line type="monotone" dataKey="absent" stroke="#EF4444" name={t('dashboard:attendanceAnalytics.stats.absent')} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -318,7 +351,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
         {/* Department Comparison */}
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
-            <CardTitle className="text-[var(--text-main)]">So sánh phòng ban</CardTitle>
+            <CardTitle className="text-[var(--text-main)]">{t('dashboard:attendanceAnalytics.charts.departmentStats')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -335,9 +368,9 @@ const AttendanceAnalyticsPage: React.FC = () => {
                   }}
                 />
                 <Legend />
-                <Bar dataKey="onTime" fill="#10B981" name="Đúng giờ (%)" />
-                <Bar dataKey="late" fill="#F59E0B" name="Đi muộn (%)" />
-                <Bar dataKey="absent" fill="#EF4444" name="Vắng mặt (%)" />
+                <Bar dataKey="onTime" fill="#10B981" name={`${t('dashboard:attendanceAnalytics.stats.onTime')} (%)`} />
+                <Bar dataKey="late" fill="#F59E0B" name={`${t('dashboard:attendanceAnalytics.stats.late')} (%)`} />
+                <Bar dataKey="absent" fill="#EF4444" name={`${t('dashboard:attendanceAnalytics.stats.absent')} (%)`} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -348,13 +381,13 @@ const AttendanceAnalyticsPage: React.FC = () => {
       {/* Department Details */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">Chi tiết phòng ban</CardTitle>
+            <CardTitle className="text-[var(--text-main)]">{t('dashboard:attendanceAnalytics.departmentDetails')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {departmentStats.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-[var(--text-sub)]">Không có dữ liệu</p>
+                <p className="text-[var(--text-sub)]">{t('common:noData')}</p>
               </div>
             ) : (
               departmentStats.map((dept, index) => (
@@ -370,14 +403,14 @@ const AttendanceAnalyticsPage: React.FC = () => {
                     <Badge className={dept.onTime >= 95 ? 'bg-[var(--success)]/20 text-[var(--success)]' :
                       dept.onTime >= 85 ? 'bg-[var(--warning)]/20 text-[var(--warning)]' :
                         'bg-[var(--error)]/20 text-[var(--error)]'}>
-                      {dept.onTime}% đúng giờ
+                      {dept.onTime}% {t('dashboard:attendanceAnalytics.stats.onTime')}
                     </Badge>
                   </div>
 
                   <div className="space-y-3">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-[var(--text-sub)]">Đúng giờ</span>
+                        <span className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.onTime')}</span>
                         <span className="text-sm text-[var(--success)]">{dept.onTime}%</span>
                       </div>
                       <Progress value={dept.onTime} className="h-2 [&>div]:bg-[var(--success)]" />
@@ -385,7 +418,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-[var(--text-sub)]">Đi muộn</span>
+                        <span className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.late')}</span>
                         <span className="text-sm text-[var(--warning)]">{dept.late}%</span>
                       </div>
                       <Progress value={dept.late} className="h-2 [&>div]:bg-[var(--warning)]" />
@@ -393,7 +426,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-[var(--text-sub)]">Vắng mặt</span>
+                        <span className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.absent')}</span>
                         <span className="text-sm text-[var(--error)]">{dept.absent}%</span>
                       </div>
                       <Progress value={dept.absent} className="h-2 [&>div]:bg-[var(--error)]" />
@@ -409,13 +442,13 @@ const AttendanceAnalyticsPage: React.FC = () => {
       {/* Top Performers */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">Top 5 nhân viên chăm chỉ</CardTitle>
+          <CardTitle className="text-[var(--text-main)]">{t('dashboard:attendanceAnalytics.charts.topPerformers')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {topPerformers.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-[var(--text-sub)]">Không có dữ liệu</p>
+                <p className="text-[var(--text-sub)]">{t('common:noData')}</p>
               </div>
             ) : (
               topPerformers.map((employee, index) => (
@@ -441,22 +474,29 @@ const AttendanceAnalyticsPage: React.FC = () => {
                     <div>
                       <h3 className="text-[var(--text-main)]">{employee.name}</h3>
                       <p className="text-sm text-[var(--text-sub)]">
-                        Giờ vào TB: {employee.avgCheckIn}
+                        {t(
+                          'dashboard:attendanceAnalytics.topPerformersSection.avgCheckInLabel'
+                        )}
+                        : {employee.avgCheckIn}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6">
                     <div className="text-center">
-                      <p className="text-sm text-[var(--text-sub)]">Đúng giờ</p>
+                      <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.onTime')}</p>
                       <p className="text-lg text-[var(--success)]">{employee.onTime}</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-[var(--text-sub)]">Muộn</p>
-                      <p className="text-lg text-[var(--warning)]">{employee.late}</p>
+                      <p className="text-sm text-[var(--text-sub)]">
+                        {t('dashboard:attendanceAnalytics.stats.late')}
+                      </p>
+                      <p className="text-lg text-[var(--warning)]">
+                        {employee.late}
+                      </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-[var(--text-sub)]">Vắng</p>
+                      <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.vắng')}</p>
                       <p className="text-lg text-[var(--error)]">{employee.absent}</p>
                     </div>
                     <div className="text-center min-w-[80px]">

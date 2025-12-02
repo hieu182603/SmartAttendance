@@ -1,11 +1,12 @@
-import api from './api'
+import api from '@/services/api'
 
 export interface Branch {
   _id: string
   id?: string
   name: string
   code: string
-  address: string
+  latitude: number
+  longitude: number
   city: string
   country: string
   phone?: string
@@ -90,7 +91,8 @@ export const getBranchesList = async (): Promise<BranchListResponse> => {
 export const createBranch = async (branchData: {
   name: string
   code: string
-  address: string
+  latitude: number
+  longitude: number
   city: string
   country?: string
   phone?: string
@@ -113,7 +115,8 @@ export const updateBranch = async (
   branchData: Partial<{
     name: string
     code: string
-    address: string
+    latitude: number
+    longitude: number
     city: string
     country: string
     phone: string

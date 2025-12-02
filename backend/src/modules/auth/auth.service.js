@@ -20,8 +20,8 @@ export class AuthService {
         }
 
         // Validate name length
-        if (normalizedName.length < 2) {
-            throw new Error("Họ và tên phải có ít nhất 2 ký tự");
+        if (normalizedName.length < 5) {
+            throw new Error("Họ và tên phải có ít nhất 5 ký tự");
         }
 
         // Check if email already exists
@@ -173,7 +173,10 @@ export class AuthService {
 
     // Lấy user hiện tại
     static async getCurrentUser(userId) {
-        const user = await UserModel.findById(userId).select("-password");
+        const user = await UserModel.findById(userId)
+            .select("-password -otp -otpExpires")
+            .populate("department", "name code")
+            .populate("branch", "name address");
         if (!user) throw new Error("User not found");
         return user;
     }

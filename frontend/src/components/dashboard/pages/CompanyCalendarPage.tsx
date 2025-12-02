@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 import {
@@ -12,113 +13,80 @@ import {
   FileText,
   Tag,
   Bell,
+  Pencil,
+  Trash2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { Button } from "../../ui/button";
-import { Badge } from "../../ui/badge";
-import { Calendar } from "../../ui/calendar";
-import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import eventService, { Event } from "@/services/eventService";
+import { CreateEventDialog } from "@/components/dashboard/dialogs/CreateEventDialog";
+import { UpdateEventDialog } from "@/components/dashboard/dialogs/UpdateEventDialog";
+import { useAuth } from "@/context/AuthContext";
+import {
+  hasMinimumLevel,
+  UserRole,
+  type UserRoleType,
+} from "@/utils/roles";
 
 type EventType = "holiday" | "meeting" | "event" | "deadline" | "training";
 
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  type: EventType;
-  location?: string;
-  attendees?: number;
-  color: string;
-  isAllDay?: boolean;
-}
+// Map backend color to Tailwind class
+const getColorClass = (color?: string): string => {
+  if (!color) return "bg-blue-500";
+  // If it's a hex color, convert to Tailwind class
+  const colorMap: Record<string, string> = {
+    "#3B82F6": "bg-blue-500",
+    "#EF4444": "bg-red-500",
+    "#F59E0B": "bg-orange-500",
+    "#10B981": "bg-green-500",
+    "#8B5CF6": "bg-purple-500",
+    "#EC4899": "bg-pink-500",
+  };
+  return colorMap[color] || "bg-blue-500";
+};
 
-const events: Event[] = [
-  {
-    id: "EVT001",
-    title: "Họp tổng kết quý 4",
-    description: "Họp tổng kết kết quả kinh doanh quý 4 và kế hoạch năm mới",
-    date: "2025-11-15",
-    startTime: "14:00",
-    endTime: "16:00",
-    type: "meeting",
-    location: "Phòng họp tầng 3",
-    attendees: 50,
-    color: "bg-blue-500",
-  },
-  {
-    id: "EVT002",
-    title: "Ngày lễ Nhà giáo Việt Nam",
-    description: "Nghỉ lễ theo quy định",
-    date: "2025-11-20",
-    startTime: "",
-    endTime: "",
-    type: "holiday",
-    isAllDay: true,
-    color: "bg-red-500",
-  },
-  {
-    id: "EVT003",
-    title: "Deadline dự án ABC",
-    description: "Hoàn thành và bàn giao dự án ABC cho khách hàng",
-    date: "2025-11-18",
-    startTime: "17:00",
-    endTime: "17:00",
-    type: "deadline",
-    color: "bg-orange-500",
-  },
-  {
-    id: "EVT004",
-    title: "Team Building",
-    description: "Hoạt động team building tại Hà Nội",
-    date: "2025-11-22",
-    startTime: "08:00",
-    endTime: "18:00",
-    type: "event",
-    location: "Ba Vì, Hà Nội",
-    attendees: 150,
-    color: "bg-green-500",
-  },
-  {
-    id: "EVT005",
-    title: "Đào tạo React Advanced",
-    description: "Khóa đào tạo nâng cao về React cho team IT",
-    date: "2025-11-12",
-    startTime: "09:00",
-    endTime: "17:00",
-    type: "training",
-    location: "Phòng đào tạo",
-    attendees: 25,
-    color: "bg-purple-500",
-  },
-  {
-    id: "EVT006",
-    title: "Sinh nhật công ty",
-    description: "Kỷ niệm 5 năm thành lập công ty",
-    date: "2025-11-25",
-    startTime: "18:00",
-    endTime: "21:00",
-    type: "event",
-    location: "Nhà hàng ABC",
-    attendees: 200,
-    color: "bg-pink-500",
-  },
-  {
-    id: "EVT007",
-    title: "Họp giao ban tuần",
-    description: "Họp giao ban đầu tuần của phòng IT",
-    date: "2025-11-11",
-    startTime: "09:00",
-    endTime: "10:00",
-    type: "meeting",
-    location: "Phòng họp IT",
-    attendees: 15,
-    color: "bg-blue-500",
-  },
-];
+// Convert backend Event to frontend Event format
+const mapEvent = (event: Event) => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  // Parse date correctly to avoid timezone issues
+  let dateStr: string;
+  if (typeof event.date === "string" && event.date.includes("T")) {
+    // If it's an ISO string, extract just the date part
+    dateStr = event.date.split("T")[0];
+  } else if (
+    typeof event.date === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(event.date)
+  ) {
+    // Already in YYYY-MM-DD format
+    dateStr = event.date;
+  } else {
+    // Parse as date but use local timezone
+    const eventDate = new Date(event.date);
+    dateStr = `${eventDate.getFullYear()}-${pad(
+      eventDate.getMonth() + 1
+    )}-${pad(eventDate.getDate())}`;
+  }
+
+  return {
+    id: event._id,
+    title: event.title,
+    description: event.description || "",
+    date: dateStr,
+    startTime: event.startTime || "",
+    endTime: event.endTime || "",
+    type: event.type,
+    location: event.location,
+    attendees: event.attendeeCount || event.attendees?.length || 0,
+    color: getColorClass(event.color),
+    isAllDay: event.isAllDay || false,
+    originalEvent: event, // Keep original for reference
+  };
+};
 
 interface StatCard {
   label: string;
@@ -129,8 +97,67 @@ interface StatCard {
 }
 
 const CompanyCalendarPage: React.FC = () => {
+  const { t } = useTranslation(['dashboard', 'common']);
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filterType, setFilterType] = useState<string>("all");
+  const [events, setEvents] = useState<ReturnType<typeof mapEvent>[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<
+    ReturnType<typeof mapEvent>[]
+  >([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    upcoming: 0,
+    holidays: 0,
+    meetingsAndTraining: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  // Check if user can create events (HR_MANAGER and above)
+  const canCreateEvent = user
+    ? hasMinimumLevel(user.role as UserRoleType, UserRole.HR_MANAGER)
+    : false;
+
+  // Fetch data on mount and when month changes
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const currentMonth = selectedDate.getMonth() + 1;
+        const currentYear = selectedDate.getFullYear();
+
+        // Fetch upcoming events (next 7 days)
+        const upcoming = await eventService.getUpcomingEvents();
+        setUpcomingEvents(upcoming.map(mapEvent));
+
+        // Fetch month events
+        const month = await eventService.getMonthEvents(
+          currentMonth,
+          currentYear
+        );
+
+        // Fetch stats
+        const eventStats = await eventService.getEventStats(
+          currentMonth,
+          currentYear
+        );
+        setStats(eventStats);
+
+        // Set all events for filtering
+        setEvents(month.map(mapEvent));
+      } catch (error) {
+        console.error("Error fetching events:", error);
+        toast.error(t('dashboard:companyCalendar.loadError'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [selectedDate]);
 
   const filteredEvents = events.filter((event) => {
     if (filterType !== "all" && event.type !== filterType) return false;
@@ -139,38 +166,18 @@ const CompanyCalendarPage: React.FC = () => {
 
   // Get events for selected date
   const selectedDateEvents = selectedDate
-    ? events.filter(
-      (event) => event.date === selectedDate.toISOString().split("T")[0]
-    )
+    ? events.filter((event) => {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const localDateStr = `${selectedDate.getFullYear()}-${pad(
+          selectedDate.getMonth() + 1
+        )}-${pad(selectedDate.getDate())}`;
+        return event.date === localDateStr;
+      })
     : [];
 
-  // Get upcoming events (next 7 days)
-  const today = new Date();
-  const nextWeek = new Date(today);
-  nextWeek.setDate(nextWeek.getDate() + 7);
-
-  const upcomingEvents = events
-    .filter((event) => {
-      const eventDate = new Date(event.date);
-      return eventDate >= today && eventDate <= nextWeek;
-    })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
   const getTypeLabel = (type: EventType): string => {
-    switch (type) {
-      case "holiday":
-        return "Ngày lễ";
-      case "meeting":
-        return "Họp";
-      case "event":
-        return "Sự kiện";
-      case "deadline":
-        return "Deadline";
-      case "training":
-        return "Đào tạo";
-      default:
-        return type;
-    }
+    const typeKey = `dashboard:companyCalendar.eventTypes.${type}`;
+    return t(typeKey) || type;
   };
 
   const getTypeIcon = (type: EventType): ReactNode => {
@@ -191,40 +198,86 @@ const CompanyCalendarPage: React.FC = () => {
   };
 
   const handleCreateEvent = (): void => {
-    toast.success("📅 Tạo sự kiện mới");
+    setIsCreateDialogOpen(true);
   };
 
-  const handleViewEvent = (event: Event): void => {
+  const handleCreateSuccess = (): void => {
+    // Refresh data after creating event
+    const currentMonth = selectedDate.getMonth() + 1;
+    const currentYear = selectedDate.getFullYear();
+
+    Promise.all([
+      eventService.getUpcomingEvents(),
+      eventService.getMonthEvents(currentMonth, currentYear),
+      eventService.getEventStats(currentMonth, currentYear),
+    ]).then(([upcoming, month, eventStats]) => {
+      setUpcomingEvents(upcoming.map(mapEvent));
+      setEvents(month.map(mapEvent));
+      setStats(eventStats);
+    });
+  };
+
+  const handleViewEvent = (event: ReturnType<typeof mapEvent>): void => {
     toast.success(`👁️ Xem chi tiết: ${event.title}`);
+    // TODO: Open event detail modal/dialog
+  };
+
+  const handleUpdateEvent = (
+    event: ReturnType<typeof mapEvent>,
+    e: React.MouseEvent
+  ): void => {
+    e.stopPropagation(); // Prevent triggering handleViewEvent
+    setSelectedEvent(event.originalEvent);
+    setIsUpdateDialogOpen(true);
+  };
+
+  const handleDeleteEvent = async (
+    event: ReturnType<typeof mapEvent>,
+    e: React.MouseEvent
+  ): Promise<void> => {
+    e.stopPropagation(); // Prevent triggering handleViewEvent
+
+    if (
+      !window.confirm(`${t('dashboard:companyCalendar.deleteConfirm')} "${event.title}"?`)
+    ) {
+      return;
+    }
+
+    try {
+      await eventService.deleteEvent(event.id);
+      toast.success(t('dashboard:companyCalendar.deleteSuccess'));
+      handleCreateSuccess(); // Refresh data
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      toast.error(error.response?.data?.message || t('dashboard:companyCalendar.deleteError'));
+    }
   };
 
   const statCards: StatCard[] = [
     {
-      label: "Tổng sự kiện",
-      value: filteredEvents.length,
+      label: t('dashboard:companyCalendar.stats.total'),
+      value: stats.total,
       color: "primary",
       icon: "📋",
       delay: 0.1,
     },
     {
-      label: "Sắp tới (7 ngày)",
-      value: upcomingEvents.length,
+      label: t('dashboard:companyCalendar.stats.upcoming'),
+      value: stats.upcoming,
       color: "warning",
       icon: "⏰",
       delay: 0.2,
     },
     {
-      label: "Ngày lễ",
-      value: events.filter((e) => e.type === "holiday").length,
+      label: t('dashboard:companyCalendar.stats.holidays'),
+      value: stats.holidays,
       color: "error",
       icon: "🎉",
       delay: 0.3,
     },
     {
-      label: "Họp & Đào tạo",
-      value: events.filter(
-        (e) => e.type === "meeting" || e.type === "training"
-      ).length,
+      label: t('dashboard:companyCalendar.stats.meetingsAndTraining'),
+      value: stats.meetingsAndTraining,
       color: "accent-cyan",
       icon: "👥",
       delay: 0.4,
@@ -237,19 +290,21 @@ const CompanyCalendarPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            Lịch công ty
+            {t('dashboard:companyCalendar.title')}
           </h1>
           <p className="text-[var(--text-sub)] mt-2">
-            Theo dõi các sự kiện, cuộc họp và ngày lễ
+            {t('dashboard:companyCalendar.description')}
           </p>
         </div>
-        <Button
-          onClick={handleCreateEvent}
-          className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Tạo sự kiện
-        </Button>
+        {canCreateEvent && (
+          <Button
+            onClick={handleCreateEvent}
+            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {t('dashboard:companyCalendar.createEvent')}
+          </Button>
+        )}
       </div>
 
       {/* Filter Tabs */}
@@ -257,11 +312,11 @@ const CompanyCalendarPage: React.FC = () => {
         <CardContent className="p-6">
           <Tabs value={filterType} onValueChange={(v) => setFilterType(v)}>
             <TabsList className="grid w-full grid-cols-6 mt-4">
-              <TabsTrigger value="all">Tất cả</TabsTrigger>
-              <TabsTrigger value="holiday">Ngày lễ</TabsTrigger>
-              <TabsTrigger value="meeting">Họp</TabsTrigger>
-              <TabsTrigger value="event">Sự kiện</TabsTrigger>
-              <TabsTrigger value="deadline">Deadline</TabsTrigger>
+              <TabsTrigger value="all">{t('dashboard:companyCalendar.tabs.all')}</TabsTrigger>
+              <TabsTrigger value="holiday">{t('dashboard:companyCalendar.tabs.holiday')}</TabsTrigger>
+              <TabsTrigger value="meeting">{getTypeLabel('meeting')}</TabsTrigger>
+              <TabsTrigger value="event">{t('dashboard:companyCalendar.tabs.event')}</TabsTrigger>
+              <TabsTrigger value="deadline">{getTypeLabel('deadline')}</TabsTrigger>
               <TabsTrigger value="training">Đào tạo</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -336,7 +391,10 @@ const CompanyCalendarPage: React.FC = () => {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <h3 className="text-base font-medium text-[var(--text-main)]">
-                  {selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  {selectedDate.toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
                 </h3>
                 <Button
                   variant="ghost"
@@ -354,19 +412,22 @@ const CompanyCalendarPage: React.FC = () => {
             </CardHeader>
             <CardContent className="pt-0">
               <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
+                {...({
+                  mode: "single",
+                  selected: selectedDate,
+                  onSelect: (date: Date | undefined) =>
+                    date && setSelectedDate(date),
+                  month: selectedDate,
+                  onMonthChange: (date: Date) => setSelectedDate(date),
+                } as any)}
                 className="rounded-md w-full p-0"
-                month={selectedDate}
-                onMonthChange={(date) => setSelectedDate(date)}
               />
 
               {/* Selected Date Info */}
               {selectedDate && (
                 <div className="mt-4 p-3 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
                   <p className="text-xs text-[var(--text-sub)] mb-1">
-                    Ngày đã chọn
+                    {t('dashboard:companyCalendar.selectedDate')}
                   </p>
                   <p className="text-sm text-[var(--text-main)] mb-2">
                     {selectedDate.toLocaleDateString("vi-VN", {
@@ -376,14 +437,39 @@ const CompanyCalendarPage: React.FC = () => {
                       day: "numeric",
                     })}
                   </p>
-                  {selectedDateEvents.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-3 text-xs border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
-                    >
-                      {selectedDateEvents.length} SỰ KIỆN
-                    </Button>
+                  {selectedDateEvents.length > 0 ? (
+                    <div className="space-y-2">
+                      <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border-[var(--accent-cyan)]/40">
+                        {selectedDateEvents.length} {t('dashboard:companyCalendar.events')}
+                      </Badge>
+                      <div className="space-y-1">
+                        {selectedDateEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            className="text-xs p-2 rounded bg-[var(--surface)] border border-[var(--border)] cursor-pointer hover:border-[var(--accent-cyan)] transition-colors"
+                            onClick={() => handleViewEvent(event)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-2 h-2 rounded-full ${event.color}`}
+                              />
+                              <span className="text-[var(--text-main)] font-medium truncate">
+                                {event.title}
+                              </span>
+                            </div>
+                            {!event.isAllDay && (
+                              <div className="text-[var(--text-sub)] ml-4 mt-1">
+                                {event.startTime} - {event.endTime}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {t('dashboard:companyCalendar.noEvents')}
+                    </p>
                   )}
                 </div>
               )}
@@ -403,12 +489,17 @@ const CompanyCalendarPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Bell className="h-5 w-5 text-[var(--accent-cyan)]" />
                 <CardTitle className="text-[var(--text-main)]">
-                  Sự kiện sắp tới (7 ngày tới)
+                  {t('dashboard:companyCalendar.upcomingEvents')}
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {upcomingEvents.length > 0 ? (
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-[var(--text-sub)]">{t('dashboard:companyCalendar.loading')}</p>
+                </div>
+              ) : upcomingEvents.length > 0 ? (
                 upcomingEvents.map((event, index) => (
                   <motion.div
                     key={event.id}
@@ -418,7 +509,7 @@ const CompanyCalendarPage: React.FC = () => {
                     whileHover={{ x: 5 }}
                   >
                     <Card
-                      className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all cursor-pointer"
+                      className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all cursor-pointer relative"
                       onClick={() => handleViewEvent(event)}
                     >
                       <CardContent className="p-4 mt-4">
@@ -458,7 +549,7 @@ const CompanyCalendarPage: React.FC = () => {
                                       variant="outline"
                                       className="border-[var(--border)] text-[var(--text-sub)] text-xs"
                                     >
-                                      Cả ngày
+                                      {t('dashboard:companyCalendar.allDay')}
                                     </Badge>
                                   )}
                                 </div>
@@ -490,13 +581,41 @@ const CompanyCalendarPage: React.FC = () => {
                                   <span>{event.location}</span>
                                 </div>
                               )}
-                              {event.attendees && (
+                              {event.attendees > 0 && (
                                 <div className="flex items-center gap-2">
                                   <Users className="h-4 w-4 text-[var(--primary)]" />
                                   <span>{event.attendees} người</span>
                                 </div>
                               )}
                             </div>
+
+                            {/* Action Buttons for HR_MANAGER */}
+                            {canCreateEvent && (
+                              <div className="absolute bottom-3 right-3 flex gap-1.5">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateEvent(event, e);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-red-500 hover:bg-red-500/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEvent(event, e);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -511,7 +630,7 @@ const CompanyCalendarPage: React.FC = () => {
                 >
                   <div className="text-6xl mb-4">📅</div>
                   <p className="text-[var(--text-sub)]">
-                    Không có sự kiện sắp tới trong 7 ngày tới
+                    {t('dashboard:companyCalendar.noUpcomingEvents')}
                   </p>
                 </motion.div>
               )}
@@ -524,99 +643,157 @@ const CompanyCalendarPage: React.FC = () => {
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            Tất cả sự kiện ({filteredEvents.length})
+            {t('dashboard:companyCalendar.allEvents')} ({filteredEvents.length}) - {t('dashboard:companyCalendar.month')}{" "}
+            {selectedDate.toLocaleDateString("vi-VN", {
+              month: "long",
+              year: "numeric",
+            })}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {filteredEvents
-              .sort(
-                (a, b) =>
-                  new Date(a.date).getTime() - new Date(b.date).getTime()
-              )
-              .map((event, index) => (
-                <motion.div
-                  key={event.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                  className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all"
-                  onClick={() => handleViewEvent(event)}
-                >
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
-                    >
-                      <span
-                        className={`${event.color.replace("bg-", "text-")}`}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-[var(--text-sub)]">Đang tải sự kiện...</p>
+              </div>
+            ) : filteredEvents.length > 0 ? (
+              filteredEvents
+                .sort(
+                  (a, b) =>
+                    new Date(a.date).getTime() - new Date(b.date).getTime()
+                )
+                .map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all relative"
+                    onClick={() => handleViewEvent(event)}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                       >
-                        {getTypeIcon(event.type)}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-[var(--text-main)]">
-                          {event.title}
-                        </h3>
-                        <Badge
-                          className={`${event.color} bg-opacity-20 text-black`}
-                          style={{ color: event.color.replace("bg-", "") }}
+                        <span
+                          className={`${event.color.replace("bg-", "text-")}`}
                         >
-                          {getTypeLabel(event.type)}
-                        </Badge>
-                        {event.isAllDay && (
-                          <Badge
-                            variant="outline"
-                            className="border-[var(--border)] text-[var(--text-sub)]"
-                          >
-                            Cả ngày
-                          </Badge>
-                        )}
+                          {getTypeIcon(event.type)}
+                        </span>
                       </div>
-                      <p className="text-sm text-[var(--text-sub)] mb-3">
-                        {event.description}
-                      </p>
-                      <div className="flex items-center gap-6 text-sm text-[var(--text-sub)]">
-                        <div className="flex items-center gap-2">
-                          <CalendarIcon className="h-4 w-4" />
-                          <span>
-                            {new Date(event.date).toLocaleDateString("vi-VN")}
-                          </span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-[var(--text-main)]">
+                            {event.title}
+                          </h3>
+                          <Badge
+                            className={`${event.color} bg-opacity-20 text-black`}
+                            style={{ color: event.color.replace("bg-", "") }}
+                          >
+                            {getTypeLabel(event.type)}
+                          </Badge>
+                          {event.isAllDay && (
+                            <Badge
+                              variant="outline"
+                              className="border-[var(--border)] text-[var(--text-sub)]"
+                            >
+                              Cả ngày
+                            </Badge>
+                          )}
                         </div>
-                        {!event.isAllDay && (
+                        <p className="text-sm text-[var(--text-sub)] mb-3">
+                          {event.description}
+                        </p>
+                        <div className="flex items-center gap-6 text-sm text-[var(--text-sub)]">
                           <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
+                            <CalendarIcon className="h-4 w-4" />
                             <span>
-                              {event.startTime} - {event.endTime}
+                              {new Date(event.date).toLocaleDateString("vi-VN")}
                             </span>
                           </div>
-                        )}
-                        {event.location && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4" />
-                            <span>{event.location}</span>
-                          </div>
-                        )}
-                        {event.attendees && (
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            <span>{event.attendees} người tham gia</span>
+                          {!event.isAllDay && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              <span>
+                                {event.startTime} - {event.endTime}
+                              </span>
+                            </div>
+                          )}
+                          {event.location && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              <span>{event.location}</span>
+                            </div>
+                          )}
+                          {event.attendees > 0 && (
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              <span>{event.attendees} người tham gia</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons for HR_MANAGER */}
+                        {canCreateEvent && (
+                          <div className="absolute bottom-3 right-3 flex gap-1.5">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateEvent(event, e);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-red-500 hover:bg-red-500/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteEvent(event, e);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         )}
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📅</div>
+                <p className="text-[var(--text-sub)]">
+                  {t('dashboard:companyCalendar.noEventsThisMonth')}
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Event Dialog */}
+      <CreateEventDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSuccess={handleCreateSuccess}
+        initialDate={selectedDate}
+      />
+
+      {/* Update Event Dialog */}
+      <UpdateEventDialog
+        open={isUpdateDialogOpen}
+        onOpenChange={setIsUpdateDialogOpen}
+        onSuccess={handleCreateSuccess}
+        event={selectedEvent}
+      />
     </div>
   );
 };
 
 export default CompanyCalendarPage;
-
-
-
-

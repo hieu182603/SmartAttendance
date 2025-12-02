@@ -1,18 +1,20 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { AuthLayout } from './AuthLayout'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
-import { Checkbox } from '../ui/checkbox'
+import { useTranslation } from 'react-i18next'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { toast } from 'sonner'
-import type { ErrorWithMessage } from '../../types'
-import { getRoleBasePath, type UserRoleType } from '../../utils/roles'
+import type { ErrorWithMessage } from '@/types'
+import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
 
 export default function Login() {
+  const { t } = useTranslation(['auth', 'common'])
   const navigate = useNavigate()
   const { login, token, loading, user } = useAuth()
 
@@ -39,14 +41,14 @@ export default function Login() {
     
     try {
       const data = await login({ email, password })
-      toast.success('Đăng nhập thành công')
+      toast.success(t('auth:login.success'))
       const nextRoute = data?.user?.role 
         ? getRoleBasePath(data.user.role as UserRoleType)
         : '/employee'
       navigate(nextRoute, { replace: true })
     } catch (err) {
       const error = err as ErrorWithMessage
-      toast.error(error.message || 'Đăng nhập thất bại')
+      toast.error(error.message || t('auth:login.error'))
     } finally {
       setIsLoading(false)
     }
@@ -54,8 +56,8 @@ export default function Login() {
 
   return (
     <AuthLayout 
-      title="Đăng nhập" 
-      subtitle="Chào mừng bạn quay trở lại"
+      title={t('auth:login.title')} 
+      subtitle={t('auth:login.subtitle')}
     >
       <motion.form 
         onSubmit={handleSubmit} 
@@ -65,11 +67,11 @@ export default function Login() {
         transition={{ duration: 0.5 }}
       >
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-[var(--text-main)]">Email</Label>
+          <Label htmlFor="email" className="text-[var(--text-main)]">{t('auth:login.email')}</Label>
           <Input
             id="email"
             type="email"
-            placeholder="your.email@company.com"
+            placeholder={t('auth:login.emailPlaceholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent"
@@ -79,12 +81,12 @@ export default function Login() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-[var(--text-main)]">Mật khẩu</Label>
+          <Label htmlFor="password" className="text-[var(--text-main)]">{t('auth:login.password')}</Label>
           <div className="relative">
             <Input
               id="password"
               type={showPassword ? 'text' : 'password'}
-              placeholder="••••••••"
+              placeholder={t('auth:login.passwordPlaceholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent pr-10"
@@ -109,14 +111,14 @@ export default function Login() {
               onCheckedChange={(checked) => setRememberMe(checked)}
             />
             <label htmlFor="remember" className="text-sm text-[var(--text-sub)] cursor-pointer">
-              Ghi nhớ đăng nhập
+              {t('auth:login.rememberMe')}
             </label>
           </div>
           <Link 
             to="/forgot-password"
             className="text-sm text-[var(--accent-cyan)] hover:underline"
           >
-            Quên mật khẩu?
+            {t('auth:login.forgotPassword')}
           </Link>
         </div>
 
@@ -129,21 +131,21 @@ export default function Login() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Đang đăng nhập...
+                {t('auth:login.submitting')}
               </>
             ) : (
-              'Đăng nhập'
+              t('auth:login.submit')
             )}
           </Button>
         </motion.div>
 
         <p className="text-center text-sm text-[var(--text-sub)] mt-6">
-          Chưa có tài khoản?{' '}
+          {t('auth:login.noAccount')}{' '}
           <Link
             to="/register"
             className="text-[var(--accent-cyan)] hover:underline"
           >
-            Đăng ký ngay
+            {t('auth:login.register')}
           </Link>
         </p>
       </motion.form>

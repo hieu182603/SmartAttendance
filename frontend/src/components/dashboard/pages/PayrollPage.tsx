@@ -1,19 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   DollarSign,
   Download,
-  Filter,
   Search,
   Calendar,
   TrendingUp,
   Users,
   Clock,
 } from "lucide-react";
+import { toast } from "sonner";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Badge } from "../../ui/badge";
+
 import {
   Table,
   TableBody,
@@ -21,7 +28,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../ui/table";
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -29,152 +36,109 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import { toast } from "sonner";
-
-interface PayrollRecord {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  department: string;
-  position: string;
-  workDays: number;
-  totalDays: number;
-  overtimeHours: number;
-  leaveDays: number;
-  lateDays: number;
-  baseSalary: number;
-  overtimePay: number;
-  bonus: number;
-  deductions: number;
-  totalSalary: number;
-  status: "pending" | "approved" | "paid";
-}
-
-const mockPayrollData: PayrollRecord[] = [
-  {
-    id: "1",
-    employeeId: "EMP001",
-    employeeName: "Nguyễn Văn A",
-    department: "IT",
-    position: "Senior Developer",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 15,
-    leaveDays: 0,
-    lateDays: 1,
-    baseSalary: 25000000,
-    overtimePay: 2500000,
-    bonus: 5000000,
-    deductions: 500000,
-    totalSalary: 32000000,
-    status: "approved",
-  },
-  {
-    id: "2",
-    employeeId: "EMP002",
-    employeeName: "Trần Thị B",
-    department: "IT",
-    position: "Frontend Developer",
-    workDays: 21,
-    totalDays: 22,
-    overtimeHours: 10,
-    leaveDays: 1,
-    lateDays: 0,
-    baseSalary: 18000000,
-    overtimePay: 1500000,
-    bonus: 3000000,
-    deductions: 200000,
-    totalSalary: 22300000,
-    status: "pending",
-  },
-  {
-    id: "3",
-    employeeId: "EMP003",
-    employeeName: "Lê Văn C",
-    department: "Marketing",
-    position: "Marketing Manager",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 8,
-    leaveDays: 0,
-    lateDays: 0,
-    baseSalary: 22000000,
-    overtimePay: 1200000,
-    bonus: 4000000,
-    deductions: 300000,
-    totalSalary: 26900000,
-    status: "paid",
-  },
-  {
-    id: "4",
-    employeeId: "EMP004",
-    employeeName: "Phạm Thị D",
-    department: "HR",
-    position: "HR Specialist",
-    workDays: 20,
-    totalDays: 22,
-    overtimeHours: 5,
-    leaveDays: 2,
-    lateDays: 0,
-    baseSalary: 15000000,
-    overtimePay: 800000,
-    bonus: 2000000,
-    deductions: 100000,
-    totalSalary: 17700000,
-    status: "pending",
-  },
-  {
-    id: "5",
-    employeeId: "EMP005",
-    employeeName: "Hoàng Văn E",
-    department: "IT",
-    position: "Backend Developer",
-    workDays: 22,
-    totalDays: 22,
-    overtimeHours: 20,
-    leaveDays: 0,
-    lateDays: 2,
-    baseSalary: 20000000,
-    overtimePay: 3000000,
-    bonus: 4500000,
-    deductions: 800000,
-    totalSalary: 26700000,
-    status: "approved",
-  },
-];
+import {
+  getPayrollRecords,
+  getDepartments,
+  type PayrollRecord,
+} from "../../../services/payrollService";
 
 export default function PayrollPage() {
+  const { t } = useTranslation("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [selectedMonth, setSelectedMonth] = useState("2024-10");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
+  });
+  const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const depts = await getDepartments();
+        setDepartments(depts);
+      } catch (error) {
+        console.error("Error fetching departments:", error);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
+
+  useEffect(() => {
+    const fetchPayrollData = async () => {
+      try {
+        setLoading(true);
+        const response = await getPayrollRecords({
+          month: selectedMonth,
+          limit: 1000,
+        });
+        setPayrollData(response.records || []);
+      } catch (error: any) {
+        console.error("Error fetching payroll:", error);
+        console.error("Error details:", error.response?.data || error.message);
+
+        const errorMsg =
+          error.response?.data?.message ||
+          error.message ||
+          t("payroll.error");
+        toast.error(errorMsg);
+
+        setPayrollData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayrollData();
+  }, [selectedMonth]);
+
+  const filteredData = payrollData.filter((record) => {
+    const employeeName = record.userId?.name || "";
+    const empId = record.employeeId || record.userId?.employeeId || "";
+
+    const matchSearch =
+      employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      empId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchDepartment =
+      filterDepartment === "all" || record.department === filterDepartment;
+    const matchStatus =
+      filterStatus === "all" || record.status === filterStatus;
+
+    return matchSearch && matchDepartment && matchStatus;
+  });
 
   const exportToExcel = () => {
-    // Create CSV content
     const headers = [
-      "Mã NV",
-      "Họ tên",
-      "Phòng ban",
-      "Chức vụ",
-      "Ngày công",
-      "Tổng ngày",
-      "Giờ tăng ca",
-      "Ngày nghỉ",
-      "Ngày đi muộn",
-      "Lương cơ bản",
-      "Lương tăng ca",
-      "Thưởng",
-      "Khấu trừ",
-      "Tổng lương",
-      "Trạng thái",
+      t("payroll.employeeCode"),
+      t("payroll.employeeName"),
+      t("payroll.table.department"),
+      t("payroll.table.position"),
+      t("payroll.table.workDays"),
+      t("payroll.table.totalDays"),
+      t("payroll.table.overtimeHours"),
+      t("payroll.table.leaveDays"),
+      t("payroll.table.lateDays"),
+      t("payroll.table.baseSalary"),
+      t("payroll.table.overtimePay"),
+      t("payroll.table.bonus"),
+      t("payroll.table.deductions"),
+      t("payroll.table.totalSalary"),
+      t("payroll.table.status"),
     ];
 
     const csvContent = [
       headers.join(","),
       ...filteredData.map((record) =>
         [
-          record.employeeId,
-          record.employeeName,
+          record.employeeId || record.userId?.employeeId || "N/A",
+          record.userId?.name || "N/A",
           record.department,
           record.position,
           record.workDays,
@@ -192,7 +156,6 @@ export default function PayrollPage() {
       ),
     ].join("\n");
 
-    // Add BOM for UTF-8
     const BOM = "\uFEFF";
     const blob = new Blob([BOM + csvContent], {
       type: "text/csv;charset=utf-8;",
@@ -201,24 +164,15 @@ export default function PayrollPage() {
     const url = URL.createObjectURL(blob);
 
     link.setAttribute("href", url);
-    link.setAttribute("download", `Bangluong_${selectedMonth}.csv`);
+    link.setAttribute(
+      "download",
+      `${t("payroll.filePrefix")}_${selectedMonth}.csv`
+    );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-
-  const filteredData = mockPayrollData.filter((record) => {
-    const matchSearch =
-      record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchDepartment =
-      filterDepartment === "all" || record.department === filterDepartment;
-    const matchStatus =
-      filterStatus === "all" || record.status === filterStatus;
-
-    return matchSearch && matchDepartment && matchStatus;
-  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -236,11 +190,11 @@ export default function PayrollPage() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "paid":
-        return "Đã thanh toán";
+        return t("payroll.filters.paid");
       case "approved":
-        return "Đã duyệt";
+        return t("payroll.filters.approved");
       case "pending":
-        return "Chờ duyệt";
+        return t("payroll.filters.pending");
       default:
         return status;
     }
@@ -254,13 +208,14 @@ export default function PayrollPage() {
   };
 
   const stats = {
-    totalEmployees: mockPayrollData.length,
-    totalPayroll: mockPayrollData.reduce((sum, r) => sum + r.totalSalary, 0),
+    totalEmployees: payrollData.length,
+    totalPayroll: payrollData.reduce((sum, r) => sum + r.totalSalary, 0),
     avgSalary:
-      mockPayrollData.reduce((sum, r) => sum + r.totalSalary, 0) /
-      mockPayrollData.length,
-    pendingApproval: mockPayrollData.filter((r) => r.status === "pending")
-      .length,
+      payrollData.length > 0
+        ? payrollData.reduce((sum, r) => sum + r.totalSalary, 0) /
+          payrollData.length
+        : 0,
+    pendingApproval: payrollData.filter((r) => r.status === "pending").length,
   };
 
   return (
@@ -280,11 +235,9 @@ export default function PayrollPage() {
               >
                 💰
               </motion.span>
-              <span>Bảng lương</span>
+              <span>{t("payroll.title")}</span>
             </h1>
-            <p className="text-[var(--text-sub)]">
-              Tính công và quản lý lương nhân viên
-            </p>
+            <p className="text-[var(--text-sub)]">{t("payroll.description")}</p>
           </div>
 
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -293,7 +246,7 @@ export default function PayrollPage() {
               className="bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)] hover:opacity-90 shadow-lg"
             >
               <Download className="h-4 w-4 mr-2" />
-              Xuất Excel
+              {t("payroll.export")}
             </Button>
           </motion.div>
         </div>
@@ -303,7 +256,7 @@ export default function PayrollPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Tổng nhân viên",
+            label: t("payroll.stats.totalEmployees"),
             value: stats.totalEmployees,
             color: "primary",
             icon: Users,
@@ -311,7 +264,7 @@ export default function PayrollPage() {
             delay: 0.1,
           },
           {
-            label: "Tổng quỹ lương",
+            label: t("payroll.stats.totalSalary"),
             value: stats.totalPayroll,
             color: "success",
             icon: DollarSign,
@@ -319,7 +272,7 @@ export default function PayrollPage() {
             delay: 0.2,
           },
           {
-            label: "TB lương/người",
+            label: t("payroll.stats.avgSalary"),
             value: stats.avgSalary,
             color: "accent-cyan",
             icon: TrendingUp,
@@ -327,7 +280,7 @@ export default function PayrollPage() {
             delay: 0.3,
           },
           {
-            label: "Chờ duyệt",
+            label: t("payroll.stats.pending"),
             value: stats.pendingApproval,
             color: "warning",
             icon: Clock,
@@ -390,75 +343,104 @@ export default function PayrollPage() {
       >
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-6 mt-4">
-            <div className="grid md:grid-cols-4 gap-4">
-              {/* Month Selector */}
-              <div className="space-y-2">
-                <label className="text-sm text-[var(--text-sub)] flex items-center space-x-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>Tháng</span>
-                </label>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
+                  <Input
+                    placeholder={t("payroll.searchPlaceholder")}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
+                  />
+                </div>
+              </div>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white pointer-events-none z-10" />
                 <Input
                   type="month"
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                  className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
                 />
               </div>
+              <Select
+                value={filterDepartment}
+                onValueChange={setFilterDepartment}
+              >
+                <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                  <SelectValue placeholder={t("payroll.filters.department")} />
+                </SelectTrigger>
 
-              {/* Search */}
-              <div className="space-y-2">
-                <label className="text-sm text-[var(--text-sub)] flex items-center space-x-2">
-                  <Search className="h-4 w-4" />
-                  <span>Tìm kiếm</span>
-                </label>
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tên hoặc mã NV..."
-                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                />
-              </div>
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t("payroll.filters.allDepartments")}
 
-              {/* Department Filter */}
-              <div className="space-y-2">
-                <label className="text-sm text-[var(--text-sub)] flex items-center space-x-2">
-                  <Filter className="h-4 w-4" />
-                  <span>Phòng ban</span>
-                </label>
-                <Select
-                  value={filterDepartment}
-                  onValueChange={setFilterDepartment}
-                >
-                  <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="IT">IT</SelectItem>
-                    <SelectItem value="Marketing">Marketing</SelectItem>
-                    <SelectItem value="HR">HR</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                  <SelectItem
+                    value="all"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Tất cả phòng ban
 
-              {/* Status Filter */}
-              <div className="space-y-2">
-                <label className="text-sm text-[var(--text-sub)] flex items-center space-x-2">
-                  <Filter className="h-4 w-4" />
-                  <span>Trạng thái</span>
-                </label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="pending">Chờ duyệt</SelectItem>
-                    <SelectItem value="approved">Đã duyệt</SelectItem>
-                    <SelectItem value="paid">Đã thanh toán</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  </SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem
+                      key={dept}
+                      value={dept}
+                      className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                    >
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                  <SelectValue placeholder={t("payroll.filters.status")} />
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectItem value="all">
+                    {t("payroll.filters.all")}
+                  </SelectItem>
+                  <SelectItem value="pending">
+                    {t("payroll.filters.pending")}
+                  </SelectItem>
+                  <SelectItem value="approved">
+                    {t("payroll.filters.approved")}
+                  </SelectItem>
+                  <SelectItem value="paid">
+                    {t("payroll.filters.paid")}
+
+                <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                  <SelectItem
+                    value="all"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Tất cả trạng thái
+                  </SelectItem>
+                  <SelectItem
+                    value="pending"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Chờ duyệt
+                  </SelectItem>
+                  <SelectItem
+                    value="approved"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Đã duyệt
+                  </SelectItem>
+                  <SelectItem
+                    value="paid"
+                    className="text-[var(--text-main)] focus:bg-[var(--shell)] focus:text-[var(--text-main)]"
+                  >
+                    Đã thanh toán
+
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -473,7 +455,7 @@ export default function PayrollPage() {
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
             <CardTitle className="text-[var(--text-main)]">
-              Chi tiết bảng lương -{" "}
+              {t("payroll.details")} -{" "}
               {new Date(selectedMonth).toLocaleDateString("vi-VN", {
                 month: "long",
                 year: "numeric",
@@ -486,9 +468,39 @@ export default function PayrollPage() {
                 <TableHeader>
                   <TableRow className="border-[var(--border)] hover:bg-transparent">
                     <TableHead className="text-[var(--text-sub)]">
-                      Mã NV
+
+                      {t("payroll.employeeCode")}
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)]">
+                      {t("payroll.employeeName")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)]">
+                      {t("payroll.table.department")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      {t("payroll.table.workDays")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      {t("payroll.table.overtimeHours")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.baseSalary")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.overtimePay")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.bonus")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.deductions")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-right">
+                      {t("payroll.table.totalSalary")}
+                    </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      {t("payroll.table.status")}
+
                       Họ tên
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)]">
@@ -517,67 +529,82 @@ export default function PayrollPage() {
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)] text-center">
                       Trạng thái
+
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((record, index) => (
-                    <motion.tr
-                      key={record.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.7 + index * 0.05 }}
-                      className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
-                    >
-                      <TableCell className="text-[var(--text-main)]">
-                        {record.employeeId}
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
+                          <p className="text-[var(--text-sub)]">
+
+                            {t("payroll.loading")}
+
+                            Đang tải dữ liệu...
+
+                          </p>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-[var(--text-main)]">
-                        {record.employeeName}
-                      </TableCell>
-                      <TableCell className="text-[var(--text-sub)]">
-                        {record.department}
-                      </TableCell>
-                      <TableCell className="text-center text-[var(--text-main)]">
-                        {record.workDays}/{record.totalDays}
-                      </TableCell>
-                      <TableCell className="text-center text-[var(--text-main)]">
-                        {record.overtimeHours}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--text-main)]">
-                        {formatCurrency(record.baseSalary)}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--success)]">
-                        +{formatCurrency(record.overtimePay)}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--success)]">
-                        +{formatCurrency(record.bonus)}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--error)]">
-                        -{formatCurrency(record.deductions)}
-                      </TableCell>
-                      <TableCell className="text-right text-[var(--text-main)]">
-                        {formatCurrency(record.totalSalary)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className={getStatusColor(record.status)}>
-                          {getStatusLabel(record.status)}
-                        </Badge>
-                      </TableCell>
-                    </motion.tr>
-                  ))}
+                    </TableRow>
+                  ) : filteredData.length > 0 ? (
+                    filteredData.map((record, index) => (
+                      <motion.tr
+                        key={record._id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.7 + index * 0.05 }}
+                        className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
+                      >
+                        <TableCell className="text-[var(--text-main)]">
+                          {record.userId?.name || "N/A"}
+                        </TableCell>
+                        <TableCell className="text-[var(--text-sub)]">
+                          {record.department}
+                        </TableCell>
+                        <TableCell className="text-center text-[var(--text-main)]">
+                          {record.workDays}/{record.totalDays}
+                        </TableCell>
+                        <TableCell className="text-center text-[var(--text-main)]">
+                          {record.overtimeHours}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--text-main)]">
+                          {formatCurrency(record.baseSalary)}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--success)]">
+                          +{formatCurrency(record.overtimePay)}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--success)]">
+                          +{formatCurrency(record.bonus)}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--error)]">
+                          -{formatCurrency(record.deductions)}
+                        </TableCell>
+                        <TableCell className="text-right text-[var(--text-main)]">
+                          {formatCurrency(record.totalSalary)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={getStatusColor(record.status)}>
+                            {getStatusLabel(record.status)}
+                          </Badge>
+                        </TableCell>
+                      </motion.tr>
+                    ))
+                  ) : null}
                 </TableBody>
               </Table>
             </div>
 
-            {filteredData.length === 0 && (
+            {!loading && filteredData.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center py-12"
               >
                 <div className="text-6xl mb-4">💼</div>
-                <p className="text-[var(--text-sub)]">Không tìm thấy dữ liệu</p>
+                <p className="text-[var(--text-sub)]">{t("payroll.noData")}</p>
               </motion.div>
             )}
           </CardContent>
