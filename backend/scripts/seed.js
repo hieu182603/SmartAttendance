@@ -495,11 +495,11 @@ async function seed() {
         // Base date: cuối tháng 12/2025 để đảm bảo luôn có data tháng 12/2025
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // Đảm bảo luôn có data tháng 12/2025: đặt base date là cuối tháng 12/2025
         const december2025 = new Date(2025, 11, 31); // Tháng 12/2025 (index 11 = tháng 12)
         december2025.setHours(0, 0, 0, 0);
-        
+
         // Sử dụng ngày cuối tháng 12/2025 làm base date để đảm bảo có data tháng 12/2025
         // Nếu hiện tại đã qua 31/12/2025, dùng today; nếu không dùng 31/12/2025
         const seedBaseDate = today > december2025 ? today : december2025;
@@ -520,6 +520,11 @@ async function seed() {
                 // Bỏ qua cuối tuần (0 = CN, 6 = T7)
                 const dayOfWeek = date.getDay();
                 if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+                // Bỏ qua các ngày từ 4/12/2025 trở đi (không tạo attendance)
+                const december4 = new Date(2025, 11, 4); // 4/12/2025 (index 11 = tháng 12)
+                december4.setHours(0, 0, 0, 0);
+                if (date >= december4) continue;
 
                 // Một số nhân viên có thể nghỉ (10% chance)
                 for (const employee of employeeUsers) {
