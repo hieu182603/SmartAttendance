@@ -390,6 +390,7 @@
       "avgHours": "TB giờ/ngày",
       "streak": "Chuỗi ngày",
       "streakDays": "ngày",
+      "onTimeRateMessage": "Bạn đang on-time {{rate}}%",
       "performanceMessages": {
         "excellent": "Xuất sắc!",
         "veryGood": "Rất tốt",
@@ -431,6 +432,7 @@
     "avgHoursPerDay": "Trung bình",
     "hPerDay": "h/ngày",
     "month": "Tháng",
+    "shift": "ca",
     "error": "Lỗi tải ca làm việc:",
     "timeRange": "Khung giờ làm việc",
     "legend": {
@@ -447,7 +449,10 @@
       "title": "Thống kê {{month}}",
       "totalHours": "Tổng giờ",
       "averageLabel": "Trung bình"
-    }
+    },
+    "upcomingShiftsTitle": "Ca làm sắp tới",
+    "achievements": "Thành tích",
+    "monthLabel": "Tháng {{month}}"
   },
   "companyCalendar": {
     "title": "Lịch công ty",
