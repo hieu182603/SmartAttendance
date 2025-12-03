@@ -64,6 +64,7 @@ class ShiftAssignmentService {
      * @param {string} userId - User ID
      * @param {string} shiftId - Shift ID
      * @param {Object} options - Assignment options
+     * @param {boolean} options.isFullTime - Nếu true, chỉ cập nhật defaultShiftId (full time). Nếu false hoặc không có, tạo assignment mới
      * @returns {Promise<Object>} Created assignment hoặc updated user
      */
     async assignShiftToUser(userId, shiftId, options = {}) {
@@ -82,21 +83,68 @@ class ShiftAssignmentService {
                 throw new Error('Nhân viên không tồn tại');
             }
 
-            if (options.pattern || options.effectiveFrom || options.daysOfWeek) {
+            // Logic: 
+            // - Nếu có pattern, effectiveFrom, daysOfWeek, specificDates → luôn tạo assignment mới
+            // - Nếu isFullTime = true → chỉ cập nhật defaultShiftId (full time)
+            // - Nếu không có options nào → mặc định tạo assignment mới (không phải full time)
+            const shouldCreateAssignment =
+                options.pattern ||
+                options.effectiveFrom ||
+                options.daysOfWeek ||
+                options.specificDates ||
+                options.isFullTime !== true; // Mặc định là tạo assignment mới nếu không phải full time
+
+            if (shouldCreateAssignment) {
+                // Vô hiệu hóa các assignment cũ đang active để tránh conflict
+                await EmployeeShiftAssignmentModel.updateMany(
+                    {
+                        userId,
+                        isActive: true,
+                    },
+                    {
+                        $set: { isActive: false },
+                    }
+                );
+
+                // Xóa defaultShiftId khi chuyển từ full time sang assignment mới để tránh conflict
+                // Assignment sẽ có priority cao hơn defaultShiftId
+                await UserModel.findByIdAndUpdate(
+                    userId,
+                    { $unset: { defaultShiftId: 1 } },
+                    { new: true }
+                );
+
+                // Tạo assignment mới
+                // Đảm bảo effectiveFrom luôn là 00:00:00 để match với logic check trong generateScheduleForDate
+                let effectiveFromDate = options.effectiveFrom ? new Date(options.effectiveFrom) : new Date();
+                effectiveFromDate.setHours(0, 0, 0, 0);
+
+                let effectiveToDate = null;
+                if (options.effectiveTo) {
+                    effectiveToDate = new Date(options.effectiveTo);
+                    effectiveToDate.setHours(23, 59, 59, 999);
+                }
+
                 const assignment = await EmployeeShiftAssignmentModel.create({
                     userId,
                     shiftId,
-                    pattern: options.pattern || 'all',
+                    pattern: options.pattern || 'all', // Mặc định là 'all' (tất cả các ngày) để giống defaultShiftId
                     daysOfWeek: options.daysOfWeek,
                     specificDates: options.specificDates,
-                    effectiveFrom: options.effectiveFrom ? new Date(options.effectiveFrom) : new Date(),
-                    effectiveTo: options.effectiveTo ? new Date(options.effectiveTo) : null,
+                    effectiveFrom: effectiveFromDate,
+                    effectiveTo: effectiveToDate,
                     priority: options.priority || 1,
                     notes: options.notes,
                     isActive: true,
                 });
 
-                await scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId);
+                // Regenerate schedule sau khi tạo assignment mới
+                try {
+                    await scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId);
+                } catch (scheduleError) {
+                    console.error(`[ShiftAssignmentService] Error regenerating schedule for user ${userId}:`, scheduleError);
+                    // Không throw error để không làm gián đoạn việc tạo assignment
+                }
 
                 return {
                     userId: user._id,
@@ -110,6 +158,18 @@ class ShiftAssignmentService {
                     pattern: assignment.pattern,
                 };
             }
+
+            // Nếu isFullTime = true hoặc không có options → chỉ cập nhật defaultShiftId
+            // Vô hiệu hóa tất cả assignments cũ khi chuyển sang full time
+            await EmployeeShiftAssignmentModel.updateMany(
+                {
+                    userId,
+                    isActive: true,
+                },
+                {
+                    $set: { isActive: false },
+                }
+            );
 
             const updatedUser = await UserModel.findByIdAndUpdate(
                 userId,

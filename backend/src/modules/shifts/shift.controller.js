@@ -225,7 +225,11 @@ export const deactivateAssignment = async (req, res) => {
  */
 export const getMyShift = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+    
     const { date } = req.query;
     const checkDate = date ? new Date(date) : new Date();
 
@@ -247,7 +251,11 @@ export const getMyShift = async (req, res) => {
  */
 export const getMySchedule = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+    
     const { startDate, endDate } = req.query;
     
     const start = startDate ? new Date(startDate) : new Date();
@@ -260,8 +268,6 @@ export const getMySchedule = async (req, res) => {
     // Import scheduleGenerationService dynamically to avoid circular dependency
     const { scheduleGenerationService } = await import('../schedule/scheduleGeneration.service.js');
     const schedules = await scheduleGenerationService.generateScheduleFromAssignments(userId, start, end);
-
-    console.log(`[getMySchedule] User ${userId}, Date range: ${start.toISOString()} to ${end.toISOString()}, Schedules found: ${schedules.length}`);
 
     res.json({ success: true, data: schedules });
   } catch (error) {
