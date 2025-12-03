@@ -111,7 +111,8 @@ const SchedulePage: React.FC = () => {
         const weekReference = new Date(today);
         weekReference.setDate(today.getDate() + mondayDiff);
         weekReference.setHours(0, 0, 0, 0);
-const futureEnd = new Date(today);
+
+        const futureEnd = new Date(today);
         futureEnd.setDate(today.getDate() + 30);
         futureEnd.setHours(0, 0, 0, 0);
 
@@ -174,7 +175,7 @@ const futureEnd = new Date(today);
                   if (!Number.isNaN(d.getTime())) {
                     dateStr = d.toISOString().split("T")[0];
                   }
-}
+                }
               }
               
               if (dateStr) {
@@ -248,27 +249,24 @@ const futureEnd = new Date(today);
               };
             }
 
-
-            // Xác định trạng thái dựa trên attendance (dù có schedule hay không)
-            let status: ShiftStatus = "scheduled";
-            if (attendance) {
-              const hasCheckIn = attendance.checkIn &&
-                                 String(attendance.checkIn).trim() !== "" &&
-                                 String(attendance.checkIn).trim() !== "—" &&
-                                 String(attendance.checkIn).trim() !== "null" &&
-                                 String(attendance.checkIn).trim() !== "undefined";
-              
-              if (hasCheckIn) {
-                status = "completed";
-              } else if (attendance.status === "absent" || attendance.status === "weekend") {
-                status = "off";
-
             if (scheduleToUse) {
-              // Determine status based on attendance
-let status: ShiftStatus = "scheduled";
-              if (attendance) {
-                const hasCheckIn = attendance.checkIn && 
-                                   String(attendance.checkIn).trim() !== "" && 
+              const shiftId = scheduleToUse.shiftId?._id || scheduleToUse.shiftId || "";
+              const shiftName = scheduleToUse.shiftName || scheduleToUse.shiftId?.name || "";
+              const startTime = scheduleToUse.startTime || scheduleToUse.shiftId?.startTime || "";
+              const endTime = scheduleToUse.endTime || scheduleToUse.shiftId?.endTime || "";
+              const breakDuration = scheduleToUse.shiftId?.breakDuration || scheduleToUse.breakDuration || 60;
+              const description = scheduleToUse.shiftId?.description || scheduleToUse.description || "";
+              const dbStatus = scheduleToUse.status as ShiftStatus | undefined;
+
+              let status: ShiftStatus = (dbStatus && ["scheduled", "completed", "missed", "off"].includes(dbStatus)) 
+                ? dbStatus 
+                : "scheduled";
+              
+              if (status === "off") {
+                // Giữ nguyên status "off" từ database (từ leave request)
+              } else if (attendance) {
+                const hasCheckIn = attendance.checkIn &&
+                                   String(attendance.checkIn).trim() !== "" &&
                                    String(attendance.checkIn).trim() !== "—" &&
                                    String(attendance.checkIn).trim() !== "null" &&
                                    String(attendance.checkIn).trim() !== "undefined";
@@ -280,25 +278,9 @@ let status: ShiftStatus = "scheduled";
                 } else if (isPast) {
                   status = "missed";
                 }
-
-              } else if (isPast) {
+              } else if (isPast && dbStatus !== "off") {
                 status = "missed";
               }
-            } else if (isPast) {
-              status = "missed";
-            }
-
-            if (scheduleToUse) {
-
-              // Parse shiftId - có thể là object hoặc string
-              // Response từ generateScheduleFromAssignments có format:
-              // { userId, date, shiftId: string, shiftName: string, startTime: string, endTime: string, status: string }
-              const shiftId = scheduleToUse.shiftId?._id || scheduleToUse.shiftId || "";
-              const shiftName = scheduleToUse.shiftName || scheduleToUse.shiftId?.name || "";
-              const startTime = scheduleToUse.startTime || scheduleToUse.shiftId?.startTime || "";
-              const endTime = scheduleToUse.endTime || scheduleToUse.shiftId?.endTime || "";
-              const breakDuration = scheduleToUse.shiftId?.breakDuration || scheduleToUse.breakDuration || 60;
-              const description = scheduleToUse.shiftId?.description || scheduleToUse.description || "";
 
               if (shiftId && shiftName && startTime && endTime) {
                 finalSchedule.push({
@@ -377,7 +359,7 @@ let status: ShiftStatus = "scheduled";
         finalSchedule.sort((a, b) => a.date.localeCompare(b.date));
         console.log('[SchedulePage] Final schedule count:', finalSchedule.length);
         console.log('[SchedulePage] Final schedule:', finalSchedule);
-setSchedule(finalSchedule);
+        setSchedule(finalSchedule);
       } catch (err) {
         console.error(t('dashboard:schedule.error'), err);
         setSchedule([]);
@@ -469,8 +451,8 @@ setSchedule(finalSchedule);
     date.setHours(0, 0, 0, 0);
     const hasAttended = s.attendanceRecord && 
                         s.attendanceRecord.checkIn && 
-                        String(s.attendanceRecord.checkIn).trim() !== "" &&
-String(s.attendanceRecord.checkIn).trim() !== "—" &&
+                        String(s.attendanceRecord.checkIn).trim() !== "" && 
+                        String(s.attendanceRecord.checkIn).trim() !== "—" &&
                         String(s.attendanceRecord.checkIn).trim() !== "null" &&
                         String(s.attendanceRecord.checkIn).trim() !== "undefined";
     return !hasAttended && date >= today;
@@ -559,7 +541,7 @@ String(s.attendanceRecord.checkIn).trim() !== "—" &&
       : "0.0";
 
   // Week attendance: attended / total shifts in week
-const weekAttendancePercent =
+  const weekAttendancePercent =
     expectedWeekdays > 0
       ? ((weekAttendedShifts.length / expectedWeekdays) * 100).toFixed(0)
       : "0";
@@ -642,7 +624,7 @@ const weekAttendancePercent =
       case "completed":
         return "bg-[var(--success)]/20 text-[var(--success)] border border-[var(--success)]/40 dark:bg-[var(--success)]/10 dark:border-[var(--success)]/25";
       case "scheduled":
-return "bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25";
+        return "bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25";
       case "missed":
         return "bg-[var(--error)]/20 text-[var(--error)] border border-[var(--error)]/40 dark:bg-[var(--error)]/10 dark:border-[var(--error)]/25";
       case "off":
@@ -746,7 +728,7 @@ return "bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
-animate={{ opacity: 1, y: 0 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         <div className="flex items-center justify-between">
@@ -820,7 +802,7 @@ animate={{ opacity: 1, y: 0 }}
       <div className="grid lg:grid-cols-5 gap-6">
         {/* Left Column - Today's Shifts Widget (2 cols) */}
         <motion.div
-className="lg:col-span-2 space-y-6"
+          className="lg:col-span-2 space-y-6"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6 }}
@@ -876,7 +858,7 @@ className="lg:col-span-2 space-y-6"
                         let startMin = sh * 60 + sm;
                         let endMin = eh * 60 + em;
                         let now =
-currentTime.getHours() * 60 +
+                          currentTime.getHours() * 60 +
                           currentTime.getMinutes();
 
                         if (endMin < startMin) {
@@ -932,12 +914,21 @@ currentTime.getHours() * 60 +
                               <h4 className="text-[var(--text-main)]">
                                 {shift.shift.name}
                               </h4>
-                              <Badge className={getStatusColor(shift.status)}>
-                                {shift.status === "completed"
-                                  ? `✅ ${t('dashboard:schedule.checkedInStatus')}`
-                                  : `🔵 ${t('dashboard:schedule.notCheckedIn')}`}
-                              </Badge>
-</div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge className={getStatusColor(shift.status)}>
+                                  {shift.status === "completed"
+                                    ? `✅ ${t('dashboard:schedule.checkedInStatus')}`
+                                    : shift.status === "off" && shift.notes?.includes("Nghỉ")
+                                    ? `🏖️ ${shift.notes.split(":")[0] || "Nghỉ phép"}`
+                                    : `🔵 ${t('dashboard:schedule.notCheckedIn')}`}
+                                </Badge>
+                                {shift.status === "off" && shift.notes?.includes("Nghỉ") && (
+                                  <span className="text-xs text-[var(--text-sub)]" title={shift.notes}>
+                                    {shift.notes}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
 
@@ -1006,7 +997,7 @@ currentTime.getHours() * 60 +
                   return (
                     <motion.div
                       key={index}
-initial={{ opacity: 0, scale: 0.8 }}
+                      initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.8 + index * 0.05 }}
                       whileHover={{ scale: 1.1 }}
@@ -1069,7 +1060,7 @@ initial={{ opacity: 0, scale: 0.8 }}
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {weekAttendanceLabel}
                   </p>
-<p className="text-xs text-[var(--success)]">
+                  <p className="text-xs text-[var(--success)]">
                     {weekAttendancePercent}%
                   </p>
                 </div>
@@ -1137,7 +1128,7 @@ initial={{ opacity: 0, scale: 0.8 }}
                 <div className="bg-[var(--shell)] rounded-lg p-3 border border-[var(--border)]/50 dark:border-transparent">
                   <div className="flex items-center space-x-2 mb-2">
                     <Zap className="h-4 w-4 text-[var(--warning)]" />
-<span className="text-sm text-[var(--text-sub)]">
+                    <span className="text-sm text-[var(--text-sub)]">
                       {t('dashboard:schedule.monthStats.totalHours')}
                     </span>
                   </div>
@@ -1198,7 +1189,7 @@ initial={{ opacity: 0, scale: 0.8 }}
                 >
                   <div className="bg-[var(--shell)] rounded-lg p-4 border border-[var(--border)]/50 dark:border-transparent hover:border-[var(--accent-cyan)] transition-colors duration-200">
                     <div className="flex items-center justify-between mb-2">
-<Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 text-xs">
+                      <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 text-xs">
                         {new Date(shift.date).toLocaleDateString("vi-VN", {
                           weekday: "short",
                           day: "numeric",
@@ -1236,67 +1227,26 @@ initial={{ opacity: 0, scale: 0.8 }}
         </Card>
       </motion.div>
 
-      {/* Bottom Row - Notes & Tips */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Notes */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.1 }}
-        >
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
-                <StickyNote className="h-5 w-5 text-[var(--warning)]" />
-                <span>{t('dashboard:schedule.notes.title')}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {[
-                { text: t('dashboard:schedule.notes.sample.teamMeeting'), time: "9:00", icon: "👥" },
-                { text: t('dashboard:schedule.notes.sample.codeReview'), time: "14:00", icon: "💻" },
-                { text: t('dashboard:schedule.notes.sample.submitReport'), time: "17:00", icon: "📄" },
-              ].map((note, index) => (
-                <div
-                  key={index}
-                  className="flex items-center space-x-3 p-2 rounded-lg bg-[var(--shell)] border border-[var(--border)]/50 dark:border-transparent"
->
-                  <span className="text-xl">{note.icon}</span>
-                  <div className="flex-1">
-                    <p className="text-sm text-[var(--text-main)]">
-                      {note.text}
-                    </p>
-                  </div>
-                  <Badge className="text-xs border border-[var(--border)]">
-                    {note.time}
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Motivational Tips */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2 }}
-        >
-          <Card className="bg-gradient-to-br from-[var(--primary)]/[0.15] to-[var(--success)]/[0.15] dark:from-[var(--primary)]/[0.08] dark:to-[var(--success)]/[0.08] border-[var(--border)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
-                <Award className="h-5 w-5 text-[var(--warning)]" />
-                <span>{t('dashboard:schedule.achievements')}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {(() => {
-                // Calculate on-time rate from month data
-                const onTimeRate = stats.onTimeRate;
-                let onTimeMessage = t('dashboard:schedule.stats.performanceMessages.excellent');
-                if (onTimeRate < 50) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.needsImprovement');
-                else if (onTimeRate < 80) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.good');
-                else if (onTimeRate < 95) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.veryGood');
+      {/* Achievements Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.1 }}
+      >
+        <Card className="bg-gradient-to-br from-[var(--primary)]/[0.15] to-[var(--success)]/[0.15] dark:from-[var(--primary)]/[0.08] dark:to-[var(--success)]/[0.08] border-[var(--border)]">
+          <CardHeader>
+            <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
+              <Award className="h-5 w-5 text-[var(--warning)]" />
+              <span>{t('dashboard:schedule.achievements')}</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const onTimeRate = stats.onTimeRate;
+              let onTimeMessage = t('dashboard:schedule.stats.performanceMessages.excellent');
+              if (onTimeRate < 50) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.needsImprovement');
+              else if (onTimeRate < 80) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.good');
+              else if (onTimeRate < 95) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.veryGood');
 
               let currentStreak = 0;
               const sortedAttended = [...monthAttended].sort((a, b) => 
@@ -1320,54 +1270,73 @@ initial={{ opacity: 0, scale: 0.8 }}
                 ? (stats.totalHours / stats.completed).toFixed(1)
                 : "0.0";
 
-                return (
-                  <>
-<div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
-                      <div className="w-10 h-10 rounded-full bg-[var(--success)]/30 dark:bg-[var(--success)]/20 flex items-center justify-center text-xl">
-                        🎯
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-[var(--text-main)]">
-                          {t('dashboard:schedule.stats.onTimeRateMessage', { rate: onTimeRate })}
-                        </p>
-                        <p className="text-xs text-[var(--text-sub)]">{onTimeMessage}</p>
-                      </div>
+              return (
+                <div className="grid md:grid-cols-3 gap-4">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 1.2 }}
+                    className="flex flex-col items-center text-center p-4 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-[var(--success)]/30 dark:bg-[var(--success)]/20 flex items-center justify-center text-3xl mb-3">
+                      🎯
                     </div>
+                    <p className="text-2xl font-bold text-[var(--text-main)] mb-1">
+                      {onTimeRate}%
+                    </p>
+                    <p className="text-sm text-[var(--text-sub)] mb-1">
+                      {t('dashboard:schedule.stats.onTimeRateMessage', { rate: onTimeRate })}
+                    </p>
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {onTimeMessage}
+                    </p>
+                  </motion.div>
 
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
-                      <div className="w-10 h-10 rounded-full bg-[var(--warning)]/30 dark:bg-[var(--warning)]/20 flex items-center justify-center text-xl">
-                        🔥
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-[var(--text-main)]">
-                          {t('dashboard:schedule.stats.streak')}: {currentStreak} {t('dashboard:schedule.streakDays')}
-                        </p>
-                        <p className="text-xs text-[var(--text-sub)]">
-                          {currentStreak > 0 ? t('dashboard:schedule.stats.streakMessages.keepGoing') : t('dashboard:schedule.stats.streakMessages.startNew')}
-                        </p>
-                      </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 1.3 }}
+                    className="flex flex-col items-center text-center p-4 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-[var(--warning)]/30 dark:bg-[var(--warning)]/20 flex items-center justify-center text-3xl mb-3">
+                      🔥
                     </div>
+                    <p className="text-2xl font-bold text-[var(--text-main)] mb-1">
+                      {currentStreak}
+                    </p>
+                    <p className="text-sm text-[var(--text-sub)] mb-1">
+                      {t('dashboard:schedule.stats.streak')}
+                    </p>
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {currentStreak > 0 ? t('dashboard:schedule.stats.streakMessages.keepGoing') : t('dashboard:schedule.stats.streakMessages.startNew')}
+                    </p>
+                  </motion.div>
 
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
-                      <div className="w-10 h-10 rounded-full bg-[var(--accent-cyan)]/30 dark:bg-[var(--accent-cyan)]/20 flex items-center justify-center text-xl">
-                        ⭐
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-[var(--text-main)]">
-                          {t('dashboard:schedule.avgHoursPerDay')} {avgHoursPerDay}{t('dashboard:schedule.hPerDay')}
-                        </p>
-                        <p className="text-xs text-[var(--text-sub)]">
-                          {t('dashboard:schedule.monthLabel', { month: currentMonthLabel })}
-                        </p>
-                      </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 1.4 }}
+                    className="flex flex-col items-center text-center p-4 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-[var(--accent-cyan)]/30 dark:bg-[var(--accent-cyan)]/20 flex items-center justify-center text-3xl mb-3">
+                      ⭐
                     </div>
-                  </>
-                );
-              })()}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+                    <p className="text-2xl font-bold text-[var(--text-main)] mb-1">
+                      {avgHoursPerDay}h
+                    </p>
+                    <p className="text-sm text-[var(--text-sub)] mb-1">
+                      {t('dashboard:schedule.avgHoursPerDay')}
+                    </p>
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {t('dashboard:schedule.monthLabel', { month: currentMonthLabel })}
+                    </p>
+                  </motion.div>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 };
