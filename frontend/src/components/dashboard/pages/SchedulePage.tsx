@@ -126,9 +126,7 @@ const SchedulePage: React.FC = () => {
           shiftService.getAllShifts().catch(() => []),
         ]);
 
-        console.log('[SchedulePage] Schedule data from API:', scheduleData);
-        console.log('[SchedulePage] Date range:', { startDateStr, endDateStr });
-        console.log('[SchedulePage] Available shifts:', availableShifts);
+
 
         // Store attendance records
         const records = (attendanceData.records || []) as AttendanceRecord[];
@@ -190,7 +188,6 @@ const SchedulePage: React.FC = () => {
               if (!Number.isNaN(dateObj.getTime())) {
                 const dateStr = dateObj.toISOString().split("T")[0];
                 scheduleMap.set(dateStr, sched);
-                console.log('[SchedulePage] Mapped schedule:', dateStr, sched);
               }
             } catch (err) {
               console.warn("Error parsing schedule date:", sched.date, err);
@@ -198,18 +195,8 @@ const SchedulePage: React.FC = () => {
           }
         });
         
-        console.log('[SchedulePage] Schedule map size:', scheduleMap.size);
-
-        // Fallback: Nếu không có schedule từ assignments, sử dụng default shift
-        let fallbackShift = null;
-        if (availableShifts && availableShifts.length > 0) {
-          fallbackShift =
-            availableShifts.find((s: any) => s.name === t('dashboard:schedule.defaults.shiftName')) ||
-            availableShifts[0];
-          if (scheduleMap.size === 0) {
-            console.log('[SchedulePage] No schedules from API, using fallback shift:', fallbackShift);
-          }
-        }
+        // Debug: Log schedule dates from API
+        console.log('[SchedulePage] Schedule dates from API:', Array.from(scheduleMap.keys()).sort().slice(0, 10));
 
         // Generate schedule for all days in range
         const finalSchedule: EmployeeSchedule[] = [];
@@ -225,21 +212,16 @@ const SchedulePage: React.FC = () => {
             const isPast = currentDate < today;
             const attendance = attendanceMap.get(dateStr);
             const assignedSchedule = scheduleMap.get(dateStr);
-
-            // Nếu có schedule được gán, sử dụng nó
-            let scheduleToUse = assignedSchedule;
             
-            // Fallback: Nếu không có schedule từ assignments, sử dụng default shift
-            if (!scheduleToUse && fallbackShift) {
-              scheduleToUse = {
-                shiftId: fallbackShift._id,
-                shiftName: fallbackShift.name,
-                startTime: fallbackShift.startTime,
-                endTime: fallbackShift.endTime,
-                breakDuration: fallbackShift.breakDuration || 60,
-                description: fallbackShift.description || "",
-              };
+            // Debug: Log nếu là T2 hoặc T3 và không có schedule
+            if ((dayOfWeek === 1 || dayOfWeek === 2) && !assignedSchedule) {
+              const dayName = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][dayOfWeek];
+              console.log(`[SchedulePage] ${dayName} (${dateStr}) has no schedule from API`);
             }
+
+            // Chỉ sử dụng schedule được gán từ API (từ assignments)
+            // KHÔNG sử dụng fallback để tránh hiển thị sai ca làm việc
+            const scheduleToUse = assignedSchedule;
 
             if (scheduleToUse) {
               // Determine status based on attendance
@@ -300,8 +282,6 @@ const SchedulePage: React.FC = () => {
         }
 
         finalSchedule.sort((a, b) => a.date.localeCompare(b.date));
-        console.log('[SchedulePage] Final schedule count:', finalSchedule.length);
-        console.log('[SchedulePage] Final schedule:', finalSchedule);
         setSchedule(finalSchedule);
       } catch (err) {
         console.error(t('dashboard:schedule.error'), err);
@@ -508,19 +488,25 @@ const SchedulePage: React.FC = () => {
     const dateStr = date.toISOString().split("T")[0];
     const dayShifts = schedule.filter((s) => s.date === dateStr);
 
-    if (dayShifts.length === 0) return "off";
-    
-    // Check if today
-    if (dateStr === todayStr) {
-      // Check if has attendance record with checkIn
-      const hasAttended = dayShifts.some((s) => 
-        s.attendanceRecord && s.attendanceRecord.checkIn && 
-        s.attendanceRecord.checkIn !== "—" && s.attendanceRecord.checkIn !== ""
-      );
-      return hasAttended ? "completed" : "today";
+    // Debug: Log để kiểm tra schedule cho ngày này
+    if (dayShifts.length === 0) {
+      const dayName = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][date.getDay()];
+      console.log(`[SchedulePage] No schedule for ${dayName} (${dateStr}), total schedule items: ${schedule.length}`);
+      // Log một vài schedule items để debug
+      if (schedule.length > 0) {
+        console.log(`[SchedulePage] Sample schedule dates:`, schedule.slice(0, 5).map(s => s.date));
+      }
+      return "off";
     }
-
-    // Check if has attendance (completed)
+    
+    const isPast = date < today;
+    const isToday = dateStr === todayStr;
+    const isFuture = date > today;
+    
+    // Check if explicitly marked as off
+    if (dayShifts.some((s) => s.status === "off")) return "off";
+    
+    // Check if has attendance record with checkIn
     const hasAttended = dayShifts.some((s) => {
       if (!s.attendanceRecord) return false;
       const checkIn = s.attendanceRecord.checkIn;
@@ -531,14 +517,23 @@ const SchedulePage: React.FC = () => {
              checkInStr !== "null" && 
              checkInStr !== "undefined";
     });
-    if (hasAttended) return "completed";
-
-    // Check if off
-    if (dayShifts.some((s) => s.status === "off")) return "off";
     
-    // Check if no attendance and in the past (should be "off"/nghỉ)
-    const isPast = date < today;
-    if (isPast && !hasAttended) return "off";
+    // Check if today
+    if (isToday) {
+      return hasAttended ? "completed" : "today";
+    }
+
+    // For future dates, always return "scheduled" (cannot be completed yet)
+    if (isFuture) {
+      return "scheduled";
+    }
+
+    // For past dates: nếu có schedule → hiển thị là completed (xanh)
+    // Vì đã có ca được gán, dù có attendance hay không vẫn nên hiển thị là đã có ca
+    if (isPast) {
+      // Nếu có schedule (dayShifts.length > 0), nghĩa là đã được gán ca → completed
+      return "completed";
+    }
 
     return "scheduled";
   };

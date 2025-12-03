@@ -145,7 +145,11 @@ export const approvePayrollRecord = async (req, res) => {
   try {
     const { PayrollRecordModel } = await import("./payroll.model.js");
     const { id } = req.params;
-    const userId = req.user._id;
+    const userId = req.user?.userId || req.user?._id;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
 
     const record = await PayrollRecordModel.findById(id);
     if (!record) {
