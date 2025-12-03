@@ -52,6 +52,15 @@ interface EmployeeSchedule {
   attendanceRecord?: AttendanceRecord; // Thêm attendance record nếu có
 }
 
+// Utility: làm sạch ghi chú để không hiển thị raw URL (đặc biệt là link ảnh check-in)
+const sanitizeNotes = (notes?: string): string | null => {
+  if (!notes) return null;
+  // Loại bỏ mọi URL trong chuỗi
+  const cleaned = notes.replace(/https?:\/\/\S+/g, "").trim();
+  if (!cleaned) return null;
+  return cleaned;
+};
+
 const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
   const [sh, sm] = shift.startTime.split(":").map(Number);
   const [eh, em] = shift.endTime.split(":").map(Number);
@@ -197,15 +206,15 @@ const futureEnd = new Date(today);
         
         console.log('[SchedulePage] Schedule map size:', scheduleMap.size);
 
-        // Fallback: Nếu không có schedule từ assignments, sử dụng default shift
+        // Fallback: Nếu có schedule từ assignments nhưng thiếu một số ngày,
+        // có thể dùng default shift để lấp khoảng trống.
+        // Không dùng fallback nếu hoàn toàn không có schedule nào (tài khoản mới),
+        // để tránh hiển thị lịch "ảo" cho user mới đăng ký.
         let fallbackShift = null;
-        if (availableShifts && availableShifts.length > 0) {
+        if (availableShifts && availableShifts.length > 0 && scheduleMap.size > 0) {
           fallbackShift =
             availableShifts.find((s: any) => s.name === t('dashboard:schedule.defaults.shiftName')) ||
             availableShifts[0];
-          if (scheduleMap.size === 0) {
-            console.log('[SchedulePage] No schedules from API, using fallback shift:', fallbackShift);
-          }
         }
 
         // Generate schedule for all days in range
@@ -226,8 +235,9 @@ const futureEnd = new Date(today);
             // Nếu có schedule được gán, sử dụng nó
             let scheduleToUse = assignedSchedule;
             
-            // Fallback: Nếu không có schedule từ assignments, sử dụng default shift
-            if (!scheduleToUse && fallbackShift) {
+            // Fallback: Chỉ dùng default shift khi đã có ít nhất 1 schedule thật
+            // (scheduleMap.size > 0) để lấp các ngày trống.
+            if (!scheduleToUse && fallbackShift && scheduleMap.size > 0) {
               scheduleToUse = {
                 shiftId: fallbackShift._id,
                 shiftName: fallbackShift.name,
@@ -237,6 +247,21 @@ const futureEnd = new Date(today);
                 description: fallbackShift.description || "",
               };
             }
+
+
+            // Xác định trạng thái dựa trên attendance (dù có schedule hay không)
+            let status: ShiftStatus = "scheduled";
+            if (attendance) {
+              const hasCheckIn = attendance.checkIn &&
+                                 String(attendance.checkIn).trim() !== "" &&
+                                 String(attendance.checkIn).trim() !== "—" &&
+                                 String(attendance.checkIn).trim() !== "null" &&
+                                 String(attendance.checkIn).trim() !== "undefined";
+              
+              if (hasCheckIn) {
+                status = "completed";
+              } else if (attendance.status === "absent" || attendance.status === "weekend") {
+                status = "off";
 
             if (scheduleToUse) {
               // Determine status based on attendance
@@ -255,9 +280,15 @@ let status: ShiftStatus = "scheduled";
                 } else if (isPast) {
                   status = "missed";
                 }
+
               } else if (isPast) {
                 status = "missed";
               }
+            } else if (isPast) {
+              status = "missed";
+            }
+
+            if (scheduleToUse) {
 
               // Parse shiftId - có thể là object hoặc string
               // Response từ generateScheduleFromAssignments có format:
@@ -289,6 +320,46 @@ let status: ShiftStatus = "scheduled";
               } else {
                 console.warn('[SchedulePage] Missing required fields for schedule:', dateStr, scheduleToUse);
               }
+            } else if (
+              // Chỉ tạo "virtual shift" từ attendance cho NGÀY HÔM NAY
+              // trong trường hợp user chưa có bất kỳ schedule nào (scheduleMap.size === 0).
+              // Tránh làm các ngày trước đó trong tuần cũng xanh.
+              !scheduleToUse &&
+              attendance &&
+              scheduleMap.size === 0 &&
+              dateStr === today.toISOString().split("T")[0]
+            ) {
+              // Trường hợp không có lịch nhưng user vẫn có chấm công (ví dụ: ngày đầu tiên làm việc,
+              // chưa được admin set lịch). Tạo một "virtual shift" dựa trên attendance để:
+              // - Hiển thị đúng trong lịch tuần (màu xanh đã hoàn thành).
+              // - Thống kê tháng/tuần vẫn tính ca đã làm.
+
+              const extractTime = (value: unknown): string => {
+                const raw = String(value ?? "").trim();
+                const match = /(\d{1,2}:\d{2})/.exec(raw);
+                return match ? match[1] : "00:00";
+              };
+
+              const virtualShiftId = attendance.id || `attendance-${dateStr}`;
+              const virtualStartTime = extractTime(attendance.checkIn);
+              const virtualEndTime = extractTime(attendance.checkOut);
+
+              finalSchedule.push({
+                _id: `${dateStr}-${virtualShiftId}`,
+                date: dateStr,
+                shift: {
+                  _id: String(virtualShiftId),
+                  name: "Ca theo chấm công", // Không có schedule chính thức, hiển thị theo chấm công thực tế
+                  startTime: virtualStartTime,
+                  endTime: virtualEndTime,
+                  breakDuration: 0,
+                },
+                status,
+                location: attendance.location || t('dashboard:schedule.defaults.location'),
+                team: t('dashboard:schedule.defaults.team'),
+                notes: attendance.notes || "",
+                attendanceRecord: attendance,
+              });
             }
             // Nếu không có schedule được gán và không có fallback, không tạo entry
           }
@@ -872,15 +943,20 @@ currentTime.getHours() * 60 +
                             <MapPin className="h-4 w-4 text-[var(--success)]" />
                             <span>{shift.location}</span>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
-                            <Users className="h-4 w-4 text-[var(--primary)]" />
-                            <span>{shift.team}</span>
-                          </div>
-                          {shift.notes && (
-                            <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
-                              <StickyNote className="h-4 w-4 text-[var(--warning)]" />
-                              <span>{shift.notes}</span>
-                            </div>
+                          {/* Với user mới (ca tạo từ chấm công), chỉ hiển thị giờ + trụ sở */}
+                          {shift.shift.name !== "Ca theo chấm công" && (
+                            <>
+                              <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
+                                <Users className="h-4 w-4 text-[var(--primary)]" />
+                                <span>{shift.team}</span>
+                              </div>
+                              {sanitizeNotes(shift.notes) && (
+                                <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
+                                  <StickyNote className="h-4 w-4 text-[var(--warning)]" />
+                                  <span>{sanitizeNotes(shift.notes) as string}</span>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
