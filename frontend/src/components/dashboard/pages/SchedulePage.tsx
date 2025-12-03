@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import shiftService from "@/services/shiftService";
 import { getAttendanceHistory } from "@/services/attendanceService";
+import { useAuth } from "@/context/AuthContext";
 
 type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
 
@@ -65,6 +66,7 @@ const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
 
 const SchedulePage: React.FC = () => {
   const { t, i18n } = useTranslation(['dashboard', 'common']);
+  const { user } = useAuth();
   const locale = i18n.language === "vi" ? "vi-VN" : "en-US";
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
@@ -83,25 +85,50 @@ const SchedulePage: React.FC = () => {
       try {
         setLoading(true);
 
-        // Fetch shifts and attendance data in parallel
-        const [availableShifts, attendanceData] = await Promise.all([
-          shiftService.getAllShifts(),
+        if (!user?._id) {
+          setSchedule([]);
+          setLoading(false);
+          return;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        monthEnd.setHours(0, 0, 0, 0);
+
+        const currentDayOfWeek = today.getDay();
+        const mondayDiff = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+        const weekReference = new Date(today);
+        weekReference.setDate(today.getDate() + mondayDiff);
+        weekReference.setHours(0, 0, 0, 0);
+
+        const futureEnd = new Date(today);
+        futureEnd.setDate(today.getDate() + 30);
+        futureEnd.setHours(0, 0, 0, 0);
+
+        const rangeEnd = futureEnd > monthEnd ? futureEnd : monthEnd;
+        const rangeStart =
+          weekReference < monthStart ? weekReference : monthStart;
+
+        // Fetch schedule from assignments and attendance data in parallel
+        const startDateStr = rangeStart.toISOString().split("T")[0];
+        const endDateStr = rangeEnd.toISOString().split("T")[0];
+
+        // Fetch schedule, attendance, and available shifts in parallel
+        const [scheduleData, attendanceData, availableShifts] = await Promise.all([
+          shiftService.getMySchedule(startDateStr, endDateStr).catch((err) => {
+            console.error('[SchedulePage] Error fetching schedule:', err);
+            return [];
+          }),
           getAttendanceHistory({ limit: 1000 }).catch(() => ({ records: [], pagination: null })),
+          shiftService.getAllShifts().catch(() => []),
         ]);
 
-        if (!availableShifts || availableShifts.length === 0) {
-        setSchedule([]);
-          return;
-        }
-
-        const fullTimeShift =
-          availableShifts.find((s: any) => s.name === t('dashboard:schedule.defaults.shiftName')) ||
-          availableShifts[0];
-
-        if (!fullTimeShift) {
-          setSchedule([]);
-          return;
-        }
+        console.log('[SchedulePage] Schedule data from API:', scheduleData);
+        console.log('[SchedulePage] Date range:', { startDateStr, endDateStr });
+        console.log('[SchedulePage] Available shifts:', availableShifts);
 
         // Store attendance records
         const records = (attendanceData.records || []) as AttendanceRecord[];
@@ -153,84 +180,129 @@ const SchedulePage: React.FC = () => {
             console.warn("Error parsing attendance date:", record.date, err);
           }
         });
+
+        // Create a map of schedule by date from API response
+        const scheduleMap = new Map<string, any>();
+        scheduleData.forEach((sched: any) => {
+          if (sched && sched.date) {
+            try {
+              const dateObj = sched.date instanceof Date ? sched.date : new Date(sched.date);
+              if (!Number.isNaN(dateObj.getTime())) {
+                const dateStr = dateObj.toISOString().split("T")[0];
+                scheduleMap.set(dateStr, sched);
+                console.log('[SchedulePage] Mapped schedule:', dateStr, sched);
+              }
+            } catch (err) {
+              console.warn("Error parsing schedule date:", sched.date, err);
+            }
+          }
+        });
         
+        console.log('[SchedulePage] Schedule map size:', scheduleMap.size);
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Fallback: Nếu không có schedule từ assignments, sử dụng default shift
+        let fallbackShift = null;
+        if (availableShifts && availableShifts.length > 0) {
+          fallbackShift =
+            availableShifts.find((s: any) => s.name === t('dashboard:schedule.defaults.shiftName')) ||
+            availableShifts[0];
+          if (scheduleMap.size === 0) {
+            console.log('[SchedulePage] No schedules from API, using fallback shift:', fallbackShift);
+          }
+        }
 
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        monthEnd.setHours(0, 0, 0, 0);
-
-        const currentDayOfWeek = today.getDay();
-        const mondayDiff = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-        const weekReference = new Date(today);
-        weekReference.setDate(today.getDate() + mondayDiff);
-        weekReference.setHours(0, 0, 0, 0);
-
-        const futureEnd = new Date(today);
-        futureEnd.setDate(today.getDate() + 30);
-        futureEnd.setHours(0, 0, 0, 0);
-
-        const rangeEnd = futureEnd > monthEnd ? futureEnd : monthEnd;
-        const rangeStart =
-          weekReference < monthStart ? weekReference : monthStart;
-
-        const scheduleData: EmployeeSchedule[] = [];
+        // Generate schedule for all days in range
+        const finalSchedule: EmployeeSchedule[] = [];
         const cursor = new Date(rangeStart);
 
         while (cursor <= rangeEnd) {
           const currentDate = new Date(cursor);
           const dayOfWeek = currentDate.getDay();
 
-          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          // Chỉ hiển thị từ Thứ 2 đến Thứ 6 (loại bỏ Thứ 7 và Chủ nhật)
+          if (dayOfWeek >= 1 && dayOfWeek <= 5) {
             const dateStr = currentDate.toISOString().split("T")[0];
             const isPast = currentDate < today;
             const attendance = attendanceMap.get(dateStr);
+            const assignedSchedule = scheduleMap.get(dateStr);
 
-            // Determine status based on attendance
-            let status: ShiftStatus = "scheduled";
-            if (attendance) {
-              const hasCheckIn = attendance.checkIn && 
-                                 String(attendance.checkIn).trim() !== "" && 
-                                 String(attendance.checkIn).trim() !== "—" &&
-                                 String(attendance.checkIn).trim() !== "null" &&
-                                 String(attendance.checkIn).trim() !== "undefined";
-              
-              if (hasCheckIn) {
-                status = "completed";
-              } else if (attendance.status === "absent" || attendance.status === "weekend") {
-                status = "off";
+            // Nếu có schedule được gán, sử dụng nó
+            let scheduleToUse = assignedSchedule;
+            
+            // Fallback: Nếu không có schedule từ assignments, sử dụng default shift
+            if (!scheduleToUse && fallbackShift) {
+              scheduleToUse = {
+                shiftId: fallbackShift._id,
+                shiftName: fallbackShift.name,
+                startTime: fallbackShift.startTime,
+                endTime: fallbackShift.endTime,
+                breakDuration: fallbackShift.breakDuration || 60,
+                description: fallbackShift.description || "",
+              };
+            }
+
+            if (scheduleToUse) {
+              // Determine status based on attendance
+              let status: ShiftStatus = "scheduled";
+              if (attendance) {
+                const hasCheckIn = attendance.checkIn && 
+                                   String(attendance.checkIn).trim() !== "" && 
+                                   String(attendance.checkIn).trim() !== "—" &&
+                                   String(attendance.checkIn).trim() !== "null" &&
+                                   String(attendance.checkIn).trim() !== "undefined";
+                
+                if (hasCheckIn) {
+                  status = "completed";
+                } else if (attendance.status === "absent" || attendance.status === "weekend") {
+                  status = "off";
+                } else if (isPast) {
+                  status = "missed";
+                }
               } else if (isPast) {
                 status = "missed";
               }
-            } else if (isPast) {
-              status = "missed";
-            }
 
-            scheduleData.push({
-              _id: `${dateStr}-${fullTimeShift._id}`,
-              date: dateStr,
-              shift: {
-                _id: fullTimeShift._id,
-                name: fullTimeShift.name,
-                startTime: fullTimeShift.startTime,
-                endTime: fullTimeShift.endTime,
-                breakDuration: fullTimeShift.breakDuration || 60,
-              },
-              status,
-              location: attendance?.location || t('dashboard:schedule.defaults.location'),
-              team: t('dashboard:schedule.defaults.team'),
-              notes: fullTimeShift.description,
-              attendanceRecord: attendance,
-            });
+              // Parse shiftId - có thể là object hoặc string
+              // Response từ generateScheduleFromAssignments có format:
+              // { userId, date, shiftId: string, shiftName: string, startTime: string, endTime: string, status: string }
+              const shiftId = scheduleToUse.shiftId?._id || scheduleToUse.shiftId || "";
+              const shiftName = scheduleToUse.shiftName || scheduleToUse.shiftId?.name || "";
+              const startTime = scheduleToUse.startTime || scheduleToUse.shiftId?.startTime || "";
+              const endTime = scheduleToUse.endTime || scheduleToUse.shiftId?.endTime || "";
+              const breakDuration = scheduleToUse.shiftId?.breakDuration || scheduleToUse.breakDuration || 60;
+              const description = scheduleToUse.shiftId?.description || scheduleToUse.description || "";
+
+              if (shiftId && shiftName && startTime && endTime) {
+                finalSchedule.push({
+                  _id: `${dateStr}-${shiftId}`,
+                  date: dateStr,
+                  shift: {
+                    _id: shiftId,
+                    name: shiftName,
+                    startTime: startTime,
+                    endTime: endTime,
+                    breakDuration: breakDuration,
+                  },
+                  status,
+                  location: attendance?.location || t('dashboard:schedule.defaults.location'),
+                  team: t('dashboard:schedule.defaults.team'),
+                  notes: description,
+                  attendanceRecord: attendance,
+                });
+              } else {
+                console.warn('[SchedulePage] Missing required fields for schedule:', dateStr, scheduleToUse);
+              }
+            }
+            // Nếu không có schedule được gán và không có fallback, không tạo entry
           }
 
           cursor.setDate(cursor.getDate() + 1);
         }
 
-        scheduleData.sort((a, b) => a.date.localeCompare(b.date));
-        setSchedule(scheduleData);
+        finalSchedule.sort((a, b) => a.date.localeCompare(b.date));
+        console.log('[SchedulePage] Final schedule count:', finalSchedule.length);
+        console.log('[SchedulePage] Final schedule:', finalSchedule);
+        setSchedule(finalSchedule);
       } catch (err) {
         console.error(t('dashboard:schedule.error'), err);
         setSchedule([]);
@@ -239,8 +311,10 @@ const SchedulePage: React.FC = () => {
       }
     };
 
-    fetchData();
-  }, []);
+    if (user?._id) {
+      fetchData();
+    }
+  }, [user, t]);
 
   const [liveTime, setLiveTime] = useState(new Date());
 
@@ -270,8 +344,8 @@ const SchedulePage: React.FC = () => {
       const date = new Date(s.date);
       date.setHours(0, 0, 0, 0);
       const dayOfWeek = date.getDay();
-      // Loại bỏ Thứ 7 (6) và Chủ nhật (0)
-      return date > today && s.status === "scheduled" && dayOfWeek !== 0 && dayOfWeek !== 6;
+      // Chỉ hiển thị từ Thứ 2 đến Thứ 6 (loại bỏ Thứ 7 và Chủ nhật)
+      return date > today && s.status === "scheduled" && dayOfWeek >= 1 && dayOfWeek <= 5 && s.shift._id;
     })
     .slice(0, 6);
 

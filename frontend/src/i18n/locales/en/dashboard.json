@@ -917,8 +917,12 @@
     "dialog": {
       "addTitle": "Add New Department",
       "editTitle": "Edit Department",
+      "createDescription": "Fill in information to create a new department",
+      "editDescription": "Update department information",
       "name": "Department Name",
+      "namePlaceholder": "Enter department name",
       "code": "Department Code",
+      "codePlaceholder": "Enter department code",
       "description": "Description",
       "descriptionPlaceholder": "Describe the department...",
       "branch": "Branch",
@@ -954,6 +958,10 @@
     "errors": {
       "fillRequired": "Please fill in all required information",
       "generic": "An error occurred"
+    },
+    "delete": {
+      "confirm": "Are you sure you want to delete department \"{{name}}\"?",
+      "success": "Department {{name}} deleted"
     },
     "management": "Management"
   },
@@ -1202,8 +1210,11 @@
     "searchPlaceholder": "Search by name, email, department...",
     "filterByRole": "Filter by Role",
     "filterByStatus": "Filter by Status",
+    "filterByShift": "Filter by Shift",
     "allRoles": "All Roles",
     "allStatus": "All Status",
+    "allShifts": "All Shifts",
+    "noShift": "No Shift",
     "active": "Active",
     "inactive": "Inactive",
     "stats": {
@@ -1217,6 +1228,7 @@
       "employee": "Employee",
       "email": "Email",
       "department": "Department",
+      "shift": "Shift",
       "role": "Role",
       "status": "Status",
       "actions": "Actions",
@@ -1238,6 +1250,7 @@
       "id": "ID:",
       "email": "Email",
       "department": "Department",
+      "shift": "Shift",
       "role": "Role",
       "phone": "Phone Number",
       "createdAt": "Created Date",
@@ -1256,6 +1269,9 @@
       "department": "Department",
       "selectDepartment": "Select Department",
       "noDepartment": "N/A",
+      "shift": "Shift",
+      "selectShift": "Select Shift",
+      "noShift": "No Shift",
       "role": "Role",
       "selectRole": "Select Role",
       "accountStatus": "Account Status",

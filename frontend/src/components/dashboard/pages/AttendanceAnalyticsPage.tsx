@@ -167,10 +167,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
       toast.loading(t('dashboard:attendanceAnalytics.exportLoading'), { id: 'export' })
       await exportAttendanceAnalytics(params)
-      toast.success(
-        t('dashboard:attendanceAnalytics.exportSuccess'),
-        { id: 'export' }
-      )
+      toast.success(t('dashboard:attendanceAnalytics.exportSuccess'), { id: 'export' })
     } catch (error) {
       toast.error(
         t('dashboard:attendanceAnalytics.exportError'),

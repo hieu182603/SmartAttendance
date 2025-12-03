@@ -103,6 +103,7 @@ export class UserService {
       search = "",
       role = "",
       department = "",
+      shift = "",
       isActive
     } = options;
 
@@ -168,6 +169,21 @@ export class UserService {
       }
     }
 
+    // Shift filter
+    if (shift && shift !== "all") {
+      if (mongoose.Types.ObjectId.isValid(shift)) {
+        query.defaultShiftId = shift;
+      } else {
+        // Nếu không phải ObjectId, có thể là "none" để lọc nhân viên chưa có ca
+        if (shift === "none" || shift === "null") {
+          query.$or = [
+            { defaultShiftId: null },
+            { defaultShiftId: { $exists: false } }
+          ];
+        }
+      }
+    }
+
     // Status filter
     if (isActive !== undefined) {
       if (isActive === "true" || isActive === true) {
@@ -191,6 +207,7 @@ export class UserService {
           .select("-password -otp -otpExpires")
           .populate("branch", "name address")
           .populate("department", "name code")
+          .populate("defaultShiftId", "name startTime endTime")
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limitNum),
@@ -213,6 +230,7 @@ export class UserService {
           .select("-password -otp -otpExpires")
           .populate("branch", "name address")
           .populate("department", "name code")
+          .populate("defaultShiftId", "name startTime endTime")
           .sort({ createdAt: -1 }),
         UserModel.countDocuments(query)
       ]);
@@ -232,7 +250,8 @@ export class UserService {
     const user = await UserModel.findById(userId)
       .select("-password -otp -otpExpires")
       .populate("branch", "name address")
-      .populate("department", "name code");
+      .populate("department", "name code")
+      .populate("defaultShiftId", "name startTime endTime breakDuration isFlexible description");
 
     if (!user) {
       throw new Error("User not found");
@@ -249,6 +268,7 @@ export class UserService {
       "role",
       "department",
       "branch",
+      "defaultShiftId",
       "isActive",
       "avatar",
       "avatarUrl"
@@ -257,7 +277,12 @@ export class UserService {
     const updateFields = {};
     for (const field of allowedFields) {
       if (updateData[field] !== undefined) {
-        updateFields[field] = updateData[field];
+        // Xử lý đặc biệt cho defaultShiftId: empty string -> null
+        if (field === "defaultShiftId") {
+          updateFields[field] = updateData[field] === "" || updateData[field] === null ? null : updateData[field];
+        } else {
+          updateFields[field] = updateData[field];
+        }
       }
     }
 
@@ -390,14 +415,28 @@ export class UserService {
       }
     }
 
+    const currentUser = await UserModel.findById(userId).select("defaultShiftId").lean();
+    const oldDefaultShiftId = currentUser?.defaultShiftId?.toString();
+    const newDefaultShiftId = updateFields.defaultShiftId?.toString();
+
     const user = await UserModel.findByIdAndUpdate(
       userId,
       { $set: updateFields },
       { new: true, runValidators: true }
-    ).select("-password -otp -otpExpires").populate("branch", "name address").populate("department", "name code");
+    ).select("-password -otp -otpExpires").populate("branch", "name address").populate("department", "name code").populate("defaultShiftId");
 
     if (!user) {
       throw new Error("User not found");
+    }
+
+    if (updateFields.defaultShiftId !== undefined && oldDefaultShiftId !== newDefaultShiftId) {
+      try {
+        const { scheduleGenerationService } = await import('../schedule/scheduleGeneration.service.js');
+        await scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId.toString());
+        console.log(`[UserService] Regenerated schedule for user ${userId} due to shift change`);
+      } catch (scheduleError) {
+        console.warn(`[UserService] Warning: Could not regenerate schedule for user ${userId}:`, scheduleError.message);
+      }
     }
 
     return user;

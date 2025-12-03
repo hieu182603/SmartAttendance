@@ -23,7 +23,12 @@ const userSchema = new mongoose.Schema(
     branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
     department: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
 
-    // Thông tin bổ sung
+    defaultShiftId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Shift",
+      default: null,
+    },
+
     phone: { type: String },
     address: { type: String },
     birthday: { type: Date },

@@ -19,21 +19,8 @@ import { toast } from "sonner";
 import {
   getDepartmentAttendance,
   exportAttendanceAnalytics,
+  type AttendanceRecord,
 } from "@/services/attendanceService";
-
-interface AttendanceRecord {
-  id: string;
-  userId: string;
-  name: string;
-  email: string;
-  employeeId?: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  hours: string;
-  status: "ontime" | "late" | "absent" | "overtime" | "weekend";
-  location: string;
-}
 
 interface AttendanceSummary {
   total: number;
@@ -101,7 +88,7 @@ const DepartmentAttendancePage: React.FC = () => {
       toast.success(t('dashboard:departmentAttendance.exportSuccess'));
     } catch (error) {
       console.error("[DepartmentAttendance] export error:", error);
-      toast.error(t('dashboard:departmentAttendance.export') + ' ' + t('common:error'));
+      toast.error(t('dashboard:toasts.error.generic'));
     }
   };
 
