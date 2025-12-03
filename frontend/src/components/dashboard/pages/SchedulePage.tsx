@@ -111,8 +111,7 @@ const SchedulePage: React.FC = () => {
         const weekReference = new Date(today);
         weekReference.setDate(today.getDate() + mondayDiff);
         weekReference.setHours(0, 0, 0, 0);
-
-        const futureEnd = new Date(today);
+const futureEnd = new Date(today);
         futureEnd.setDate(today.getDate() + 30);
         futureEnd.setHours(0, 0, 0, 0);
 
@@ -175,7 +174,7 @@ const SchedulePage: React.FC = () => {
                   if (!Number.isNaN(d.getTime())) {
                     dateStr = d.toISOString().split("T")[0];
                   }
-                }
+}
               }
               
               if (dateStr) {
@@ -249,6 +248,7 @@ const SchedulePage: React.FC = () => {
               };
             }
 
+
             // Xác định trạng thái dựa trên attendance (dù có schedule hay không)
             let status: ShiftStatus = "scheduled";
             if (attendance) {
@@ -262,6 +262,25 @@ const SchedulePage: React.FC = () => {
                 status = "completed";
               } else if (attendance.status === "absent" || attendance.status === "weekend") {
                 status = "off";
+
+            if (scheduleToUse) {
+              // Determine status based on attendance
+let status: ShiftStatus = "scheduled";
+              if (attendance) {
+                const hasCheckIn = attendance.checkIn && 
+                                   String(attendance.checkIn).trim() !== "" && 
+                                   String(attendance.checkIn).trim() !== "—" &&
+                                   String(attendance.checkIn).trim() !== "null" &&
+                                   String(attendance.checkIn).trim() !== "undefined";
+                
+                if (hasCheckIn) {
+                  status = "completed";
+                } else if (attendance.status === "absent" || attendance.status === "weekend") {
+                  status = "off";
+                } else if (isPast) {
+                  status = "missed";
+                }
+
               } else if (isPast) {
                 status = "missed";
               }
@@ -351,7 +370,7 @@ const SchedulePage: React.FC = () => {
         finalSchedule.sort((a, b) => a.date.localeCompare(b.date));
         console.log('[SchedulePage] Final schedule count:', finalSchedule.length);
         console.log('[SchedulePage] Final schedule:', finalSchedule);
-        setSchedule(finalSchedule);
+setSchedule(finalSchedule);
       } catch (err) {
         console.error(t('dashboard:schedule.error'), err);
         setSchedule([]);
@@ -442,8 +461,8 @@ const SchedulePage: React.FC = () => {
     date.setHours(0, 0, 0, 0);
     const hasAttended = s.attendanceRecord && 
                         s.attendanceRecord.checkIn && 
-                        String(s.attendanceRecord.checkIn).trim() !== "" && 
-                        String(s.attendanceRecord.checkIn).trim() !== "—" &&
+                        String(s.attendanceRecord.checkIn).trim() !== "" &&
+String(s.attendanceRecord.checkIn).trim() !== "—" &&
                         String(s.attendanceRecord.checkIn).trim() !== "null" &&
                         String(s.attendanceRecord.checkIn).trim() !== "undefined";
     return !hasAttended && date >= today;
@@ -532,7 +551,7 @@ const SchedulePage: React.FC = () => {
       : "0.0";
 
   // Week attendance: attended / total shifts in week
-  const weekAttendancePercent =
+const weekAttendancePercent =
     expectedWeekdays > 0
       ? ((weekAttendedShifts.length / expectedWeekdays) * 100).toFixed(0)
       : "0";
@@ -614,7 +633,7 @@ const SchedulePage: React.FC = () => {
       case "completed":
         return "bg-[var(--success)]/20 text-[var(--success)] border border-[var(--success)]/40 dark:bg-[var(--success)]/10 dark:border-[var(--success)]/25";
       case "scheduled":
-        return "bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25";
+return "bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25";
       case "missed":
         return "bg-[var(--error)]/20 text-[var(--error)] border border-[var(--error)]/40 dark:bg-[var(--error)]/10 dark:border-[var(--error)]/25";
       case "off":
@@ -718,7 +737,7 @@ const SchedulePage: React.FC = () => {
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         <div className="flex items-center justify-between">
@@ -792,7 +811,7 @@ const SchedulePage: React.FC = () => {
       <div className="grid lg:grid-cols-5 gap-6">
         {/* Left Column - Today's Shifts Widget (2 cols) */}
         <motion.div
-          className="lg:col-span-2 space-y-6"
+className="lg:col-span-2 space-y-6"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6 }}
@@ -848,7 +867,7 @@ const SchedulePage: React.FC = () => {
                         let startMin = sh * 60 + sm;
                         let endMin = eh * 60 + em;
                         let now =
-                          currentTime.getHours() * 60 +
+currentTime.getHours() * 60 +
                           currentTime.getMinutes();
 
                         if (endMin < startMin) {
@@ -909,7 +928,7 @@ const SchedulePage: React.FC = () => {
                                   ? `✅ ${t('dashboard:schedule.checkedInStatus')}`
                                   : `🔵 ${t('dashboard:schedule.notCheckedIn')}`}
                               </Badge>
-                            </div>
+</div>
                           </div>
                         </div>
 
@@ -978,7 +997,7 @@ const SchedulePage: React.FC = () => {
                   return (
                     <motion.div
                       key={index}
-                      initial={{ opacity: 0, scale: 0.8 }}
+initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.8 + index * 0.05 }}
                       whileHover={{ scale: 1.1 }}
@@ -1041,7 +1060,7 @@ const SchedulePage: React.FC = () => {
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {weekAttendanceLabel}
                   </p>
-                  <p className="text-xs text-[var(--success)]">
+<p className="text-xs text-[var(--success)]">
                     {weekAttendancePercent}%
                   </p>
                 </div>
@@ -1109,7 +1128,7 @@ const SchedulePage: React.FC = () => {
                 <div className="bg-[var(--shell)] rounded-lg p-3 border border-[var(--border)]/50 dark:border-transparent">
                   <div className="flex items-center space-x-2 mb-2">
                     <Zap className="h-4 w-4 text-[var(--warning)]" />
-                    <span className="text-sm text-[var(--text-sub)]">
+<span className="text-sm text-[var(--text-sub)]">
                       {t('dashboard:schedule.monthStats.totalHours')}
                     </span>
                   </div>
@@ -1170,7 +1189,7 @@ const SchedulePage: React.FC = () => {
                 >
                   <div className="bg-[var(--shell)] rounded-lg p-4 border border-[var(--border)]/50 dark:border-transparent hover:border-[var(--accent-cyan)] transition-colors duration-200">
                     <div className="flex items-center justify-between mb-2">
-                      <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 text-xs">
+<Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 text-xs">
                         {new Date(shift.date).toLocaleDateString("vi-VN", {
                           weekday: "short",
                           day: "numeric",
@@ -1232,7 +1251,7 @@ const SchedulePage: React.FC = () => {
                 <div
                   key={index}
                   className="flex items-center space-x-3 p-2 rounded-lg bg-[var(--shell)] border border-[var(--border)]/50 dark:border-transparent"
-                >
+>
                   <span className="text-xl">{note.icon}</span>
                   <div className="flex-1">
                     <p className="text-sm text-[var(--text-main)]">
@@ -1297,7 +1316,7 @@ const SchedulePage: React.FC = () => {
 
                 return (
                   <>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
+<div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
                       <div className="w-10 h-10 rounded-full bg-[var(--success)]/30 dark:bg-[var(--success)]/20 flex items-center justify-center text-xl">
                         🎯
                       </div>

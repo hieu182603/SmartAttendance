@@ -19,24 +19,27 @@ import { useNavigate } from "react-router-dom";
 
 type AttendanceStatus = "ontime" | "late" | "absent" | "unknown";
 
-const getStatusBadge = (status: AttendanceStatus, t: (key: string) => string): React.JSX.Element | null => {
+const getStatusBadge = (
+  status: AttendanceStatus,
+  t: (key: string) => string
+): React.JSX.Element | null => {
   switch (status) {
     case "ontime":
       return (
         <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
-          {t('dashboard:employeeHome.status.ontime')}
+          {t("dashboard:employeeHome.status.ontime")}
         </Badge>
       );
     case "late":
       return (
         <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">
-          {t('dashboard:employeeHome.status.late')}
+          {t("dashboard:employeeHome.status.late")}
         </Badge>
       );
     case "absent":
       return (
         <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">
-          {t('dashboard:employeeHome.status.absent')}
+          {t("dashboard:employeeHome.status.absent")}
         </Badge>
       );
     default:
@@ -61,7 +64,9 @@ const formatWorkingDays = (
   if (!value) return "—";
   if (typeof value === "string") return value;
   if (typeof value === "object" && value.used != null && value.total != null) {
-    return `${value.used}/${value.total} ${t('dashboard:employeeHome.info.days')}`;
+    return `${value.used}/${value.total} ${t(
+      "dashboard:employeeHome.info.days"
+    )}`;
   }
   return String(value);
 };
@@ -75,13 +80,13 @@ interface AttendanceRow {
 }
 
 export const EmployeeHome: React.FC = () => {
-  const { t, i18n } = useTranslation(['dashboard', 'common']);
+  const { t, i18n } = useTranslation(["dashboard", "common"]);
   const navigate = useNavigate();
   const { summary, recentAttendance, loading, error } = useDashboardData();
-  
+
   // Get current locale for date/time formatting
-  const locale = i18n.language === 'en' ? 'en-US' : 'vi-VN';
-  
+  const locale = i18n.language === "en" ? "en-US" : "vi-VN";
+
   const currentTime = new Date().toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
@@ -92,36 +97,36 @@ export const EmployeeHome: React.FC = () => {
     month: "long",
     day: "numeric",
   });
-  
+
   // Get greeting based on time of day
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return t('dashboard:employeeHome.greeting.morning');
-    if (hour < 17) return t('dashboard:employeeHome.greeting.afternoon');
-    if (hour < 21) return t('dashboard:employeeHome.greeting.evening');
-    return t('dashboard:employeeHome.greeting.night');
+    if (hour < 12) return t("dashboard:employeeHome.greeting.morning");
+    if (hour < 17) return t("dashboard:employeeHome.greeting.afternoon");
+    if (hour < 21) return t("dashboard:employeeHome.greeting.evening");
+    return t("dashboard:employeeHome.greeting.night");
   };
-  
+
   // Create infoCards with translations
   const infoCards: InfoCard[] = [
     {
       icon: Clock,
       color: "accent-cyan",
-      label: t('dashboard:employeeHome.info.shift'),
+      label: t("dashboard:employeeHome.info.shift"),
       key: "shift",
       delay: 0.5,
     },
     {
       icon: MapPin,
       color: "success",
-      label: t('dashboard:employeeHome.info.location'),
+      label: t("dashboard:employeeHome.info.location"),
       key: "location",
       delay: 0.6,
     },
     {
       icon: Calendar,
       color: "primary",
-      label: t('dashboard:employeeHome.info.workingDays'),
+      label: t("dashboard:employeeHome.info.workingDays"),
       key: "workingDays",
       delay: 0.7,
     },
@@ -175,13 +180,13 @@ export const EmployeeHome: React.FC = () => {
 
   const loadingState = loading && (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/40 p-6 text-sm text-[var(--text-sub)]">
-      {t('dashboard:employeeHome.loading')}
+      {t("dashboard:employeeHome.loading")}
     </div>
   );
 
   const errorState = !loading && error && (
     <div className="rounded-xl border border-[var(--error)]/30 bg-[var(--error)]/10 p-6 text-sm text-[var(--error)]">
-      {t('dashboard:employeeHome.error')}
+      {t("dashboard:employeeHome.error")}
     </div>
   );
 
@@ -307,10 +312,10 @@ export const EmployeeHome: React.FC = () => {
                 </motion.div>
                 <div>
                   <h2 className="text-2xl text-[var(--text-main)] mb-2">
-                    {t('dashboard:employeeHome.attendance.checkedIn')}
+                    {t("dashboard:employeeHome.attendance.checkedIn")}
                   </h2>
                   <p className="text-[var(--text-sub)] mb-4">
-                    {t('dashboard:employeeHome.attendance.completed')}
+                    {t("dashboard:employeeHome.attendance.completed")}
                   </p>
 
                   {/* Thông tin chi tiết */}
@@ -318,7 +323,7 @@ export const EmployeeHome: React.FC = () => {
                     {!todayAttendance.hasCheckedOut && (
                       <div className="pt-2 border-t border-[var(--border)]">
                         <p className="text-[15px] text-[var(--warning)] text-center">
-                          {t('dashboard:employeeHome.attendance.notCheckedOut')}
+                          {t("dashboard:employeeHome.attendance.notCheckedOut")}
                         </p>
                       </div>
                     )}
@@ -344,10 +349,10 @@ export const EmployeeHome: React.FC = () => {
                 </motion.div>
                 <div>
                   <h2 className="text-2xl text-[var(--text-main)] mb-2">
-                    {t('dashboard:employeeHome.attendance.notCheckedIn')}
+                    {t("dashboard:employeeHome.attendance.notCheckedIn")}
                   </h2>
                   <p className="text-[var(--text-sub)]">
-                    {t('dashboard:employeeHome.attendance.scanQR')}
+                    {t("dashboard:employeeHome.attendance.scanQR")}
                   </p>
                 </div>
                 <motion.button
@@ -358,7 +363,9 @@ export const EmployeeHome: React.FC = () => {
                 >
                   <span className="flex items-center space-x-2">
                     <Sparkles className="h-5 w-5" />
-                    <span>{t('dashboard:employeeHome.attendance.scanQRButton')}</span>
+                    <span>
+                      {t("dashboard:employeeHome.attendance.scanQRButton")}
+                    </span>
                   </span>
                 </motion.button>
               </div>
@@ -421,31 +428,31 @@ export const EmployeeHome: React.FC = () => {
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
             <CardTitle className="text-[var(--text-main)]">
-              {t('dashboard:employeeHome.quickActions.title')}
+              {t("dashboard:employeeHome.quickActions.title")}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               {
-                label: t('dashboard:employeeHome.quickActions.schedule'),
+                label: t("dashboard:employeeHome.quickActions.schedule"),
                 icon: Calendar,
                 page: "schedule",
                 color: "accent-cyan",
               },
               {
-                label: t('dashboard:employeeHome.quickActions.requests'),
+                label: t("dashboard:employeeHome.quickActions.requests"),
                 icon: FileText,
                 page: "requests",
                 color: "warning",
               },
               {
-                label: t('dashboard:employeeHome.quickActions.history'),
+                label: t("dashboard:employeeHome.quickActions.history"),
                 icon: History,
                 page: "history",
                 color: "success",
               },
               {
-                label: t('dashboard:employeeHome.quickActions.leaveBalance'),
+                label: t("dashboard:employeeHome.quickActions.leaveBalance"),
                 icon: CheckCircle2,
                 page: "leave-balance",
                 color: "primary",
@@ -493,13 +500,13 @@ export const EmployeeHome: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-[var(--text-main)]">
-                {t('dashboard:employeeHome.recentHistory.title')}
+                {t("dashboard:employeeHome.recentHistory.title")}
               </CardTitle>
               <button
                 onClick={() => navigate("/employee/history")}
                 className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center space-x-1"
               >
-                <span>{t('dashboard:employeeHome.recentHistory.viewAll')}</span>
+                <span>{t("dashboard:employeeHome.recentHistory.viewAll")}</span>
                 <History className="h-4 w-4" />
               </button>
             </div>
@@ -510,19 +517,19 @@ export const EmployeeHome: React.FC = () => {
                 <thead>
                   <tr className="border-b border-[var(--border)]">
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      {t('dashboard:employeeHome.recentHistory.date')}
+                      {t("dashboard:employeeHome.recentHistory.date")}
                     </th>
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      {t('dashboard:employeeHome.recentHistory.checkIn')}
+                      {t("dashboard:employeeHome.recentHistory.checkIn")}
                     </th>
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      {t('dashboard:employeeHome.recentHistory.checkOut')}
+                      {t("dashboard:employeeHome.recentHistory.checkOut")}
                     </th>
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      {t('dashboard:employeeHome.recentHistory.location')}
+                      {t("dashboard:employeeHome.recentHistory.location")}
                     </th>
                     <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
-                      {t('dashboard:employeeHome.recentHistory.status')}
+                      {t("dashboard:employeeHome.recentHistory.status")}
                     </th>
                   </tr>
                 </thead>
@@ -533,7 +540,7 @@ export const EmployeeHome: React.FC = () => {
                         colSpan={5}
                         className="py-6 text-center text-sm text-[var(--text-sub)]"
                       >
-                        {t('dashboard:employeeHome.recentHistory.noData')}
+                        {t("dashboard:employeeHome.recentHistory.noData")}
                       </td>
                     </tr>
                   ) : (
