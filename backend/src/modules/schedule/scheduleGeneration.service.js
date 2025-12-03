@@ -3,6 +3,7 @@
  * Tạo schedule tự động từ EmployeeShiftAssignment
  */
 
+import mongoose from 'mongoose';
 import { EmployeeShiftAssignmentModel } from '../shifts/employeeShiftAssignment.model.js';
 import { EmployeeScheduleModel } from './schedule.model.js';
 import { ShiftModel } from '../shifts/shift.model.js';
@@ -32,31 +33,31 @@ class ScheduleGenerationService {
 
       if (assignments.length === 0) {
         const user = await UserModel.findById(userId).populate('defaultShiftId');
-        
+
         if (user && user.defaultShiftId) {
           return this._generateFromDefaultShift(user, startDate, endDate);
         }
-        
+
         return [];
       }
 
       const schedules = [];
       const currentDate = new Date(startDate);
-      
+
       while (currentDate <= endDate) {
         const schedule = await this._generateScheduleForDate(
           userId,
           currentDate,
           assignments
         );
-        
+
         if (schedule) {
           schedules.push(schedule);
         }
-        
+
         currentDate.setDate(currentDate.getDate() + 1);
       }
-      
+
       return schedules;
     } catch (error) {
       console.error('[ScheduleGenerationService] generateScheduleFromAssignments error:', error);
@@ -72,7 +73,7 @@ class ScheduleGenerationService {
     checkDate.setHours(0, 0, 0, 0);
     const dayOfWeek = checkDate.getDay();
 
-      for (const assignment of assignments) {
+    for (const assignment of assignments) {
       if (!assignment.shiftId || !assignment.shiftId.isActive) {
         continue;
       }
@@ -112,7 +113,7 @@ class ScheduleGenerationService {
       if (matched) {
         const fromDate = new Date(assignment.effectiveFrom);
         fromDate.setHours(0, 0, 0, 0);
-        
+
         if (checkDate < fromDate) {
           matched = false;
         }
@@ -254,6 +255,120 @@ class ScheduleGenerationService {
       return await this.createOrUpdateSchedule(userId, startDate, endDate);
     } catch (error) {
       console.error('[ScheduleGenerationService] regenerateScheduleOnAssignmentChange error:', error);
+      throw error;
+    }
+  }
+
+  async applyLeaveToSchedule(leaveRequest) {
+    try {
+      const { userId, startDate, endDate, type, reason, _id } = leaveRequest;
+
+      if (!userId || !startDate || !endDate) {
+        throw new Error('Missing required fields: userId, startDate, endDate');
+      }
+
+      const leaveTypeMap = {
+        leave: 'Nghỉ phép',
+        sick: 'Nghỉ ốm',
+        unpaid: 'Nghỉ không lương',
+        compensatory: 'Nghỉ bù',
+        maternity: 'Nghỉ thai sản',
+      };
+
+      const leaveTypeLabel = leaveTypeMap[type] || 'Nghỉ phép';
+      const noteText = `${leaveTypeLabel}${reason ? `: ${reason}` : ''}`;
+
+      const user = await UserModel.findById(userId).populate('defaultShiftId');
+      const defaultShiftId = user?.defaultShiftId?._id || null;
+      const defaultShiftName = user?.defaultShiftId?.name || 'Nghỉ';
+      const defaultStartTime = user?.defaultShiftId?.startTime || '08:00';
+      const defaultEndTime = user?.defaultShiftId?.endTime || '17:00';
+
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+
+      if (start > end) {
+        throw new Error('startDate cannot be greater than endDate');
+      }
+
+      const operations = [];
+      const currentDate = new Date(start);
+      let updatedCount = 0;
+      let createdCount = 0;
+
+      while (currentDate <= end) {
+        const dateStr = new Date(currentDate);
+        dateStr.setHours(0, 0, 0, 0);
+
+        const existingSchedule = await EmployeeScheduleModel.findOne({
+          userId,
+          date: dateStr,
+        });
+
+        if (existingSchedule) {
+          operations.push({
+            updateOne: {
+              filter: {
+                userId,
+                date: dateStr,
+              },
+              update: {
+                $set: {
+                  status: 'off',
+                  notes: noteText,
+                  leaveRequestId: _id || null,
+                },
+              },
+            },
+          });
+          updatedCount++;
+        } else {
+          const newSchedule = {
+            userId,
+            date: dateStr,
+            shiftId: defaultShiftId || new mongoose.Types.ObjectId(),
+            shiftName: defaultShiftName,
+            startTime: defaultStartTime,
+            endTime: defaultEndTime,
+            status: 'off',
+            notes: noteText,
+            leaveRequestId: _id || null,
+          };
+
+          operations.push({
+            insertOne: {
+              document: newSchedule,
+            },
+          });
+          createdCount++;
+        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      if (operations.length > 0) {
+        await EmployeeScheduleModel.bulkWrite(operations, { ordered: false });
+      }
+
+      console.log(
+        `[ScheduleGenerationService] Applied leave to schedule: userId=${userId}, ` +
+        `dates=${start.toISOString().split('T')[0]} to ${end.toISOString().split('T')[0]}, ` +
+        `updated=${updatedCount}, created=${createdCount}`
+      );
+
+      return {
+        success: true,
+        userId,
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+        updatedCount,
+        createdCount,
+        totalDays: updatedCount + createdCount,
+      };
+    } catch (error) {
+      console.error('[ScheduleGenerationService] applyLeaveToSchedule error:', error);
       throw error;
     }
   }
