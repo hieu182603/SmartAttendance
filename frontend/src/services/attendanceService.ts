@@ -14,8 +14,21 @@ interface AttendanceParams {
   [key: string]: unknown
 }
 
-interface AttendanceRecord {
-  [key: string]: unknown
+export interface AttendanceRecord {
+  id: string
+  userId: string
+  name: string
+  email: string
+  role?: string
+  department?: string
+  employeeId?: string
+  date: string
+  checkIn: string
+  checkOut: string
+  hours: string
+  status: 'ontime' | 'late' | 'absent' | 'overtime' | 'weekend'
+  location: string
+  notes?: string
 }
 
 interface UpdateAttendancePayload {

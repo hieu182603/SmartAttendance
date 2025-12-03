@@ -76,18 +76,32 @@ export function ShiftsPage() {
   const loadShifts = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/shifts');
-      console.log('Shifts API response:', response.data);
+      
+      // Load shifts và employee counts song song
+      const [shiftsResponse, countsResponse] = await Promise.all([
+        api.get('/shifts'),
+        api.get('/shifts/employee-counts').catch(() => ({ data: { success: true, data: [] } })) // Fallback nếu API chưa có
+      ]);
+      
+      console.log('Shifts API response:', shiftsResponse.data);
       
       // Backend trả về format: { success: true, data: [...] }
-      const shiftsData = response.data.data || response.data.shifts || response.data || [];
+      const shiftsData = shiftsResponse.data.data || shiftsResponse.data.shifts || shiftsResponse.data || [];
       console.log('Parsed shifts data:', shiftsData);
+      
+      // Get employee counts
+      const countsMap = new Map();
+      if (countsResponse.data?.success && countsResponse.data?.data) {
+        countsResponse.data.data.forEach((item: { shiftId: string; count: number }) => {
+          countsMap.set(item.shiftId, item.count);
+        });
+      }
       
       // Map backend data to frontend format with colors
       const mappedShifts = shiftsData.map((shift: any, index: number) => ({
         ...shift,
         id: shift._id || shift.id,
-        employees: shift.employeeCount || 0,
+        employees: countsMap.get(shift._id || shift.id) || 0, // Use real count from API
         color: ['success', 'warning', 'error', 'primary'][index % 4],
       }));
       

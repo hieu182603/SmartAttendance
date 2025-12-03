@@ -31,6 +31,7 @@ const updateUserByAdminSchema = z.object({
   role: z.enum(["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"]).optional(),
   department: z.string().optional(),
   branch: z.string().optional(),
+  defaultShiftId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
   avatar: z
     .union([

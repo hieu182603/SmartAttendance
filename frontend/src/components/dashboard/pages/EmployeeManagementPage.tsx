@@ -32,6 +32,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import { getAllUsers, getUserById, updateUserByAdmin } from '@/services/userService'
 import { getAllDepartments, type Department as DepartmentType } from '@/services/departmentService'
+import shiftService, { type Shift } from '@/services/shiftService'
 import { useAuth } from '@/context/AuthContext'
 import { UserRole, ROLE_NAMES, canManageRole, type UserRoleType } from '@/utils/roles'
 import { Permission } from '@/utils/roles'
@@ -65,6 +66,7 @@ interface User {
   phone?: string
   isActive?: boolean
   createdAt?: string
+  defaultShiftId?: string | { _id: string; name: string; startTime?: string; endTime?: string }
 }
 
 interface FormData {
@@ -74,6 +76,7 @@ interface FormData {
   role: string
   phone: string
   isActive: boolean
+  defaultShiftId: string
 }
 
 interface ValidationErrors {
@@ -140,6 +143,20 @@ const getDepartmentId = (department?: string | { _id: string; name: string; code
   return department._id || ''
 }
 
+// Helper function để lấy tên ca làm việc
+const getShiftName = (shift?: string | { _id: string; name: string; startTime?: string; endTime?: string }, t?: (key: string) => string): string => {
+  if (!shift) return t ? t('dashboard:employeeManagement.editDialog.noShift') : 'N/A'
+  if (typeof shift === 'string') return shift
+  return shift.name || (t ? t('dashboard:employeeManagement.editDialog.noShift') : 'N/A')
+}
+
+// Helper function để lấy shift ID (cho form)
+const getShiftId = (shift?: string | { _id: string; name: string }): string => {
+  if (!shift) return ''
+  if (typeof shift === 'string') return shift
+  return shift._id || ''
+}
+
 const EmployeeManagementPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common'])
   const { user: currentUser } = useAuth()
@@ -159,6 +176,7 @@ const EmployeeManagementPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [shiftFilter, setShiftFilter] = useState<string>('all')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -166,6 +184,7 @@ const EmployeeManagementPage: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [usersList, setUsersList] = useState<User[]>([])
   const [departments, setDepartments] = useState<DepartmentType[]>([])
+  const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -174,6 +193,7 @@ const EmployeeManagementPage: React.FC = () => {
     role: '',
     phone: '',
     isActive: true,
+    defaultShiftId: '',
   })
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
   const [currentPage, setCurrentPage] = useState(1)
@@ -210,6 +230,11 @@ const EmployeeManagementPage: React.FC = () => {
         params.isActive = statusFilter === 'active' ? 'true' : 'false'
       }
 
+      // Shift filter
+      if (shiftFilter !== 'all') {
+        params.shift = shiftFilter
+      }
+
       const result = await getAllUsers(params) as GetAllUsersResponse
       
       // Backend trả về { users: [...], pagination: {...} }
@@ -227,7 +252,7 @@ const EmployeeManagementPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, itemsPerPage, searchTerm, roleFilter, statusFilter])
+  }, [currentPage, itemsPerPage, searchTerm, roleFilter, statusFilter, shiftFilter])
 
   useEffect(() => {
     fetchUsers()
@@ -270,10 +295,23 @@ const EmployeeManagementPage: React.FC = () => {
     fetchDepartments()
   }, [currentUser?.role])
 
+  // Fetch shifts when component mounts
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        const shiftsData = await shiftService.getAllShifts()
+        setShifts(shiftsData || [])
+      } catch (error) {
+        console.error('[EmployeeManagement] fetch shifts error:', error)
+      }
+    }
+    fetchShifts()
+  }, [])
+
   // Reset to page 1 when search or filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, roleFilter, statusFilter])
+  }, [searchTerm, roleFilter, statusFilter, shiftFilter])
 
   const handleViewUser = async (user: User): Promise<void> => {
     try {
@@ -290,6 +328,16 @@ const EmployeeManagementPage: React.FC = () => {
 
   const handleEditUser = (user: User): void => {
     setSelectedUser(user)
+    // Get shift ID - có thể là string hoặc object
+    let shiftId = ''
+    if (user.defaultShiftId) {
+      if (typeof user.defaultShiftId === 'string') {
+        shiftId = user.defaultShiftId
+      } else if (user.defaultShiftId._id) {
+        shiftId = user.defaultShiftId._id
+      }
+    }
+    
     setFormData({
       name: user.name || '',
       email: user.email || '',
@@ -297,6 +345,7 @@ const EmployeeManagementPage: React.FC = () => {
       role: user.role || '',
       phone: user.phone || '',
       isActive: user.isActive !== undefined ? user.isActive : true,
+      defaultShiftId: shiftId,
     })
     setValidationErrors({})
     setIsEditDialogOpen(true)
@@ -441,7 +490,7 @@ const EmployeeManagementPage: React.FC = () => {
       {/* Search & Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr] gap-4">
             {/* Search Bar - Wider */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
@@ -496,6 +545,24 @@ const EmployeeManagementPage: React.FC = () => {
                       {t('dashboard:employeeManagement.inactive')}
                     </div>
                   </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Shift Filter */}
+            <div className="relative">
+              <Select value={shiftFilter} onValueChange={setShiftFilter}>
+                <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                  <SelectValue placeholder={t('dashboard:employeeManagement.filterByShift') || 'Lọc theo ca'} />
+                </SelectTrigger>
+                <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                  <SelectItem value="all">{t('dashboard:employeeManagement.allShifts') || 'Tất cả ca'}</SelectItem>
+                  <SelectItem value="none">{t('dashboard:employeeManagement.noShift') || 'Chưa có ca'}</SelectItem>
+                  {shifts.map(shift => (
+                    <SelectItem key={shift._id} value={shift._id}>
+                      {shift.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -554,18 +621,19 @@ const EmployeeManagementPage: React.FC = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-[var(--shell)]">
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[20%]">{t('dashboard:employeeManagement.table.employee')}</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[23%]">{t('dashboard:employeeManagement.table.email')}</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[13%]">{t('dashboard:employeeManagement.table.department')}</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[14%]">{t('dashboard:employeeManagement.table.role')}</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[13%]">{t('dashboard:employeeManagement.table.status')}</th>
-                    <th className="text-center py-2 px-3 text-xs text-[var(--text-sub)] w-[17%]">{t('dashboard:employeeManagement.table.actions')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[18%]">{t('dashboard:employeeManagement.table.employee')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[20%]">{t('dashboard:employeeManagement.table.email')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[12%]">{t('dashboard:employeeManagement.table.department')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[12%]">{t('dashboard:employeeManagement.table.shift') || 'Ca làm việc'}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[12%]">{t('dashboard:employeeManagement.table.role')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[11%]">{t('dashboard:employeeManagement.table.status')}</th>
+                    <th className="text-center py-2 px-3 text-xs text-[var(--text-sub)] w-[15%]">{t('dashboard:employeeManagement.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-12">
+                      <td colSpan={7} className="text-center py-12">
                         <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.noEmployees')}</p>
                       </td>
                     </tr>
@@ -590,6 +658,7 @@ const EmployeeManagementPage: React.FC = () => {
                         </td>
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{user.email || t('dashboard:employeeManagement.viewDialog.notAvailable')}</td>
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getDepartmentName(user.department, t)}</td>
+                        <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getShiftName(user.defaultShiftId, t)}</td>
                         <td className="py-2 px-3">{getRoleBadge(user.role, t)}</td>
                         <td className="py-2 px-3">{getStatusBadge(user.isActive, t)}</td>
                         <td className="py-2 px-3">
@@ -739,6 +808,10 @@ const EmployeeManagementPage: React.FC = () => {
                   <p className="text-[var(--text-main)] mt-1">{getDepartmentName(selectedUser.department, t)}</p>
                 </div>
                 <div>
+                  <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.shift') || 'Ca làm việc'}</Label>
+                  <p className="text-[var(--text-main)] mt-1">{getShiftName(selectedUser.defaultShiftId, t)}</p>
+                </div>
+                <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.role')}</Label>
                   <div className="mt-1">{getRoleBadge(selectedUser.role, t)}</div>
                 </div>
@@ -863,6 +936,23 @@ const EmployeeManagementPage: React.FC = () => {
                     {departments.map((dept) => (
                       <SelectItem key={dept._id} value={dept._id}>
                         {dept.name} ({dept.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.shift') || 'Ca làm việc'}</Label>
+                <Select value={formData.defaultShiftId} onValueChange={(v) => setFormData({ ...formData, defaultShiftId: v })}>
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
+                    <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectShift') || 'Chọn ca làm việc'} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    <SelectItem value="">{t('dashboard:employeeManagement.editDialog.noShift') || 'Không có ca'}</SelectItem>
+                    {shifts.filter(s => s.isActive !== false).map((shift) => (
+                      <SelectItem key={shift._id} value={shift._id}>
+                        {shift.name} ({shift.startTime} - {shift.endTime})
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -698,7 +698,7 @@ export function DepartmentsPage() {
                             onClick={handleSubmit}
                             className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
                         >
-                            {dialogMode === 'create' ? t('dashboard:departments.dialog.save') : t('common:update')}
+                            {dialogMode === 'create' ? t('dashboard:departments.dialog.save') : t('common.update')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

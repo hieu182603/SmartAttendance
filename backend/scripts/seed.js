@@ -14,6 +14,9 @@ import { PerformanceReviewModel } from '../src/modules/performance/performance.m
 import { CalendarEventModel } from '../src/modules/calendar/calendar.model.js';
 import { EmployeeScheduleModel } from '../src/modules/schedule/schedule.model.js';
 import { SystemConfigModel } from '../src/modules/config/config.model.js';
+import { EmployeeShiftAssignmentModel } from '../src/modules/shifts/employeeShiftAssignment.model.js';
+import { RequestTypeModel } from '../src/modules/requests/request-type.model.js';
+import { NotificationModel } from '../src/modules/notifications/notification.model.js';
 import { hashPassword } from '../src/utils/bcrypt.util.js';
 
 dotenv.config();
@@ -46,6 +49,9 @@ async function seed() {
         await CalendarEventModel.deleteMany({});
         await EmployeeScheduleModel.deleteMany({});
         await SystemConfigModel.deleteMany({});
+        await EmployeeShiftAssignmentModel.deleteMany({});
+        await RequestTypeModel.deleteMany({});
+        await NotificationModel.deleteMany({});
 
         // Xóa collection UserShift nếu tồn tại
         try {
@@ -77,6 +83,23 @@ async function seed() {
             },
         ]);
         console.log(`✅ Created ${shifts.length} shifts\n`);
+
+        // ========== 1.5. TẠO REQUEST TYPES (Loại yêu cầu) ==========
+        console.log('📋 Creating request types...');
+        const requestTypes = [
+            { value: 'leave', label: 'Nghỉ phép', description: 'Nghỉ phép năm', sortOrder: 0, isActive: true, isSystem: true },
+            { value: 'sick', label: 'Nghỉ ốm', description: 'Nghỉ ốm', sortOrder: 1, isActive: true, isSystem: true },
+            { value: 'unpaid', label: 'Nghỉ không lương', description: 'Nghỉ không lương', sortOrder: 2, isActive: true, isSystem: true },
+            { value: 'compensatory', label: 'Nghỉ bù', description: 'Nghỉ bù', sortOrder: 3, isActive: true, isSystem: true },
+            { value: 'maternity', label: 'Nghỉ thai sản', description: 'Nghỉ thai sản', sortOrder: 4, isActive: true, isSystem: true },
+            { value: 'overtime', label: 'Tăng ca', description: 'Yêu cầu làm thêm giờ', sortOrder: 5, isActive: true, isSystem: true },
+            { value: 'remote', label: 'Làm từ xa', description: 'Làm việc từ xa', sortOrder: 6, isActive: true, isSystem: true },
+            { value: 'late', label: 'Đi muộn', description: 'Yêu cầu đi muộn', sortOrder: 7, isActive: true, isSystem: true },
+            { value: 'correction', label: 'Sửa công', description: 'Yêu cầu sửa chấm công', sortOrder: 8, isActive: true, isSystem: true },
+            { value: 'other', label: 'Yêu cầu khác', description: 'Các yêu cầu khác', sortOrder: 9, isActive: true, isSystem: true },
+        ];
+        const createdRequestTypes = await RequestTypeModel.insertMany(requestTypes);
+        console.log(`✅ Created ${createdRequestTypes.length} request types\n`);
 
         // ========== 2. TẠO LOCATIONS (Địa điểm) ==========
         console.log('📍 Creating locations...');
@@ -430,17 +453,53 @@ async function seed() {
         await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'PRODUCT')._id, { managerId: managerUser._id });
         console.log('✅ Assigned managers to branches and departments\n');
 
-        // ========== 4. TẠO ATTENDANCES (Chấm công) - 3 tháng ==========
+        // ========== 3.5. GÁN DEFAULT SHIFT VÀ TẠO EMPLOYEE SHIFT ASSIGNMENTS ==========
+        console.log('📋 Assigning default shifts and creating shift assignments...');
+        const defaultShift = shifts[0]; // Full time shift
+
+        // Gán defaultShiftId cho tất cả employees
+        await UserModel.updateMany(
+            { role: 'EMPLOYEE', isActive: true },
+            { defaultShiftId: defaultShift._id }
+        );
+        console.log(`✅ Assigned default shift "${defaultShift.name}" to all employees\n`);
+
+        // Tạo EmployeeShiftAssignment records cho tất cả employees
+        const assignments = employeeUsers.map(employee => ({
+            userId: employee._id,
+            shiftId: defaultShift._id,
+            pattern: 'all',
+            effectiveFrom: employee.createdAt || new Date(),
+            effectiveTo: null,
+            priority: 1,
+            isActive: true,
+            notes: 'Default shift assignment from seed',
+        }));
+
+        const createdAssignments = await EmployeeShiftAssignmentModel.insertMany(assignments);
+        console.log(`✅ Created ${createdAssignments.length} employee shift assignments\n`);
+
+        // ========== 4. TẠO ATTENDANCES (Chấm công) - 6 tháng ==========
         console.log('⏰ Creating attendances...');
+        // Đảm bảo có data từ tháng 12/2025 (tháng hiện tại) và các tháng gần đây
+        // Base date: cuối tháng 12/2025 để đảm bảo luôn có data tháng 12/2025
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        
+        // Đảm bảo luôn có data tháng 12/2025: đặt base date là cuối tháng 12/2025
+        const december2025 = new Date(2025, 11, 31); // Tháng 12/2025 (index 11 = tháng 12)
+        december2025.setHours(0, 0, 0, 0);
+        
+        // Sử dụng ngày cuối tháng 12/2025 làm base date để đảm bảo có data tháng 12/2025
+        // Nếu hiện tại đã qua 31/12/2025, dùng today; nếu không dùng 31/12/2025
+        const seedBaseDate = today > december2025 ? today : december2025;
 
         const attendances = [];
-        const monthsToGenerate = 3; // 3 tháng
+        const monthsToGenerate = 6; // 6 tháng (bao gồm tháng 12)
         const daysPerMonth = 22; // ~22 ngày làm việc/tháng (trừ cuối tuần)
 
         for (let monthOffset = 0; monthOffset < monthsToGenerate; monthOffset++) {
-            const monthDate = new Date(today);
+            const monthDate = new Date(seedBaseDate);
             monthDate.setMonth(monthDate.getMonth() - monthOffset);
             monthDate.setDate(1); // Bắt đầu từ ngày 1
 
@@ -495,7 +554,7 @@ async function seed() {
 
         // ========== 5. TẠO REQUESTS (Yêu cầu) - 25 requests ==========
         console.log('📝 Creating requests...');
-        const requestTypes = ['leave', 'overtime', 'remote', 'other'];
+        const requestTypeValues = ['leave', 'overtime', 'remote', 'other'];
         const requestStatuses = ['pending', 'approved', 'rejected'];
         const reasons = [
             'Nghỉ phép năm',
@@ -513,11 +572,11 @@ async function seed() {
         const requests = [];
         for (let i = 0; i < 150; i++) {
             const employee = employeeUsers[randomInt(0, employeeUsers.length - 1)];
-            const type = requestTypes[randomInt(0, requestTypes.length - 1)];
+            const type = requestTypeValues[randomInt(0, requestTypeValues.length - 1)];
             const status = requestStatuses[randomInt(0, requestStatuses.length - 1)];
 
-            const startDate = new Date(today);
-            startDate.setDate(startDate.getDate() - randomInt(1, 60));
+            const startDate = new Date(seedBaseDate);
+            startDate.setDate(startDate.getDate() - randomInt(1, 180)); // Tăng lên 180 ngày (6 tháng)
             const endDate = new Date(startDate);
             endDate.setDate(endDate.getDate() + randomInt(0, 5));
 
@@ -544,13 +603,81 @@ async function seed() {
         const createdRequests = await RequestModel.insertMany(requests);
         console.log(`✅ Created ${createdRequests.length} requests\n`);
 
+        // ========== 5.5. TẠO NOTIFICATIONS (Thông báo) ==========
+        console.log('🔔 Creating notifications...');
+        const notifications = [];
+
+        // Tạo notifications cho các requests đã được approve/reject
+        for (const request of createdRequests) {
+            if (request.status === 'approved' && request.approvedBy) {
+                const approvedDate = request.approvedAt || new Date(request.createdAt);
+                approvedDate.setHours(approvedDate.getHours() + 1);
+
+                notifications.push({
+                    userId: request.userId,
+                    type: 'request_approved',
+                    title: 'Yêu cầu đã được duyệt',
+                    message: `Yêu cầu ${request.type === 'leave' ? 'nghỉ phép' : request.type === 'overtime' ? 'tăng ca' : 'làm từ xa'} của bạn đã được duyệt.`,
+                    relatedEntityType: 'request',
+                    relatedEntityId: request._id,
+                    isRead: Math.random() > 0.7, // 30% đã đọc
+                    readAt: Math.random() > 0.7 ? new Date(approvedDate.getTime() + 3600000) : null,
+                    createdAt: approvedDate,
+                });
+            } else if (request.status === 'rejected' && request.approvedBy) {
+                const rejectedDate = request.approvedAt || new Date(request.createdAt);
+                rejectedDate.setHours(rejectedDate.getHours() + 1);
+
+                notifications.push({
+                    userId: request.userId,
+                    type: 'request_rejected',
+                    title: 'Yêu cầu đã bị từ chối',
+                    message: `Yêu cầu ${request.type === 'leave' ? 'nghỉ phép' : request.type === 'overtime' ? 'tăng ca' : 'làm từ xa'} của bạn đã bị từ chối.`,
+                    relatedEntityType: 'request',
+                    relatedEntityId: request._id,
+                    isRead: Math.random() > 0.6, // 40% đã đọc
+                    readAt: Math.random() > 0.6 ? new Date(rejectedDate.getTime() + 3600000) : null,
+                    createdAt: rejectedDate,
+                });
+            }
+        }
+
+        // Tạo một số system notifications
+        for (let i = 0; i < 50; i++) {
+            const employee = employeeUsers[randomInt(0, employeeUsers.length - 1)];
+            const notificationDate = new Date(seedBaseDate);
+            notificationDate.setDate(notificationDate.getDate() - randomInt(1, 90)); // Tăng lên 90 ngày
+
+            const systemMessages = [
+                'Hệ thống sẽ bảo trì vào cuối tuần này',
+                'Đã có bản cập nhật mới cho ứng dụng',
+                'Nhắc nhở: Vui lòng cập nhật thông tin cá nhân',
+                'Lịch làm việc tuần tới đã được cập nhật',
+                'Nhắc nhở: Nộp báo cáo tuần trước 17:00 thứ 6',
+            ];
+
+            notifications.push({
+                userId: employee._id,
+                type: 'system',
+                title: 'Thông báo hệ thống',
+                message: systemMessages[randomInt(0, systemMessages.length - 1)],
+                relatedEntityType: 'other',
+                isRead: Math.random() > 0.5, // 50% đã đọc
+                readAt: Math.random() > 0.5 ? new Date(notificationDate.getTime() + 1800000) : null,
+                createdAt: notificationDate,
+            });
+        }
+
+        const createdNotifications = await NotificationModel.insertMany(notifications);
+        console.log(`✅ Created ${createdNotifications.length} notifications\n`);
+
         // ========== 6. TẠO REPORTS (Báo cáo) - Weekly & Monthly ==========
         console.log('📊 Creating reports...');
         const reports = [];
 
-        // Weekly reports cho 12 tuần gần nhất
-        for (let weekOffset = 0; weekOffset < 12; weekOffset++) {
-            const weekStart = new Date(today);
+        // Weekly reports cho 24 tuần gần nhất (bao gồm tháng 12)
+        for (let weekOffset = 0; weekOffset < 24; weekOffset++) {
+            const weekStart = new Date(seedBaseDate);
             weekStart.setDate(weekStart.getDate() - (weekOffset * 7) - 6);
             weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Thứ 2
             const weekEnd = new Date(weekStart);
@@ -588,9 +715,9 @@ async function seed() {
             }
         }
 
-        // Monthly reports cho 3 tháng gần nhất
-        for (let monthOffset = 0; monthOffset < 3; monthOffset++) {
-            const monthStart = new Date(today);
+        // Monthly reports cho 6 tháng gần nhất (bao gồm tháng 12)
+        for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
+            const monthStart = new Date(seedBaseDate);
             monthStart.setMonth(monthStart.getMonth() - monthOffset);
             monthStart.setDate(1);
             const monthEnd = new Date(monthStart);
@@ -776,8 +903,9 @@ async function seed() {
         const positions = ['Senior Developer', 'Frontend Developer', 'Backend Developer', 'Marketing Manager', 'HR Specialist', 'Designer', 'QA Engineer', 'Product Manager'];
 
         // Tạo payroll records cho 6 tháng gần nhất
+        // Tạo payroll cho 6 tháng gần nhất (bao gồm tháng 12)
         for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
-            const monthDate = new Date(today);
+            const monthDate = new Date(seedBaseDate);
             monthDate.setMonth(monthDate.getMonth() - monthOffset);
             const monthStr = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
 
@@ -944,8 +1072,9 @@ async function seed() {
         ];
 
         // Tạo events cho 6 tháng (3 tháng trước và 3 tháng tới)
+        // Calendar events cho 6 tháng (3 tháng trước + 3 tháng sau từ seedBaseDate)
         for (let monthOffset = -3; monthOffset < 3; monthOffset++) {
-            const monthDate = new Date(today);
+            const monthDate = new Date(seedBaseDate);
             monthDate.setMonth(monthDate.getMonth() + monthOffset);
 
             // Tạo 5-8 events mỗi tháng
@@ -995,9 +1124,9 @@ async function seed() {
         const employeeSchedules = [];
         const scheduleStatuses = ['scheduled', 'completed', 'missed', 'off'];
 
-        // Tạo schedule cho 2 tháng (60 ngày - 1 tháng trước + 1 tháng tới)
-        for (let dayOffset = -30; dayOffset < 30; dayOffset++) {
-            const scheduleDate = new Date(today);
+        // Tạo schedule cho 3 tháng (90 ngày - từ 2 tháng trước đến 1 tháng sau seedBaseDate)
+        for (let dayOffset = -60; dayOffset < 30; dayOffset++) {
+            const scheduleDate = new Date(seedBaseDate);
             scheduleDate.setDate(scheduleDate.getDate() + dayOffset);
 
             // Bỏ qua cuối tuần
@@ -1024,7 +1153,7 @@ async function seed() {
                 if (Math.random() < 0.05) continue; // 5% nghỉ
 
                 const shift = shifts[0]; // Full time shift
-                const status = scheduleDate < today ? (Math.random() > 0.1 ? 'completed' : 'missed') : 'scheduled';
+                const status = scheduleDate < seedBaseDate ? (Math.random() > 0.1 ? 'completed' : 'missed') : 'scheduled';
 
                 const schedule = {
                     userId: employee._id,
@@ -1038,7 +1167,7 @@ async function seed() {
                 };
 
                 // Liên kết với attendance nếu đã completed
-                if (status === 'completed' && scheduleDate < today) {
+                if (status === 'completed' && scheduleDate < seedBaseDate) {
                     const attendance = createdAttendances.find(
                         a => a.userId.equals(employee._id) &&
                             a.date.toDateString() === scheduleDate.toDateString()
@@ -1131,10 +1260,15 @@ async function seed() {
         console.log('🎉 Seed completed successfully!\n');
         console.log('📊 Summary:');
         console.log(`   - Shifts: ${shifts.length}`);
+        console.log(`   - Request Types: ${createdRequestTypes.length}`);
         console.log(`   - Locations: ${locations.length}`);
+        console.log(`   - Branches: ${branches.length}`);
+        console.log(`   - Departments: ${departments.length}`);
         console.log(`   - Users: ${createdUsers.length}`);
+        console.log(`   - Employee Shift Assignments: ${createdAssignments.length}`);
         console.log(`   - Attendances: ${createdAttendances.length}`);
         console.log(`   - Requests: ${createdRequests.length}`);
+        console.log(`   - Notifications: ${createdNotifications.length}`);
         console.log(`   - Reports: ${createdReports.length}`);
         console.log(`   - Logs: ${createdLogs.length}`);
         console.log(`   - Payroll Records: ${createdPayrollRecords.length}`);

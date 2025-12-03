@@ -772,6 +772,9 @@
     "title": "Phân tích chấm công",
     "description": "Thống kê và phân tích xu hướng chấm công",
     "export": "Xuất báo cáo",
+    "exportLoading": "📥 Đang xuất báo cáo phân tích...",
+    "exportSuccess": "Xuất báo cáo thành công!",
+    "exportError": "Xuất báo cáo thất bại",
     "stats": {
       "attendanceRate": "Tỷ lệ chấm công",
       "avgPresent": "Đi làm trung bình",
@@ -844,8 +847,11 @@
     "searchPlaceholder": "Tìm theo tên, email, phòng ban...",
     "filterByRole": "Lọc theo vai trò",
     "filterByStatus": "Lọc theo trạng thái",
+    "filterByShift": "Lọc theo ca",
     "allRoles": "Tất cả vai trò",
     "allStatus": "Tất cả trạng thái",
+    "allShifts": "Tất cả ca",
+    "noShift": "Chưa có ca",
     "active": "Hoạt động",
     "inactive": "Ngừng hoạt động",
     "stats": {
@@ -859,6 +865,7 @@
       "employee": "Nhân viên",
       "email": "Email",
       "department": "Phòng ban",
+      "shift": "Ca làm việc",
       "role": "Vai trò",
       "status": "Trạng thái",
       "actions": "Thao tác",
@@ -880,6 +887,7 @@
       "id": "ID:",
       "email": "Email",
       "department": "Phòng ban",
+      "shift": "Ca làm việc",
       "role": "Vai trò",
       "phone": "Số điện thoại",
       "createdAt": "Ngày tạo",
@@ -898,6 +906,9 @@
       "department": "Phòng ban",
       "selectDepartment": "Chọn phòng ban",
       "noDepartment": "N/A",
+      "shift": "Ca làm việc",
+      "selectShift": "Chọn ca làm việc",
+      "noShift": "Không có ca",
       "role": "Vai trò",
       "selectRole": "Chọn vai trò",
       "accountStatus": "Trạng thái tài khoản",
@@ -1227,8 +1238,12 @@
     "dialog": {
       "addTitle": "Thêm phòng ban mới",
       "editTitle": "Chỉnh sửa phòng ban",
+      "createDescription": "Điền thông tin để tạo phòng ban mới",
+      "editDescription": "Cập nhật thông tin phòng ban",
       "name": "Tên phòng ban",
+      "namePlaceholder": "Nhập tên phòng ban",
       "code": "Mã phòng ban",
+      "codePlaceholder": "Nhập mã phòng ban",
       "description": "Mô tả",
       "descriptionPlaceholder": "Mô tả về phòng ban...",
       "branch": "Chi nhánh",
@@ -1259,6 +1274,13 @@
     "errors": {
       "fillRequired": "Vui lòng điền đầy đủ thông tin bắt buộc",
       "generic": "Có lỗi xảy ra"
+    },
+    "filters": {
+      "allBranches": "Tất cả chi nhánh"
+    },
+    "delete": {
+      "confirm": "Bạn có chắc muốn xóa phòng ban \"{{name}}\"?",
+      "success": "Đã xóa phòng ban {{name}}"
     },
     "management": "Quản lý"
   },
