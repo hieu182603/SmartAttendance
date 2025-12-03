@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   DollarSign,
@@ -8,6 +8,8 @@ import {
   TrendingUp,
   Users,
   Clock,
+  Eye,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -16,6 +18,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import {
   Table,
@@ -35,6 +45,9 @@ import {
 import {
   getPayrollRecords,
   getDepartments,
+  getPayrollById,
+  approvePayroll,
+  markAsPaid,
   type PayrollRecord,
 } from "../../../services/payrollService";
 
@@ -53,6 +66,15 @@ export default function PayrollPage() {
   const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  
+  // Dialog states
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
+  const [loadingAction, setLoadingAction] = useState(false);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -95,24 +117,49 @@ export default function PayrollPage() {
     fetchPayrollData();
   }, [selectedMonth]);
 
-  const filteredData = payrollData.filter((record) => {
-    const employeeName = record.userId?.name || "";
-    const empId = record.employeeId || record.userId?.employeeId || "";
+  const filteredData = useMemo(() => {
+    return payrollData.filter((record) => {
+      const employeeName = record.userId?.name || "";
+      const empId = record.employeeId || record.userId?.employeeId || "";
 
-    const matchSearch =
-      employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      empId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchDepartment =
-      filterDepartment === "all" || record.department === filterDepartment;
-    const matchStatus =
-      filterStatus === "all" || record.status === filterStatus;
+      const matchSearch =
+        employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        empId.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchDepartment =
+        filterDepartment === "all" || record.department === filterDepartment;
+      const matchStatus =
+        filterStatus === "all" || record.status === filterStatus;
 
-    return matchSearch && matchDepartment && matchStatus;
-  });
+      return matchSearch && matchDepartment && matchStatus;
+    });
+  }, [payrollData, searchTerm, filterDepartment, filterStatus]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterDepartment, filterStatus, selectedMonth]);
+
+  // Calculate pagination
+  const pagination = useMemo(() => {
+    const total = filteredData.length;
+    const totalPages = Math.ceil(total / itemsPerPage);
+    return {
+      total,
+      page: currentPage,
+      limit: itemsPerPage,
+      totalPages,
+    };
+  }, [filteredData.length, currentPage, itemsPerPage]);
+
+  // Get paginated data
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredData.slice(startIndex, endIndex);
+  }, [filteredData, currentPage, itemsPerPage]);
 
   const exportToExcel = () => {
     const headers = [
-      t("payroll.employeeCode"),
       t("payroll.employeeName"),
       t("payroll.table.department"),
       t("payroll.table.position"),
@@ -133,7 +180,6 @@ export default function PayrollPage() {
       headers.join(","),
       ...filteredData.map((record) =>
         [
-          record.employeeId || record.userId?.employeeId || "N/A",
           record.userId?.name || "N/A",
           record.department,
           record.position,
@@ -212,6 +258,76 @@ export default function PayrollPage() {
           payrollData.length
         : 0,
     pendingApproval: payrollData.filter((r) => r.status === "pending").length,
+  };
+
+  // Handler functions
+  const handleViewDetails = async (record: PayrollRecord) => {
+    try {
+      setLoadingAction(true);
+      const detailedRecord = await getPayrollById(record._id);
+      setSelectedRecord(detailedRecord);
+      setIsViewDialogOpen(true);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Không thể tải chi tiết bảng lương");
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleOpenApproveDialog = (record: PayrollRecord) => {
+    setSelectedRecord(record);
+    setIsApproveDialogOpen(true);
+  };
+
+  const handleOpenMarkPaidDialog = (record: PayrollRecord) => {
+    setSelectedRecord(record);
+    setIsMarkPaidDialogOpen(true);
+  };
+
+  const handleApprove = async () => {
+    if (!selectedRecord) return;
+
+    try {
+      setLoadingAction(true);
+      await approvePayroll(selectedRecord._id);
+      toast.success("Duyệt bảng lương thành công");
+      setIsApproveDialogOpen(false);
+      setSelectedRecord(null);
+      
+      // Refresh data
+      const response = await getPayrollRecords({
+        month: selectedMonth,
+        limit: 1000,
+      });
+      setPayrollData(response.records || []);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Không thể duyệt bảng lương");
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (!selectedRecord) return;
+
+    try {
+      setLoadingAction(true);
+      await markAsPaid(selectedRecord._id);
+      toast.success("Đánh dấu đã thanh toán thành công");
+      setIsMarkPaidDialogOpen(false);
+      setSelectedRecord(null);
+      
+      // Refresh data
+      const response = await getPayrollRecords({
+        month: selectedMonth,
+        limit: 1000,
+      });
+      setPayrollData(response.records || []);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Không thể đánh dấu đã thanh toán");
+    } finally {
+      setLoadingAction(false);
+    }
   };
 
   return (
@@ -443,9 +559,6 @@ export default function PayrollPage() {
                 <TableHeader>
                   <TableRow className="border-[var(--border)] hover:bg-transparent">
                     <TableHead className="text-[var(--text-sub)]">
-                      {t("payroll.employeeCode")}
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)]">
                       {t("payroll.employeeName")}
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)]">
@@ -475,6 +588,9 @@ export default function PayrollPage() {
                     <TableHead className="text-[var(--text-sub)] text-center">
                       {t("payroll.table.status")}
                     </TableHead>
+                    <TableHead className="text-[var(--text-sub)] text-center">
+                      Thao tác
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -489,15 +605,12 @@ export default function PayrollPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : filteredData.length > 0 ? (
-                    filteredData.map((record, index) => (
+                  ) : paginatedData.length > 0 ? (
+                    paginatedData.map((record, index) => (
                       <TableRow
                         key={record._id}
                         className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
                       >
-                        <TableCell className="text-[var(--text-main)]">
-                          {record.employeeId || record.userId?.employeeId || "N/A"}
-                        </TableCell>
                         <TableCell className="text-[var(--text-main)]">
                           {record.userId?.name || "N/A"}
                         </TableCell>
@@ -530,6 +643,41 @@ export default function PayrollPage() {
                             {getStatusLabel(record.status)}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewDetails(record)}
+                              className="h-8 w-8 p-0 border-[var(--border)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
+                              title="Xem chi tiết"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {record.status === "pending" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenApproveDialog(record)}
+                                className="h-8 w-8 p-0 border-[var(--success)] text-[var(--success)] hover:bg-[var(--success)]/10"
+                                title="Duyệt"
+                              >
+                                <CheckCircle2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {record.status === "approved" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenMarkPaidDialog(record)}
+                                className="h-8 w-8 p-0 border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                                title="Đánh dấu đã thanh toán"
+                              >
+                                <DollarSign className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : null}
@@ -547,9 +695,335 @@ export default function PayrollPage() {
                 <p className="text-[var(--text-sub)]">{t("payroll.noData")}</p>
               </motion.div>
             )}
+
+            {/* Pagination Controls */}
+            {!loading && pagination.totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-[var(--border)]">
+                <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
+                  <span>
+                    Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
+                  </span>
+                  <span className="hidden sm:inline">•</span>
+                  <div className="flex items-center gap-2">
+                    <span>Dòng mỗi trang</span>
+                    <Select value={itemsPerPage.toString()} onValueChange={(v) => {
+                      setItemsPerPage(Number(v));
+                      setCurrentPage(1);
+                    }}>
+                      <SelectTrigger className="w-20 h-8 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="30">30</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                  >
+                    «
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                  >
+                    ‹
+                  </Button>
+
+                  <span className="px-4 text-sm text-[var(--text-main)]">
+                    Trang {currentPage} / {pagination.totalPages}
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
+                    disabled={currentPage >= pagination.totalPages}
+                    className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                  >
+                    ›
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(pagination.totalPages)}
+                    disabled={currentPage >= pagination.totalPages}
+                    className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
+                  >
+                    »
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">
+              Chi tiết bảng lương
+            </DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              {selectedRecord && `${selectedRecord.userId?.name || "N/A"} - Tháng ${selectedRecord.month}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="space-y-4 py-2">
+              {/* Employee Info - Header */}
+              <div className="p-4 bg-[var(--shell)] rounded-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-[var(--text-main)]">
+                    {selectedRecord.userId?.name || "N/A"}
+                  </h3>
+                  <Badge className={getStatusColor(selectedRecord.status)}>
+                    {getStatusLabel(selectedRecord.status)}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-[var(--text-sub)] text-xs">Phòng ban</span>
+                    <p className="text-[var(--text-main)] font-medium mt-1">{selectedRecord.department}</p>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-sub)] text-xs">Chức vụ</span>
+                    <p className="text-[var(--text-main)] font-medium mt-1">{selectedRecord.position || "N/A"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-sub)] text-xs">Tháng</span>
+                    <p className="text-[var(--text-main)] font-medium mt-1">{selectedRecord.month}</p>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-sub)] text-xs">Kỳ lương</span>
+                    <p className="text-[var(--text-main)] font-medium mt-1">
+                      {new Date(selectedRecord.periodStart).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} - {new Date(selectedRecord.periodEnd).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Content - 2 Columns */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Left Column - Attendance & History */}
+                <div className="space-y-4">
+                  {/* Attendance Details */}
+                  <div className="p-4 bg-[var(--shell)] rounded-xl">
+                    <h4 className="text-sm font-semibold text-[var(--text-sub)] uppercase tracking-wide mb-3">
+                      Thông tin chấm công
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <span className="text-xs text-[var(--text-sub)]">Ngày công</span>
+                        <p className="text-[var(--text-main)] font-medium text-sm">
+                          {selectedRecord.workDays}/{selectedRecord.totalDays}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-[var(--text-sub)]">Giờ làm thêm</span>
+                        <p className="text-[var(--text-main)] font-medium text-sm">
+                          {selectedRecord.overtimeHours} giờ
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-[var(--text-sub)]">Ngày nghỉ</span>
+                        <p className="text-[var(--text-main)] font-medium text-sm">
+                          {selectedRecord.leaveDays} ngày
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-[var(--text-sub)]">Ngày đi muộn</span>
+                        <p className="text-[var(--text-main)] font-medium text-sm">
+                          {selectedRecord.lateDays} ngày
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Approval Info */}
+                  {(selectedRecord.approvedAt || selectedRecord.paidAt) && (
+                    <div className="p-4 bg-[var(--shell)] rounded-xl">
+                      <h4 className="text-sm font-semibold text-[var(--text-sub)] uppercase tracking-wide mb-3">
+                        Lịch sử xử lý
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        {selectedRecord.approvedAt && (
+                          <div className="flex justify-between">
+                            <span className="text-[var(--text-sub)]">Ngày duyệt:</span>
+                            <span className="text-[var(--text-main)] font-medium">
+                              {new Date(selectedRecord.approvedAt).toLocaleString("vi-VN", { 
+                                day: "2-digit", 
+                                month: "2-digit", 
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit"
+                              })}
+                            </span>
+                          </div>
+                        )}
+                        {selectedRecord.paidAt && (
+                          <div className="flex justify-between">
+                            <span className="text-[var(--text-sub)]">Ngày thanh toán:</span>
+                            <span className="text-[var(--text-main)] font-medium">
+                              {new Date(selectedRecord.paidAt).toLocaleString("vi-VN", { 
+                                day: "2-digit", 
+                                month: "2-digit", 
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit"
+                              })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column - Salary Details */}
+                <div className="p-4 bg-[var(--shell)] rounded-xl">
+                  <h4 className="text-sm font-semibold text-[var(--text-sub)] uppercase tracking-wide mb-3">
+                    Chi tiết lương
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                      <span className="text-[var(--text-sub)] text-sm">Lương cơ bản</span>
+                      <span className="text-[var(--text-main)] font-medium">
+                        {formatCurrency(selectedRecord.baseSalary)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                      <span className="text-[var(--text-sub)] text-sm">Phụ cấp làm thêm</span>
+                      <span className="text-[var(--success)] font-medium">
+                        +{formatCurrency(selectedRecord.overtimePay)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                      <span className="text-[var(--text-sub)] text-sm">Thưởng</span>
+                      <span className="text-[var(--success)] font-medium">
+                        +{formatCurrency(selectedRecord.bonus)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
+                      <span className="text-[var(--text-sub)] text-sm">Khấu trừ</span>
+                      <span className="text-[var(--error)] font-medium">
+                        -{formatCurrency(selectedRecord.deductions)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-3 mt-3 border-t-2 border-[var(--primary)]">
+                      <span className="text-[var(--text-main)] font-semibold text-base">Tổng lương</span>
+                      <span className="text-[var(--text-main)] font-bold text-xl">
+                        {formatCurrency(selectedRecord.totalSalary)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsViewDialogOpen(false)}
+              className="border-[var(--border)] text-[var(--text-main)]"
+            >
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+          <DialogHeader>
+            <DialogTitle>Duyệt bảng lương</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Bạn có chắc chắn muốn duyệt bảng lương này?
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="space-y-2 py-2">
+              <p className="text-[var(--text-main)]">
+                <strong>{selectedRecord.userId?.name || "N/A"}</strong> - Tháng {selectedRecord.month}
+              </p>
+              <p className="text-sm text-[var(--text-sub)]">
+                Tổng lương: <span className="font-semibold text-[var(--text-main)]">{formatCurrency(selectedRecord.totalSalary)}</span>
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsApproveDialogOpen(false)}
+              className="border-[var(--border)] text-[var(--text-main)]"
+              disabled={loadingAction}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleApprove}
+              disabled={loadingAction}
+              className="bg-[var(--success)] hover:bg-[var(--success)]/80 text-white"
+            >
+              {loadingAction ? "Đang xử lý..." : "Xác nhận duyệt"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark as Paid Confirmation Dialog */}
+      <Dialog open={isMarkPaidDialogOpen} onOpenChange={setIsMarkPaidDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+          <DialogHeader>
+            <DialogTitle>Đánh dấu đã thanh toán</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Bạn có chắc chắn muốn đánh dấu bảng lương này đã được thanh toán?
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="space-y-2 py-2">
+              <p className="text-[var(--text-main)]">
+                <strong>{selectedRecord.userId?.name || "N/A"}</strong> - Tháng {selectedRecord.month}
+              </p>
+              <p className="text-sm text-[var(--text-sub)]">
+                Tổng lương: <span className="font-semibold text-[var(--text-main)]">{formatCurrency(selectedRecord.totalSalary)}</span>
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsMarkPaidDialogOpen(false)}
+              className="border-[var(--border)] text-[var(--text-main)]"
+              disabled={loadingAction}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleMarkAsPaid}
+              disabled={loadingAction}
+              className="bg-[var(--primary)] hover:bg-[var(--primary)]/80 text-white"
+            >
+              {loadingAction ? "Đang xử lý..." : "Xác nhận thanh toán"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
