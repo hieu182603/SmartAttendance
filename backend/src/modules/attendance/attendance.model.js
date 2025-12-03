@@ -32,7 +32,7 @@ const attendanceSchema = new mongoose.Schema(
     },
     locationId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Location",
+      ref: "Branch", // Đã chuyển từ Location sang Branch
     },
     notes: { type: String, trim: true },
   },

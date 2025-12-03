@@ -228,11 +228,11 @@ export class BranchService {
   }
 
   /**
-   * Lấy danh sách đơn giản (cho dropdown)
+   * Lấy danh sách đơn giản (cho dropdown và check-in)
    */
   static async getBranchesList() {
     const branches = await BranchModel.find({ status: "active" })
-      .select("name code")
+      .select("name code latitude longitude")
       .sort({ name: 1 });
 
     return branches;

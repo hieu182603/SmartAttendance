@@ -74,6 +74,7 @@ export class AuthController {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     static async register(req, res) {
+        let parsedData = null;
         try {
             // Validate request body
             const parse = registerSchema.safeParse(req.body);
@@ -97,8 +98,10 @@ export class AuthController {
                 });
             }
 
+            parsedData = parse.data;
+
             // Register user
-            const result = await AuthService.register(parse.data);
+            const result = await AuthService.register(parsedData);
 
             // Log successful registration
             await logActivity(req, {
@@ -106,7 +109,7 @@ export class AuthController {
                 entityType: "auth",
                 entityId: result.user?.id || null,
                 details: {
-                    description: `Đăng ký tài khoản mới: ${result.user?.email || parse.data.email}`,
+                    description: `Đăng ký tài khoản mới: ${result.user?.email || parsedData.email}`,
                     userEmail: result.user?.email,
                     userName: result.user?.name,
                 },
@@ -125,7 +128,7 @@ export class AuthController {
                 action: "register",
                 entityType: "auth",
                 details: {
-                    description: `Đăng ký thất bại: ${parse.data?.email || "Unknown email"}`,
+                    description: `Đăng ký thất bại: ${parsedData?.email || req.body?.email || "Unknown email"}`,
                     reason: error.message,
                 },
                 status: "failed",
@@ -178,6 +181,7 @@ export class AuthController {
      *               $ref: '#/components/schemas/ErrorResponse'
      */
     static async login(req, res) {
+        let parsedData = null;
         try {
             // Validate request body
             const parse = loginSchema.safeParse(req.body);
@@ -188,8 +192,10 @@ export class AuthController {
                 });
             }
 
+            parsedData = parse.data;
+
             // Login user
-            const result = await AuthService.login(parse.data);
+            const result = await AuthService.login(parsedData);
 
             // Log successful login
             await logActivity(req, {
@@ -197,7 +203,7 @@ export class AuthController {
                 entityType: "auth",
                 entityId: result.user?.id || null,
                 details: {
-                    description: `Đăng nhập thành công: ${result.user?.email || parse.data.email}`,
+                    description: `Đăng nhập thành công: ${result.user?.email || parsedData.email}`,
                     userEmail: result.user?.email,
                     userName: result.user?.name,
                 },
@@ -214,7 +220,7 @@ export class AuthController {
                 action: "login",
                 entityType: "auth",
                 details: {
-                    description: `Đăng nhập thất bại: ${parse.data?.email || "Unknown email"}`,
+                    description: `Đăng nhập thất bại: ${parsedData?.email || req.body?.email || "Unknown email"}`,
                     reason: error.message,
                 },
                 status: "failed",

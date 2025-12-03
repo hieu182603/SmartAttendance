@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Eye, X } from 'lucide-react'
+import { Eye, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -54,8 +54,8 @@ const HistoryPage: React.FC = () => {
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]) // For summary stats
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedDate, setSelectedDate] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(20)
@@ -75,6 +75,7 @@ const HistoryPage: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true
+    const controller = new AbortController()
     
     const fetchData = async () => {
       setLoading(true)
@@ -82,30 +83,31 @@ const HistoryPage: React.FC = () => {
       
       try {
         const baseParams = {
-          from: selectedDate || undefined,
-          to: selectedDate || undefined,
-          search: searchTerm || undefined,
+          from: fromDate || undefined,
+          to: toDate || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
         }
 
-        const paginatedResult = await getAttendanceHistory({
-          ...baseParams,
-          page: currentPage,
-          limit: itemsPerPage,
-        })
-
-        const statsResult = searchTerm 
-          ? paginatedResult 
-          : await getAttendanceHistory({ ...baseParams, limit: 1000 })
+        const [paginatedResult, statsResult] = await Promise.all([
+          getAttendanceHistory({
+            ...baseParams,
+            page: currentPage,
+            limit: itemsPerPage,
+          }),
+          fromDate || toDate || statusFilter !== 'all'
+            ? Promise.resolve(null)
+            : getAttendanceHistory({ ...baseParams, limit: 1000 })
+        ])
 
         if (isMounted) {
           setRecords((paginatedResult.records || []) as unknown as AttendanceRecord[])
-          setAllRecords((statsResult.records || []) as unknown as AttendanceRecord[])
+          setAllRecords((statsResult?.records || paginatedResult.records || []) as unknown as AttendanceRecord[])
           if (paginatedResult.pagination) {
             setPagination(paginatedResult.pagination)
           }
         }
       } catch (err) {
-        if (isMounted) {
+        if (isMounted && !controller.signal.aborted) {
           const error = err as Error
           setError(error.message || t('dashboard:history.details.loading'))
         }
@@ -119,17 +121,16 @@ const HistoryPage: React.FC = () => {
     fetchData()
     return () => {
       isMounted = false
+      controller.abort()
     }
-  }, [selectedDate, searchTerm, currentPage, itemsPerPage, t])
+  }, [fromDate, toDate, statusFilter, currentPage, itemsPerPage, t])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedDate, searchTerm])
+  }, [fromDate, toDate, statusFilter])
 
-  const filteredData = useMemo(() => {
-    if (statusFilter === 'all') return records
-    return records.filter(record => record.status === statusFilter)
-  }, [records, statusFilter])
+  // Backend đã filter rồi, không cần filter ở client nữa
+  const filteredData = records
 
   const summary = useMemo(() => {
     const total = allRecords.length
@@ -150,15 +151,27 @@ const HistoryPage: React.FC = () => {
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6 mt-4">
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Search Bar */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
-              <Input
-                placeholder={t('dashboard:history.filters.searchPlaceholder')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-              />
+            {/* Date Range Filter */}
+            <div className="flex gap-2 flex-1">
+              <div className="flex-1">
+                <Input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  placeholder="Từ ngày"
+                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                />
+              </div>
+              <div className="flex items-center px-2 text-[var(--text-sub)]">→</div>
+              <div className="flex-1">
+                <Input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  placeholder="Đến ngày"
+                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                />
+              </div>
             </div>
 
             {/* Status Filter */}
@@ -176,15 +189,6 @@ const HistoryPage: React.FC = () => {
                 <SelectItem value="on_leave">{t('dashboard:history.statusLabels.onLeave', { defaultValue: 'Nghỉ phép' })}</SelectItem>
               </SelectContent>
             </Select>
-
-            {/* Date Filter - Chọn 1 ngày cụ thể */}
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              placeholder={t('dashboard:history.filters.selectDate')}
-              className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-            />
 
 
           </div>
