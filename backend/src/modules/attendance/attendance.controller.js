@@ -1,8 +1,24 @@
 import { AttendanceModel } from "./attendance.model.js";
-import { LocationModel } from "../locations/location.model.js";
+import { BranchModel } from "../branches/branch.model.js";
 import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
 import { SHIFT_CONFIG, ATTENDANCE_CONFIG } from "../../config/app.config.js";
+
+// Hàm tính khoảng cách giữa 2 điểm GPS (Haversine formula)
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const R = 6371e3; // Bán kính trái đất (mét)
+  
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δφ = toRad(lat2 - lat1);
+  const Δλ = toRad(lon2 - lon1);
+  
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  
+  return R * c; // Khoảng cách tính bằng mét
+};
 
 const formatDateLabel = (date) => {
   const pad = (value) => String(value).padStart(2, "0");
@@ -286,10 +302,16 @@ export const getRecentAttendance = async (req, res) => {
 export const getAttendanceHistory = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { from, to, search, page = 1, limit = 20 } = req.query;
+    const { from, to, status, page = 1, limit = 20 } = req.query;
 
     const query = { userId };
 
+    // Filter by status
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    // Filter by date range
     if (from || to) {
       query.date = {};
       if (from) {
@@ -300,10 +322,6 @@ export const getAttendanceHistory = async (req, res) => {
         const toDate = new Date(to + 'T23:59:59.999Z');
         query.date.$lte = toDate;
       }
-    }
-
-    if (search) {
-      query.notes = { $regex: search, $options: 'i' };
     }
 
     // Optimized pagination: Use MongoDB skip() and limit() instead of loading all records
@@ -398,26 +416,28 @@ export const checkIn = async (req, res) => {
       });
     }
 
-    const locations = await LocationModel.find({ isActive: true });
+    const branches = await BranchModel.find({ status: "active" });
 
-    let validLocation = null;
-    let validationResult = null;
+    let validBranch = null;
+    let minDistance = Infinity;
 
-    for (const location of locations) {
-      validationResult = location.validateLocation(
+    // Tính khoảng cách đến từng chi nhánh
+    for (const branch of branches) {
+      const distance = calculateDistance(
         latitude,
         longitude,
-        bssid || null,
-        ssid || null
+        branch.latitude,
+        branch.longitude
       );
 
-      if (validationResult.isValid) {
-        validLocation = location;
-        break;
+      if (distance < minDistance) {
+        minDistance = distance;
+        validBranch = branch;
       }
     }
 
-    if (!validLocation) {
+    const MAX_DISTANCE = 100; // 100m
+    if (!validBranch || minDistance > MAX_DISTANCE) {
       return res.status(400).json({
         success: false,
         message:
@@ -480,7 +500,7 @@ export const checkIn = async (req, res) => {
       }
 
       attendance.checkIn = now;
-      attendance.locationId = validLocation._id;
+      attendance.locationId = validBranch._id;
 
       const isLate = checkLateStatus(now, shiftInfo);
       attendance.status = isLate ? "late" : "present";
@@ -505,7 +525,7 @@ export const checkIn = async (req, res) => {
         userId,
         date: dateOnly,
         checkIn: now,
-        locationId: validLocation._id,
+        locationId: validBranch._id,
         status: isLate ? "late" : "present",
         notes: "",
       });
@@ -535,11 +555,8 @@ export const checkIn = async (req, res) => {
       data: {
         checkInTime,
         checkInDate,
-        location: validLocation.name,
-        validationMethod: validationResult.method,
-        distance: validationResult.distance
-          ? `${validationResult.distance}m`
-          : null,
+        location: validBranch.name,
+        distance: minDistance ? `${Math.round(minDistance)}m` : null,
         shiftName: shiftInfo.shiftName,
         shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
         status: attendance.status,
@@ -591,29 +608,30 @@ export const checkOut = async (req, res) => {
       });
     }
 
-    const locations = await LocationModel.find({ isActive: true });
-    let validLocation = null;
-    let validationResult = null;
+    const branches = await BranchModel.find({ status: "active" });
+    let validBranch = null;
+    let minDistance = Infinity;
 
-    for (const location of locations) {
-      validationResult = location.validateLocation(
+    for (const branch of branches) {
+      const distance = calculateDistance(
         latitude,
         longitude,
-        null,
-        null
+        branch.latitude,
+        branch.longitude
       );
 
-      if (validationResult.isValid) {
-        validLocation = location;
-        break;
+      if (distance < minDistance) {
+        minDistance = distance;
+        validBranch = branch;
       }
     }
 
-    if (!validLocation) {
+    const MAX_DISTANCE = 100; // 100m
+    if (!validBranch || minDistance > MAX_DISTANCE) {
       return res.status(400).json({
         success: false,
         message:
-          "Bạn không ở trong khu vực cho phép chấm công. Vui lòng đến văn phòng để check-out.",
+          `Bạn cách văn phòng gần nhất ${Math.round(minDistance)}m. Vui lòng đến gần hơn (trong vòng ${MAX_DISTANCE}m) để check-out.`,
       });
     }
 
@@ -745,10 +763,8 @@ export const checkOut = async (req, res) => {
         checkOutTime,
         checkOutDate,
         workHours,
-        location: validLocation.name,
-        distance: validationResult.distance
-          ? `${validationResult.distance}m`
-          : null,
+        location: validBranch.name,
+        distance: `${Math.round(minDistance)}m`,
         shiftName: shiftInfo.shiftName,
         shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
         isEarlyLeave: checkOutInfo.isEarlyLeave,
@@ -1190,19 +1206,19 @@ export const updateAttendanceRecord = async (req, res) => {
       if (locationId === null || locationName === null || locationName === "") {
         attendance.locationId = undefined;
       } else {
-        let resolvedLocation = null;
+        let resolvedBranch = null;
         if (locationId) {
-          resolvedLocation = await LocationModel.findById(locationId);
+          resolvedBranch = await BranchModel.findById(locationId);
         } else if (locationName) {
-          resolvedLocation = await LocationModel.findOne({
+          resolvedBranch = await BranchModel.findOne({
             name: { $regex: `^${locationName}$`, $options: "i" },
           });
         }
 
-        if (!resolvedLocation) {
-          return res.status(404).json({ message: "Không tìm thấy địa điểm phù hợp" });
+        if (!resolvedBranch) {
+          return res.status(404).json({ message: "Không tìm thấy chi nhánh phù hợp" });
         }
-        attendance.locationId = resolvedLocation._id;
+        attendance.locationId = resolvedBranch._id;
       }
     }
 

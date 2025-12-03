@@ -171,16 +171,16 @@ const ScanPage: React.FC = () => {
     } catch (error: any) {
       console.error("Error getting location:", error);
       
-      let errorMessage = t('dashboard:scan.errors.locationFailed');
+      let errorMessage = "Không thể lấy vị trí. ";
       
-      if (error.code === 1) { // PERMISSION_DENIED
-        errorMessage += t('dashboard:scan.errors.locationPermissionDenied');
-      } else if (error.code === 2) { // POSITION_UNAVAILABLE
-        errorMessage += t('dashboard:scan.errors.locationUnavailable');
-      } else if (error.code === 3) { // TIMEOUT
-        errorMessage += t('dashboard:scan.errors.locationTimeout');
+      if (error.code === 1) { 
+        errorMessage += "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.";
+      } else if (error.code === 2) { 
+        errorMessage += "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.";
+      } else if (error.code === 3) { 
+        errorMessage += "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.";
       } else {
-        errorMessage += t('dashboard:scan.errors.locationGeneric');
+        errorMessage += "Vui lòng kiểm tra quyền truy cập và GPS.";
       }
       
       setLocationError(errorMessage);
@@ -208,8 +208,8 @@ const ScanPage: React.FC = () => {
         setPermissions(prev => ({ ...prev, camera: true }));
       }
     } catch (error) {
-console.error("Error accessing camera:", error);
-      toast.error(t('dashboard:scan.errors.cameraAccess'));
+      console.error("Error accessing camera:", error);
+      toast.error("Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.");
       setPermissions(prev => ({ ...prev, camera: false }));
     }
   }, []);
@@ -300,12 +300,12 @@ console.error("Error accessing camera:", error);
           } : null);
         }
         
-        toast.success(response.data.message || t('dashboard:scan.success.checkInSuccess'));
+        toast.success(response.data.message || "Check-in thành công!");
       }
     } catch (error) {
       console.error("Check-in error:", error);
       const err = error as AxiosError<CheckInError>;
-      const errorMessage = err.response?.data?.message || err.message || t('dashboard:scan.errors.checkInError');
+      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi chấm công";
 
       if (err.response?.data?.code === 'ALREADY_CHECKED_IN') {
         toast.info(errorMessage);
@@ -356,12 +356,12 @@ console.error("Error accessing camera:", error);
           } : null);
         }
         
-        toast.success(response.data.message || t('dashboard:scan.success.checkOutSuccess'));
+        toast.success(response.data.message || "Check-out thành công!");
       }
     } catch (error) {
       console.error("Check-out error:", error);
       const err = error as AxiosError<CheckInError>;
-      const errorMessage = err.response?.data?.message || err.message || t('dashboard:scan.errors.checkOutError');
+      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi check-out";
 
       if (err.response?.data?.code === 'NOT_CHECKED_IN') {
         toast.warning(errorMessage);
@@ -381,12 +381,19 @@ console.error("Error accessing camera:", error);
   useEffect(() => {
     const loadOffices = async () => {
       try {
-        const response = await api.get<{ success: boolean; data: Office[] }>("/locations");
-        if (response.data.success) {
-          setOffices(response.data.data);
+        const response = await api.get<{ branches: any[] }>("/branches/list");
+        if (response.data.branches) {
+          const branches = response.data.branches.map((branch: any) => ({
+            _id: branch._id || branch.id,
+            name: branch.name,
+            latitude: branch.latitude,
+            longitude: branch.longitude,
+            radius: 100,
+          }));
+          setOffices(branches);
         }
       } catch (error) {
-        console.error("Error loading offices:", error);
+        console.error("Error loading branches:", error);
       }
     };
 
@@ -572,7 +579,7 @@ console.error("Error accessing camera:", error);
                   }`}
                 >
                   {granted ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                  {t(`permissions.${key}`)} - {granted ? t('permissions.granted') : t('permissions.denied')}
+                  {key === 'camera' ? 'Camera' : 'Vị trí'} - {granted ? "Đã cấp" : "Chưa cấp"}
                 </span>
               ))}
             </div>
@@ -767,7 +774,7 @@ console.error("Error accessing camera:", error);
               onClick={handleCheckOut}
               disabled={isProcessing || !permissions.camera || !permissions.location || !locationData || !hasCheckedIn || hasCheckedOut || !canCheckOut}
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? t('dashboard:scan.errors.waitOneHour') : ""}
+              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? "Vui lòng chờ ít nhất 1 giờ sau khi check-in" : ""}
             >
               {isProcessing && hasCheckedIn && !hasCheckedOut ? (
                 <>

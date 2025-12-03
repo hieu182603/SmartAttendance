@@ -271,7 +271,6 @@ export const getMySchedule = async (req, res) => {
 
     res.json({ success: true, data: schedules });
   } catch (error) {
-    console.error('[getMySchedule] Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -88,7 +88,6 @@ export default function PerformanceReviewPage() {
   const { hasMinimumRole, role } = usePermissions();
   const userRole = (role || user?.role || UserRole.EMPLOYEE) as UserRoleType;
   const isManager = hasMinimumRole(UserRole.MANAGER) && userRole === UserRole.MANAGER;
-  const isHROrAbove = hasMinimumRole(UserRole.HR_MANAGER);
 
   const fetchEmployees = useCallback(async () => {
     try {
@@ -250,10 +249,10 @@ export default function PerformanceReviewPage() {
     try {
       if (selectedReview) {
         await performanceService.updateReview(selectedReview._id, formData);
-        toast.success(t('dashboard:performanceReview.success.updateSuccess'));
+        toast.success("Cập nhật đánh giá thành công");
       } else {
         await performanceService.createReview(formData);
-        toast.success(t('dashboard:performanceReview.success.createSuccess'));
+        toast.success("Tạo đánh giá thành công");
       }
       fetchReviews();
       fetchStats();
@@ -316,7 +315,7 @@ export default function PerformanceReviewPage() {
 
     try {
       await performanceService.rejectReview(review._id, reason);
-      toast.success(t('dashboard:performanceReview.success.rejectSuccess'));
+      toast.success("Đã từ chối đánh giá");
       fetchReviews();
       fetchStats();
     } catch (error) {
@@ -438,7 +437,7 @@ export default function PerformanceReviewPage() {
                 <div>
                   <p className="text-sm text-[var(--text-sub)] select-none">Điểm TB</p>
                   <p className="text-3xl text-[var(--accent-cyan)] mt-2 select-none">
-                    {stats.avgScore || "N/A"}
+                    {stats.avgScore ? stats.avgScore.toFixed(1) : "0"}
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-[var(--accent-cyan)]/20 flex items-center justify-center">
@@ -811,7 +810,25 @@ export default function PerformanceReviewPage() {
                         min="0"
                         max="100"
                         value={value}
-                        onChange={(e) => setFormData({ ...formData, categories: { ...formData.categories, [key]: parseInt(e.target.value) || 0 } })}
+                        onFocus={(e) => {
+                          e.target.select();
+                          // Nếu giá trị là 0, xóa để dễ nhập
+                          if (value === 0) {
+                            e.target.value = '';
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Nếu để trống, set về 0
+                          if (e.target.value === '') {
+                            setFormData({ ...formData, categories: { ...formData.categories, [key]: 0 } });
+                          }
+                        }}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : parseInt(e.target.value);
+                          if (val === '' || (!isNaN(val as number) && (val as number) >= 0 && (val as number) <= 100)) {
+                            setFormData({ ...formData, categories: { ...formData.categories, [key]: val === '' ? 0 : val as number } });
+                          }
+                        }}
                         className="bg-[var(--surface)] border-[var(--border)] text-xl font-bold text-center h-14"
                       />
                     </div>
