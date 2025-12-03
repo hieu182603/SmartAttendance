@@ -10,9 +10,9 @@ import { shiftAssignmentService } from "./shiftAssignment.service.js";
     }
   };
 /** * Lấy 1 ca làm việc theo ID */ export const getShiftById = async (
-  req,
-  res
-) => {
+    req,
+    res
+  ) => {
   try {
     const shift = await ShiftModel.findById(req.params.id);
     if (!shift)
@@ -160,7 +160,7 @@ export const getShiftEmployeeCounts = async (req, res) => {
   try {
     const { date } = req.query;
     const checkDate = date ? new Date(date) : new Date();
-    
+
     const counts = await shiftAssignmentService.getShiftEmployeeCounts(checkDate);
     res.json({ success: true, data: counts });
   } catch (error) {
@@ -229,12 +229,12 @@ export const getMyShift = async (req, res) => {
     if (!userId) {
       return res.status(401).json({ success: false, message: "User not authenticated" });
     }
-    
+
     const { date } = req.query;
     const checkDate = date ? new Date(date) : new Date();
 
     const shift = await shiftAssignmentService.getUserShift(userId, checkDate);
-    
+
     if (!shift) {
       return res.json({ success: true, data: null });
     }
@@ -255,21 +255,71 @@ export const getMySchedule = async (req, res) => {
     if (!userId) {
       return res.status(401).json({ success: false, message: "User not authenticated" });
     }
-    
+
     const { startDate, endDate } = req.query;
-    
+
     const start = startDate ? new Date(startDate) : new Date();
     start.setHours(0, 0, 0, 0);
-    
+
     const end = endDate ? new Date(endDate) : new Date();
-    end.setDate(end.getDate() + 30); // Default: 30 days ahead
+    end.setDate(end.getDate() + 30);
     end.setHours(23, 59, 59, 999);
 
-    // Import scheduleGenerationService dynamically to avoid circular dependency
+    const { EmployeeScheduleModel } = await import('../schedule/schedule.model.js');
     const { scheduleGenerationService } = await import('../schedule/scheduleGeneration.service.js');
-    const schedules = await scheduleGenerationService.generateScheduleFromAssignments(userId, start, end);
 
-    res.json({ success: true, data: schedules });
+    const existingSchedules = await EmployeeScheduleModel.find({
+      userId,
+      date: { $gte: start, $lte: end },
+    })
+      .populate('shiftId', 'name startTime endTime breakDuration')
+      .lean();
+
+    const scheduleMap = new Map();
+    existingSchedules.forEach((sched) => {
+      const dateStr = sched.date.toISOString().split('T')[0];
+      scheduleMap.set(dateStr, {
+        userId: sched.userId.toString(),
+        date: dateStr,
+        shiftId: sched.shiftId?._id?.toString() || sched.shiftId?.toString(),
+        shiftName: sched.shiftName || sched.shiftId?.name,
+        startTime: sched.startTime || sched.shiftId?.startTime,
+        endTime: sched.endTime || sched.shiftId?.endTime,
+        status: sched.status,
+        location: sched.location,
+        team: sched.team,
+        notes: sched.notes,
+        leaveRequestId: sched.leaveRequestId?.toString(),
+      });
+    });
+
+    const generatedSchedules = await scheduleGenerationService.generateScheduleFromAssignments(userId, start, end);
+
+    const finalSchedules = generatedSchedules.map((genSched) => {
+      const dateStr = genSched.date instanceof Date
+        ? genSched.date.toISOString().split('T')[0]
+        : new Date(genSched.date).toISOString().split('T')[0];
+
+      const existing = scheduleMap.get(dateStr);
+      if (existing) {
+        return existing;
+      }
+
+      return {
+        userId: genSched.userId?.toString() || userId.toString(),
+        date: dateStr,
+        shiftId: genSched.shiftId?.toString(),
+        shiftName: genSched.shiftName,
+        startTime: genSched.startTime,
+        endTime: genSched.endTime,
+        status: genSched.status || 'scheduled',
+        location: genSched.location,
+        team: genSched.team,
+        notes: genSched.notes,
+      };
+    });
+
+    res.json({ success: true, data: finalSchedules });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

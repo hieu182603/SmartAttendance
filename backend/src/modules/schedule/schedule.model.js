@@ -67,6 +67,12 @@ const employeeScheduleSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Attendance",
     },
+
+    // Liên kết với leave request (optional) - để trace schedule nào được tạo từ đơn nghỉ
+    leaveRequestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Request",
+    },
   },
   { timestamps: true }
 );

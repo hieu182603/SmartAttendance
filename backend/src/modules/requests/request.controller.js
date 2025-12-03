@@ -342,6 +342,17 @@ export const approveRequest = async (req, res) => {
     request.approve(approverId, comments)
     await request.save()
 
+    const leaveTypes = ['leave', 'sick', 'unpaid', 'compensatory', 'maternity']
+    if (leaveTypes.includes(request.type)) {
+      try {
+        const { scheduleGenerationService } = await import('../schedule/scheduleGeneration.service.js')
+        await scheduleGenerationService.applyLeaveToSchedule(request)
+        console.log(`[requests] Applied leave to schedule for request ${request._id}`)
+      } catch (scheduleError) {
+        console.error('[requests] Error applying leave to schedule:', scheduleError)
+      }
+    }
+
     const NotificationService = (await import('../notifications/notification.service.js')).NotificationService
     try {
       await NotificationService.createRequestApprovalNotification(
