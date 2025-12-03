@@ -65,9 +65,8 @@ const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
 };
 
 const SchedulePage: React.FC = () => {
-  const { t, i18n } = useTranslation(["dashboard", "common"]);
+  const { t } = useTranslation(['dashboard', 'common']);
   const { user } = useAuth();
-  const locale = i18n.language === "vi" ? "vi-VN" : "en-US";
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,28 +87,46 @@ const SchedulePage: React.FC = () => {
         if (!user?._id) {
           setSchedule([]);
           setLoading(false);
-        // Fetch shifts and attendance data in parallel
-        const [availableShifts, attendanceData] = await Promise.all([
-          shiftService.getAllShifts(),
-          getAttendanceHistory({ limit: 1000 }).catch(() => ({
-            records: [],
-            pagination: null,
-          })),
+          return;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        monthEnd.setHours(0, 0, 0, 0);
+
+        const currentDayOfWeek = today.getDay();
+        const mondayDiff = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+        const weekReference = new Date(today);
+        weekReference.setDate(today.getDate() + mondayDiff);
+        weekReference.setHours(0, 0, 0, 0);
+const futureEnd = new Date(today);
+        futureEnd.setDate(today.getDate() + 30);
+        futureEnd.setHours(0, 0, 0, 0);
+
+        const rangeEnd = futureEnd > monthEnd ? futureEnd : monthEnd;
+        const rangeStart =
+          weekReference < monthStart ? weekReference : monthStart;
+
+        // Fetch schedule from assignments and attendance data in parallel
+        const startDateStr = rangeStart.toISOString().split("T")[0];
+        const endDateStr = rangeEnd.toISOString().split("T")[0];
+
+        // Fetch schedule, attendance, and available shifts in parallel
+        const [scheduleData, attendanceData, availableShifts] = await Promise.all([
+          shiftService.getMySchedule(startDateStr, endDateStr).catch((err) => {
+            console.error('[SchedulePage] Error fetching schedule:', err);
+            return [];
+          }),
+          getAttendanceHistory({ limit: 1000 }).catch(() => ({ records: [], pagination: null })),
+          shiftService.getAllShifts().catch(() => []),
         ]);
 
-        if (!availableShifts || availableShifts.length === 0) {
-          setSchedule([]);
-          return;
-        }
-
-        const fullTimeShift =
-          availableShifts.find((s: any) => s.name === "Full time") ||
-          availableShifts[0];
-
-        if (!fullTimeShift) {
-          setSchedule([]);
-          return;
-        }
+        console.log('[SchedulePage] Schedule data from API:', scheduleData);
+        console.log('[SchedulePage] Date range:', { startDateStr, endDateStr });
+        console.log('[SchedulePage] Available shifts:', availableShifts);
 
         // Store attendance records
         const records = (attendanceData.records || []) as AttendanceRecord[];
@@ -122,18 +139,17 @@ const SchedulePage: React.FC = () => {
             let dateStr = "";
             if (record.date) {
               const dateValue = String(record.date).trim();
-
+              
               // Try ISO format first (YYYY-MM-DD)
               if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
                 const d = new Date(dateValue);
                 if (!Number.isNaN(d.getTime())) {
                   dateStr = d.toISOString().split("T")[0];
                 }
-              }
+              } 
               // Try format like "24 tháng 11, 2024" or "24/11/2024" or "24-11-2024"
               else {
-                const dateRegex =
-                  /(\d{1,2})\s*(?:tháng|[/-])\s*(\d{1,2})(?:,\s*|\s+|[/-])\s*(\d{4})/;
+                const dateRegex = /(\d{1,2})\s*(?:tháng|[/-])\s*(\d{1,2})(?:,\s*|\s+|[/-])\s*(\d{4})/;
                 const dateMatch = dateRegex.exec(dateValue);
                 if (dateMatch) {
                   const day = Number.parseInt(dateMatch[1], 10);
@@ -149,9 +165,9 @@ const SchedulePage: React.FC = () => {
                   if (!Number.isNaN(d.getTime())) {
                     dateStr = d.toISOString().split("T")[0];
                   }
-                }
+}
               }
-
+              
               if (dateStr) {
                 attendanceMap.set(dateStr, record);
               } else {
@@ -163,28 +179,37 @@ const SchedulePage: React.FC = () => {
           }
         });
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Create a map of schedule by date from API response
+        const scheduleMap = new Map<string, any>();
+        scheduleData.forEach((sched: any) => {
+          if (sched && sched.date) {
+            try {
+              const dateObj = sched.date instanceof Date ? sched.date : new Date(sched.date);
+              if (!Number.isNaN(dateObj.getTime())) {
+                const dateStr = dateObj.toISOString().split("T")[0];
+                scheduleMap.set(dateStr, sched);
+              }
+            } catch (err) {
+              console.warn("Error parsing schedule date:", sched.date, err);
+            }
+          }
+        });
+        
+        console.log('[SchedulePage] Schedule map size:', scheduleMap.size);
 
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        monthEnd.setHours(0, 0, 0, 0);
+        // Fallback: Nếu không có schedule từ assignments, sử dụng default shift
+        let fallbackShift = null;
+        if (availableShifts && availableShifts.length > 0) {
+          fallbackShift =
+            availableShifts.find((s: any) => s.name === t('dashboard:schedule.defaults.shiftName')) ||
+            availableShifts[0];
+          if (scheduleMap.size === 0) {
+            console.log('[SchedulePage] No schedules from API, using fallback shift:', fallbackShift);
+          }
+        }
 
-        const currentDayOfWeek = today.getDay();
-        const mondayDiff = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-        const weekReference = new Date(today);
-        weekReference.setDate(today.getDate() + mondayDiff);
-        weekReference.setHours(0, 0, 0, 0);
-
-        const futureEnd = new Date(today);
-        futureEnd.setDate(today.getDate() + 30);
-        futureEnd.setHours(0, 0, 0, 0);
-
-        const rangeEnd = futureEnd > monthEnd ? futureEnd : monthEnd;
-        const rangeStart =
-          weekReference < monthStart ? weekReference : monthStart;
-
-        const scheduleData: EmployeeSchedule[] = [];
+        // Generate schedule for all days in range
+        const finalSchedule: EmployeeSchedule[] = [];
         const cursor = new Date(rangeStart);
 
         while (cursor <= rangeEnd) {
@@ -196,56 +221,87 @@ const SchedulePage: React.FC = () => {
             const dateStr = currentDate.toISOString().split("T")[0];
             const isPast = currentDate < today;
             const attendance = attendanceMap.get(dateStr);
+            const assignedSchedule = scheduleMap.get(dateStr);
 
-            // Determine status based on attendance
-            let status: ShiftStatus = "scheduled";
-            if (attendance) {
-              const hasCheckIn =
-                attendance.checkIn &&
-                String(attendance.checkIn).trim() !== "" &&
-                String(attendance.checkIn).trim() !== "—" &&
-                String(attendance.checkIn).trim() !== "null" &&
-                String(attendance.checkIn).trim() !== "undefined";
+            // Nếu có schedule được gán, sử dụng nó
+            let scheduleToUse = assignedSchedule;
+            
+            // Fallback: Nếu không có schedule từ assignments, sử dụng default shift
+            if (!scheduleToUse && fallbackShift) {
+              scheduleToUse = {
+                shiftId: fallbackShift._id,
+                shiftName: fallbackShift.name,
+                startTime: fallbackShift.startTime,
+                endTime: fallbackShift.endTime,
+                breakDuration: fallbackShift.breakDuration || 60,
+                description: fallbackShift.description || "",
+              };
+            }
 
-              if (hasCheckIn) {
-                status = "completed";
-              } else if (
-                attendance.status === "absent" ||
-                attendance.status === "weekend"
-              ) {
-                status = "off";
+            if (scheduleToUse) {
+              // Determine status based on attendance
+let status: ShiftStatus = "scheduled";
+              if (attendance) {
+                const hasCheckIn = attendance.checkIn && 
+                                   String(attendance.checkIn).trim() !== "" && 
+                                   String(attendance.checkIn).trim() !== "—" &&
+                                   String(attendance.checkIn).trim() !== "null" &&
+                                   String(attendance.checkIn).trim() !== "undefined";
+                
+                if (hasCheckIn) {
+                  status = "completed";
+                } else if (attendance.status === "absent" || attendance.status === "weekend") {
+                  status = "off";
+                } else if (isPast) {
+                  status = "missed";
+                }
               } else if (isPast) {
                 status = "missed";
               }
-            } else if (isPast) {
-              status = "missed";
-            }
 
-            scheduleData.push({
-              _id: `${dateStr}-${fullTimeShift._id}`,
-              date: dateStr,
-              shift: {
-                _id: fullTimeShift._id,
-                name: fullTimeShift.name,
-                startTime: fullTimeShift.startTime,
-                endTime: fullTimeShift.endTime,
-                breakDuration: fullTimeShift.breakDuration || 60,
-              },
-              status,
-              location: attendance?.location || "Văn phòng chính",
-              team: "Dev Team",
-              notes: fullTimeShift.description,
-              attendanceRecord: attendance,
-            });
+              // Parse shiftId - có thể là object hoặc string
+              // Response từ generateScheduleFromAssignments có format:
+              // { userId, date, shiftId: string, shiftName: string, startTime: string, endTime: string, status: string }
+              const shiftId = scheduleToUse.shiftId?._id || scheduleToUse.shiftId || "";
+              const shiftName = scheduleToUse.shiftName || scheduleToUse.shiftId?.name || "";
+              const startTime = scheduleToUse.startTime || scheduleToUse.shiftId?.startTime || "";
+              const endTime = scheduleToUse.endTime || scheduleToUse.shiftId?.endTime || "";
+              const breakDuration = scheduleToUse.shiftId?.breakDuration || scheduleToUse.breakDuration || 60;
+              const description = scheduleToUse.shiftId?.description || scheduleToUse.description || "";
+
+              if (shiftId && shiftName && startTime && endTime) {
+                finalSchedule.push({
+                  _id: `${dateStr}-${shiftId}`,
+                  date: dateStr,
+                  shift: {
+                    _id: shiftId,
+                    name: shiftName,
+                    startTime: startTime,
+                    endTime: endTime,
+                    breakDuration: breakDuration,
+                  },
+                  status,
+                  location: attendance?.location || t('dashboard:schedule.defaults.location'),
+                  team: t('dashboard:schedule.defaults.team'),
+                  notes: description,
+                  attendanceRecord: attendance,
+                });
+              } else {
+                console.warn('[SchedulePage] Missing required fields for schedule:', dateStr, scheduleToUse);
+              }
+            }
+            // Nếu không có schedule được gán và không có fallback, không tạo entry
           }
 
           cursor.setDate(cursor.getDate() + 1);
         }
 
-        scheduleData.sort((a, b) => a.date.localeCompare(b.date));
-        setSchedule(scheduleData);
+        finalSchedule.sort((a, b) => a.date.localeCompare(b.date));
+        console.log('[SchedulePage] Final schedule count:', finalSchedule.length);
+        console.log('[SchedulePage] Final schedule:', finalSchedule);
+setSchedule(finalSchedule);
       } catch (err) {
-        console.error(t("dashboard:schedule.error"), err);
+        console.error(t('dashboard:schedule.error'), err);
         setSchedule([]);
       } finally {
         setLoading(false);
@@ -270,7 +326,7 @@ const SchedulePage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
-        <p className="text-lg">{t("dashboard:schedule.loading")}</p>
+        <p className="text-lg">{t('dashboard:schedule.loading')}</p>
       </div>
     );
   }
@@ -285,13 +341,8 @@ const SchedulePage: React.FC = () => {
       const date = new Date(s.date);
       date.setHours(0, 0, 0, 0);
       const dayOfWeek = date.getDay();
-      // Loại bỏ Thứ 7 (6) và Chủ nhật (0)
-      return (
-        date > today &&
-        s.status === "scheduled" &&
-        dayOfWeek !== 0 &&
-        dayOfWeek !== 6
-      );
+      // Chỉ hiển thị từ Thứ 2 đến Thứ 6 (loại bỏ Thứ 7 và Chủ nhật)
+      return date > today && s.status === "scheduled" && dayOfWeek >= 1 && dayOfWeek <= 5 && s.shift._id;
     })
     .slice(0, 6);
 
@@ -308,12 +359,10 @@ const SchedulePage: React.FC = () => {
     const checkIn = s.attendanceRecord.checkIn;
     if (!checkIn) return false;
     const checkInStr = String(checkIn).trim();
-    return (
-      checkInStr !== "" &&
-      checkInStr !== "—" &&
-      checkInStr !== "null" &&
-      checkInStr !== "undefined"
-    );
+    return checkInStr !== "" && 
+           checkInStr !== "—" && 
+           checkInStr !== "null" && 
+           checkInStr !== "undefined";
   });
 
   const monthOnTime = monthAttended.filter((s) => {
@@ -339,13 +388,12 @@ const SchedulePage: React.FC = () => {
   const monthUpcoming = monthShifts.filter((s) => {
     const date = new Date(s.date);
     date.setHours(0, 0, 0, 0);
-    const hasAttended =
-      s.attendanceRecord &&
-      s.attendanceRecord.checkIn &&
-      String(s.attendanceRecord.checkIn).trim() !== "" &&
-      String(s.attendanceRecord.checkIn).trim() !== "—" &&
-      String(s.attendanceRecord.checkIn).trim() !== "null" &&
-      String(s.attendanceRecord.checkIn).trim() !== "undefined";
+    const hasAttended = s.attendanceRecord && 
+                        s.attendanceRecord.checkIn && 
+                        String(s.attendanceRecord.checkIn).trim() !== "" &&
+String(s.attendanceRecord.checkIn).trim() !== "—" &&
+                        String(s.attendanceRecord.checkIn).trim() !== "null" &&
+                        String(s.attendanceRecord.checkIn).trim() !== "undefined";
     return !hasAttended && date >= today;
   });
 
@@ -359,10 +407,9 @@ const SchedulePage: React.FC = () => {
         ? Math.round((monthAttended.length / monthShifts.length) * 100)
         : 0,
     onTimeCount: monthOnTime.length,
-    onTimeRate:
-      monthAttended.length > 0
-        ? Math.round((monthOnTime.length / monthAttended.length) * 100)
-        : 0,
+    onTimeRate: monthAttended.length > 0
+      ? Math.round((monthOnTime.length / monthAttended.length) * 100)
+      : 0,
   };
 
   const formattedTotalHours =
@@ -403,12 +450,10 @@ const SchedulePage: React.FC = () => {
     const checkIn = s.attendanceRecord.checkIn;
     if (!checkIn) return false;
     const checkInStr = String(checkIn).trim();
-    return (
-      checkInStr !== "" &&
-      checkInStr !== "—" &&
-      checkInStr !== "null" &&
-      checkInStr !== "undefined"
-    );
+    return checkInStr !== "" && 
+           checkInStr !== "—" && 
+           checkInStr !== "null" && 
+           checkInStr !== "undefined";
   });
 
   // Count week on-time shifts
@@ -435,14 +480,14 @@ const SchedulePage: React.FC = () => {
       : "0.0";
 
   // Week attendance: attended / total shifts in week
-  const weekAttendancePercent =
+const weekAttendancePercent =
     expectedWeekdays > 0
       ? ((weekAttendedShifts.length / expectedWeekdays) * 100).toFixed(0)
       : "0";
   const weekAttendanceLabel =
     expectedWeekdays > 0
-      ? `${weekAttendedShifts.length}/${expectedWeekdays} ca`
-      : "0/0 ca";
+      ? `${weekAttendedShifts.length}/${expectedWeekdays} ${t('dashboard:schedule.shift')}`
+      : `0/0 ${t('dashboard:schedule.shift')}`;
 
   // On-time: on-time shifts / total shifts in week
   const weekOnTimePercent =
@@ -461,16 +506,13 @@ const SchedulePage: React.FC = () => {
     const dayShifts = schedule.filter((s) => s.date === dateStr);
 
     if (dayShifts.length === 0) return "off";
-
+    
     // Check if today
     if (dateStr === todayStr) {
       // Check if has attendance record with checkIn
-      const hasAttended = dayShifts.some(
-        (s) =>
-          s.attendanceRecord &&
-          s.attendanceRecord.checkIn &&
-          s.attendanceRecord.checkIn !== "—" &&
-          s.attendanceRecord.checkIn !== ""
+      const hasAttended = dayShifts.some((s) => 
+        s.attendanceRecord && s.attendanceRecord.checkIn && 
+        s.attendanceRecord.checkIn !== "—" && s.attendanceRecord.checkIn !== ""
       );
       return hasAttended ? "completed" : "today";
     }
@@ -481,18 +523,16 @@ const SchedulePage: React.FC = () => {
       const checkIn = s.attendanceRecord.checkIn;
       if (!checkIn) return false;
       const checkInStr = String(checkIn).trim();
-      return (
-        checkInStr !== "" &&
-        checkInStr !== "—" &&
-        checkInStr !== "null" &&
-        checkInStr !== "undefined"
-      );
+      return checkInStr !== "" && 
+             checkInStr !== "—" && 
+             checkInStr !== "null" && 
+             checkInStr !== "undefined";
     });
     if (hasAttended) return "completed";
 
     // Check if off
     if (dayShifts.some((s) => s.status === "off")) return "off";
-
+    
     // Check if no attendance and in the past (should be "off"/nghỉ)
     const isPast = date < today;
     if (isPast && !hasAttended) return "off";
@@ -522,7 +562,7 @@ const SchedulePage: React.FC = () => {
       case "completed":
         return "bg-[var(--success)]/20 text-[var(--success)] border border-[var(--success)]/40 dark:bg-[var(--success)]/10 dark:border-[var(--success)]/25";
       case "scheduled":
-        return "bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25";
+return "bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25";
       case "missed":
         return "bg-[var(--error)]/20 text-[var(--error)] border border-[var(--error)]/40 dark:bg-[var(--error)]/10 dark:border-[var(--error)]/25";
       case "off":
@@ -531,6 +571,7 @@ const SchedulePage: React.FC = () => {
         return "bg-[var(--surface)] border border-[var(--border)]";
     }
   };
+
 
   // Tìm ca hiện tại (đang diễn ra)
   const currentShift = todayShifts.find((s) => {
@@ -584,35 +625,35 @@ const SchedulePage: React.FC = () => {
 
   const statCards: StatCard[] = [
     {
-      label: t("dashboard:schedule.stats.thisMonth"),
+      label: t('dashboard:schedule.stats.thisMonth'),
       value: stats.thisMonth,
       color: "primary",
       icon: "📋",
       delay: 0.1,
     },
     {
-      label: t("dashboard:schedule.stats.checkedIn"),
+      label: t('dashboard:schedule.stats.checkedIn'),
       value: stats.completed,
       color: "success",
       icon: "✅",
       delay: 0.2,
     },
     {
-      label: t("dashboard:schedule.stats.upcoming"),
+      label: t('dashboard:schedule.stats.upcoming'),
       value: stats.upcoming,
       color: "accent-cyan",
       icon: "🔜",
       delay: 0.3,
     },
     {
-      label: t("dashboard:schedule.stats.totalHours"),
+      label: t('dashboard:schedule.stats.totalHours'),
       value: `${formattedTotalHours}h`,
       color: "warning",
       icon: "⏰",
       delay: 0.4,
     },
     {
-      label: t("dashboard:schedule.stats.performance"),
+      label: t('dashboard:schedule.stats.performance'),
       value: stats.performance + "%",
       color: "success",
       icon: "📊",
@@ -625,7 +666,7 @@ const SchedulePage: React.FC = () => {
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         <div className="flex items-center justify-between">
@@ -637,7 +678,7 @@ const SchedulePage: React.FC = () => {
               >
                 📆
               </motion.span>
-              <span>{t("dashboard:schedule.title")}</span>
+              <span>{t('dashboard:schedule.title')}</span>
             </h1>
             <p className="text-[var(--text-sub)] mt-1">
               {today.toLocaleDateString("vi-VN", {
@@ -650,7 +691,7 @@ const SchedulePage: React.FC = () => {
           </div>
           <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 px-4 py-2">
             <AlertCircle className="h-4 w-4 mr-2" />
-            {upcomingShifts.length} {t("dashboard:schedule.upcomingShifts")}
+            {upcomingShifts.length} {t('dashboard:schedule.upcomingShifts')}
           </Badge>
         </div>
       </motion.div>
@@ -699,7 +740,7 @@ const SchedulePage: React.FC = () => {
       <div className="grid lg:grid-cols-5 gap-6">
         {/* Left Column - Today's Shifts Widget (2 cols) */}
         <motion.div
-          className="lg:col-span-2 space-y-6"
+className="lg:col-span-2 space-y-6"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6 }}
@@ -710,20 +751,18 @@ const SchedulePage: React.FC = () => {
               <CardTitle className="text-[var(--text-main)] flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Target className="h-5 w-5 text-[var(--accent-cyan)]" />
-                  <span>{t("dashboard:schedule.todayShift")}</span>
+                  <span>{t('dashboard:schedule.todayShift')}</span>
                 </div>
                 {countdown && (
                   <Badge className="bg-[var(--warning)]/30 text-[var(--warning)] border border-[var(--warning)]/50 dark:bg-[var(--warning)]/20 dark:border-[var(--warning)]/30">
                     <Clock className="h-3 w-3 mr-1" />
-                    {t("dashboard:schedule.timeRemaining")} {countdown.hours}
-                    {t("dashboard:schedule.hours")} {countdown.minutes}
-                    {t("dashboard:schedule.minutes")}
+                    {t('dashboard:schedule.timeRemaining')} {countdown.hours}{t('dashboard:schedule.hours')} {countdown.minutes}{t('dashboard:schedule.minutes')}
                   </Badge>
                 )}
               </CardTitle>
 
-              <div className="flex items-center text-4xl text-[var(--text-sub)] mt-2 justify-center mt-8 mb-8">
-                <Clock className="h-4 w-4 mr-2 text-5xl text-[var(--accent-cyan)] animate-pulse h- w-8" />
+              <div className="flex items-center text-4xl text-[var(--text-sub)] justify-center mt-8 mb-8">
+                <Clock className="h-8 w-8 mr-2 text-[var(--accent-cyan)] animate-pulse" />
                 <span>
                   {liveTime.toLocaleTimeString("vi-VN", { hour12: false })}
                 </span>
@@ -735,7 +774,7 @@ const SchedulePage: React.FC = () => {
                 <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)]">
                   <div className="text-center">
                     <p className="text-sm text-[var(--text-sub)] mb-4">
-                      {t("dashboard:schedule.timeRange")}
+                      {t('dashboard:schedule.timeRange')}
                     </p>
                     <motion.div
                       className="text-3xl text-[var(--text-main)]"
@@ -757,7 +796,7 @@ const SchedulePage: React.FC = () => {
                         let startMin = sh * 60 + sm;
                         let endMin = eh * 60 + em;
                         let now =
-                          currentTime.getHours() * 60 +
+currentTime.getHours() * 60 +
                           currentTime.getMinutes();
 
                         if (endMin < startMin) {
@@ -776,7 +815,7 @@ const SchedulePage: React.FC = () => {
                               className="h-2"
                             />
                             <p className="text-xs text-[var(--text-sub)] mt-2">
-                              {t("dashboard:schedule.inShift")}
+                              {t('dashboard:schedule.inShift')}
                             </p>
                           </div>
                         );
@@ -815,14 +854,10 @@ const SchedulePage: React.FC = () => {
                               </h4>
                               <Badge className={getStatusColor(shift.status)}>
                                 {shift.status === "completed"
-                                  ? `✅ ${t(
-                                      "dashboard:schedule.checkedInStatus"
-                                    )}`
-                                  : `🔵 ${t(
-                                      "dashboard:schedule.notCheckedIn"
-                                    )}`}
+                                  ? `✅ ${t('dashboard:schedule.checkedInStatus')}`
+                                  : `🔵 ${t('dashboard:schedule.notCheckedIn')}`}
                               </Badge>
-                            </div>
+</div>
                           </div>
                         </div>
 
@@ -854,8 +889,8 @@ const SchedulePage: React.FC = () => {
                 ) : (
                   <div className="text-center py-8 text-[var(--text-sub)] text-lg">
                     {new Date().getDay() === 0
-                      ? "Hôm nay chú mày được nghỉ"
-                      : "Hôm nay chú mày không có việc làm"}
+                      ? t('dashboard:schedule.offToday')
+                      : t('dashboard:schedule.noWorkToday')}
                   </div>
                 )}
               </div>
@@ -875,7 +910,7 @@ const SchedulePage: React.FC = () => {
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <CalendarIcon className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>{t("dashboard:schedule.thisWeek")}</span>
+                <span>{t('dashboard:schedule.thisWeek')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -886,7 +921,7 @@ const SchedulePage: React.FC = () => {
                   return (
                     <motion.div
                       key={index}
-                      initial={{ opacity: 0, scale: 0.8 }}
+initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.8 + index * 0.05 }}
                       whileHover={{ scale: 1.1 }}
@@ -919,25 +954,25 @@ const SchedulePage: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--success)]" />
                   <span className="text-[var(--text-sub)]">
-                    {t("dashboard:schedule.legend.done")}
+                    {t('dashboard:schedule.legend.done')}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--accent-cyan)]" />
                   <span className="text-[var(--text-sub)]">
-                    {t("dashboard:schedule.legend.today")}
+                    {t('dashboard:schedule.legend.today')}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--primary)]" />
                   <span className="text-[var(--text-sub)]">
-                    {t("dashboard:schedule.legend.upcoming")}
+                    {t('dashboard:schedule.legend.upcoming')}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--text-sub)]" />
                   <span className="text-[var(--text-sub)]">
-                    {t("dashboard:schedule.legend.off")}
+                    {t('dashboard:schedule.legend.off')}
                   </span>
                 </div>
               </div>
@@ -945,19 +980,17 @@ const SchedulePage: React.FC = () => {
               {/* Week Stats */}
               <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-[var(--border)]">
                 <div className="text-center">
-                  <p className="text-sm text-[var(--text-sub)]">
-                    {t("dashboard:schedule.thisWeekLabel")}
-                  </p>
+                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:schedule.thisWeekLabel')}</p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {weekAttendanceLabel}
                   </p>
-                  <p className="text-xs text-[var(--success)]">
+<p className="text-xs text-[var(--success)]">
                     {weekAttendancePercent}%
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-[var(--text-sub)]">
-                    {t("dashboard:schedule.weekStats.onTime")}
+                    {t('dashboard:schedule.weekStats.onTime')}
                   </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {weekOnTimeLabel}
@@ -968,14 +1001,12 @@ const SchedulePage: React.FC = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-[var(--text-sub)]">
-                    {t("dashboard:schedule.weekStats.avgHoursShort")}
+                    {t('dashboard:schedule.weekStats.avgHoursShort')}
                   </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {avgWeekHours}h
                   </p>
-                  <p className="text-xs text-[var(--text-sub)]">
-                    {t("dashboard:schedule.perDay")}
-                  </p>
+                  <p className="text-xs text-[var(--text-sub)]">{t('dashboard:schedule.perDay')}</p>
                 </div>
               </div>
             </CardContent>
@@ -987,7 +1018,7 @@ const SchedulePage: React.FC = () => {
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <TrendingUp className="h-5 w-5 text-[var(--accent-cyan)]" />
                 <span>
-                  {t("dashboard:schedule.monthStats.title", {
+                  {t('dashboard:schedule.monthStats.title', {
                     month: currentMonthLabel,
                   })}
                 </span>
@@ -997,10 +1028,10 @@ const SchedulePage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-[var(--text-sub)]">
-                    {t("dashboard:schedule.monthProgress")}
+                    {t('dashboard:schedule.monthProgress')}
                   </span>
                   <span className="text-sm text-[var(--text-main)]">
-                    {stats.completed}/{stats.thisMonth} ca (
+                    {stats.completed}/{stats.thisMonth} {t('dashboard:schedule.shift')} (
                     {stats.thisMonth > 0
                       ? ((stats.completed / stats.thisMonth) * 100).toFixed(0)
                       : 0}
@@ -1021,19 +1052,19 @@ const SchedulePage: React.FC = () => {
                 <div className="bg-[var(--shell)] rounded-lg p-3 border border-[var(--border)]/50 dark:border-transparent">
                   <div className="flex items-center space-x-2 mb-2">
                     <Zap className="h-4 w-4 text-[var(--warning)]" />
-                    <span className="text-sm text-[var(--text-sub)]">
-                      {t("dashboard:schedule.monthStats.totalHours")}
+<span className="text-sm text-[var(--text-sub)]">
+                      {t('dashboard:schedule.monthStats.totalHours')}
                     </span>
                   </div>
                   <p className="text-2xl text-[var(--text-main)]">
-                    {stats.totalHours}h
+                    {formattedTotalHours}h
                   </p>
                   <p className="text-xs text-[var(--text-sub)] mt-1">
-                    {t("dashboard:schedule.monthStats.averageLabel")}{" "}
+                    {t('dashboard:schedule.monthStats.averageLabel')}{" "}
                     {stats.completed > 0
                       ? (stats.totalHours / stats.completed).toFixed(1)
                       : 0}
-                    {t("dashboard:schedule.hoursPerDay")}
+                    {t('dashboard:schedule.hoursPerDay')}
                   </p>
                 </div>
 
@@ -1041,14 +1072,14 @@ const SchedulePage: React.FC = () => {
                   <div className="flex items-center space-x-2 mb-2">
                     <Star className="h-4 w-4 text-[var(--warning)]" />
                     <span className="text-sm text-[var(--text-sub)]">
-                      Hiệu suất
+                      {t('dashboard:schedule.stats.performance')}
                     </span>
                   </div>
                   <p className="text-2xl text-[var(--success)]">
                     {stats.performance}%
                   </p>
                   <p className="text-xs text-[var(--text-sub)] mt-1">
-                    {t("dashboard:schedule.updatedFromMonth")}
+                    {t('dashboard:schedule.updatedFromMonth')}
                   </p>
                 </div>
               </div>
@@ -1067,7 +1098,7 @@ const SchedulePage: React.FC = () => {
           <CardHeader>
             <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
               <AlertCircle className="h-5 w-5 text-[var(--warning)]" />
-              <span>Ca làm sắp tới ({upcomingShifts.length} ca)</span>
+              <span>{t('dashboard:schedule.upcomingShiftsTitle')} ({upcomingShifts.length} {t('dashboard:schedule.upcomingShifts')})</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1082,7 +1113,7 @@ const SchedulePage: React.FC = () => {
                 >
                   <div className="bg-[var(--shell)] rounded-lg p-4 border border-[var(--border)]/50 dark:border-transparent hover:border-[var(--accent-cyan)] transition-colors duration-200">
                     <div className="flex items-center justify-between mb-2">
-                      <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 text-xs">
+<Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 text-xs">
                         {new Date(shift.date).toLocaleDateString("vi-VN", {
                           weekday: "short",
                           day: "numeric",
@@ -1132,19 +1163,19 @@ const SchedulePage: React.FC = () => {
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <StickyNote className="h-5 w-5 text-[var(--warning)]" />
-                <span>Ghi chú</span>
+                <span>{t('dashboard:schedule.notes.title')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {[
-                { text: "Họp team 9:00 AM", time: "9:00", icon: "👥" },
-                { text: "Code review 2:00 PM", time: "14:00", icon: "💻" },
-                { text: "Submit report 5:00 PM", time: "17:00", icon: "📄" },
+                { text: t('dashboard:schedule.notes.sample.teamMeeting'), time: "9:00", icon: "👥" },
+                { text: t('dashboard:schedule.notes.sample.codeReview'), time: "14:00", icon: "💻" },
+                { text: t('dashboard:schedule.notes.sample.submitReport'), time: "17:00", icon: "📄" },
               ].map((note, index) => (
                 <div
                   key={index}
                   className="flex items-center space-x-3 p-2 rounded-lg bg-[var(--shell)] border border-[var(--border)]/50 dark:border-transparent"
-                >
+>
                   <span className="text-xl">{note.icon}</span>
                   <div className="flex-1">
                     <p className="text-sm text-[var(--text-main)]">
@@ -1170,32 +1201,30 @@ const SchedulePage: React.FC = () => {
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <Award className="h-5 w-5 text-[var(--warning)]" />
-                <span>Thành tích</span>
+                <span>{t('dashboard:schedule.achievements')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {(() => {
                 // Calculate on-time rate from month data
                 const onTimeRate = stats.onTimeRate;
-                let onTimeMessage = "Xuất sắc!";
-                if (onTimeRate < 50) onTimeMessage = "Cần cải thiện";
-                else if (onTimeRate < 80) onTimeMessage = "Tốt";
-                else if (onTimeRate < 95) onTimeMessage = "Rất tốt";
+                let onTimeMessage = t('dashboard:schedule.stats.performanceMessages.excellent');
+                if (onTimeRate < 50) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.needsImprovement');
+                else if (onTimeRate < 80) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.good');
+                else if (onTimeRate < 95) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.veryGood');
 
                 // Calculate current streak (consecutive days with attendance)
                 let currentStreak = 0;
-                const sortedAttended = [...monthAttended].sort((a, b) =>
+                const sortedAttended = [...monthAttended].sort((a, b) => 
                   b.date.localeCompare(a.date)
                 );
-
+                
                 // Start from today and go backwards
                 const checkDate = new Date(today);
                 for (let i = 0; i < 365; i++) {
                   const dateStr = checkDate.toISOString().split("T")[0];
-                  const hasAttended = sortedAttended.some(
-                    (s) => s.date === dateStr
-                  );
-
+                  const hasAttended = sortedAttended.some((s) => s.date === dateStr);
+                  
                   if (hasAttended) {
                     currentStreak++;
                     checkDate.setDate(checkDate.getDate() - 1);
@@ -1205,24 +1234,21 @@ const SchedulePage: React.FC = () => {
                 }
 
                 // Calculate average hours per day from month
-                const avgHoursPerDay =
-                  stats.completed > 0
-                    ? (stats.totalHours / stats.completed).toFixed(1)
-                    : "0.0";
+                const avgHoursPerDay = stats.completed > 0
+                  ? (stats.totalHours / stats.completed).toFixed(1)
+                  : "0.0";
 
                 return (
                   <>
-                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
+<div className="flex items-center space-x-3 p-3 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50">
                       <div className="w-10 h-10 rounded-full bg-[var(--success)]/30 dark:bg-[var(--success)]/20 flex items-center justify-center text-xl">
                         🎯
                       </div>
                       <div className="flex-1">
                         <p className="text-sm text-[var(--text-main)]">
-                          Bạn đang on-time {onTimeRate}%
+                          {t('dashboard:schedule.stats.onTimeRateMessage', { rate: onTimeRate })}
                         </p>
-                        <p className="text-xs text-[var(--text-sub)]">
-                          {onTimeMessage}
-                        </p>
+                        <p className="text-xs text-[var(--text-sub)]">{onTimeMessage}</p>
                       </div>
                     </div>
 
@@ -1232,13 +1258,10 @@ const SchedulePage: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm text-[var(--text-main)]">
-                          {t("dashboard:schedule.stats.streak")}:{" "}
-                          {currentStreak} {t("dashboard:schedule.streakDays")}
+                          {t('dashboard:schedule.stats.streak')}: {currentStreak} {t('dashboard:schedule.streakDays')}
                         </p>
                         <p className="text-xs text-[var(--text-sub)]">
-                          {currentStreak > 0
-                            ? "Giữ vững phong độ!"
-                            : "Bắt đầu streak mới!"}
+                          {currentStreak > 0 ? t('dashboard:schedule.stats.streakMessages.keepGoing') : t('dashboard:schedule.stats.streakMessages.startNew')}
                         </p>
                       </div>
                     </div>
@@ -1249,12 +1272,10 @@ const SchedulePage: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm text-[var(--text-main)]">
-                          {t("dashboard:schedule.avgHoursPerDay")}{" "}
-                          {avgHoursPerDay}
-                          {t("dashboard:schedule.hPerDay")}
+                          {t('dashboard:schedule.avgHoursPerDay')} {avgHoursPerDay}{t('dashboard:schedule.hPerDay')}
                         </p>
                         <p className="text-xs text-[var(--text-sub)]">
-                          Tháng {currentMonthLabel}
+                          {t('dashboard:schedule.monthLabel', { month: currentMonthLabel })}
                         </p>
                       </div>
                     </div>

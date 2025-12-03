@@ -159,6 +159,8 @@ async function seed() {
                 name: 'Trụ sở chính Hà Nội',
                 code: 'HQ',
                 address: '123 Đường Láng, Đống Đa, Hà Nội',
+                latitude: 21.0285,
+                longitude: 105.8542,
                 city: 'Hà Nội',
                 country: 'Việt Nam',
                 phone: '0241234567',
@@ -172,6 +174,8 @@ async function seed() {
                 name: 'Chi nhánh TP.HCM',
                 code: 'HCM',
                 address: '456 Nguyễn Huệ, Quận 1, TP.HCM',
+                latitude: 10.7769,
+                longitude: 106.7009,
                 city: 'TP.HCM',
                 country: 'Việt Nam',
                 phone: '0281234567',
@@ -185,6 +189,8 @@ async function seed() {
                 name: 'Chi nhánh Đà Nẵng',
                 code: 'DN',
                 address: '789 Đường Bạch Đằng, Hải Châu, Đà Nẵng',
+                latitude: 16.0544,
+                longitude: 108.2022,
                 city: 'Đà Nẵng',
                 country: 'Việt Nam',
                 phone: '0236123456',
@@ -198,6 +204,8 @@ async function seed() {
                 name: 'Chi nhánh Cần Thơ',
                 code: 'CT',
                 address: '321 Đường Nguyễn Văn Cừ, Ninh Kiều, Cần Thơ',
+                latitude: 10.0452,
+                longitude: 105.7469,
                 city: 'Cần Thơ',
                 country: 'Việt Nam',
                 phone: '0292123456',
@@ -211,6 +219,8 @@ async function seed() {
                 name: 'Chi nhánh Hải Phòng',
                 code: 'HP',
                 address: '654 Đường Lạch Tray, Ngô Quyền, Hải Phòng',
+                latitude: 20.8449,
+                longitude: 106.6881,
                 city: 'Hải Phòng',
                 country: 'Việt Nam',
                 phone: '0225123456',
@@ -485,11 +495,11 @@ async function seed() {
         // Base date: cuối tháng 12/2025 để đảm bảo luôn có data tháng 12/2025
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // Đảm bảo luôn có data tháng 12/2025: đặt base date là cuối tháng 12/2025
         const december2025 = new Date(2025, 11, 31); // Tháng 12/2025 (index 11 = tháng 12)
         december2025.setHours(0, 0, 0, 0);
-        
+
         // Sử dụng ngày cuối tháng 12/2025 làm base date để đảm bảo có data tháng 12/2025
         // Nếu hiện tại đã qua 31/12/2025, dùng today; nếu không dùng 31/12/2025
         const seedBaseDate = today > december2025 ? today : december2025;
@@ -510,6 +520,11 @@ async function seed() {
                 // Bỏ qua cuối tuần (0 = CN, 6 = T7)
                 const dayOfWeek = date.getDay();
                 if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+                // Bỏ qua các ngày từ 4/12/2025 trở đi (không tạo attendance)
+                const december4 = new Date(2025, 11, 4); // 4/12/2025 (index 11 = tháng 12)
+                december4.setHours(0, 0, 0, 0);
+                if (date >= december4) continue;
 
                 // Một số nhân viên có thể nghỉ (10% chance)
                 for (const employee of employeeUsers) {

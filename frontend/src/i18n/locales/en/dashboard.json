@@ -318,6 +318,7 @@
       "avgHours": "Avg Hours/Day",
       "streak": "Day Streak",
       "streakDays": "days",
+      "onTimeRateMessage": "You are on-time {{rate}}%",
       "performanceMessages": {
         "excellent": "Excellent!",
         "veryGood": "Very Good",
@@ -359,6 +360,7 @@
     "avgHoursPerDay": "Average",
     "hPerDay": "h/day",
     "month": "Month",
+    "shift": "shift",
     "error": "Error loading shifts:",
     "timeRange": "Working hours",
     "legend": {
@@ -375,7 +377,10 @@
       "title": "Statistics {{month}}",
       "totalHours": "Total hours",
       "averageLabel": "Average"
-    }
+    },
+    "upcomingShiftsTitle": "Upcoming Shifts",
+    "achievements": "Achievements",
+    "monthLabel": "Month {{month}}"
   },
   "companyCalendar": {
     "title": "Company Calendar",

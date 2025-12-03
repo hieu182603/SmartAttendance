@@ -33,6 +33,7 @@ import { toast } from 'sonner'
 import { getAllUsers, getUserById, updateUserByAdmin } from '@/services/userService'
 import { getAllDepartments, type Department as DepartmentType } from '@/services/departmentService'
 import shiftService, { type Shift } from '@/services/shiftService'
+import api from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 import { UserRole, ROLE_NAMES, canManageRole, type UserRoleType } from '@/utils/roles'
 import { Permission } from '@/utils/roles'
@@ -326,15 +327,49 @@ const EmployeeManagementPage: React.FC = () => {
     }
   }
 
-  const handleEditUser = (user: User): void => {
+  const handleEditUser = async (user: User): Promise<void> => {
     setSelectedUser(user)
-    // Get shift ID - có thể là string hoặc object
+    
+    // Get shift ID - ưu tiên lấy từ assignment hiện tại (nếu có)
+    // Nếu không có assignment, mới lấy từ defaultShiftId
     let shiftId = ''
-    if (user.defaultShiftId) {
-      if (typeof user.defaultShiftId === 'string') {
-        shiftId = user.defaultShiftId
-      } else if (user.defaultShiftId._id) {
-        shiftId = user.defaultShiftId._id
+    
+    try {
+      // Lấy assignments hiện tại của user (nếu có)
+      const userId = user._id || user.id || ''
+      const response = await api.get(`/shifts/assignments/user/${userId}`)
+      
+      if (response.data?.success && response.data?.data) {
+        const activeAssignments = response.data.data.filter((a: any) => a.isActive === true) || []
+        if (activeAssignments.length > 0) {
+          // Lấy assignment mới nhất (theo effectiveFrom)
+          const latestAssignment = activeAssignments.sort((a: any, b: any) => 
+            new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime()
+          )[0]
+          
+          if (latestAssignment.shiftId?._id) {
+            shiftId = latestAssignment.shiftId._id
+          }
+        }
+      }
+      
+      // Fallback: lấy từ defaultShiftId nếu không có assignment
+      if (!shiftId && user.defaultShiftId) {
+        if (typeof user.defaultShiftId === 'string') {
+          shiftId = user.defaultShiftId
+        } else if (user.defaultShiftId._id) {
+          shiftId = user.defaultShiftId._id
+        }
+      }
+    } catch (error) {
+      console.error('[EmployeeManagement] Error getting current shift:', error)
+      // Fallback: lấy từ defaultShiftId nếu có lỗi
+      if (user.defaultShiftId) {
+        if (typeof user.defaultShiftId === 'string') {
+          shiftId = user.defaultShiftId
+        } else if (user.defaultShiftId._id) {
+          shiftId = user.defaultShiftId._id
+        }
       }
     }
     
