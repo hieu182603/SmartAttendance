@@ -39,6 +39,8 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
       const autoCheckoutTime = new Date(dateOnly);
       autoCheckoutTime.setHours(DEFAULT_CHECKOUT_HOUR, DEFAULT_CHECKOUT_MINUTE, 0, 0);
 
+      const { NotificationService } = await import("../modules/notifications/notification.service.js");
+
       for (const attendance of notCheckedOut) {
         attendance.checkOut = autoCheckoutTime;
         attendance.calculateWorkHours();
@@ -49,6 +51,30 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
           : `[Tự động check-out lúc ${DEFAULT_CHECKOUT_HOUR}:${String(DEFAULT_CHECKOUT_MINUTE).padStart(2, '0')} - Quên check-out]`;
 
         await attendance.save();
+
+        // Gửi notification nhắc nhở quên check-out
+        try {
+          await NotificationService.createAndEmitNotification({
+            userId: attendance.userId,
+            type: "attendance_reminder",
+            title: "Nhắc nhở chấm công",
+            message: `Hệ thống đã tự động check-out cho bạn vào lúc ${String(
+              DEFAULT_CHECKOUT_HOUR
+            ).padStart(2, "0")}:${String(
+              DEFAULT_CHECKOUT_MINUTE
+            ).padStart(2, "0")} vì bạn quên check-out ngày ${dateOnly.toLocaleDateString(
+              "vi-VN"
+            )}.`,
+            relatedEntityType: "attendance",
+            relatedEntityId: attendance._id,
+            metadata: {
+              reason: "auto_checkout_missing_checkout",
+              date: dateOnly,
+            },
+          });
+        } catch (notifError) {
+          console.error("[CRON] Không thể gửi notification auto check-out", notifError);
+        }
       }
     }
 
@@ -132,7 +158,31 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
       }));
 
       try {
-        await AttendanceModel.insertMany(absentRecords, { ordered: false });
+        const inserted = await AttendanceModel.insertMany(absentRecords, { ordered: false });
+
+        // Gửi notification nhắc nhở vắng mặt không chấm công
+        try {
+          const { NotificationService } = await import("../modules/notifications/notification.service.js");
+
+          for (const record of inserted) {
+            await NotificationService.createAndEmitNotification({
+              userId: record.userId,
+              type: "attendance_reminder",
+              title: "Nhắc nhở chấm công",
+              message: `Hôm nay (${dateOnly.toLocaleDateString(
+                "vi-VN"
+              )}) bạn chưa chấm công. Hệ thống đã tự động đánh dấu vắng mặt.`,
+              relatedEntityType: "attendance",
+              relatedEntityId: record._id,
+              metadata: {
+                reason: "auto_mark_absent_no_attendance",
+                date: dateOnly,
+              },
+            });
+          }
+        } catch (notifError) {
+          console.error("[CRON] Không thể gửi notification absent", notifError);
+        }
       } catch (error) {
         // Bỏ qua lỗi duplicate key
         if (error.code !== 11000) {

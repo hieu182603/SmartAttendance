@@ -35,15 +35,24 @@ export class NotificationService {
   }
 
   static async createRequestApprovalNotification(request, approverName, isApproved, comments) {
-    const notification = await NotificationModel.create({
+    // Reuse createNotification để đảm bảo luôn emit real-time qua Socket.io
+    const reason = request.reason || "";
+    const preview =
+      reason.length > 50 ? `${reason.substring(0, 50)}...` : reason;
+
+    return this.createNotification({
       userId: request.userId,
       type: isApproved ? "request_approved" : "request_rejected",
       title: isApproved
         ? "✅ Yêu cầu đã được phê duyệt"
         : "❌ Yêu cầu đã bị từ chối",
       message: isApproved
-        ? `Yêu cầu "${request.reason.substring(0, 50)}${request.reason.length > 50 ? "..." : ""}" đã được ${approverName} phê duyệt.${comments ? `\n\nNhận xét: ${comments}` : ""}`
-        : `Yêu cầu "${request.reason.substring(0, 50)}${request.reason.length > 50 ? "..." : ""}" đã bị ${approverName} từ chối.${comments ? `\n\nLý do: ${comments}` : ""}`,
+        ? `Yêu cầu "${preview}" đã được ${approverName} phê duyệt.${
+            comments ? `\n\nNhận xét: ${comments}` : ""
+          }`
+        : `Yêu cầu "${preview}" đã bị ${approverName} từ chối.${
+            comments ? `\n\nLý do: ${comments}` : ""
+          }`,
       relatedEntityType: "request",
       relatedEntityId: request._id,
       metadata: {
@@ -54,7 +63,6 @@ export class NotificationService {
         comments,
       },
     });
-    return notification;
   }
 
   static async getUserNotifications(userId, options = {}) {

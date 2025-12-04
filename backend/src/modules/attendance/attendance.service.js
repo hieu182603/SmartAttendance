@@ -694,6 +694,34 @@ export const processCheckIn = async (
     const now = new Date();
     const dateOnly = getDateOnly(now);
 
+    // Chặn chấm công nếu hôm nay đang trong thời gian nghỉ đã được duyệt
+    try {
+      const { RequestModel } = await import("../requests/request.model.js");
+      const leaveTypes = ["leave", "sick", "unpaid", "compensatory", "maternity"];
+
+      const approvedLeave = await RequestModel.findOne({
+        userId,
+        status: "approved",
+        type: { $in: leaveTypes },
+        startDate: { $lte: dateOnly },
+        endDate: { $gte: dateOnly },
+      }).select("_id type startDate endDate");
+
+      if (approvedLeave) {
+        return {
+          success: false,
+          data: null,
+          error:
+            "Bạn đang trong thời gian nghỉ đã được duyệt, không thể chấm công trong những ngày này.",
+          code: "ON_LEAVE",
+        };
+      }
+    } catch (leaveCheckError) {
+      // Nếu lỗi khi kiểm tra đơn nghỉ, log nhưng không block chấm công
+      // để tránh gây gián đoạn nếu module requests gặp sự cố
+      // console.warn("[attendance] leave check failed", leaveCheckError);
+    }
+
     // Get schedule and shift info
     const schedule = await getUserSchedule(userId, dateOnly);
     const shiftInfo = await getShiftInfo(schedule);

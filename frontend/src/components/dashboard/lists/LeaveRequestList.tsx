@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Calendar, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -36,7 +36,7 @@ export const LeaveRequestList: React.FC<LeaveRequestListProps> = ({
     totalPages: 0,
   })
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setLoading(true)
     try {
       const result = await getMyLeaveRequests({
@@ -45,24 +45,59 @@ export const LeaveRequestList: React.FC<LeaveRequestListProps> = ({
         status: status === 'all' ? undefined : status,
       })
       setRequests(result.requests || [])
-      setPagination(result.pagination || pagination)
+      setPagination(result.pagination || {
+        page: currentPage,
+        limit: 20,
+        total: result.requests?.length || 0,
+        totalPages: result.pagination?.totalPages || 1,
+      })
     } catch (error) {
       const err = error as ErrorWithMessage
       toast.error(err.message || 'Không thể tải danh sách đơn nghỉ')
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, status])
 
   useEffect(() => {
     fetchRequests()
-  }, [currentPage, status])
+  }, [fetchRequests])
 
   useEffect(() => {
     if (onRefresh) {
       onRefresh()
     }
-  }, [requests])
+  }, [requests, onRefresh])
+
+  // Lắng nghe realtime notification (Requests/Leave đều dùng RequestModel phía backend)
+  // Khi admin duyệt/từ chối, NotificationService sẽ emit notification với relatedEntityType = 'request'
+  // → useNotifications bắn CustomEvent('request-status-changed') → ở đây refetch + hiện toast
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleStatusChanged = ((event: Event) => {
+      const customEvent = event as CustomEvent<any>
+      const notification = customEvent.detail
+
+      if (!notification || notification.relatedEntityType !== 'request') return
+
+      // Hiển thị thông báo thân thiện cho user
+      if (notification.type === 'request_approved') {
+        toast.success(notification.title || 'Đơn nghỉ của bạn đã được duyệt')
+      } else if (notification.type === 'request_rejected') {
+        toast.error(notification.title || 'Đơn nghỉ của bạn đã bị từ chối')
+      }
+
+      // Refetch danh sách đơn nghỉ để cập nhật trạng thái mà không cần F5
+      fetchRequests()
+    }) as EventListener
+
+    window.addEventListener('request-status-changed', handleStatusChanged)
+
+    return () => {
+      window.removeEventListener('request-status-changed', handleStatusChanged)
+    }
+  }, [fetchRequests])
 
   const getStatusBadge = (requestStatus: string) => {
     switch (requestStatus) {
