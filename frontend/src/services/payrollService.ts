@@ -32,7 +32,10 @@ export interface PayrollReportResponse {
 
 interface PayrollParams {
   month?: string;
+  page?: number;
   limit?: number;
+  status?: string;
+  department?: string;
 }
 
 export interface PayrollRecord {

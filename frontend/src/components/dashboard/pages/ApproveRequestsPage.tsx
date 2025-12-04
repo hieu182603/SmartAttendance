@@ -25,8 +25,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
-import { getAllRequests, approveRequest, rejectRequest } from '@/services/requestService'
+import { getAllRequests, approveRequest, rejectRequest, bulkApproveRequests, bulkRejectRequests } from '@/services/requestService'
 import { getAllDepartments } from '@/services/departmentService'
 import type { ErrorWithMessage } from '@/types'
 
@@ -80,6 +81,11 @@ const ApproveRequestsPage: React.FC = () => {
   const [comments, setComments] = useState('')
   const [loading, setLoading] = useState(false)
   const [departments, setDepartments] = useState<Array<{ _id: string; name: string }>>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
+  const [bulkActionType, setBulkActionType] = useState<ActionType>(null)
+  const [bulkComments, setBulkComments] = useState('')
+  const [processingBulk, setProcessingBulk] = useState(false)
 
   const typeLabelMap = useMemo(
     () => ({
@@ -241,6 +247,89 @@ const ApproveRequestsPage: React.FC = () => {
       toast.error((err.response?.data as { message?: string })?.message || err.message || t('dashboard:approveRequests.actions.error'))
     }
   }
+
+  // Handle bulk approve/reject
+  const handleBulkAction = async (): Promise<void> => {
+    if (selectedIds.size === 0 || !bulkActionType) return
+
+    setProcessingBulk(true)
+    try {
+      const ids = Array.from(selectedIds)
+      let result
+      
+      if (bulkActionType === 'approve') {
+        result = await bulkApproveRequests(ids, bulkComments)
+      } else {
+        result = await bulkRejectRequests(ids, bulkComments)
+      }
+
+      if (result.successCount > 0) {
+        toast.success(result.message || `Đã ${bulkActionType === 'approve' ? 'phê duyệt' : 'từ chối'} ${result.successCount} yêu cầu`)
+      }
+      
+      if (result.failedCount > 0) {
+        toast.warning(`${result.failedCount} yêu cầu không thể xử lý`)
+      }
+
+      setIsBulkDialogOpen(false)
+      setBulkActionType(null)
+      setBulkComments('')
+      setSelectedIds(new Set())
+      
+      // Refresh requests list
+      await fetchAllRequests()
+    } catch (error) {
+      console.error('[ApproveRequests] bulk action error:', error)
+      const err = error as ErrorWithMessage
+      toast.error((err.response?.data as { message?: string })?.message || err.message || 'Không thể xử lý hàng loạt yêu cầu')
+    } finally {
+      setProcessingBulk(false)
+    }
+  }
+
+  // Toggle select all
+  const handleSelectAll = (checked: boolean): void => {
+    if (checked) {
+      const pendingIds = filteredRequests
+        .filter(req => req.status === 'pending')
+        .map(req => req.id)
+      setSelectedIds(new Set(pendingIds))
+    } else {
+      setSelectedIds(new Set())
+    }
+  }
+
+  // Toggle single selection
+  const handleToggleSelect = (id: string): void => {
+    const newSelected = new Set(selectedIds)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  // Open bulk action dialog
+  const handleOpenBulkDialog = (action: ActionType): void => {
+    if (selectedIds.size === 0) {
+      toast.warning('Vui lòng chọn ít nhất một yêu cầu')
+      return
+    }
+    setBulkActionType(action)
+    setIsBulkDialogOpen(true)
+    setBulkComments('')
+  }
+
+  // Get pending requests count for select all
+  const pendingRequestsCount = useMemo(() => {
+    return filteredRequests.filter(req => req.status === 'pending').length
+  }, [filteredRequests])
+
+  const isAllSelected = useMemo(() => {
+    return pendingRequestsCount > 0 && selectedIds.size === pendingRequestsCount &&
+      filteredRequests.filter(req => req.status === 'pending').every(req => selectedIds.has(req.id))
+  }, [selectedIds, pendingRequestsCount, filteredRequests])
 
   const getTypeIcon = (type: RequestType): ReactNode => {
     switch (type) {
@@ -417,7 +506,49 @@ const ApproveRequestsPage: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v)}>
+          {/* Bulk Actions Bar */}
+          {selectedTab === 'pending' && filteredRequests.filter(req => req.status === 'pending').length > 0 && (
+            <div className="mb-4 flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--shell)] p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={handleSelectAll}
+                    className="border-[var(--border)]"
+                  />
+                  <Label className="text-sm text-[var(--text-main)] cursor-pointer">
+                    Chọn tất cả ({selectedIds.size} đã chọn)
+                  </Label>
+                </div>
+              </div>
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => handleOpenBulkDialog('approve')}
+                    className="bg-[var(--success)] hover:bg-[var(--success)]/80 text-white"
+                    size="sm"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    Duyệt ({selectedIds.size})
+                  </Button>
+                  <Button
+                    onClick={() => handleOpenBulkDialog('reject')}
+                    variant="outline"
+                    className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
+                    size="sm"
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Từ chối ({selectedIds.size})
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <Tabs value={selectedTab} onValueChange={(v) => {
+            setSelectedTab(v)
+            setSelectedIds(new Set()) // Clear selection when switching tabs
+          }}>
             <TabsList className="grid w-full grid-cols-4 mb-6">
               <TabsTrigger value="pending">{t('dashboard:approveRequests.tabs.pending')} ({stats.pending})</TabsTrigger>
               <TabsTrigger value="approved">{t('dashboard:approveRequests.tabs.approved')} ({stats.approved})</TabsTrigger>
@@ -443,9 +574,19 @@ const ApproveRequestsPage: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <Card className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--primary)] transition-all">
+                    <Card className={`bg-[var(--shell)] border-[var(--border)] hover:border-[var(--primary)] transition-all ${selectedIds.has(request.id) ? 'border-[var(--primary)] bg-[var(--primary)]/5' : ''}`}>
                       <CardContent className="p-6 mt-4">
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between gap-4">
+                          {/* Checkbox for pending requests */}
+                          {request.status === 'pending' && (
+                            <div className="pt-1">
+                              <Checkbox
+                                checked={selectedIds.has(request.id)}
+                                onCheckedChange={() => handleToggleSelect(request.id)}
+                                className="border-[var(--border)]"
+                              />
+                            </div>
+                          )}
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-3">
                               <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] flex items-center justify-center text-white">
@@ -594,6 +735,54 @@ const ApproveRequestsPage: React.FC = () => {
             >
               <Send className="h-4 w-4 mr-2" />
               {t('dashboard:approveRequests.actions.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Action Dialog */}
+      <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+          <DialogHeader>
+            <DialogTitle>
+              {bulkActionType === 'approve' ? 'Phê duyệt hàng loạt' : 'Từ chối hàng loạt'}
+            </DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Bạn đang {bulkActionType === 'approve' ? 'phê duyệt' : 'từ chối'} {selectedIds.size} yêu cầu
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-[var(--text-main)]">Ghi chú (tùy chọn)</Label>
+              <Textarea
+                placeholder={bulkActionType === 'approve' ? 'Nhập ghi chú phê duyệt...' : 'Nhập lý do từ chối...'}
+                value={bulkComments}
+                onChange={(e) => setBulkComments(e.target.value)}
+                className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)] mt-2"
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkDialogOpen(false)}
+              className="border-[var(--border)] text-[var(--text-main)]"
+              disabled={processingBulk}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleBulkAction}
+              disabled={processingBulk}
+              className={bulkActionType === 'approve'
+                ? 'bg-[var(--success)] hover:bg-[var(--success)]/80 text-white'
+                : 'bg-[var(--error)] hover:bg-[var(--error)]/80 text-white'
+              }
+            >
+              {processingBulk ? 'Đang xử lý...' : 'Xác nhận'}
             </Button>
           </DialogFooter>
         </DialogContent>

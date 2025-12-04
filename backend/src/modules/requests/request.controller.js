@@ -423,3 +423,171 @@ export const rejectRequest = async (req, res) => {
   }
 }
 
+/**
+ * Bulk approve requests
+ */
+export const bulkApproveRequests = async (req, res) => {
+  try {
+    const { ids, comments } = req.body
+    const approverId = req.user.userId
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'Danh sách ID không hợp lệ' })
+    }
+
+    const UserModel = (await import('../users/user.model.js')).UserModel
+    const approver = await UserModel.findById(approverId).select('name email')
+
+    // Find all pending requests
+    const requests = await RequestModel.find({
+      _id: { $in: ids },
+      status: 'pending'
+    }).populate('userId', 'name email')
+
+    if (requests.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy yêu cầu nào ở trạng thái chờ duyệt' })
+    }
+
+    const leaveTypes = ['leave', 'sick', 'unpaid', 'compensatory', 'maternity']
+    const NotificationService = (await import('../notifications/notification.service.js')).NotificationService
+    const { scheduleGenerationService } = await import('../schedule/scheduleGeneration.service.js')
+
+    const results = {
+      success: [],
+      failed: []
+    }
+
+    // Process each request
+    for (const request of requests) {
+      try {
+        request.approve(approverId, comments)
+        await request.save()
+
+        // Apply leave to schedule if applicable
+        if (leaveTypes.includes(request.type)) {
+          try {
+            await scheduleGenerationService.applyLeaveToSchedule(request)
+            console.log(`[requests] Applied leave to schedule for request ${request._id}`)
+          } catch (scheduleError) {
+            console.error('[requests] Error applying leave to schedule:', scheduleError)
+          }
+        }
+
+        // Send notification
+        try {
+          await NotificationService.createRequestApprovalNotification(
+            request,
+            approver?.name || 'Quản lý',
+            true,
+            comments
+          )
+        } catch (notifError) {
+          console.error('[requests] notification error', notifError)
+        }
+
+        results.success.push({
+          id: request._id.toString(),
+          status: request.status
+        })
+      } catch (error) {
+        console.error(`[requests] Error approving request ${request._id}:`, error)
+        results.failed.push({
+          id: request._id.toString(),
+          error: error.message
+        })
+      }
+    }
+
+    res.json({
+      message: `Đã phê duyệt ${results.success.length} yêu cầu`,
+      success: results.success,
+      failed: results.failed,
+      total: requests.length,
+      successCount: results.success.length,
+      failedCount: results.failed.length
+    })
+  } catch (error) {
+    console.error('[requests] bulk approve error', error)
+    res.status(500).json({ message: 'Không thể phê duyệt hàng loạt yêu cầu' })
+  }
+}
+
+/**
+ * Bulk reject requests
+ */
+export const bulkRejectRequests = async (req, res) => {
+  try {
+    const { ids, comments } = req.body
+    const approverId = req.user.userId
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'Danh sách ID không hợp lệ' })
+    }
+
+    const UserModel = (await import('../users/user.model.js')).UserModel
+    const approver = await UserModel.findById(approverId).select('name email')
+
+    // Find all pending requests
+    const requests = await RequestModel.find({
+      _id: { $in: ids },
+      status: 'pending'
+    }).populate('userId', 'name email')
+
+    if (requests.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy yêu cầu nào ở trạng thái chờ duyệt' })
+    }
+
+    const NotificationService = (await import('../notifications/notification.service.js')).NotificationService
+    const rejectionReason = comments || 'Không có lý do'
+
+    const results = {
+      success: [],
+      failed: []
+    }
+
+    // Process each request
+    for (const request of requests) {
+      try {
+        request.reject(rejectionReason)
+        request.approvedBy = approverId
+        await request.save()
+
+        // Send notification
+        try {
+          await NotificationService.createRequestApprovalNotification(
+            request,
+            approver?.name || 'Quản lý',
+            false,
+            rejectionReason
+          )
+        } catch (notifError) {
+          console.error('[requests] notification error', notifError)
+        }
+
+        results.success.push({
+          id: request._id.toString(),
+          status: request.status
+        })
+      } catch (error) {
+        console.error(`[requests] Error rejecting request ${request._id}:`, error)
+        results.failed.push({
+          id: request._id.toString(),
+          error: error.message
+        })
+      }
+    }
+
+    res.json({
+      message: `Đã từ chối ${results.success.length} yêu cầu`,
+      success: results.success,
+      failed: results.failed,
+      total: requests.length,
+      successCount: results.success.length,
+      failedCount: results.failed.length
+    })
+  } catch (error) {
+    console.error('[requests] bulk reject error', error)
+    res.status(500).json({ message: 'Không thể từ chối hàng loạt yêu cầu' })
+  }
+}
+

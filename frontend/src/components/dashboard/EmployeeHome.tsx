@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
@@ -87,16 +87,43 @@ export const EmployeeHome: React.FC = () => {
   // Get current locale for date/time formatting
   const locale = i18n.language === "en" ? "en-US" : "vi-VN";
 
-  const currentTime = new Date().toLocaleTimeString(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const currentDate = new Date().toLocaleDateString(locale, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const [currentTime, setCurrentTime] = useState(() =>
+    new Date().toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  );
+  const [currentDate, setCurrentDate] = useState(() =>
+    new Date().toLocaleDateString(locale, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  );
+
+  // Update time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(
+        new Date().toLocaleTimeString(locale, {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
+      // Update date in case it changes (midnight)
+      setCurrentDate(
+        new Date().toLocaleDateString(locale, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      );
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [locale]);
 
   // Get greeting based on time of day
   const getGreeting = () => {
