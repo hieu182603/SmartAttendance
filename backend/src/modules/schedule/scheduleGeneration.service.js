@@ -60,7 +60,6 @@ class ScheduleGenerationService {
 
       return schedules;
     } catch (error) {
-      console.error('[ScheduleGenerationService] generateScheduleFromAssignments error:', error);
       throw error;
     }
   }
@@ -210,7 +209,6 @@ class ScheduleGenerationService {
 
       return schedules;
     } catch (error) {
-      console.error('[ScheduleGenerationService] createOrUpdateSchedule error:', error);
       throw error;
     }
   }
@@ -233,7 +231,6 @@ class ScheduleGenerationService {
         schedulesGenerated: results.reduce((sum, arr) => sum + arr.length, 0),
       };
     } catch (error) {
-      console.error('[ScheduleGenerationService] batchCreateOrUpdateSchedule error:', error);
       throw error;
     }
   }
@@ -254,12 +251,16 @@ class ScheduleGenerationService {
 
       return await this.createOrUpdateSchedule(userId, startDate, endDate);
     } catch (error) {
-      console.error('[ScheduleGenerationService] regenerateScheduleOnAssignmentChange error:', error);
       throw error;
     }
   }
 
-  async applyLeaveToSchedule(leaveRequest) {
+  /**
+   * Apply leave request to schedule
+   * @param {Object} leaveRequest - Leave request object
+   * @param {Object} session - Optional MongoDB session for transaction support
+   */
+  async applyLeaveToSchedule(leaveRequest, session = null) {
     try {
       const { userId, startDate, endDate, type, reason, _id } = leaveRequest;
 
@@ -278,7 +279,13 @@ class ScheduleGenerationService {
       const leaveTypeLabel = leaveTypeMap[type] || 'Nghỉ phép';
       const noteText = `${leaveTypeLabel}${reason ? `: ${reason}` : ''}`;
 
-      const user = await UserModel.findById(userId).populate('defaultShiftId');
+      // Use session if provided
+      const userQuery = UserModel.findById(userId).populate('defaultShiftId');
+      if (session) {
+        userQuery.session(session);
+      }
+      const user = await userQuery;
+      
       const defaultShiftId = user?.defaultShiftId?._id || null;
       const defaultShiftName = user?.defaultShiftId?.name || 'Nghỉ';
       const defaultStartTime = user?.defaultShiftId?.startTime || '08:00';
@@ -302,10 +309,15 @@ class ScheduleGenerationService {
         const dateStr = new Date(currentDate);
         dateStr.setHours(0, 0, 0, 0);
 
-        const existingSchedule = await EmployeeScheduleModel.findOne({
+        // Use session if provided
+        const scheduleQuery = EmployeeScheduleModel.findOne({
           userId,
           date: dateStr,
         });
+        if (session) {
+          scheduleQuery.session(session);
+        }
+        const existingSchedule = await scheduleQuery;
 
         if (existingSchedule) {
           operations.push({
@@ -349,14 +361,14 @@ class ScheduleGenerationService {
       }
 
       if (operations.length > 0) {
-        await EmployeeScheduleModel.bulkWrite(operations, { ordered: false });
+        // Use session if provided
+        const bulkWriteOptions = { ordered: false };
+        if (session) {
+          bulkWriteOptions.session = session;
+        }
+        await EmployeeScheduleModel.bulkWrite(operations, bulkWriteOptions);
       }
 
-      console.log(
-        `[ScheduleGenerationService] Applied leave to schedule: userId=${userId}, ` +
-        `dates=${start.toISOString().split('T')[0]} to ${end.toISOString().split('T')[0]}, ` +
-        `updated=${updatedCount}, created=${createdCount}`
-      );
 
       return {
         success: true,
@@ -368,7 +380,6 @@ class ScheduleGenerationService {
         totalDays: updatedCount + createdCount,
       };
     } catch (error) {
-      console.error('[ScheduleGenerationService] applyLeaveToSchedule error:', error);
       throw error;
     }
   }

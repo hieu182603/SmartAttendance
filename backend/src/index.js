@@ -67,13 +67,10 @@ app.use("/api/payroll", payrollRouter);
 app.use("/api/events", eventRouter);
 app.use("/api/performance", performanceRouter);
 app.use("/api/notifications", notificationRouter);
-
-
 app.use("/api/logs", logRouter);
 
 // Error handler
 app.use((err, _req, res, _next) => {
-  console.error("Error:", err);
   res.status(err.status || 500).json({
     message: err.message || "Internal server error",
   });
@@ -95,10 +92,13 @@ async function start() {
       const serverUrl = `http://localhost:${PORT}`;
       const docsUrl = `${serverUrl}/api/docs`;
 
-      console.log("\n🚀 ========================================");
-      console.log(`✅ Server đang chạy tại: ${serverUrl}`);
-      console.log(`📚 API Documentation: ${docsUrl}`);
-      console.log("🚀 ========================================\n");
+      // Server startup info (chỉ trong development)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log("\n🚀 ========================================");
+        console.log(`✅ Server đang chạy tại: ${serverUrl}`);
+        console.log(`📚 API Documentation: ${docsUrl}`);
+        console.log("🚀 ========================================\n");
+      }
 
       // Khởi động cron jobs
       startCronJobs();
