@@ -155,7 +155,7 @@ export default function PayrollPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handlePayrollUpdated = ((event: Event) => {
+    const handlePayrollUpdated = ((_event: Event) => {
       // Refetch danh sách payroll để cập nhật trạng thái mà không cần F5
       fetchPayrollData();
     }) as EventListener;
@@ -758,7 +758,7 @@ export default function PayrollPage() {
                       </TableCell>
                     </TableRow>
                   ) : filteredData.length > 0 ? (
-                    filteredData.map((record, index) => (
+                    filteredData.map((record) => (
                       <TableRow
                         key={record._id}
                         className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
