@@ -170,6 +170,25 @@ export const approvePayrollRecord = async (req, res) => {
       .populate("approvedBy", "name email")
       .lean();
 
+    // Gửi thông báo cho nhân viên về việc bảng lương đã được duyệt
+    try {
+      const { NotificationService } = await import("../notifications/notification.service.js");
+      await NotificationService.createAndEmitNotification({
+        userId: updated.userId?._id || record.userId,
+        type: "system",
+        title: "Bảng lương đã được duyệt",
+        message: `Bảng lương tháng ${updated.month || record.month} của bạn đã được duyệt.`,
+        relatedEntityType: "other",
+        relatedEntityId: updated._id,
+        metadata: {
+          month: updated.month || record.month,
+          status: "approved",
+        },
+      });
+    } catch (notifError) {
+      console.error("[payroll] approve notification error", notifError);
+    }
+
     res.json({ data: updated });
   } catch (error) {
     console.error("[payroll] approve record error", error);
@@ -204,6 +223,25 @@ export const markPayrollAsPaid = async (req, res) => {
       .populate("userId", "name email employeeId")
       .populate("approvedBy", "name email")
       .lean();
+
+    // Gửi thông báo đã thanh toán bảng lương
+    try {
+      const { NotificationService } = await import("../notifications/notification.service.js");
+      await NotificationService.createAndEmitNotification({
+        userId: updated.userId?._id || record.userId,
+        type: "system",
+        title: "Bảng lương đã được thanh toán",
+        message: `Bảng lương tháng ${updated.month || record.month} của bạn đã được thanh toán.`,
+        relatedEntityType: "other",
+        relatedEntityId: updated._id,
+        metadata: {
+          month: updated.month || record.month,
+          status: "paid",
+        },
+      });
+    } catch (notifError) {
+      console.error("[payroll] paid notification error", notifError);
+    }
 
     res.json({ data: updated });
   } catch (error) {

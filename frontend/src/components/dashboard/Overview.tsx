@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
@@ -127,33 +127,44 @@ export const DashboardOverview: React.FC = () => {
     })
   );
 
-  useEffect(() => {
-    const fetchDashboardStats = async () => {
-      setLoading(true);
-      try {
-        const data = await getDashboardStats() as DashboardStats;
-        setDashboardData(data);
-      } catch (error) {
-        console.error("[DashboardOverview] fetch error:", error);
-        toast.error(t('dashboard:common.loading'));
-        // Set default values on error
-        setDashboardData({
-          kpi: {
-            totalEmployees: 0,
-            presentToday: 0,
-            lateToday: 0,
-            absentToday: 0,
-          },
-          attendanceData: [],
-          growthPercentage: 0,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Hàm fetch stats tách riêng để có thể dùng cho initial load + polling định kỳ
+  const fetchDashboardStats = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getDashboardStats() as DashboardStats;
+      setDashboardData(data);
+    } catch (error) {
+      console.error("[DashboardOverview] fetch error:", error);
+      toast.error(t('dashboard:common.loading'));
+      // Set default values on error
+      setDashboardData({
+        kpi: {
+          totalEmployees: 0,
+          presentToday: 0,
+          lateToday: 0,
+          absentToday: 0,
+        },
+        attendanceData: [],
+        growthPercentage: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
 
-    fetchDashboardStats();
-  }, []);
+  // Initial load + polling nhẹ để dashboard luôn tương đối cập nhật
+  useEffect(() => {
+    void fetchDashboardStats();
+
+    // Polling mỗi 60s – đủ nhẹ, tránh spam backend
+    const intervalId = window.setInterval(() => {
+      void fetchDashboardStats();
+    }, 60000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchDashboardStats]);
 
   // Update time every minute
   useEffect(() => {

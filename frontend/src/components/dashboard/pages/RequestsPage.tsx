@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -203,71 +203,104 @@ const RequestsPage: React.FC = () => {
     };
   }, []);
 
+  // Hàm fetch dữ liệu tách riêng để có thể gọi lại khi nhận realtime notification
+  const fetchRequests = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: {
+        page?: number;
+        limit?: number;
+        status?: string;
+        search?: string;
+        type?: string;
+      } = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      // Status filter based on selected tab
+      if (selectedTab !== "all") {
+        params.status = selectedTab;
+      }
+
+      // Type filter
+      if (filterType !== "all") {
+        params.type = filterType;
+      }
+
+      // Search filter (using debounced value)
+      if (debouncedSearchQuery) {
+        params.search = debouncedSearchQuery;
+      }
+
+      const result = await getMyRequests(params);
+      let filteredRequests = (result.requests || []) as unknown as Request[];
+
+      // Client-side department filter (since getMyRequests only returns user's own requests)
+      if (filterDepartment !== "all") {
+        filteredRequests = filteredRequests.filter(req => req.department === filterDepartment);
+      }
+
+      setRequests(filteredRequests);
+      if (result.pagination) {
+        setPagination(result.pagination);
+      }
+    } catch (error) {
+      const err = error as ErrorWithMessage;
+      toast.error(err.message || t('dashboard:requests.success.loadError'));
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    currentPage,
+    selectedTab,
+    debouncedSearchQuery,
+    filterType,
+    filterDepartment,
+    itemsPerPage,
+    t,
+  ]);
+
   // Fetch paginated requests based on selected tab and filters
   useEffect(() => {
-    let isMounted = true;
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const params: {
-          page?: number;
-          limit?: number;
-          status?: string;
-          search?: string;
-          type?: string;
-        } = {
-          page: currentPage,
-          limit: itemsPerPage,
-        };
-
-        // Status filter based on selected tab
-        if (selectedTab !== "all") {
-          params.status = selectedTab;
-        }
-
-        // Type filter
-        if (filterType !== "all") {
-          params.type = filterType;
-        }
-
-        // Search filter (using debounced value)
-        if (debouncedSearchQuery) {
-          params.search = debouncedSearchQuery;
-        }
-
-        const result = await getMyRequests(params);
-        if (isMounted) {
-          let filteredRequests = (result.requests || []) as unknown as Request[];
-
-          // Client-side department filter (since getMyRequests only returns user's own requests)
-          if (filterDepartment !== "all") {
-            filteredRequests = filteredRequests.filter(req => req.department === filterDepartment);
-          }
-
-          setRequests(filteredRequests);
-          if (result.pagination) {
-            setPagination(result.pagination);
-          }
-        }
-      } catch (error) {
-        const err = error as ErrorWithMessage;
-        toast.error(err.message || t('dashboard:requests.success.loadError'));
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-    fetchData();
-    return () => {
-      isMounted = false;
-    };
-  }, [currentPage, selectedTab, debouncedSearchQuery, filterType, filterDepartment]);
+    fetchRequests();
+  }, [fetchRequests]);
 
   // Reset to page 1 when tab, search, or filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedTab, debouncedSearchQuery, filterType, filterDepartment]);
+
+  // Lắng nghe sự kiện realtime khi yêu cầu được duyệt / từ chối (Socket.io → useNotifications → CustomEvent)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStatusChanged = ((event: Event) => {
+      const customEvent = event as CustomEvent<any>;
+      const notification = customEvent.detail;
+
+      // Chỉ xử lý các notification liên quan đến request
+      if (!notification || notification.relatedEntityType !== 'request') {
+        return;
+      }
+
+      // Hiển thị toast thân thiện cho người dùng
+      if (notification.type === 'request_approved') {
+        toast.success(notification.title || 'Yêu cầu của bạn đã được phê duyệt');
+      } else if (notification.type === 'request_rejected') {
+        toast.error(notification.title || 'Yêu cầu của bạn đã bị từ chối');
+      }
+
+      // Refetch danh sách yêu cầu để cập nhật trạng thái mà không cần F5
+      fetchRequests();
+    }) as EventListener;
+
+    window.addEventListener('request-status-changed', handleStatusChanged);
+
+    return () => {
+      window.removeEventListener('request-status-changed', handleStatusChanged);
+    };
+  }, [fetchRequests]);
 
   // Calculate stats from allRequests
   const stats = useMemo<Stats>(() => {
