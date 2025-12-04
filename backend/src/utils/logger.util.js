@@ -63,8 +63,7 @@ export const logActivity = async (req, options) => {
         });
     } catch (error) {
         // Không throw error để không ảnh hưởng business logic
-        // Chỉ log để debug
-        console.error("[logger.util] Error logging activity:", error);
+        // Silent fail
     }
 };
 

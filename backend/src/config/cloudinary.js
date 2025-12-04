@@ -38,7 +38,6 @@ export async function uploadToCloudinary(filePathOrBuffer, folder = 'attendance'
       publicId: result.public_id,
     };
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
     throw new Error('Failed to upload image to Cloudinary');
   }
 }
@@ -53,7 +52,6 @@ export async function deleteFromCloudinary(publicId) {
     const result = await cloudinary.uploader.destroy(publicId);
     return result;
   } catch (error) {
-    console.error('Cloudinary delete error:', error);
     throw new Error('Failed to delete image from Cloudinary');
   }
 }

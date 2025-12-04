@@ -75,11 +75,9 @@ export function ShiftsPage() {
     try {
       setLoading(true);
       const response = await api.get('/shifts');
-      console.log('Shifts API response:', response.data);
       
       // Backend trả về format: { success: true, data: [...] }
       const shiftsData = response.data.data || response.data.shifts || response.data || [];
-      console.log('Parsed shifts data:', shiftsData);
       
       // Map backend data to frontend format with colors
       const mappedShifts = shiftsData.map((shift: any, index: number) => ({
@@ -91,8 +89,6 @@ export function ShiftsPage() {
       
       setShifts(mappedShifts);
     } catch (error: any) {
-      console.error('Error loading shifts:', error);
-      console.error('Error response:', error.response?.data);
       const errorMessage = error.response?.data?.message || error.message || 'Không thể tải danh sách ca làm việc';
       toast.error(errorMessage);
       // Không set mock data nữa, để hiển thị danh sách rỗng

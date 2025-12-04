@@ -129,15 +129,9 @@ export default function AdminReportsPage() {
       params.from = from.toISOString().split("T")[0];
       params.to = today.toISOString().split("T")[0];
 
-      console.log('[AdminReports] Fetching with params:', params);
       const result = (await getAttendanceAnalytics(params)) as AnalyticsData;
-      console.log('[AdminReports] API Response:', result);
       
       if (result) {
-        console.log('[AdminReports] Summary data:', result.summary);
-        console.log('[AdminReports] Daily data:', result.dailyData);
-        console.log('[AdminReports] Department stats:', result.departmentStats);
-        
         setData({
           dailyData: result.dailyData || [],
           departmentStats: result.departmentStats || [],
@@ -157,7 +151,6 @@ export default function AdminReportsPage() {
         });
       }
     } catch (error) {
-      console.error("[AdminReports] fetch error:", error);
       toast.error(t("dashboard:adminReports.loadError"));
     } finally {
       setLoading(false);

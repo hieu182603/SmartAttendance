@@ -96,7 +96,19 @@ export const validateAndFindBranch = async (latitude, longitude) => {
     };
   }
 
+  // Tìm tất cả branch active
   const branches = await BranchModel.find({ status: "active" });
+  
+  // Kiểm tra nếu không có branch nào active
+  if (!branches || branches.length === 0) {
+    return {
+      valid: false,
+      branch: null,
+      distance: null,
+      message: "Hệ thống chưa được cấu hình chi nhánh. Vui lòng liên hệ Admin.",
+    };
+  }
+
   const nearest = findNearestBranch(branches, latitude, longitude);
 
   if (!isValidLocation(nearest)) {
@@ -261,7 +273,6 @@ export const getUserSchedule = async (userId, date) => {
 
     return schedule;
   } catch (error) {
-    console.error("[getUserSchedule] Error:", error);
     return null;
   }
 };
@@ -334,9 +345,6 @@ export const getShiftInfo = async (schedule) => {
     }
 
     // Fallback về config mặc định
-    console.warn(
-      "[getShiftInfo] ⚠ Không tìm thấy shift trong DB, sử dụng giá trị mặc định"
-    );
     return {
       startTime: SHIFT_CONFIG.DEFAULT_START_TIME,
       endTime: SHIFT_CONFIG.DEFAULT_END_TIME,
@@ -345,7 +353,6 @@ export const getShiftInfo = async (schedule) => {
       isFlexible: false,
     };
   } catch (error) {
-    console.error("[getShiftInfo] ❌ Error:", error);
     return {
       startTime: SHIFT_CONFIG.DEFAULT_START_TIME,
       endTime: SHIFT_CONFIG.DEFAULT_END_TIME,
@@ -486,7 +493,6 @@ export const uploadPhoto = async (photoBuffer, folder = "attendance") => {
     const result = await uploadToCloudinary(photoBuffer, folder);
     return { success: true, url: result.url, error: null };
   } catch (error) {
-    console.error("Upload to Cloudinary failed:", error);
     return { success: false, url: null, error: error.message };
   }
 };
@@ -773,7 +779,6 @@ export const processCheckIn = async (
       message,
     };
   } catch (error) {
-    console.error("[processCheckIn] Error:", error);
     if (error.code === 11000) {
       return {
         success: false,
@@ -943,7 +948,6 @@ export const processCheckOut = async (
       message,
     };
   } catch (error) {
-    console.error("[processCheckOut] Error:", error);
     return {
       success: false,
       data: null,

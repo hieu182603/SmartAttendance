@@ -41,7 +41,6 @@ export class LogService {
         ];
       } catch (err) {
         // Nếu có lỗi khi tìm users, chỉ search trong các fields khác
-        console.warn('[LogService] Error searching users:', err.message);
         query.$or = [
           { action: { $regex: search, $options: "i" } },
           { entityType: { $regex: search, $options: "i" } },
@@ -211,7 +210,6 @@ export class LogService {
       return log;
     } catch (error) {
       // Không throw error khi log fail để không ảnh hưởng business logic
-      console.error("[LogService] Create log error:", error);
       return null;
     }
   }

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose'
 import { RequestModel } from './request.model.js'
 import { RequestTypeModel } from './request-type.model.js'
 import { BranchModel } from '../branches/branch.model.js'
@@ -77,7 +78,6 @@ export const getRequestTypes = async (_req, res) => {
 
     res.json({ types })
   } catch (error) {
-    console.error('[requests] getRequestTypes error', error)
     res.status(500).json({ message: 'Không lấy được danh sách loại đơn' })
   }
 }
@@ -153,7 +153,6 @@ export const getMyRequests = async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('[requests] fetch error', error)
     res.status(500).json({ message: 'Không lấy được danh sách yêu cầu' })
   }
 }
@@ -207,7 +206,6 @@ export const createRequest = async (req, res) => {
       submittedAt: formatDate(doc.createdAt),
     })
   } catch (error) {
-    console.error('[requests] create error', error)
     res.status(500).json({ message: 'Không tạo được yêu cầu' })
   }
 }
@@ -316,7 +314,6 @@ export const getAllRequests = async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('[requests] getAllRequests error', error)
     res.status(500).json({ message: 'Không lấy được danh sách yêu cầu' })
   }
 }
@@ -347,9 +344,8 @@ export const approveRequest = async (req, res) => {
       try {
         const { scheduleGenerationService } = await import('../schedule/scheduleGeneration.service.js')
         await scheduleGenerationService.applyLeaveToSchedule(request)
-        console.log(`[requests] Applied leave to schedule for request ${request._id}`)
       } catch (scheduleError) {
-        console.error('[requests] Error applying leave to schedule:', scheduleError)
+        // Silent fail - schedule update không critical
       }
     }
 
@@ -362,7 +358,7 @@ export const approveRequest = async (req, res) => {
         comments
       )
     } catch (notifError) {
-      console.error('[requests] notification error', notifError)
+      // Silent fail - notification không critical
     }
 
     res.json({
@@ -372,7 +368,6 @@ export const approveRequest = async (req, res) => {
       message: 'Đã phê duyệt yêu cầu'
     })
   } catch (error) {
-    console.error('[requests] approve error', error)
     res.status(500).json({ message: 'Không thể phê duyệt yêu cầu' })
   }
 }
@@ -408,7 +403,7 @@ export const rejectRequest = async (req, res) => {
         comments || 'Không có lý do'
       )
     } catch (notifError) {
-      console.error('[requests] notification error', notifError)
+      // Silent fail - notification không critical
     }
 
     res.json({
@@ -418,13 +413,64 @@ export const rejectRequest = async (req, res) => {
       message: 'Đã từ chối yêu cầu'
     })
   } catch (error) {
-    console.error('[requests] reject error', error)
     res.status(500).json({ message: 'Không thể từ chối yêu cầu' })
   }
 }
 
 /**
- * Bulk approve requests
+ * Helper function: Kiểm tra quyền approve request
+ * @param {Object} request - Request object với userId populated
+ * @param {Object} approver - Approver user object với role và department
+ * @returns {boolean} - true nếu có quyền approve
+ */
+const canApproveRequest = (request, approver) => {
+  // SUPER_ADMIN, ADMIN, HR_MANAGER có quyền approve tất cả
+  if (['SUPER_ADMIN', 'ADMIN', 'HR_MANAGER'].includes(approver.role)) {
+    return true
+  }
+
+  // MANAGER chỉ có quyền approve request của nhân viên cùng department
+  if (approver.role === 'MANAGER') {
+    // Lấy department ID của approver
+    const approverDepartmentId = approver.department?._id || approver.department
+    
+    if (!approverDepartmentId) {
+      // Approver không có department → không có quyền
+      return false
+    }
+
+    // Kiểm tra request.userId đã được populate chưa
+    if (!request.userId) {
+      return false
+    }
+
+    // Nếu request.userId là ObjectId (chưa populate), không thể kiểm tra
+    if (request.userId.constructor.name === 'ObjectId' || typeof request.userId === 'string') {
+      return false
+    }
+
+    // Lấy department ID của request user
+    const requestDepartmentId = request.userId.department?._id || request.userId.department
+    
+    if (!requestDepartmentId) {
+      // Request user không có department → không thể approve
+      return false
+    }
+
+    // So sánh department ID (hỗ trợ cả ObjectId và string)
+    const approverDeptIdStr = approverDepartmentId.toString()
+    const requestDeptIdStr = requestDepartmentId.toString()
+    
+    return approverDeptIdStr === requestDeptIdStr
+  }
+
+  // Các role khác không có quyền approve
+  return false
+}
+
+/**
+ * Bulk approve requests với transaction và validation đầy đủ
+ * Mỗi request được xử lý trong transaction riêng để đảm bảo atomicity
  */
 export const bulkApproveRequests = async (req, res) => {
   try {
@@ -436,13 +482,23 @@ export const bulkApproveRequests = async (req, res) => {
     }
 
     const UserModel = (await import('../users/user.model.js')).UserModel
-    const approver = await UserModel.findById(approverId).select('name email')
+    const approver = await UserModel.findById(approverId)
+      .select('name email role department')
+      .populate('department', '_id')
 
-    // Find all pending requests
+    if (!approver) {
+      return res.status(404).json({ message: 'Không tìm thấy người duyệt' })
+    }
+
+    // Find all pending requests với populate đầy đủ để kiểm tra quyền
     const requests = await RequestModel.find({
       _id: { $in: ids },
       status: 'pending'
-    }).populate('userId', 'name email')
+    }).populate({
+      path: 'userId',
+      select: 'name email department',
+      populate: { path: 'department', select: '_id' }
+    })
 
     if (requests.length === 0) {
       return res.status(404).json({ message: 'Không tìm thấy yêu cầu nào ở trạng thái chờ duyệt' })
@@ -457,49 +513,67 @@ export const bulkApproveRequests = async (req, res) => {
       failed: []
     }
 
-    // Process each request
+    // Process each request với transaction riêng để đảm bảo atomicity
     for (const request of requests) {
-      try {
-        request.approve(approverId, comments)
-        await request.save()
+      const requestSession = await mongoose.startSession()
+      requestSession.startTransaction()
 
-        // Apply leave to schedule if applicable
-        if (leaveTypes.includes(request.type)) {
-          try {
-            await scheduleGenerationService.applyLeaveToSchedule(request)
-            console.log(`[requests] Applied leave to schedule for request ${request._id}`)
-          } catch (scheduleError) {
-            console.error('[requests] Error applying leave to schedule:', scheduleError)
-          }
+      try {
+        // Validate permission cho từng request
+        if (!canApproveRequest(request, approver)) {
+          throw new Error('Không có quyền approve request này')
         }
 
-        // Send notification
+        // Validate status (kiểm tra lại vì có thể đã thay đổi)
+        const currentRequest = await RequestModel.findById(request._id).session(requestSession)
+        if (!currentRequest || currentRequest.status !== 'pending') {
+          throw new Error('Yêu cầu đã được xử lý hoặc không tồn tại')
+        }
+
+        // Approve request trong transaction
+        currentRequest.approve(approverId, comments)
+        await currentRequest.save({ session: requestSession })
+
+        // Apply leave to schedule if applicable (trong transaction)
+        if (leaveTypes.includes(currentRequest.type)) {
+          await scheduleGenerationService.applyLeaveToSchedule(currentRequest, requestSession)
+        }
+
+        // Commit transaction cho request này
+        await requestSession.commitTransaction()
+        requestSession.endSession()
+
+        // Send notification (ngoài transaction - không critical)
         try {
           await NotificationService.createRequestApprovalNotification(
-            request,
+            currentRequest,
             approver?.name || 'Quản lý',
             true,
             comments
           )
         } catch (notifError) {
           console.error('[requests] notification error', notifError)
+          // Không throw - notification không critical
         }
 
         results.success.push({
-          id: request._id.toString(),
-          status: request.status
+          id: currentRequest._id.toString(),
+          status: currentRequest.status
         })
       } catch (error) {
-        console.error(`[requests] Error approving request ${request._id}:`, error)
+        // Rollback transaction cho request này
+        await requestSession.abortTransaction()
+        requestSession.endSession()
+
         results.failed.push({
           id: request._id.toString(),
-          error: error.message
+          error: error.message || 'Lỗi không xác định'
         })
       }
     }
 
     res.json({
-      message: `Đã phê duyệt ${results.success.length} yêu cầu`,
+      message: `Đã phê duyệt ${results.success.length} yêu cầu${results.failed.length > 0 ? `, ${results.failed.length} yêu cầu thất bại` : ''}`,
       success: results.success,
       failed: results.failed,
       total: requests.length,
@@ -507,8 +581,7 @@ export const bulkApproveRequests = async (req, res) => {
       failedCount: results.failed.length
     })
   } catch (error) {
-    console.error('[requests] bulk approve error', error)
-    res.status(500).json({ message: 'Không thể phê duyệt hàng loạt yêu cầu' })
+    res.status(500).json({ message: 'Không thể phê duyệt hàng loạt yêu cầu', error: error.message })
   }
 }
 
@@ -569,7 +642,6 @@ export const bulkRejectRequests = async (req, res) => {
           status: request.status
         })
       } catch (error) {
-        console.error(`[requests] Error rejecting request ${request._id}:`, error)
         results.failed.push({
           id: request._id.toString(),
           error: error.message
@@ -586,7 +658,6 @@ export const bulkRejectRequests = async (req, res) => {
       failedCount: results.failed.length
     })
   } catch (error) {
-    console.error('[requests] bulk reject error', error)
     res.status(500).json({ message: 'Không thể từ chối hàng loạt yêu cầu' })
   }
 }

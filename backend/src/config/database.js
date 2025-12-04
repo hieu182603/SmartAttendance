@@ -22,12 +22,8 @@ export async function connectDatabase() {
 
         await mongoose.connect(MONGO_URI);
 
-        // Log database info
-        const dbName = mongoose.connection.db.databaseName;
-        const host = mongoose.connection.host;
-        console.log(`✅ MongoDB connected successfully`);
+        // Database connected successfully
     } catch (error) {
-        console.error("❌ MongoDB connection error:", error);
         throw error;
     }
 }
@@ -39,9 +35,7 @@ export async function connectDatabase() {
 export async function disconnectDatabase() {
     try {
         await mongoose.disconnect();
-        console.log("✅ MongoDB disconnected");
     } catch (error) {
-        console.error("❌ MongoDB disconnection error:", error);
         throw error;
     }
 }
