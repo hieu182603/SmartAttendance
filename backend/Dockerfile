@@ -1,14 +1,24 @@
 # Multi-stage build để tối ưu kích thước image
 FROM node:20-alpine AS builder
 
+# Install yarn 1.x (classic) để match với local environment
+RUN apk add --no-cache yarn
+
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package.json ./
+COPY package.json yarn.lock* ./
 
-# Install dependencies
-RUN npm install --omit=dev && npm cache clean --force
+# Install production dependencies only (Yarn 1.x syntax)
+# Nếu có yarn.lock, dùng --frozen-lockfile để đảm bảo lockfile không thay đổi
+# Nếu không có yarn.lock, chỉ cần yarn install --production
+RUN if [ -f yarn.lock ]; then \
+      yarn install --frozen-lockfile --production; \
+    else \
+      yarn install --production; \
+    fi && \
+    yarn cache clean
 
 # Production stage
 FROM node:20-alpine
