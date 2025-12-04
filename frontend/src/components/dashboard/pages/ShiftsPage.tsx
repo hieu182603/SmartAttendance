@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Plus, Edit, Trash2, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +53,6 @@ function calculateWorkHours(start: string, end: string, breakMinutes: number): s
 }
 
 export function ShiftsPage() {
-  const { t } = useTranslation('dashboard');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -76,32 +74,18 @@ export function ShiftsPage() {
   const loadShifts = async () => {
     try {
       setLoading(true);
-      
-      // Load shifts và employee counts song song
-      const [shiftsResponse, countsResponse] = await Promise.all([
-        api.get('/shifts'),
-        api.get('/shifts/employee-counts').catch(() => ({ data: { success: true, data: [] } })) // Fallback nếu API chưa có
-      ]);
-      
-      console.log('Shifts API response:', shiftsResponse.data);
+      const response = await api.get('/shifts');
+      console.log('Shifts API response:', response.data);
       
       // Backend trả về format: { success: true, data: [...] }
-      const shiftsData = shiftsResponse.data.data || shiftsResponse.data.shifts || shiftsResponse.data || [];
+      const shiftsData = response.data.data || response.data.shifts || response.data || [];
       console.log('Parsed shifts data:', shiftsData);
-      
-      // Get employee counts
-      const countsMap = new Map();
-      if (countsResponse.data?.success && countsResponse.data?.data) {
-        countsResponse.data.data.forEach((item: { shiftId: string; count: number }) => {
-          countsMap.set(item.shiftId, item.count);
-        });
-      }
       
       // Map backend data to frontend format with colors
       const mappedShifts = shiftsData.map((shift: any, index: number) => ({
         ...shift,
         id: shift._id || shift.id,
-        employees: countsMap.get(shift._id || shift.id) || 0, // Use real count from API
+        employees: shift.employeeCount || 0,
         color: ['success', 'warning', 'error', 'primary'][index % 4],
       }));
       
@@ -109,7 +93,7 @@ export function ShiftsPage() {
     } catch (error: any) {
       console.error('Error loading shifts:', error);
       console.error('Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.message || error.message || t('shifts.loadError');
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể tải danh sách ca làm việc';
       toast.error(errorMessage);
       // Không set mock data nữa, để hiển thị danh sách rỗng
       setShifts([]);
@@ -120,7 +104,7 @@ export function ShiftsPage() {
 
   const handleCreate = async () => {
     if (!formData.name || !formData.startTime || !formData.endTime || !formData.breakDuration) {
-      toast.error(t('shifts.fillAllFields'));
+      toast.error('Vui lòng điền đầy đủ thông tin');
       return;
     }
 
@@ -134,12 +118,12 @@ export function ShiftsPage() {
       };
 
       await api.post('/shifts', payload);
-      toast.success(`✅ ${t('shifts.createSuccess', { name: formData.name })}`);
+      toast.success(`✅ Đã tạo ca làm việc ${formData.name}`);
       setIsDialogOpen(false);
       setFormData({ name: '', startTime: '', endTime: '', breakDuration: '', description: '' });
       await loadShifts();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || t('shifts.createError');
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi tạo ca làm việc';
       toast.error(errorMessage);
     }
   };
@@ -160,7 +144,7 @@ export function ShiftsPage() {
     if (!selectedShift) return;
 
     if (!formData.name || !formData.startTime || !formData.endTime || !formData.breakDuration) {
-      toast.error(t('shifts.fillAllFields'));
+      toast.error('Vui lòng điền đầy đủ thông tin');
       return;
     }
 
@@ -175,12 +159,12 @@ export function ShiftsPage() {
       };
 
       await api.put(`/shifts/${shiftId}`, payload);
-      toast.success(`✅ ${t('shifts.updateSuccess', { name: formData.name })}`);
+      toast.success(`✅ Đã cập nhật ca làm việc ${formData.name}`);
       setIsEditDialogOpen(false);
       setSelectedShift(null);
       await loadShifts();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || t('shifts.updateError');
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi cập nhật ca làm việc';
       toast.error(errorMessage);
     }
   };
@@ -196,12 +180,12 @@ export function ShiftsPage() {
     try {
       const shiftId = selectedShift._id || selectedShift.id;
       await api.delete(`/shifts/${shiftId}`);
-      toast.success(`🗑️ ${t('shifts.deleteSuccess', { name: selectedShift.name })}`);
+      toast.success(`🗑️ Đã xóa ca làm việc ${selectedShift.name}`);
       setIsDeleteDialogOpen(false);
       setSelectedShift(null);
       await loadShifts();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || t('shifts.deleteError');
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa ca làm việc';
       toast.error(errorMessage);
     }
   };
@@ -209,7 +193,7 @@ export function ShiftsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-[var(--text-sub)]">{t('shifts.loading')}</p>
+        <p className="text-[var(--text-sub)]">Đang tải...</p>
       </div>
     );
   }
@@ -218,29 +202,29 @@ export function ShiftsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl text-[var(--text-main)]">{t('shifts.title')}</h1>
-          <p className="text-[var(--text-sub)]">{t('shifts.description')}</p>
+          <h1 className="text-3xl text-[var(--text-main)]">Quản lý ca làm việc</h1>
+          <p className="text-[var(--text-sub)]">Tạo và quản lý các ca làm việc</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90">
               <Plus className="h-4 w-4 mr-2" />
-              {t('shifts.createNew')}
+              Tạo ca mới
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
             <DialogHeader>
-              <DialogTitle>{t('shifts.dialog.create.title')}</DialogTitle>
+              <DialogTitle>Tạo ca làm việc mới</DialogTitle>
               <DialogDescription className="text-[var(--text-sub)]">
-                {t('shifts.dialog.create.description')}
+                Nhập thông tin ca làm việc
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label>{t('shifts.form.shiftName')}</Label>
+                <Label>Tên ca</Label>
                 <Input 
-                  placeholder={t('shifts.form.shiftNamePlaceholder')} 
+                  placeholder="Ca sáng" 
                   className="bg-[var(--input-bg)] border-[var(--border)]"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -249,7 +233,7 @@ export function ShiftsPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t('shifts.form.startTime')}</Label>
+                  <Label>Giờ bắt đầu</Label>
                   <Input 
                     type="time" 
                     className="bg-[var(--input-bg)] border-[var(--border)]"
@@ -258,7 +242,7 @@ export function ShiftsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('shifts.form.endTime')}</Label>
+                  <Label>Giờ kết thúc</Label>
                   <Input 
                     type="time" 
                     className="bg-[var(--input-bg)] border-[var(--border)]"
@@ -269,10 +253,10 @@ export function ShiftsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>{t('shifts.form.breakDuration')}</Label>
+                <Label>Thời gian nghỉ (phút)</Label>
                 <Input 
                   type="number" 
-                  placeholder={t('shifts.form.breakPlaceholder')} 
+                  placeholder="60" 
                   className="bg-[var(--input-bg)] border-[var(--border)]"
                   value={formData.breakDuration}
                   onChange={(e) => setFormData({ ...formData, breakDuration: e.target.value })}
@@ -280,9 +264,9 @@ export function ShiftsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>{t('shifts.form.description')}</Label>
+                <Label>Mô tả (tùy chọn)</Label>
                 <Input 
-                  placeholder={t('shifts.form.descriptionPlaceholder')} 
+                  placeholder="Mô tả về ca làm việc" 
                   className="bg-[var(--input-bg)] border-[var(--border)]"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -295,13 +279,13 @@ export function ShiftsPage() {
                   onClick={() => setIsDialogOpen(false)}
                   className="border-[var(--border)] text-[var(--text-main)]"
                 >
-                  {t('shifts.dialog.cancel')}
+                  Hủy
                 </Button>
                 <Button 
                   onClick={handleCreate}
                   className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
                 >
-                  {t('shifts.dialog.create')}
+                  Tạo ca làm
                 </Button>
               </div>
             </div>
@@ -345,23 +329,23 @@ export function ShiftsPage() {
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">{t('shifts.card.workingHours')}</p>
+                  <p className="text-sm text-[var(--text-sub)]">Thời gian làm việc</p>
                   <p className="text-lg text-[var(--text-main)]">
                     {calculateWorkHours(shift.startTime, shift.endTime, shift.breakDuration || 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">{t('shifts.card.breakTime')}</p>
-                  <p className="text-lg text-[var(--text-main)]">{shift.breakDuration || 0} {t('shifts.card.minutes')}</p>
+                  <p className="text-sm text-[var(--text-sub)]">Thời gian nghỉ</p>
+                  <p className="text-lg text-[var(--text-main)]">{shift.breakDuration || 0} phút</p>
                 </div>
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">{t('shifts.card.employees')}</p>
-                  <p className="text-lg text-[var(--text-main)]">{t('shifts.card.employeeCount', { count: shift.employees || 0 })}</p>
+                  <p className="text-sm text-[var(--text-sub)]">Số nhân viên</p>
+                  <p className="text-lg text-[var(--text-main)]">{shift.employees || 0} người</p>
                 </div>
                 <div>
-                  <p className="text-sm text-[var(--text-sub)]">{t('shifts.card.status')}</p>
+                  <p className="text-sm text-[var(--text-sub)]">Trạng thái</p>
                   <Badge className={shift.isActive !== false ? "bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30" : "bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30"}>
-                    {shift.isActive !== false ? t('shifts.status.active') : t('shifts.status.inactive')}
+                    {shift.isActive !== false ? 'Hoạt động' : 'Ngừng hoạt động'}
                   </Badge>
                 </div>
               </div>
@@ -373,21 +357,21 @@ export function ShiftsPage() {
       {/* Weekly Schedule */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">{t('shifts.weekSchedule.title')}</CardTitle>
+          <CardTitle className="text-[var(--text-main)]">Lịch tuần này</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-[var(--shell)]">
-                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">{t('shifts.weekSchedule.shiftColumn')}</th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">{t('shifts.weekSchedule.monday')}</th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">{t('shifts.weekSchedule.tuesday')}</th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">{t('shifts.weekSchedule.wednesday')}</th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">{t('shifts.weekSchedule.thursday')}</th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">{t('shifts.weekSchedule.friday')}</th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">{t('shifts.weekSchedule.saturday')}</th>
-                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">{t('shifts.weekSchedule.sunday')}</th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">Ca làm</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">T2</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">T3</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">T4</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">T5</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">T6</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">T7</th>
+                  <th className="text-center py-3 px-4 text-sm text-[var(--text-sub)]">CN</th>
                 </tr>
               </thead>
               <tbody>
@@ -413,16 +397,16 @@ export function ShiftsPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
           <DialogHeader>
-            <DialogTitle>{t('shifts.dialog.edit.title')}</DialogTitle>
+            <DialogTitle>Chỉnh sửa ca làm việc</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              {t('shifts.dialog.edit.description', { name: selectedShift?.name })}
+              Cập nhật thông tin ca làm việc {selectedShift?.name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
-              <Label>{t('shifts.form.shiftName')}</Label>
+              <Label>Tên ca</Label>
               <Input 
-                placeholder={t('shifts.form.shiftNamePlaceholder')} 
+                placeholder="Ca sáng" 
                 className="bg-[var(--input-bg)] border-[var(--border)]"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -431,7 +415,7 @@ export function ShiftsPage() {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t('shifts.form.startTime')}</Label>
+                <Label>Giờ bắt đầu</Label>
                 <Input 
                   type="time" 
                   className="bg-[var(--input-bg)] border-[var(--border)]"
@@ -440,7 +424,7 @@ export function ShiftsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t('shifts.form.endTime')}</Label>
+                <Label>Giờ kết thúc</Label>
                 <Input 
                   type="time" 
                   className="bg-[var(--input-bg)] border-[var(--border)]"
@@ -451,10 +435,10 @@ export function ShiftsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t('shifts.form.breakDuration')}</Label>
+              <Label>Thời gian nghỉ (phút)</Label>
               <Input 
                 type="number" 
-                placeholder={t('shifts.form.breakPlaceholder')} 
+                placeholder="60" 
                 className="bg-[var(--input-bg)] border-[var(--border)]"
                 value={formData.breakDuration}
                 onChange={(e) => setFormData({ ...formData, breakDuration: e.target.value })}
@@ -462,9 +446,9 @@ export function ShiftsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t('shifts.form.description')}</Label>
+              <Label>Mô tả (tùy chọn)</Label>
               <Input 
-                placeholder={t('shifts.form.descriptionPlaceholder')} 
+                placeholder="Mô tả về ca làm việc" 
                 className="bg-[var(--input-bg)] border-[var(--border)]"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -477,13 +461,13 @@ export function ShiftsPage() {
                 onClick={() => setIsEditDialogOpen(false)}
                 className="border-[var(--border)] text-[var(--text-main)]"
               >
-                {t('shifts.dialog.cancel')}
+                Hủy
               </Button>
               <Button 
                 onClick={handleSubmitEdit}
                 className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
               >
-                {t('shifts.dialog.update')}
+                Cập nhật
               </Button>
             </div>
           </div>
@@ -494,9 +478,9 @@ export function ShiftsPage() {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
           <DialogHeader>
-            <DialogTitle>{t('shifts.dialog.delete.title')}</DialogTitle>
+            <DialogTitle>Xác nhận xóa ca làm việc</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              {t('shifts.dialog.delete.description')}
+              Bạn có chắc chắn muốn xóa ca làm việc này?
             </DialogDescription>
           </DialogHeader>
           {selectedShift && (
@@ -512,13 +496,13 @@ export function ShiftsPage() {
                       {selectedShift.startTime} - {selectedShift.endTime}
                     </p>
                     <p className="text-xs text-[var(--text-sub)]">
-                      {t('shifts.card.employeeCount', { count: selectedShift.employees || 0 })}
+                      {selectedShift.employees || 0} nhân viên
                     </p>
                   </div>
                 </div>
               </div>
               <p className="text-[var(--error)] text-sm mt-4">
-                ⚠️ {t('shifts.dialog.delete.warning', { count: selectedShift.employees || 0 })}
+                ⚠️ Hành động này sẽ ảnh hưởng đến {selectedShift.employees || 0} nhân viên đang trong ca này.
               </p>
             </div>
           )}
@@ -528,13 +512,13 @@ export function ShiftsPage() {
               onClick={() => setIsDeleteDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
-              {t('shifts.dialog.cancel')}
+              Hủy
             </Button>
             <Button 
               onClick={confirmDelete}
               className="bg-[var(--error)] hover:bg-[var(--error)]/90 text-white"
             >
-              {t('shifts.dialog.delete')}
+              Xóa ca làm
             </Button>
           </DialogFooter>
         </DialogContent>
