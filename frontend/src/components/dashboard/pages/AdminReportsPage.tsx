@@ -187,14 +187,14 @@ export default function AdminReportsPage() {
       params.from = from.toISOString().split("T")[0];
       params.to = today.toISOString().split("T")[0];
 
-      toast.loading(t("dashboard:adminReports.exportLoading"), { id: "export" });
+      toast.loading("📥 Đang xuất báo cáo...", { id: "export" });
       await exportAttendanceAnalytics(params);
       toast.success(
         t("dashboard:adminReports.exportSuccess") || "Xuất báo cáo thành công!",
         { id: "export" }
       );
     } catch (error) {
-      toast.error(t("dashboard:adminReports.exportError"), { id: "export" });
+      toast.error("Xuất báo cáo thất bại", { id: "export" });
     }
   };
 
@@ -237,8 +237,8 @@ export default function AdminReportsPage() {
           >
             <Download className="h-4 w-4 mr-2" />
             {loading
-              ? (t("common:loading") || "Đang xuất...")
-              : (t("dashboard:adminReports.export") || "Xuất báo cáo")}
+              ? t("common:loading") || "Đang xuất..."
+              : t("dashboard:adminReports.export") || "Xuất báo cáo"}
           </Button>
         </div>
       </div>
@@ -427,7 +427,8 @@ export default function AdminReportsPage() {
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardHeader>
               <CardTitle className="text-[var(--text-main)]">
-                {t("dashboard:adminReports.charts.departmentDistribution")}
+                {t("dashboard:adminReports.charts.department") ||
+                  "Phân bổ theo phòng ban"}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -485,7 +486,8 @@ export default function AdminReportsPage() {
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardHeader>
               <CardTitle className="text-[var(--text-main)]">
-                {t("dashboard:adminReports.charts.overtimeStats")}
+                {t("dashboard:adminReports.charts.overtime") ||
+                  "Thống kê tăng ca"}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -526,7 +528,8 @@ export default function AdminReportsPage() {
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardHeader>
               <CardTitle className="text-[var(--text-main)]">
-                {t("dashboard:adminReports.charts.topEmployees")}
+                {t("dashboard:adminReports.charts.topPerformers") ||
+                  "Nhân viên xuất sắc"}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -555,7 +558,8 @@ export default function AdminReportsPage() {
                           {emp.punctuality}%
                         </p>
                         <p className="text-xs text-[var(--text-sub)]">
-                          {t("dashboard:adminReports.charts.attendanceRate")}
+                          {t("dashboard:adminReports.charts.attendanceRate") ||
+                            "Tỷ lệ chấm công"}
                         </p>
                       </div>
                     </motion.div>

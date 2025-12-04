@@ -642,7 +642,7 @@ export default function AdminAttendancePage() {
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            {t('dashboard:adminAttendance.todayList')}
+            Danh sách chấm công hôm nay
           </CardTitle>
         </CardHeader>
         <CardContent>
