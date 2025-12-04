@@ -1,6 +1,9 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosError, type AxiosResponse } from 'axios'
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
+// Get base URL from environment variable or use default
+const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+// Ensure baseURL always ends with /api for backend routes
+const baseURL = envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl}/api`
 
 export interface ValidationError extends Error {
     fieldErrors?: Record<string, string[]>

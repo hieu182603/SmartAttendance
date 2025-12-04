@@ -1,4 +1,5 @@
 import { NotificationModel } from "./notification.model.js";
+import { emitNotification } from "../../config/socket.js";
 
 export class NotificationService {
   static async createNotification(data) {
@@ -11,6 +12,25 @@ export class NotificationService {
       relatedEntityId: data.relatedEntityId,
       metadata: data.metadata || {},
     });
+
+    // Emit real-time notification via Socket.io
+    try {
+      emitNotification(data.userId, {
+        _id: notification._id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        relatedEntityType: notification.relatedEntityType,
+        relatedEntityId: notification.relatedEntityId,
+        isRead: notification.isRead,
+        createdAt: notification.createdAt,
+        metadata: notification.metadata,
+      });
+    } catch (error) {
+      console.error("[NotificationService] Error emitting notification:", error);
+      // Don't fail if socket emit fails
+    }
+
     return notification;
   }
 
@@ -71,6 +91,13 @@ export class NotificationService {
 
   static async getUnreadCount(userId) {
     return NotificationModel.countDocuments({ userId, isRead: false });
+  }
+
+  /**
+   * Create and emit notification (convenience method)
+   */
+  static async createAndEmitNotification(data) {
+    return this.createNotification(data);
   }
 }
 

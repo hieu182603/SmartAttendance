@@ -18,6 +18,7 @@ import { shiftRouter } from "./modules/shifts/shift.router.js";
 import { payrollRouter } from "./modules/payroll/payroll.router.js";
 import { eventRouter } from "./modules/events/event.router.js";
 import { performanceRouter } from "./modules/performance/performance.router.js";
+import { notificationRouter } from "./modules/notifications/notification.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
 
 
@@ -65,6 +66,7 @@ app.use("/api/shifts", shiftRouter);
 app.use("/api/payroll", payrollRouter);
 app.use("/api/events", eventRouter);
 app.use("/api/performance", performanceRouter);
+app.use("/api/notifications", notificationRouter);
 
 
 app.use("/api/logs", logRouter);
@@ -89,7 +91,7 @@ async function start() {
   try {
     await connectDatabase();
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       const serverUrl = `http://localhost:${PORT}`;
       const docsUrl = `${serverUrl}/api/docs`;
 
@@ -101,6 +103,10 @@ async function start() {
       // Khởi động cron jobs
       startCronJobs();
     });
+
+    // Initialize Socket.io
+    const { initializeSocket } = await import("./config/socket.js");
+    initializeSocket(server);
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);

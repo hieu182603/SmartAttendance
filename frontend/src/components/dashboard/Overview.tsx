@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
@@ -29,46 +29,6 @@ interface WelcomeMessage {
   gradient: string;
 }
 
-// Role-based welcome messages
-const getRoleWelcomeMessage = (role: UserRoleType, t: (key: string) => string): WelcomeMessage => {
-  switch (role) {
-    case UserRole.SUPER_ADMIN:
-      return {
-        greeting: t('dashboard:overview.welcome.superAdmin'),
-        subtitle: t('dashboard:overview.subtitle.superAdmin'),
-        icon: Shield,
-        gradient: "from-purple-500 to-pink-500",
-      };
-    case UserRole.ADMIN:
-      return {
-        greeting: t('dashboard:overview.welcome.admin'),
-        subtitle: t('dashboard:overview.subtitle.admin'),
-        icon: UserCog,
-        gradient: "from-red-500 to-orange-500",
-      };
-    case UserRole.HR_MANAGER:
-      return {
-        greeting: t('dashboard:overview.welcome.hrManager'),
-        subtitle: t('dashboard:overview.subtitle.hrManager'),
-        icon: Users,
-        gradient: "from-blue-500 to-cyan-500",
-      };
-    case UserRole.MANAGER:
-      return {
-        greeting: t('dashboard:overview.welcome.manager'),
-        subtitle: t('dashboard:overview.subtitle.manager'),
-        icon: Activity,
-        gradient: "from-green-500 to-teal-500",
-      };
-    default:
-      return {
-        greeting: t('dashboard:overview.welcome.default'),
-        subtitle: t('dashboard:overview.subtitle.default'),
-        icon: Activity,
-        gradient: "from-[var(--primary)] to-[var(--accent-cyan)]",
-      };
-  }
-};
 
 interface KPIData {
   totalEmployees: number;
@@ -103,10 +63,49 @@ export const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.MANAGER;
-  const roleInfo = getRoleColor(userRole);
-  const roleName = getRoleName(userRole);
   const { t } = useTranslation(['dashboard', 'common']);
-  const welcomeMsg = getRoleWelcomeMessage(userRole, t);
+  
+  // Role-based welcome messages - defined inside component to avoid deep type inference
+  const welcomeMsg = useMemo((): WelcomeMessage => {
+    switch (userRole) {
+      case UserRole.SUPER_ADMIN:
+        return {
+          greeting: t('dashboard:overview.welcome.superAdmin'),
+          subtitle: t('dashboard:overview.subtitle.superAdmin'),
+          icon: Shield,
+          gradient: "from-purple-500 to-pink-500",
+        };
+      case UserRole.ADMIN:
+        return {
+          greeting: t('dashboard:overview.welcome.admin'),
+          subtitle: t('dashboard:overview.subtitle.admin'),
+          icon: UserCog,
+          gradient: "from-red-500 to-orange-500",
+        };
+      case UserRole.HR_MANAGER:
+        return {
+          greeting: t('dashboard:overview.welcome.hrManager'),
+          subtitle: t('dashboard:overview.subtitle.hrManager'),
+          icon: Users,
+          gradient: "from-blue-500 to-cyan-500",
+        };
+      case UserRole.MANAGER:
+        return {
+          greeting: t('dashboard:overview.welcome.manager'),
+          subtitle: t('dashboard:overview.subtitle.manager'),
+          icon: Activity,
+          gradient: "from-green-500 to-teal-500",
+        };
+      default:
+        return {
+          greeting: t('dashboard:overview.welcome.default'),
+          subtitle: t('dashboard:overview.subtitle.default'),
+          icon: Activity,
+          gradient: "from-[var(--primary)] to-[var(--accent-cyan)]",
+        };
+    }
+  }, [userRole, t]);
+  
   const WelcomeIcon = welcomeMsg.icon;
 
   const [loading, setLoading] = useState(true);

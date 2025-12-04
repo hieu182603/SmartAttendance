@@ -34,6 +34,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/dashboard/NotificationCenter";
+import { useNotifications } from "@/hooks/useNotifications";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
   UserRole,
@@ -51,7 +52,7 @@ interface NotificationBellProps {
 }
 
 const NotificationBell: React.FC<NotificationBellProps> = ({ onClick }) => {
-  const unreadCount = 3; // TODO: Get from state/context/API
+  const { unreadCount } = useNotifications();
 
   return (
     <motion.button
