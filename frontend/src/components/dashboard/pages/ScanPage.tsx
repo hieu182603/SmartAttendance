@@ -432,6 +432,10 @@ const ScanPage: React.FC = () => {
         setState((prev) => ({ ...prev, hasCheckedIn: true }));
       } else if (err.response?.data?.code === "TOO_EARLY") {
         toast.warning(errorMessage);
+      } else if (err.response?.data?.code === 'ON_LEAVE') {
+        toast.error(errorMessage, {
+          duration: 5000,
+        });
       } else {
         toast.error(errorMessage);
       }
@@ -494,6 +498,10 @@ const ScanPage: React.FC = () => {
         setState((prev) => ({ ...prev, hasCheckedOut: true }));
       } else if (err.response?.data?.code === "INSUFFICIENT_WORK_HOURS") {
         toast.warning(errorMessage);
+      } else if (err.response?.data?.code === 'ON_LEAVE') {
+        toast.error(errorMessage, {
+          duration: 5000,
+        });
       } else {
         toast.error(errorMessage);
       }

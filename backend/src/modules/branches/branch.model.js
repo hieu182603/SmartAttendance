@@ -65,6 +65,10 @@ const branchSchema = new mongoose.Schema(
       default: "GMT+7",
       trim: true,
     },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

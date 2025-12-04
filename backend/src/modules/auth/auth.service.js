@@ -155,6 +155,9 @@ export class AuthService {
         const user = await UserModel.findOne({ email });
         if (!user) throw new Error("Invalid credentials");
         if (!user.isVerified) throw new Error("Email not verified");
+        if (user.isActive === false) {
+            throw new Error("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
+        }
 
         const isPasswordValid = await user.comparePassword(password);
         if (!isPasswordValid) throw new Error("Invalid credentials");
@@ -185,7 +188,7 @@ export class AuthService {
     static async forgotPassword(email) {
         const user = await UserModel.findOne({ email });
         if (!user) {
-            
+
             return {
                 success: true,
                 message: "If the email exists, an OTP has been sent to your email."

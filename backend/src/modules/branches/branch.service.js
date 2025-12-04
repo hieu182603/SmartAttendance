@@ -197,7 +197,7 @@ export class BranchService {
   }
 
   /**
-   * Xóa chi nhánh
+   * Xóa chi nhánh (Soft Delete)
    */
   static async deleteBranch(id) {
     const branch = await BranchModel.findById(id);
@@ -205,16 +205,9 @@ export class BranchService {
       throw new Error("Không tìm thấy chi nhánh");
     }
 
-    // Kiểm tra có nhân viên không
-    const employeeCount = await UserModel.countDocuments({ branch: branch._id });
-    if (employeeCount > 0) {
-      throw new Error("Không thể xóa chi nhánh vì còn nhân viên");
-    }
-
-    // Kiểm tra có phòng ban không
-    const departmentCount = await DepartmentModel.countDocuments({ branchId: branch._id });
-    if (departmentCount > 0) {
-      throw new Error("Không thể xóa chi nhánh vì còn phòng ban");
+    // Kiểm tra đã bị xóa chưa
+    if (branch.deletedAt) {
+      throw new Error("Chi nhánh này đã bị xóa trước đó");
     }
 
     // Không cho xóa trụ sở chính
@@ -222,9 +215,59 @@ export class BranchService {
       throw new Error("Không thể xóa trụ sở chính");
     }
 
-    await BranchModel.findByIdAndDelete(id);
+    // Kiểm tra có nhân viên đang hoạt động không
+    const activeEmployeeCount = await UserModel.countDocuments({ 
+      branch: branch._id,
+      isActive: true 
+    });
+    
+    if (activeEmployeeCount > 0) {
+      const totalEmployeeCount = await UserModel.countDocuments({ 
+        branch: branch._id 
+      });
+      throw new Error(
+        `Không thể xóa chi nhánh vì còn ${totalEmployeeCount} nhân viên ` +
+        `(${activeEmployeeCount} đang hoạt động). ` +
+        `Vui lòng chuyển nhân viên sang chi nhánh khác trước.`
+      );
+    }
 
-    return { message: "Đã xóa chi nhánh thành công" };
+    // Kiểm tra có phòng ban đang hoạt động không
+    const activeDepartmentCount = await DepartmentModel.countDocuments({ 
+      branchId: branch._id,
+      status: "active",
+      deletedAt: null
+    });
+    
+    if (activeDepartmentCount > 0) {
+      const totalDepartmentCount = await DepartmentModel.countDocuments({ 
+        branchId: branch._id 
+      });
+      throw new Error(
+        `Không thể xóa chi nhánh vì còn ${totalDepartmentCount} phòng ban ` +
+        `(${activeDepartmentCount} đang hoạt động). ` +
+        `Vui lòng xóa hoặc chuyển phòng ban trước.`
+      );
+    }
+
+    // Kiểm tra attendance records (locationId)
+    const AttendanceModel = (await import('../attendance/attendance.model.js')).AttendanceModel;
+    const attendanceCount = await AttendanceModel.countDocuments({
+      locationId: branch._id
+    });
+    if (attendanceCount > 0) {
+      throw new Error(
+        `Không thể xóa chi nhánh vì còn ${attendanceCount} bản ghi chấm công. ` +
+        `Chi nhánh này đã được sử dụng trong hệ thống chấm công.`
+      );
+    }
+
+    // Soft delete: Chuyển status sang "inactive" và đánh dấu deletedAt
+    branch.status = "inactive";
+    branch.deletedAt = new Date();
+    await branch.save();
+
+    return { message: "Đã vô hiệu hóa chi nhánh thành công" };
   }
 
   /**

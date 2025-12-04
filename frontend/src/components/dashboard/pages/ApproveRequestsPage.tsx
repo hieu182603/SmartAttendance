@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { motion } from 'framer-motion'
 import {
   CheckCircle2,
@@ -73,6 +74,7 @@ const ApproveRequestsPage: React.FC = () => {
   const [requests, setRequests] = useState<Request[]>([]) // Requests đã filter theo tab
   const [selectedTab, setSelectedTab] = useState<string>('pending')
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearchQuery = useDebounce(searchQuery, 500)
   const [filterType, setFilterType] = useState<string>('all')
   const [filterDepartment, setFilterDepartment] = useState<string>('all')
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
@@ -163,7 +165,7 @@ const ApproveRequestsPage: React.FC = () => {
       const params: Record<string, string> = {}
       if (filterType !== 'all') params.type = filterType
       if (filterDepartment !== 'all') params.department = filterDepartment
-      if (searchQuery) params.search = searchQuery
+      if (debouncedSearchQuery) params.search = debouncedSearchQuery
       // Không filter theo status để lấy tất cả
 
       const result = await getAllRequests(params) as GetAllRequestsResponse
@@ -173,7 +175,7 @@ const ApproveRequestsPage: React.FC = () => {
       toast.error(t('dashboard:approveRequests.actions.error'))
       setAllRequests([])
     }
-  }, [filterType, filterDepartment, searchQuery])
+  }, [filterType, filterDepartment, debouncedSearchQuery, t])
 
   // Filter requests theo selectedTab từ allRequests
   useEffect(() => {
@@ -190,23 +192,25 @@ const ApproveRequestsPage: React.FC = () => {
     fetchAllRequests().finally(() => setLoading(false))
   }, [fetchAllRequests])
 
-  // Filter requests - đầy đủ logic như dự án tham khảo
-  const filteredRequests = requests.filter(req => {
-    // Tab filter
-    if (selectedTab !== 'all' && req.status !== selectedTab) return false
+  // Filter requests - đầy đủ logic như dự án tham khảo (memoized for performance)
+  const filteredRequests = useMemo(() => {
+    return requests.filter(req => {
+      // Tab filter
+      if (selectedTab !== 'all' && req.status !== selectedTab) return false
 
-    // Search filter
-    if (searchQuery && !req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase())
-      && !req.title?.toLowerCase().includes(searchQuery.toLowerCase())) return false
+      // Search filter (using debounced value)
+      if (debouncedSearchQuery && !req.employeeName?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+        && !req.title?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())) return false
 
-    // Type filter
-    if (filterType !== 'all' && req.type !== filterType) return false
+      // Type filter
+      if (filterType !== 'all' && req.type !== filterType) return false
 
-    // Department filter
-    if (filterDepartment !== 'all' && req.department !== filterDepartment) return false
+      // Department filter
+      if (filterDepartment !== 'all' && req.department !== filterDepartment) return false
 
-    return true
-  })
+      return true
+    })
+  }, [requests, selectedTab, debouncedSearchQuery, filterType, filterDepartment])
 
   // Tính stats từ allRequests (tất cả requests, không filter theo tab)
   const stats: Stats = {

@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
     getAllDepartments,
     getDepartmentStats,
+    getDepartmentById,
     createDepartment,
     updateDepartment,
     deleteDepartment,
@@ -81,6 +82,9 @@ export function DepartmentsPage() {
     const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
     const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [deleteDepartmentDetails, setDeleteDepartmentDetails] = useState<Department | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -278,15 +282,37 @@ export function DepartmentsPage() {
     };
 
     const handleDelete = async (department: Department) => {
-        if (confirm(t('dashboard:departments.delete.confirm', { name: department.name }))) {
-            try {
-                await deleteDepartment(department._id || department.id);
-                toast.success(t('dashboard:departments.delete.success', { name: department.name }));
-                await loadDepartments();
-                await loadStats();
-            } catch (error: any) {
-                toast.error(error.message || t('dashboard:departments.errors.generic'));
-            }
+        try {
+            // Fetch chi tiết phòng ban để hiển thị thông tin
+            const details = await getDepartmentById(department._id || department.id);
+            setDeleteDepartmentDetails({
+                ...department,
+                employeeCount: details.department.employeeCount || 0,
+                activeEmployees: details.department.activeEmployees || 0,
+            });
+            setIsDeleteDialogOpen(true);
+        } catch (error: any) {
+            toast.error(error.message || t('dashboard:departments.errors.generic'));
+        }
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteDepartmentDetails) return;
+
+        setDeleteLoading(true);
+        try {
+            await deleteDepartment(deleteDepartmentDetails._id || deleteDepartmentDetails.id);
+            toast.success(t('dashboard:departments.delete.success', { name: deleteDepartmentDetails.name }));
+            setIsDeleteDialogOpen(false);
+            setDeleteDepartmentDetails(null);
+            await loadDepartments();
+            await loadStats();
+        } catch (error: any) {
+            // Hiển thị lỗi chi tiết từ backend
+            const errorMessage = error.response?.data?.message || error.message || t('dashboard:departments.errors.generic');
+            toast.error(errorMessage, { duration: 5000 });
+        } finally {
+            setDeleteLoading(false);
         }
     };
 
@@ -835,6 +861,92 @@ export function DepartmentsPage() {
                             className="border-[var(--border)] text-[var(--text-main)]"
                         >
                             Đóng
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent className="bg-[var(--surface)] border-[var(--border)] max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-[var(--text-main)] flex items-center gap-2">
+                            <Trash2 className="h-5 w-5 text-[var(--error)]" />
+                            Xác nhận xóa phòng ban
+                        </DialogTitle>
+                        <DialogDescription className="text-[var(--text-sub)]">
+                            Bạn có chắc chắn muốn vô hiệu hóa phòng ban này?
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {deleteDepartmentDetails && (
+                        <div className="space-y-4 py-4">
+                            <div className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
+                                <p className="font-semibold text-[var(--text-main)] mb-2">
+                                    {deleteDepartmentDetails.name}
+                                </p>
+                                <p className="text-sm text-[var(--text-sub)]">
+                                    Mã: {deleteDepartmentDetails.code}
+                                </p>
+                            </div>
+
+                            {(deleteDepartmentDetails.employeeCount || 0) > 0 && (
+                                <div className="p-4 rounded-lg bg-[var(--warning)]/10 border border-[var(--warning)]/30">
+                                    <div className="flex items-start gap-3">
+                                        <Users className="h-5 w-5 text-[var(--warning)] mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="font-medium text-[var(--warning)] mb-1">
+                                                Cảnh báo: Phòng ban này còn nhân viên
+                                            </p>
+                                            <p className="text-sm text-[var(--text-sub)]">
+                                                • Tổng số nhân viên: <span className="font-semibold text-[var(--text-main)]">
+                                                    {deleteDepartmentDetails.employeeCount}
+                                                </span>
+                                            </p>
+                                            <p className="text-sm text-[var(--text-sub)]">
+                                                • Nhân viên đang hoạt động: <span className="font-semibold text-[var(--text-main)]">
+                                                    {deleteDepartmentDetails.activeEmployees || 0}
+                                                </span>
+                                            </p>
+                                            <p className="text-sm text-[var(--warning)] mt-2">
+                                                Vui lòng chuyển nhân viên sang phòng ban khác trước khi xóa.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {(deleteDepartmentDetails.employeeCount || 0) === 0 && (
+                                <div className="p-4 rounded-lg bg-[var(--success)]/10 border border-[var(--success)]/30">
+                                    <div className="flex items-center gap-2">
+                                        <UserCheck className="h-5 w-5 text-[var(--success)]" />
+                                        <p className="text-sm text-[var(--success)]">
+                                            Phòng ban này không có nhân viên. Có thể xóa an toàn.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setIsDeleteDialogOpen(false);
+                                setDeleteDepartmentDetails(null);
+                            }}
+                            disabled={deleteLoading}
+                            className="border-[var(--border)] text-[var(--text-main)]"
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            onClick={confirmDelete}
+                            disabled={deleteLoading || (deleteDepartmentDetails?.employeeCount || 0) > 0}
+                            className="bg-[var(--error)] hover:bg-[var(--error)]/80 text-white"
+                        >
+                            {deleteLoading ? 'Đang xóa...' : 'Xác nhận xóa'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

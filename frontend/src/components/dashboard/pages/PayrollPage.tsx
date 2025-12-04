@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import * as XLSX from "xlsx";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -171,65 +172,126 @@ export default function PayrollPage() {
     setCurrentPage(1);
   }, [filterDepartment, filterStatus, selectedMonth]);
 
-  const exportToExcel = () => {
-    const headers = [
-      t("payroll.employeeName"),
-      t("payroll.table.department"),
-      t("payroll.table.position"),
-      t("payroll.table.workDays"),
-      t("payroll.table.totalDays"),
-      t("payroll.table.overtimeHours"),
-      t("payroll.table.leaveDays"),
-      t("payroll.table.lateDays"),
-      t("payroll.table.baseSalary"),
-      t("payroll.table.overtimePay"),
-      t("payroll.table.bonus"),
-      t("payroll.table.deductions"),
-      t("payroll.table.totalSalary"),
-      t("payroll.table.status"),
-    ];
+  const exportToExcel = async () => {
+    try {
+      // Show loading toast
+      toast.loading("Đang xuất file Excel...", { id: "export-excel" });
 
-    // For export, we need to fetch all records
-    // This is acceptable for export functionality
-    const exportData = searchTerm ? filteredData : payrollData;
-    const csvContent = [
-      headers.join(","),
-      ...exportData.map((record) =>
-        [
-          record.userId?.name || "N/A",
-          record.department,
-          record.position,
-          record.workDays,
-          record.totalDays,
-          record.overtimeHours,
-          record.leaveDays,
-          record.lateDays,
-          record.baseSalary,
-          record.overtimePay,
-          record.bonus,
-          record.deductions,
-          record.totalSalary,
-          record.status,
-        ].join(",")
-      ),
-    ].join("\n");
+      // Fetch all records for export (without pagination)
+      let allExportData: PayrollRecord[] = [];
+      
+      if (searchTerm) {
+        // If there's a search term, use filtered data (client-side)
+        allExportData = filteredData;
+      } else {
+        // Fetch all records from server for export
+        const params: {
+          month?: string;
+          page?: number;
+          limit: number;
+          status?: string;
+          department?: string;
+        } = {
+          limit: 10000, // Large limit to get all records
+        };
 
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
+        if (selectedMonth) {
+          params.month = selectedMonth;
+        }
+        if (filterStatus !== "all") {
+          params.status = filterStatus;
+        }
+        if (filterDepartment !== "all") {
+          params.department = filterDepartment;
+        }
 
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `${t("payroll.filePrefix")}_${selectedMonth}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        const response = await getPayrollRecords(params);
+        allExportData = response.records || [];
+      }
+
+      if (allExportData.length === 0) {
+        toast.error("Không có dữ liệu để xuất", { id: "export-excel" });
+        return;
+      }
+
+      // Prepare data for Excel
+      const excelData = allExportData.map((record) => ({
+        [t("payroll.employeeName")]: record.userId?.name || "N/A",
+        [t("payroll.table.department")]: record.department || "N/A",
+        [t("payroll.table.position")]: record.position || "N/A",
+        [t("payroll.table.workDays")]: record.workDays,
+        [t("payroll.table.totalDays")]: record.totalDays,
+        [t("payroll.table.overtimeHours")]: record.overtimeHours,
+        [t("payroll.table.leaveDays")]: record.leaveDays,
+        [t("payroll.table.lateDays")]: record.lateDays,
+        [t("payroll.table.baseSalary")]: record.baseSalary,
+        [t("payroll.table.overtimePay")]: record.overtimePay,
+        [t("payroll.table.bonus")]: record.bonus,
+        [t("payroll.table.deductions")]: record.deductions,
+        [t("payroll.table.totalSalary")]: record.totalSalary,
+        [t("payroll.table.status")]: 
+          record.status === "paid" 
+            ? t("payroll.filters.paid")
+            : record.status === "approved"
+            ? t("payroll.filters.approved")
+            : t("payroll.filters.pending"),
+      }));
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Set column widths for better readability
+      const colWidths = [
+        { wch: 25 }, // Employee Name
+        { wch: 20 }, // Department
+        { wch: 20 }, // Position
+        { wch: 12 }, // Work Days
+        { wch: 12 }, // Total Days
+        { wch: 15 }, // Overtime Hours
+        { wch: 12 }, // Leave Days
+        { wch: 12 }, // Late Days
+        { wch: 15 }, // Base Salary
+        { wch: 15 }, // Overtime Pay
+        { wch: 15 }, // Bonus
+        { wch: 15 }, // Deductions
+        { wch: 15 }, // Total Salary
+        { wch: 15 }, // Status
+      ];
+      ws["!cols"] = colWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Bảng lương");
+
+      // Generate Excel file
+      const excelBuffer = XLSX.write(wb, { 
+        bookType: "xlsx", 
+        type: "array",
+        cellStyles: true,
+      });
+
+      // Create blob and download
+      const blob = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${t("payroll.filePrefix")}_${selectedMonth}.xlsx`;
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Đã xuất ${allExportData.length} bản ghi ra file Excel`, { 
+        id: "export-excel" 
+      });
+    } catch (error) {
+      console.error("Export Excel error:", error);
+      toast.error("Có lỗi xảy ra khi xuất file Excel", { id: "export-excel" });
+    }
   };
 
   const getStatusColor = (status: string) => {
