@@ -96,60 +96,96 @@ export default function PayrollPage() {
     fetchDepartments();
   }, []);
 
-  useEffect(() => {
-    const fetchPayrollData = async () => {
-      try {
-        setLoading(true);
-        const params: {
-          month?: string;
-          page: number;
-          limit: number;
-          status?: string;
-          department?: string;
-        } = {
-          page: currentPage,
-          limit: itemsPerPage,
-        };
+  const fetchPayrollData = async () => {
+    try {
+      setLoading(true);
+      const params: {
+        month?: string;
+        page: number;
+        limit: number;
+        status?: string;
+        department?: string;
+      } = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
 
-        if (selectedMonth) {
-          params.month = selectedMonth;
-        }
-        if (filterStatus !== "all") {
-          params.status = filterStatus;
-        }
-        if (filterDepartment !== "all") {
-          params.department = filterDepartment;
-        }
-
-        const response = await getPayrollRecords(params);
-        setPayrollData(response.records || []);
-        if (response.pagination) {
-          setPagination(response.pagination);
-        }
-      } catch (error: any) {
-        console.error("Error fetching payroll:", error);
-        console.error("Error details:", error.response?.data || error.message);
-
-        const errorMsg =
-          error.response?.data?.message ||
-          error.message ||
-          t("payroll.error");
-        toast.error(errorMsg);
-
-        setPayrollData([]);
-        setPagination({
-          total: 0,
-          page: 1,
-          limit: itemsPerPage,
-          totalPages: 1,
-        });
-      } finally {
-        setLoading(false);
+      if (selectedMonth) {
+        params.month = selectedMonth;
       }
-    };
+      if (filterStatus !== "all") {
+        params.status = filterStatus;
+      }
+      if (filterDepartment !== "all") {
+        params.department = filterDepartment;
+      }
 
+      const response = await getPayrollRecords(params);
+      setPayrollData(response.records || []);
+      if (response.pagination) {
+        setPagination(response.pagination);
+      }
+    } catch (error: any) {
+      console.error("Error fetching payroll:", error);
+      console.error("Error details:", error.response?.data || error.message);
+
+      const errorMsg =
+        error.response?.data?.message ||
+        error.message ||
+        t("payroll.error");
+      toast.error(errorMsg);
+
+      setPayrollData([]);
+      setPagination({
+        total: 0,
+        page: 1,
+        limit: itemsPerPage,
+        totalPages: 1,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchPayrollData();
   }, [selectedMonth, currentPage, itemsPerPage, filterStatus, filterDepartment]);
+
+  // Lắng nghe sự kiện realtime khi payroll được duyệt/thanh toán
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handlePayrollUpdated = ((event: Event) => {
+      // Refetch danh sách payroll để cập nhật trạng thái mà không cần F5
+      fetchPayrollData();
+    }) as EventListener;
+
+    const handlePayrollStatusChanged = ((event: Event) => {
+      const customEvent = event as CustomEvent<any>;
+      const notification = customEvent.detail;
+
+      // Chỉ xử lý các notification liên quan đến payroll
+      if (!notification || notification.relatedEntityType !== 'payroll') {
+        return;
+      }
+
+      // Hiển thị toast thân thiện cho người dùng
+      if (notification.type === 'system') {
+        toast.success(notification.title || 'Bảng lương đã được cập nhật');
+      }
+
+      // Refetch danh sách payroll để cập nhật trạng thái mà không cần F5
+      fetchPayrollData();
+    }) as EventListener;
+
+    window.addEventListener('payroll-updated', handlePayrollUpdated);
+    window.addEventListener('payroll-status-changed', handlePayrollStatusChanged);
+
+    return () => {
+      window.removeEventListener('payroll-updated', handlePayrollUpdated);
+      window.removeEventListener('payroll-status-changed', handlePayrollStatusChanged);
+    };
+  }, []);
 
   // Client-side search filtering (by name/employeeId)
   const filteredData = useMemo(() => {

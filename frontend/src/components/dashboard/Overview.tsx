@@ -152,17 +152,36 @@ export const DashboardOverview: React.FC = () => {
     }
   }, [t]);
 
-  // Initial load + polling nhẹ để dashboard luôn tương đối cập nhật
+  // Initial load + real-time updates + polling fallback
   useEffect(() => {
     void fetchDashboardStats();
 
-    // Polling mỗi 60s – đủ nhẹ, tránh spam backend
+    // Polling mỗi 60s – fallback nếu real-time không hoạt động
     const intervalId = window.setInterval(() => {
       void fetchDashboardStats();
     }, 60000);
 
     return () => {
       window.clearInterval(intervalId);
+    };
+  }, [fetchDashboardStats]);
+
+  // Lắng nghe sự kiện realtime khi attendance được cập nhật
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleAttendanceUpdated = ((event: Event) => {
+      const customEvent = event as CustomEvent<any>;
+      const data = customEvent.detail;
+
+      // Refetch dashboard stats để cập nhật KPI và charts mà không cần F5
+      fetchDashboardStats();
+    }) as EventListener;
+
+    window.addEventListener('attendance-updated', handleAttendanceUpdated);
+
+    return () => {
+      window.removeEventListener('attendance-updated', handleAttendanceUpdated);
     };
   }, [fetchDashboardStats]);
 

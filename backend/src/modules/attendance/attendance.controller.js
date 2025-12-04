@@ -11,6 +11,7 @@ import {
   processCheckIn,
   processCheckOut,
 } from "./attendance.service.js";
+import { emitAttendanceUpdate, emitAttendanceUpdateToAdmins } from "../../config/socket.js";
 
 // ============================================================================
 // USER ATTENDANCE CONTROLLERS
@@ -704,6 +705,28 @@ export const updateAttendanceRecord = async (req, res) => {
     const updated = await AttendanceModel.findById(attendance._id)
       .populate("userId", "name email department role")
       .populate("locationId", "name");
+
+    // Emit real-time update to user and admins
+    try {
+      const attendanceData = {
+        _id: updated._id.toString(),
+        userId: updated.userId?._id?.toString() || updated.userId?.toString(),
+        date: updated.date,
+        checkIn: updated.checkIn,
+        checkOut: updated.checkOut,
+        status: updated.status,
+        workHours: updated.workHours,
+        locationId: updated.locationId?._id?.toString() || updated.locationId?.toString(),
+        action: "admin-update",
+      };
+      if (attendanceData.userId) {
+        emitAttendanceUpdate(attendanceData.userId, attendanceData);
+      }
+      emitAttendanceUpdateToAdmins(attendanceData);
+    } catch (socketError) {
+      console.error("[attendance] Error emitting update:", socketError);
+      // Don't fail if socket emit fails
+    }
 
     res.json({
       message: "Đã cập nhật bản ghi chấm công",

@@ -407,6 +407,25 @@ export default function AdminAttendancePage() {
     void fetchAttendance();
   }, [fetchAttendance]);
 
+  // Lắng nghe sự kiện realtime khi attendance được cập nhật
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleAttendanceUpdated = ((event: Event) => {
+      const customEvent = event as CustomEvent<any>;
+      const data = customEvent.detail;
+
+      // Refetch danh sách attendance để cập nhật mà không cần F5
+      fetchAttendance();
+    }) as EventListener;
+
+    window.addEventListener('attendance-updated', handleAttendanceUpdated);
+
+    return () => {
+      window.removeEventListener('attendance-updated', handleAttendanceUpdated);
+    };
+  }, [fetchAttendance]);
+
   // Fetch locations when component mounts
   useEffect(() => {
     const loadLocations = async () => {

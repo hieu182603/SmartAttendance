@@ -233,6 +233,25 @@ const HistoryPage: React.FC = () => {
     setCurrentPage(1);
   }, [fromDate, toDate, statusFilter]);
 
+  // Lắng nghe sự kiện realtime khi attendance được cập nhật
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleAttendanceUpdated = ((event: Event) => {
+      const customEvent = event as CustomEvent<any>;
+      const data = customEvent.detail;
+
+      // Refetch bằng cách trigger re-render với currentPage
+      setCurrentPage((prev) => prev);
+    }) as EventListener;
+
+    window.addEventListener('attendance-updated', handleAttendanceUpdated);
+
+    return () => {
+      window.removeEventListener('attendance-updated', handleAttendanceUpdated);
+    };
+  }, []);
+
   // ==========================================================================
   // HANDLERS
   // ==========================================================================
