@@ -51,3 +51,4 @@ primary_region = "sin"  # Singapore region (gần Việt Nam nhất)
   cpus = 1
   memory_mb = 512
 
+
