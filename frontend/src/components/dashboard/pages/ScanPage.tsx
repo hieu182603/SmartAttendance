@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import type { AxiosError } from "axios";
 import {
   Camera,
   MapPin,
@@ -10,22 +11,24 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import api from "@/services/api";
-import type { AxiosError } from "axios";
 
-const dataURLtoBlob = (dataURL: string): Blob => {
-  const arr = dataURL.split(',');
-  const mimeMatch = arr[0].match(/:(.*?);/);
-  if (!mimeMatch) throw new Error("Invalid data URL");
-  const mime = mimeMatch[1];
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
-};
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+const MIN_WORK_HOURS = 1;
+const STANDARD_WORK_HOURS = 8;
+const EARTH_RADIUS_M = 6371e3;
+const PHOTO_MAX_WIDTH = 800;
+const PHOTO_MAX_HEIGHT = 600;
+const PHOTO_QUALITY = 0.6;
+const LOCATION_TIMEOUT = 30000;
+const DAY_CHECK_INTERVAL = 60000;
+const WORK_HOURS_CHECK_INTERVAL = 60000;
+const DEFAULT_OFFICE_RADIUS = 100;
 
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
 interface State {
   isCameraReady: boolean;
   isProcessing: boolean;
@@ -45,8 +48,8 @@ interface LocationData {
   latitude: number;
   longitude: number;
   accuracy: number;
-  distance?: number; 
-  nearestOffice?: string; 
+  distance?: number;
+  nearestOffice?: string;
 }
 
 interface Office {
@@ -56,7 +59,6 @@ interface Office {
   longitude: number;
   radius: number;
 }
-
 
 interface CheckInResponse {
   success: boolean;
@@ -69,7 +71,7 @@ interface CheckInResponse {
     workHours?: string;
     location?: string;
     validationMethod?: string;
-    distance?: string; 
+    distance?: string;
   };
 }
 
@@ -84,8 +86,81 @@ interface CheckInError {
   code?: string;
 }
 
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+const dataURLtoBlob = (dataURL: string): Blob => {
+  const arr = dataURL.split(",");
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  if (!mimeMatch) throw new Error("Invalid data URL");
+  const mime = mimeMatch[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+};
+
+const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δφ = toRad(lat2 - lat1);
+  const Δλ = toRad(lon2 - lon1);
+  const a =
+    Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_M * c;
+};
+
+const getLocationErrorMessage = (errorCode: number): string => {
+  const baseMessage = "Không thể lấy vị trí. ";
+  switch (errorCode) {
+    case 1:
+      return (
+        baseMessage +
+        "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt."
+      );
+    case 2:
+      return (
+        baseMessage +
+        "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời."
+      );
+    case 3:
+      return (
+        baseMessage +
+        "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại."
+      );
+    default:
+      return baseMessage + "Vui lòng kiểm tra quyền truy cập và GPS.";
+  }
+};
+
+const parseAttendanceDate = (dateStr: string): string | null => {
+  const dateMatch = dateStr.match(
+    /(\d{1,2})\s*(?:tháng\s*)?(\d{1,2})(?:,\s*|\s+)(\d{4})/
+  );
+  if (!dateMatch) return null;
+  const [, day, month, year] = dateMatch;
+  return `${parseInt(day)}/${parseInt(month)}/${year}`;
+};
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 const ScanPage: React.FC = () => {
-  const { t } = useTranslation(['dashboard', 'common']);
+  const { t } = useTranslation(["dashboard", "common"]);
+
+  // ==========================================================================
+  // STATE
+  // ==========================================================================
   const [state, setState] = useState<State>({
     isCameraReady: false,
     isProcessing: false,
@@ -106,53 +181,153 @@ const ScanPage: React.FC = () => {
   const [offices, setOffices] = useState<Office[]>([]);
   const [showOvertimeWarning, setShowOvertimeWarning] = useState(false);
 
+  // ==========================================================================
+  // REFS
+  // ==========================================================================
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const toRad = (value: number) => (value * Math.PI) / 180;
-    const R = 6371e3; // Bán kính trái đất (mét)
-    
-    const φ1 = toRad(lat1);
-    const φ2 = toRad(lat2);
-    const Δφ = toRad(lat2 - lat1);
-    const Δλ = toRad(lon2 - lon1);
-    
-    const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    
-    return R * c;
+  // ==========================================================================
+  // COMPUTED VALUES
+  // ==========================================================================
+  const {
+    isCameraReady,
+    isProcessing,
+    locationLoading,
+    hasCheckedIn,
+    hasCheckedOut,
+    canCheckOut,
+    checkInTime,
+  } = state;
+
+  const getWorkedHours = useCallback(() => {
+    if (!checkInTime || hasCheckedOut) return null;
+    const now = new Date();
+    const hoursWorked =
+      (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+    const hours = Math.floor(hoursWorked);
+    const minutes = Math.floor((hoursWorked - hours) * 60);
+    return { hours, minutes, total: hoursWorked };
+  }, [checkInTime, hasCheckedOut]);
+
+  const workedTime = getWorkedHours();
+
+  // ==========================================================================
+  // CAMERA FUNCTIONS
+  // ==========================================================================
+  const startCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setState((prev) => ({ ...prev, isCameraReady: true }));
+        setPermissions((prev) => ({ ...prev, camera: true }));
+      }
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      toast.error(
+        "Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập."
+      );
+      setPermissions((prev) => ({ ...prev, camera: false }));
+    }
   }, []);
 
-  const findNearestOffice = useCallback((lat: number, lon: number) => {
-    if (offices.length === 0) return null;
-    
-    let nearest = offices[0];
-    let minDistance = calculateDistance(lat, lon, nearest.latitude, nearest.longitude);
-    
-    for (const office of offices) {
-      const distance = calculateDistance(lat, lon, office.latitude, office.longitude);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = office;
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setState((prev) => ({ ...prev, isCameraReady: false }));
+  }, []);
+
+  const capturePhoto = useCallback((): string | null => {
+    if (!videoRef.current || !isCameraReady) return null;
+
+    const canvas = document.createElement("canvas");
+    const video = videoRef.current;
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+
+    if (width > PHOTO_MAX_WIDTH || height > PHOTO_MAX_HEIGHT) {
+      if (width > height) {
+        height = (height * PHOTO_MAX_WIDTH) / width;
+        width = PHOTO_MAX_WIDTH;
+      } else {
+        width = (width * PHOTO_MAX_HEIGHT) / height;
+        height = PHOTO_MAX_HEIGHT;
       }
     }
-    
-    return { office: nearest, distance: Math.round(minDistance) };
-  }, [offices, calculateDistance]);
+
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.translate(width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, width, height);
+
+    return canvas.toDataURL("image/jpeg", PHOTO_QUALITY);
+  }, [isCameraReady]);
+
+  // ==========================================================================
+  // LOCATION FUNCTIONS
+  // ==========================================================================
+  const findNearestOffice = useCallback(
+    (lat: number, lon: number) => {
+      if (offices.length === 0) return null;
+
+      let nearest = offices[0];
+      let minDistance = calculateDistance(
+        lat,
+        lon,
+        nearest.latitude,
+        nearest.longitude
+      );
+
+      for (const office of offices) {
+        const distance = calculateDistance(
+          lat,
+          lon,
+          office.latitude,
+          office.longitude
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearest = office;
+        }
+      }
+
+      return { office: nearest, distance: Math.round(minDistance) };
+    },
+    [offices]
+  );
 
   const getLocation = useCallback(async () => {
-    setState(prev => ({ ...prev, locationLoading: true }));
+    setState((prev) => ({ ...prev, locationLoading: true }));
     setLocationError(null);
 
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 30000, 
-          maximumAge: 0,
-        });
-      });
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: LOCATION_TIMEOUT,
+            maximumAge: 0,
+          });
+        }
+      );
 
       const location: LocationData = {
         latitude: position.coords.latitude,
@@ -167,217 +342,170 @@ const ScanPage: React.FC = () => {
       }
 
       setLocationData(location);
-      setPermissions(prev => ({ ...prev, location: true }));
+      setPermissions((prev) => ({ ...prev, location: true }));
     } catch (error: any) {
       console.error("Error getting location:", error);
-      
-      let errorMessage = "Không thể lấy vị trí. ";
-      
-      if (error.code === 1) { 
-        errorMessage += "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.";
-      } else if (error.code === 2) { 
-        errorMessage += "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.";
-      } else if (error.code === 3) { 
-        errorMessage += "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.";
-      } else {
-        errorMessage += "Vui lòng kiểm tra quyền truy cập và GPS.";
-      }
-      
+      const errorMessage = getLocationErrorMessage(error.code || 0);
       setLocationError(errorMessage);
-      setPermissions(prev => ({ ...prev, location: false }));
+      setPermissions((prev) => ({ ...prev, location: false }));
       toast.error(errorMessage);
     } finally {
-      setState(prev => ({ ...prev, locationLoading: false }));
+      setState((prev) => ({ ...prev, locationLoading: false }));
     }
   }, [findNearestOffice]);
 
-  const startCamera = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setState(prev => ({ ...prev, isCameraReady: true }));
-        setPermissions(prev => ({ ...prev, camera: true }));
-      }
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      toast.error("Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.");
-      setPermissions(prev => ({ ...prev, camera: false }));
-    }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setState(prev => ({ ...prev, isCameraReady: false }));
-  }, []);
-
-  const capturePhoto = useCallback((): string | null => {
-    if (!videoRef.current || !state.isCameraReady) return null;
-
-    const canvas = document.createElement("canvas");
-    const video = videoRef.current;
-
-    const MAX_WIDTH = 800;
-    const MAX_HEIGHT = 600;
-
-    let width = video.videoWidth;
-    let height = video.videoHeight;
-
-    if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-      if (width > height) {
-        height = (height * MAX_WIDTH) / width;
-        width = MAX_WIDTH;
-      } else {
-        width = (width * MAX_HEIGHT) / height;
-        height = MAX_HEIGHT;
-      }
-    }
-
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.translate(width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, width, height);
-
-    return canvas.toDataURL("image/jpeg", 0.6);
-  }, [state.isCameraReady]);
+  // ==========================================================================
+  // ATTENDANCE FUNCTIONS
+  // ==========================================================================
+  const createFormData = useCallback(
+    (
+      photoData: string,
+      location: LocationData,
+      type: "checkin" | "checkout"
+    ): FormData => {
+      const formData = new FormData();
+      formData.append("latitude", location.latitude.toString());
+      formData.append("longitude", location.longitude.toString());
+      formData.append("accuracy", location.accuracy.toString());
+      const blob = dataURLtoBlob(photoData);
+      formData.append("photo", blob, `${type}-${Date.now()}.jpg`);
+      return formData;
+    },
+    []
+  );
 
   const handleCheckIn = useCallback(async () => {
     if (!locationData) return;
-    
-    setState(prev => ({ ...prev, isProcessing: true }));
+
+    setState((prev) => ({ ...prev, isProcessing: true }));
 
     try {
       const photoData = capturePhoto();
       if (!photoData) {
-        throw new Error(t('dashboard:scan.errors.captureFailed'));
+        throw new Error(t("dashboard:scan.errors.captureFailed"));
       }
 
-      const formData = new FormData();
-      formData.append('latitude', locationData.latitude.toString());
-      formData.append('longitude', locationData.longitude.toString());
-      formData.append('accuracy', locationData.accuracy.toString());
-
-      const blob = dataURLtoBlob(photoData);
-      formData.append('photo', blob, `checkin-${Date.now()}.jpg`);
-
-      const response = await api.post<CheckInResponse>("/attendance/checkin", formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const formData = createFormData(photoData, locationData, "checkin");
+      const response = await api.post<CheckInResponse>(
+        "/attendance/checkin",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       if (response.data.success) {
         const now = new Date();
-        setState(prev => ({ 
-          ...prev, 
+        setState((prev) => ({
+          ...prev,
           hasCheckedIn: true,
           checkInTime: now,
-          canCheckOut: false
+          canCheckOut: false,
         }));
         setShowOvertimeWarning(false);
-        
+
         if (response.data.data) {
           const { distance, location } = response.data.data;
-          setLocationData(prev => prev ? { 
-            ...prev, 
-            distance: distance ? parseInt(distance) : prev.distance,
-            nearestOffice: location || prev.nearestOffice
-          } : null);
+          setLocationData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  distance: distance ? parseInt(distance) : prev.distance,
+                  nearestOffice: location || prev.nearestOffice,
+                }
+              : null
+          );
         }
-        
+
         toast.success(response.data.message || "Check-in thành công!");
       }
     } catch (error) {
       console.error("Check-in error:", error);
       const err = error as AxiosError<CheckInError>;
-      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi chấm công";
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Có lỗi xảy ra khi chấm công";
 
-      if (err.response?.data?.code === 'ALREADY_CHECKED_IN') {
+      if (err.response?.data?.code === "ALREADY_CHECKED_IN") {
         toast.info(errorMessage);
-        setState(prev => ({ ...prev, hasCheckedIn: true }));
-      } else if (err.response?.data?.code === 'TOO_EARLY') {
+        setState((prev) => ({ ...prev, hasCheckedIn: true }));
+      } else if (err.response?.data?.code === "TOO_EARLY") {
         toast.warning(errorMessage);
       } else {
         toast.error(errorMessage);
       }
     } finally {
-      setState(prev => ({ ...prev, isProcessing: false }));
+      setState((prev) => ({ ...prev, isProcessing: false }));
     }
-  }, [locationData, capturePhoto]);
+  }, [locationData, capturePhoto, createFormData, t]);
 
   const handleCheckOut = useCallback(async () => {
     if (!locationData) return;
-    
-    setState(prev => ({ ...prev, isProcessing: true }));
+
+    setState((prev) => ({ ...prev, isProcessing: true }));
 
     try {
       const photoData = capturePhoto();
       if (!photoData) {
-        throw new Error(t('dashboard:scan.errors.captureFailed'));
+        throw new Error(t("dashboard:scan.errors.captureFailed"));
       }
 
-      const formData = new FormData();
-      formData.append('latitude', locationData.latitude.toString());
-      formData.append('longitude', locationData.longitude.toString());
-      formData.append('accuracy', locationData.accuracy.toString());
-
-      const blob = dataURLtoBlob(photoData);
-      formData.append('photo', blob, `checkout-${Date.now()}.jpg`);
-
-      const response = await api.post<CheckInResponse>("/attendance/checkout", formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const formData = createFormData(photoData, locationData, "checkout");
+      const response = await api.post<CheckInResponse>(
+        "/attendance/checkout",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       if (response.data.success) {
-        setState(prev => ({ ...prev, hasCheckedOut: true }));
+        setState((prev) => ({ ...prev, hasCheckedOut: true }));
         setShowOvertimeWarning(false);
-        
+
         if (response.data.data) {
           const { distance, location } = response.data.data;
-          setLocationData(prev => prev ? { 
-            ...prev, 
-            distance: distance ? parseInt(distance) : prev.distance,
-            nearestOffice: location || prev.nearestOffice
-          } : null);
+          setLocationData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  distance: distance ? parseInt(distance) : prev.distance,
+                  nearestOffice: location || prev.nearestOffice,
+                }
+              : null
+          );
         }
-        
+
         toast.success(response.data.message || "Check-out thành công!");
       }
     } catch (error) {
       console.error("Check-out error:", error);
       const err = error as AxiosError<CheckInError>;
-      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi check-out";
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Có lỗi xảy ra khi check-out";
 
-      if (err.response?.data?.code === 'NOT_CHECKED_IN') {
+      if (err.response?.data?.code === "NOT_CHECKED_IN") {
         toast.warning(errorMessage);
-      } else if (err.response?.data?.code === 'ALREADY_CHECKED_OUT') {
+      } else if (err.response?.data?.code === "ALREADY_CHECKED_OUT") {
         toast.info(errorMessage);
-        setState(prev => ({ ...prev, hasCheckedOut: true }));
-      } else if (err.response?.data?.code === 'INSUFFICIENT_WORK_HOURS') {
+        setState((prev) => ({ ...prev, hasCheckedOut: true }));
+      } else if (err.response?.data?.code === "INSUFFICIENT_WORK_HOURS") {
         toast.warning(errorMessage);
       } else {
         toast.error(errorMessage);
       }
     } finally {
-      setState(prev => ({ ...prev, isProcessing: false }));
+      setState((prev) => ({ ...prev, isProcessing: false }));
     }
-  }, [locationData, capturePhoto]);
+  }, [locationData, capturePhoto, createFormData, t]);
 
+  // ==========================================================================
+  // EFFECTS
+  // ==========================================================================
+  // Load offices and check today's attendance on mount
   useEffect(() => {
     const loadOffices = async () => {
       try {
@@ -388,7 +516,7 @@ const ScanPage: React.FC = () => {
             name: branch.name,
             latitude: branch.latitude,
             longitude: branch.longitude,
-            radius: 100,
+            radius: DEFAULT_OFFICE_RADIUS,
           }));
           setOffices(branches);
         }
@@ -399,59 +527,64 @@ const ScanPage: React.FC = () => {
 
     const checkTodayAttendance = async () => {
       try {
-        const response = await api.get<Array<{ date: string; checkIn: string | null; checkOut: string | null }>>("/attendance/recent?limit=1");
+        const response = await api.get<
+          Array<{
+            date: string;
+            checkIn: string | null;
+            checkOut: string | null;
+          }>
+        >("/attendance/recent?limit=1");
         if (response.data && response.data.length > 0) {
           const latestAttendance = response.data[0];
-          
           const today = new Date();
-          const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
-          
-          const dateMatch = latestAttendance.date.match(/(\d{1,2})\s*(?:tháng\s*)?(\d{1,2})(?:,\s*|\s+)(\d{4})/);
-          
-          if (dateMatch) {
-            const [, day, month, year] = dateMatch;
-            const attendanceStr = `${parseInt(day)}/${parseInt(month)}/${year}`;
-            
-            if (attendanceStr === todayStr) {
-              let checkInTime = null;
-              if (latestAttendance.checkIn) {
-                const [hours, minutes] = latestAttendance.checkIn.split(':').map(Number);
-                checkInTime = new Date(today);
-                checkInTime.setHours(hours, minutes, 0, 0);
-              }
-              
-              setState(prev => ({
-                ...prev,
-                hasCheckedIn: !!latestAttendance.checkIn,
-                hasCheckedOut: !!latestAttendance.checkOut,
-                checkInTime: checkInTime,
-                canCheckOut: false 
-              }));
+          const todayStr = `${today.getDate()}/${
+            today.getMonth() + 1
+          }/${today.getFullYear()}`;
+          const attendanceStr = parseAttendanceDate(latestAttendance.date);
+
+          if (attendanceStr === todayStr) {
+            let checkInTime = null;
+            if (latestAttendance.checkIn) {
+              const [hours, minutes] = latestAttendance.checkIn
+                .split(":")
+                .map(Number);
+              checkInTime = new Date(today);
+              checkInTime.setHours(hours, minutes, 0, 0);
             }
+
+            setState((prev) => ({
+              ...prev,
+              hasCheckedIn: !!latestAttendance.checkIn,
+              hasCheckedOut: !!latestAttendance.checkOut,
+              checkInTime: checkInTime,
+              canCheckOut: false,
+            }));
           }
         }
       } catch (error) {
         console.error("Error checking today attendance:", error);
       }
     };
-    
+
     loadOffices();
     checkTodayAttendance();
   }, []);
 
+  // Get location when offices are loaded
   useEffect(() => {
     if (offices.length > 0) {
       getLocation();
     }
   }, [offices.length, getLocation]);
 
+  // Check for new day and reset state
   useEffect(() => {
     let lastCheckDate = new Date().toDateString();
 
     const checkNewDay = setInterval(() => {
       const currentDate = new Date().toDateString();
       if (currentDate !== lastCheckDate) {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           hasCheckedIn: false,
           hasCheckedOut: false,
@@ -460,21 +593,21 @@ const ScanPage: React.FC = () => {
         }));
         lastCheckDate = currentDate;
       }
-    }, 60000); 
+    }, DAY_CHECK_INTERVAL);
 
     return () => clearInterval(checkNewDay);
   }, []);
 
+  // Monitor work hours and show overtime warning
   useEffect(() => {
-    if (!state.checkInTime || state.hasCheckedOut) return;
+    if (!checkInTime || hasCheckedOut) return;
 
-    const MIN_WORK_HOURS = 1; 
-    const STANDARD_WORK_HOURS = 8; 
     const now = new Date();
-    const hoursWorked = (now.getTime() - state.checkInTime.getTime()) / (1000 * 60 * 60);
-    
+    const hoursWorked =
+      (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
     if (hoursWorked >= MIN_WORK_HOURS) {
-      setState(prev => ({ ...prev, canCheckOut: true }));
+      setState((prev) => ({ ...prev, canCheckOut: true }));
     }
 
     if (hoursWorked >= STANDARD_WORK_HOURS) {
@@ -483,54 +616,57 @@ const ScanPage: React.FC = () => {
 
     const checkInterval = setInterval(() => {
       const now = new Date();
-      const hoursWorked = (now.getTime() - state.checkInTime!.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursWorked >= MIN_WORK_HOURS && !state.canCheckOut) {
-        setState(prev => ({ ...prev, canCheckOut: true }));
+      const hoursWorked =
+        (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+      if (hoursWorked >= MIN_WORK_HOURS && !canCheckOut) {
+        setState((prev) => ({ ...prev, canCheckOut: true }));
       }
 
-      // Hiển thị cảnh báo khi quá 8 giờ
       if (hoursWorked >= STANDARD_WORK_HOURS && !showOvertimeWarning) {
         setShowOvertimeWarning(true);
-        toast.warning("⏰ Bạn đã làm việc được 8 tiếng! Đừng quên check-out nhé.", {
-          duration: 10000,
-        });
+        toast.warning(
+          "⏰ Bạn đã làm việc được 8 tiếng! Đừng quên check-out nhé.",
+          {
+            duration: 10000,
+          }
+        );
       }
-    }, 60000); // Check mỗi phút
+    }, WORK_HOURS_CHECK_INTERVAL);
 
     return () => clearInterval(checkInterval);
-  }, [state.checkInTime, state.hasCheckedOut, state.canCheckOut, showOvertimeWarning]);
+  }, [checkInTime, hasCheckedOut, canCheckOut, showOvertimeWarning]);
 
+  // Initialize camera on mount
   useEffect(() => {
     startCamera();
     return () => {
       stopCamera();
     };
-  }, []); 
+  }, [startCamera, stopCamera]);
 
-  const { isCameraReady, isProcessing, locationLoading, hasCheckedIn, hasCheckedOut, canCheckOut, checkInTime } = state;
-
-  // Tính thời gian đã làm việc
-  const getWorkedHours = () => {
-    if (!checkInTime || hasCheckedOut) return null;
-    const now = new Date();
-    const hoursWorked = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-    const hours = Math.floor(hoursWorked);
-    const minutes = Math.floor((hoursWorked - hours) * 60);
-    return { hours, minutes, total: hoursWorked };
-  };
-
-  const workedTime = getWorkedHours();
-
+  // ==========================================================================
+  // RENDER
+  // ==========================================================================
   return (
     <div className="space-y-6">
-      {/* Cảnh báo quá giờ */}
+      {/* Overtime Warning */}
       {showOvertimeWarning && hasCheckedIn && !hasCheckedOut && (
         <div className="rounded-lg border-2 border-orange-500 bg-orange-50 dark:bg-orange-900/20 p-4 animate-pulse">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-orange-600 dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="h-6 w-6 text-orange-600 dark:text-orange-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             </div>
             <div className="flex-1">
@@ -538,15 +674,27 @@ const ScanPage: React.FC = () => {
                 ⏰ Nhắc nhở: Đã quá giờ làm việc!
               </h3>
               <p className="mt-1 text-sm text-orange-700 dark:text-orange-400">
-                Bạn đã làm việc {workedTime?.hours}h {workedTime?.minutes}m. Đừng quên check-out để ghi nhận thời gian làm việc chính xác nhé!
+                Bạn đã làm việc {workedTime?.hours}h {workedTime?.minutes}m.
+                Đừng quên check-out để ghi nhận thời gian làm việc chính xác
+                nhé!
               </p>
             </div>
             <button
               onClick={() => setShowOvertimeWarning(false)}
               className="flex-shrink-0 text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -556,17 +704,17 @@ const ScanPage: React.FC = () => {
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
-            {t('dashboard:scan.checkInToday')}
+            {t("dashboard:scan.checkInToday")}
           </CardTitle>
           <p className="text-sm text-[var(--text-sub)] mt-2">
-            {t('dashboard:scan.description')}
+            {t("dashboard:scan.description")}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Trạng thái quyền */}
+          {/* Permission Status */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">
-              {t('dashboard:scan.permissionStatus')}
+              {t("dashboard:scan.permissionStatus")}
             </h3>
             <div className="flex flex-wrap gap-2">
               {Object.entries(permissions).map(([key, granted]) => (
@@ -575,18 +723,23 @@ const ScanPage: React.FC = () => {
                   className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
                     granted
                       ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                   }`}
                 >
-                  {granted ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                  {key === 'camera' ? 'Camera' : 'Vị trí'} - {granted ? "Đã cấp" : "Chưa cấp"}
+                  {granted ? (
+                    <CheckCircle2 className="h-3 w-3" />
+                  ) : (
+                    <AlertCircle className="h-3 w-3" />
+                  )}
+                  {key === "camera" ? "Camera" : "Vị trí"} -{" "}
+                  {granted ? "Đã cấp" : "Chưa cấp"}
                 </span>
               ))}
             </div>
             {(!permissions.camera || !permissions.location) && (
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <p>{t('permissions.requestMessage')}</p>
+                <p>{t("permissions.requestMessage")}</p>
               </div>
             )}
           </div>
@@ -602,10 +755,11 @@ const ScanPage: React.FC = () => {
                 autoPlay
                 playsInline
                 muted
-                className={`h-full w-full object-cover ${isCameraReady ? "block" : "hidden"}`}
-                style={{ transform: 'scaleX(-1)' }}
+                className={`h-full w-full object-cover ${
+                  isCameraReady ? "block" : "hidden"
+                }`}
+                style={{ transform: "scaleX(-1)" }}
               />
-
               {!isCameraReady && (
                 <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--shell)] text-[var(--text-sub)]">
                   <Camera className="h-12 w-12" />
@@ -615,33 +769,60 @@ const ScanPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Thời gian làm việc */}
+          {/* Work Time */}
           {hasCheckedIn && !hasCheckedOut && workedTime && (
             <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--text-main)]">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
                 Thời gian làm việc
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-[var(--text-sub)]">Đã làm việc:</span>
-                  <span className={`font-mono font-semibold ${workedTime.total >= 8 ? 'text-orange-600 dark:text-orange-400' : 'text-[var(--text-main)]'}`}>
+                  <span
+                    className={`font-mono font-semibold ${
+                      workedTime.total >= 8
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-[var(--text-main)]"
+                    }`}
+                  >
                     {workedTime.hours}h {workedTime.minutes}m
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--text-sub)]">Check-in lúc:</span>
                   <span className="font-mono text-[var(--text-main)]">
-                    {checkInTime?.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    {checkInTime?.toLocaleTimeString("vi-VN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </div>
                 {workedTime.total >= 8 && (
                   <div className="mt-2 pt-2 border-t border-[var(--border)]">
                     <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      <svg
+                        className="h-3 w-3"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                       Đã quá 8 giờ làm việc
                     </p>
@@ -651,7 +832,7 @@ const ScanPage: React.FC = () => {
             </div>
           )}
 
-          {/* Thông tin vị trí */}
+          {/* Location Info */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--text-main)]">
               <MapPin className="h-4 w-4" />
@@ -688,7 +869,6 @@ const ScanPage: React.FC = () => {
               </div>
             ) : locationData ? (
               <div className="relative">
-                {/* Loading overlay khi đang refresh */}
                 {locationLoading && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[var(--shell)]/80 backdrop-blur-sm">
                     <div className="flex items-center gap-2 text-sm text-[var(--text-main)]">
@@ -697,11 +877,12 @@ const ScanPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
                 <div className="space-y-2 text-sm">
                   {locationData.nearestOffice && (
                     <div className="flex justify-between items-start">
-                      <span className="text-[var(--text-sub)]">Văn phòng gần nhất:</span>
+                      <span className="text-[var(--text-sub)]">
+                        Văn phòng gần nhất:
+                      </span>
                       <span className="font-medium text-[var(--text-main)] text-right">
                         {locationData.nearestOffice}
                       </span>
@@ -709,12 +890,16 @@ const ScanPage: React.FC = () => {
                   )}
                   {locationData.distance !== undefined && (
                     <div className="flex justify-between">
-                      <span className="text-[var(--text-sub)]">Khoảng cách:</span>
-                      <span className={`font-mono font-medium ${
-                        locationData.distance <= 100 
-                          ? 'text-green-600 dark:text-green-400' 
-                          : 'text-orange-600 dark:text-orange-400'
-                      }`}>
+                      <span className="text-[var(--text-sub)]">
+                        Khoảng cách:
+                      </span>
+                      <span
+                        className={`font-mono font-medium ${
+                          locationData.distance <= 100
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-orange-600 dark:text-orange-400"
+                        }`}
+                      >
                         {Math.round(locationData.distance)}m
                       </span>
                     </div>
@@ -744,12 +929,17 @@ const ScanPage: React.FC = () => {
             ) : null}
           </div>
 
-          {/* Nút check-in và check-out */}
+          {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Nút Check-in */}
             <button
               onClick={handleCheckIn}
-              disabled={isProcessing || !permissions.camera || !permissions.location || !locationData || hasCheckedIn}
+              disabled={
+                isProcessing ||
+                !permissions.camera ||
+                !permissions.location ||
+                !locationData ||
+                hasCheckedIn
+              }
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing && !hasCheckedIn ? (
@@ -759,7 +949,7 @@ const ScanPage: React.FC = () => {
                 </>
               ) : hasCheckedIn ? (
                 <>
-<CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-4 w-4" />
                   Đã check-in
                 </>
               ) : (
@@ -772,9 +962,21 @@ const ScanPage: React.FC = () => {
 
             <button
               onClick={handleCheckOut}
-              disabled={isProcessing || !permissions.camera || !permissions.location || !locationData || !hasCheckedIn || hasCheckedOut || !canCheckOut}
+              disabled={
+                isProcessing ||
+                !permissions.camera ||
+                !permissions.location ||
+                !locationData ||
+                !hasCheckedIn ||
+                hasCheckedOut ||
+                !canCheckOut
+              }
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={!canCheckOut && hasCheckedIn && !hasCheckedOut ? "Vui lòng chờ ít nhất 1 giờ sau khi check-in" : ""}
+              title={
+                !canCheckOut && hasCheckedIn && !hasCheckedOut
+                  ? "Vui lòng chờ ít nhất 1 giờ sau khi check-in"
+                  : ""
+              }
             >
               {isProcessing && hasCheckedIn && !hasCheckedOut ? (
                 <>
