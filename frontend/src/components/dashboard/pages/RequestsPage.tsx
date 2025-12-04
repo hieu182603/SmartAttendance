@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   Clock,
   Calendar,
@@ -168,10 +169,12 @@ const RequestsPage: React.FC = () => {
     let isMounted = true;
     const fetchStats = async () => {
       try {
-        // Fetch all requests without pagination for stats
-        const pendingResult = await getMyRequests({ status: 'pending', limit: 1000 });
-        const approvedResult = await getMyRequests({ status: 'approved', limit: 1000 });
-        const rejectedResult = await getMyRequests({ status: 'rejected', limit: 1000 });
+        // Fetch all requests in parallel for better performance
+        const [pendingResult, approvedResult, rejectedResult] = await Promise.all([
+          getMyRequests({ status: 'pending', limit: 1000 }),
+          getMyRequests({ status: 'approved', limit: 1000 }),
+          getMyRequests({ status: 'rejected', limit: 1000 }),
+        ]);
 
         if (isMounted) {
           const allRequestsData = [
@@ -218,9 +221,9 @@ const RequestsPage: React.FC = () => {
           params.type = filterType;
         }
 
-        // Search filter
-        if (searchQuery) {
-          params.search = searchQuery;
+        // Search filter (using debounced value)
+        if (debouncedSearchQuery) {
+          params.search = debouncedSearchQuery;
         }
 
         const result = await getMyRequests(params);
@@ -250,12 +253,12 @@ const RequestsPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [currentPage, selectedTab, searchQuery, filterType, filterDepartment]);
+  }, [currentPage, selectedTab, debouncedSearchQuery, filterType, filterDepartment]);
 
   // Reset to page 1 when tab, search, or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedTab, searchQuery, filterType, filterDepartment]);
+  }, [selectedTab, debouncedSearchQuery, filterType, filterDepartment]);
 
   // Calculate stats from allRequests
   const stats = useMemo<Stats>(() => {

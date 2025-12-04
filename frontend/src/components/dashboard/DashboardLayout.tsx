@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -83,13 +83,18 @@ const DashboardLayout: React.FC = () => {
   const location = useLocation();
 
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
-  const basePath = getRoleBasePath(userRole);
+  
+  // Memoize values that don't change on navigation
+  const basePath = useMemo(() => getRoleBasePath(userRole), [userRole]);
   const tMenu = useTranslation("menu").t;
-  const menu = getMenuByPermissionsWithTranslations(tMenu, userRole, basePath);
-  const roleInfo = getRoleColor(userRole);
-  const roleName = getRoleName(userRole);
+  const menu = useMemo(
+    () => getMenuByPermissionsWithTranslations(tMenu, userRole, basePath),
+    [tMenu, userRole, basePath]
+  );
+  const roleInfo = useMemo(() => getRoleColor(userRole), [userRole]);
+  const roleName = useMemo(() => getRoleName(userRole), [userRole]);
 
-  const filteredMenu = (() => {
+  const filteredMenu = useMemo(() => {
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
       const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
       const employeeItems = menu.filter(item => 
@@ -101,15 +106,13 @@ const DashboardLayout: React.FC = () => {
       return menu;
     }
     return menu.filter(item => item.section === 'employee');
-  })();
+  }, [menu, userRole]);
 
-  const getCurrentPage = (): string => {
-    const basePath = getRoleBasePath(userRole);
+  const currentPage = useMemo(() => {
     const path = location.pathname.replace(basePath, "").replace(/^\//, "");
     if (!path || path === "") return "home";
     return path;
-  };
-  const currentPage = getCurrentPage();
+  }, [location.pathname, basePath]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">

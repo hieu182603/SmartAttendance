@@ -166,20 +166,21 @@ export class BranchController {
 
   /**
    * DELETE /api/branches/:id
-   * Xóa chi nhánh
+   * Xóa chi nhánh (Soft Delete)
    */
   static async deleteBranch(req, res) {
     try {
       const { id } = req.params;
-      await BranchService.deleteBranch(id);
+      const result = await BranchService.deleteBranch(id);
 
-      res.json({ message: "Đã xóa chi nhánh thành công" });
+      res.json({ message: result.message || "Đã vô hiệu hóa chi nhánh thành công" });
     } catch (error) {
       console.error("[branches] deleteBranch error:", error);
       if (
         error.message === "Không tìm thấy chi nhánh" ||
         error.message.includes("Không thể xóa") ||
-        error.message.includes("trụ sở chính")
+        error.message.includes("trụ sở chính") ||
+        error.message.includes("đã bị xóa")
       ) {
         return res.status(400).json({ message: error.message });
       }

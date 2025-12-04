@@ -155,8 +155,8 @@ export default function PerformanceReviewPage() {
   }, [fetchEmployees, fetchAvailablePeriods]);
 
   useEffect(() => {
-    fetchReviews();
-    fetchStats();
+    // Fetch reviews and stats in parallel for better performance
+    Promise.all([fetchReviews(), fetchStats()]);
   }, [filterPeriod, filterStatus, fetchReviews, fetchStats]);
 
   // Search with debounce

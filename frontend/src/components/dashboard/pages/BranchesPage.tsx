@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import {
   getAllBranches,
   getBranchStats,
+  getBranchById,
   createBranch,
   updateBranch,
   deleteBranch,
@@ -75,6 +76,9 @@ export function BranchesPage() {
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteBranchDetails, setDeleteBranchDetails] = useState<Branch | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -297,15 +301,38 @@ export function BranchesPage() {
       toast.error(t('dashboard:branches.delete.hqError'));
       return;
     }
-    if (confirm(t('dashboard:branches.delete.confirm', { name: branch.name }))) {
-      try {
-        await deleteBranch(branch._id || branch.id);
-        toast.success(t('dashboard:branches.delete.success', { name: branch.name }));
-        await loadBranches();
-        await loadStats();
-      } catch (error: any) {
-        toast.error(error.message || t('dashboard:branches.errors.generic'));
-      }
+    
+    try {
+      // Fetch chi tiết chi nhánh để hiển thị thông tin
+      const details = await getBranchById(branch._id || branch.id);
+      setDeleteBranchDetails({
+        ...branch,
+        employeeCount: details.branch.employeeCount || 0,
+        departmentCount: details.branch.departmentCount || 0,
+      });
+      setIsDeleteDialogOpen(true);
+    } catch (error: any) {
+      toast.error(error.message || t('dashboard:branches.errors.generic'));
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteBranchDetails) return;
+
+    setDeleteLoading(true);
+    try {
+      await deleteBranch(deleteBranchDetails._id || deleteBranchDetails.id);
+      toast.success(t('dashboard:branches.delete.success', { name: deleteBranchDetails.name }));
+      setIsDeleteDialogOpen(false);
+      setDeleteBranchDetails(null);
+      await loadBranches();
+      await loadStats();
+    } catch (error: any) {
+      // Hiển thị lỗi chi tiết từ backend
+      const errorMessage = error.response?.data?.message || error.message || t('dashboard:branches.errors.generic');
+      toast.error(errorMessage, { duration: 5000 });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -1016,6 +1043,108 @@ export function BranchesPage() {
               className="border-[var(--border)] text-[var(--text-main)]"
             >
               {t('dashboard:branches.viewDialog.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[var(--text-main)] flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-[var(--error)]" />
+              Xác nhận xóa chi nhánh
+            </DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Bạn có chắc chắn muốn vô hiệu hóa chi nhánh này?
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteBranchDetails && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
+                <p className="font-semibold text-[var(--text-main)] mb-2">
+                  {deleteBranchDetails.name}
+                </p>
+                <p className="text-sm text-[var(--text-sub)]">
+                  Mã: {deleteBranchDetails.code} • {deleteBranchDetails.city}
+                </p>
+              </div>
+
+              {(deleteBranchDetails.employeeCount || 0) > 0 && (
+                <div className="p-4 rounded-lg bg-[var(--warning)]/10 border border-[var(--warning)]/30">
+                  <div className="flex items-start gap-3">
+                    <Users className="h-5 w-5 text-[var(--warning)] mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-[var(--warning)] mb-1">
+                        Cảnh báo: Chi nhánh này còn nhân viên
+                      </p>
+                      <p className="text-sm text-[var(--text-sub)]">
+                        • Tổng số nhân viên: <span className="font-semibold text-[var(--text-main)]">
+                          {deleteBranchDetails.employeeCount}
+                        </span>
+                      </p>
+                      <p className="text-sm text-[var(--warning)] mt-2">
+                        Vui lòng chuyển nhân viên sang chi nhánh khác trước khi xóa.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(deleteBranchDetails.departmentCount || 0) > 0 && (
+                <div className="p-4 rounded-lg bg-[var(--warning)]/10 border border-[var(--warning)]/30">
+                  <div className="flex items-start gap-3">
+                    <Briefcase className="h-5 w-5 text-[var(--warning)] mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-[var(--warning)] mb-1">
+                        Cảnh báo: Chi nhánh này còn phòng ban
+                      </p>
+                      <p className="text-sm text-[var(--text-sub)]">
+                        • Tổng số phòng ban: <span className="font-semibold text-[var(--text-main)]">
+                          {deleteBranchDetails.departmentCount}
+                        </span>
+                      </p>
+                      <p className="text-sm text-[var(--warning)] mt-2">
+                        Vui lòng xóa hoặc chuyển phòng ban trước khi xóa chi nhánh.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(deleteBranchDetails.employeeCount || 0) === 0 && (deleteBranchDetails.departmentCount || 0) === 0 && (
+                <div className="p-4 rounded-lg bg-[var(--success)]/10 border border-[var(--success)]/30">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-[var(--success)]" />
+                    <p className="text-sm text-[var(--success)]">
+                      Chi nhánh này không có nhân viên và phòng ban. Có thể xóa an toàn.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setDeleteBranchDetails(null);
+              }}
+              disabled={deleteLoading}
+              className="border-[var(--border)] text-[var(--text-main)]"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              disabled={deleteLoading || (deleteBranchDetails?.employeeCount || 0) > 0 || (deleteBranchDetails?.departmentCount || 0) > 0}
+              className="bg-[var(--error)] hover:bg-[var(--error)]/80 text-white"
+            >
+              {deleteLoading ? 'Đang xóa...' : 'Xác nhận xóa'}
             </Button>
           </DialogFooter>
         </DialogContent>
