@@ -431,7 +431,14 @@
     "deleteConfirm": "Are you sure you want to delete the event",
     "deleteSuccess": "Event deleted successfully!",
     "deleteError": "Failed to delete event",
-    "loadError": "Failed to load event data"
+    "loadError": "Failed to load event data",
+    "deleteDialog": {
+      "title": "Delete Event",
+      "description": "Are you sure you want to delete this event? This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "warning": "This action will permanently delete the event from the system."
+    }
   },
   "leaveBalance": {
     "title": "Leave Balance",

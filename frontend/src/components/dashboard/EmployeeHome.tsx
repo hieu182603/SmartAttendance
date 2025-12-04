@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useEffect } from "react";
-import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
@@ -25,25 +24,25 @@ type AttendanceStatus = "ontime" | "late" | "absent" | "unknown";
 
 const getStatusBadge = (
   status: AttendanceStatus,
-  statusTexts: { ontime: string; late: string; absent: string }
+  t: (key: string) => string
 ): React.JSX.Element | null => {
   switch (status) {
     case "ontime":
       return (
         <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
-          {statusTexts.ontime}
+          {t("dashboard:employeeHome.status.ontime")}
         </Badge>
       );
     case "late":
       return (
         <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">
-          {statusTexts.late}
+          {t("dashboard:employeeHome.status.late")}
         </Badge>
       );
     case "absent":
       return (
         <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">
-          {statusTexts.absent}
+          {t("dashboard:employeeHome.status.absent")}
         </Badge>
       );
     default:
@@ -63,12 +62,14 @@ interface InfoCard {
 
 const formatWorkingDays = (
   value: string | number | { used: number; total: number } | null,
-  daysText: string
+  t: (key: string) => string
 ): string => {
   if (!value) return "—";
   if (typeof value === "string") return value;
   if (typeof value === "object" && value.used != null && value.total != null) {
-    return `${value.used}/${value.total} ${daysText}`;
+    return `${value.used}/${value.total} ${t(
+      "dashboard:employeeHome.info.days"
+    )}`;
   }
   return String(value);
 };
@@ -89,41 +90,33 @@ export const EmployeeHome: React.FC = () => {
   // Get current locale for date/time formatting
   const locale = i18n.language === "en" ? "en-US" : "vi-VN";
 
-  const [currentTime, setCurrentTime] = useState(() =>
-    new Date().toLocaleTimeString(locale, {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  );
-  const [currentDate, setCurrentDate] = useState(() =>
-    new Date().toLocaleDateString(locale, {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  );
+  // Working time timer state
+  const [workingTime, setWorkingTime] = useState<string>("00:00:00");
 
-  // Update time every minute
+  const [currentTime, setCurrentTime] = useState<string>("");
+  const [currentDate, setCurrentDate] = useState<string>("");
+
   useEffect(() => {
-    const interval = setInterval(() => {
+    const updateClock = () => {
+      const now = new Date();
       setCurrentTime(
-        new Date().toLocaleTimeString(locale, {
+        now.toLocaleTimeString(locale, {
           hour: "2-digit",
           minute: "2-digit",
         })
       );
-      // Update date in case it changes (midnight)
       setCurrentDate(
-        new Date().toLocaleDateString(locale, {
+        now.toLocaleDateString(locale, {
           weekday: "long",
           year: "numeric",
           month: "long",
           day: "numeric",
         })
       );
-    }, 60000); // Update every minute
+    };
 
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
   }, [locale]);
 
@@ -173,13 +166,6 @@ export const EmployeeHome: React.FC = () => {
       location: record?.location ?? "—",
     }));
   }, [recentAttendance]);
-
-  // Status texts for badges
-  const statusTexts = {
-    ontime: t("dashboard:employeeHome.status.ontime"),
-    late: t("dashboard:employeeHome.status.late"),
-    absent: t("dashboard:employeeHome.status.absent"),
-  };
 
   // Check if user has checked in today
   const todayAttendance = useMemo(() => {
@@ -619,10 +605,7 @@ export const EmployeeHome: React.FC = () => {
           const summaryValue = summary[item.key];
           const value =
             item.key === "workingDays"
-              ? formatWorkingDays(
-                  summaryValue,
-                  t("dashboard:employeeHome.info.days")
-                )
+              ? formatWorkingDays(summaryValue, t)
               : (summaryValue as { name?: string })?.name ||
                 (summaryValue as string) ||
                 "—";
@@ -804,7 +787,7 @@ export const EmployeeHome: React.FC = () => {
                           {record.location}
                         </td>
                         <td className="py-3 px-4">
-                          {getStatusBadge(record.status, statusTexts)}
+                          {getStatusBadge(record.status, t)}
                         </td>
                       </tr>
                     ))

@@ -99,14 +99,23 @@ const eventService = {
    * Tạo event mới
    */
   createEvent: async (eventData: Partial<Event>): Promise<Event> => {
-    const response = await api.post("/events", eventData);
-    return response.data.data;
+    try {
+      const response = await api.post("/events", eventData);
+      return response.data.data;
+    } catch (error: any) {
+      console.error("Create event failed:", error.response || error);
+      // Ném lỗi ra để component xử lý toast
+      throw error;
+    }
   },
 
   /**
    * Cập nhật event
    */
-  updateEvent: async (id: string, eventData: Partial<Event>): Promise<Event> => {
+  updateEvent: async (
+    id: string,
+    eventData: Partial<Event>
+  ): Promise<Event> => {
     const response = await api.put(`/events/${id}`, eventData);
     return response.data.data;
   },
@@ -127,12 +136,14 @@ const eventService = {
       if (month) params.month = month;
       if (year) params.year = year;
       const response = await api.get("/events/stats", { params });
-      return response.data.data || {
-        total: 0,
-        upcoming: 0,
-        holidays: 0,
-        meetingsAndTraining: 0,
-      };
+      return (
+        response.data.data || {
+          total: 0,
+          upcoming: 0,
+          holidays: 0,
+          meetingsAndTraining: 0,
+        }
+      );
     } catch (error) {
       console.error("Error fetching event stats:", error);
       return {
@@ -146,5 +157,3 @@ const eventService = {
 };
 
 export default eventService;
-
-
