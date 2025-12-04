@@ -147,7 +147,13 @@
       "notCheckedOut": "Not checked out yet. Remember to check out when your shift ends.",
       "notCheckedIn": "Not checked in today",
       "scanQR": "Scan QR code at the office to check in",
-      "scanQRButton": "Scan QR to Check In"
+      "scanQRButton": "Scan QR to Check In",
+      "working": "Currently Working",
+      "workingTime": "Working Time",
+      "checkOut": "Check Out",
+      "thankYou": "Thank You!",
+      "seeYouTomorrow": "Have a great evening and see you tomorrow!",
+      "totalTime": "Total Time"
     },
     "status": {
       "ontime": "On Time",
@@ -158,7 +164,10 @@
       "shift": "Shift",
       "location": "Location",
       "workingDays": "Working Days This Month",
-      "days": "days"
+      "days": "days",
+      "hours": "hours",
+      "minutes": "minutes",
+      "seconds": "seconds"
     },
     "quickActions": {
       "title": "Quick Actions",

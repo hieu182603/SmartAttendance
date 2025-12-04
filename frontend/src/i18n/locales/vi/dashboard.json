@@ -264,7 +264,13 @@
       "notCheckedOut": "Chưa check-out. Nhớ check-out khi kết thúc ca làm việc.",
       "notCheckedIn": "Chưa chấm công hôm nay",
       "scanQR": "Quét mã QR tại văn phòng để điểm danh",
-      "scanQRButton": "Quét QR điểm danh"
+      "scanQRButton": "Quét QR điểm danh",
+      "working": "Đang làm việc",
+      "workingTime": "Thời gian làm việc",
+      "checkOut": "Check Out",
+      "thankYou": "Cảm ơn bạn!",
+      "seeYouTomorrow": "Chúc bạn buổi tối vui vẻ và hẹn gặp lại ngày mai!",
+      "totalTime": "Tổng thời gian"
     },
     "status": {
       "ontime": "Đúng giờ",
@@ -275,7 +281,10 @@
       "shift": "Ca làm việc",
       "location": "Địa điểm",
       "workingDays": "Công tháng này",
-      "days": "ngày"
+      "days": "ngày",
+      "hours": "giờ",
+      "minutes": "phút",
+      "seconds": "giây"
     },
     "quickActions": {
       "title": "Thao tác nhanh",

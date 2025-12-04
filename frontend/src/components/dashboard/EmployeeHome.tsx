@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
@@ -11,6 +12,9 @@ import {
   Sparkles,
   CheckCircle2,
   FileText,
+  LogOut,
+  PartyPopper,
+  Timer,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,25 +25,25 @@ type AttendanceStatus = "ontime" | "late" | "absent" | "unknown";
 
 const getStatusBadge = (
   status: AttendanceStatus,
-  t: (key: string) => string
+  statusTexts: { ontime: string; late: string; absent: string }
 ): React.JSX.Element | null => {
   switch (status) {
     case "ontime":
       return (
         <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
-          {t("dashboard:employeeHome.status.ontime")}
+          {statusTexts.ontime}
         </Badge>
       );
     case "late":
       return (
         <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">
-          {t("dashboard:employeeHome.status.late")}
+          {statusTexts.late}
         </Badge>
       );
     case "absent":
       return (
         <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">
-          {t("dashboard:employeeHome.status.absent")}
+          {statusTexts.absent}
         </Badge>
       );
     default:
@@ -59,14 +63,12 @@ interface InfoCard {
 
 const formatWorkingDays = (
   value: string | number | { used: number; total: number } | null,
-  t: (key: string) => string
+  daysText: string
 ): string => {
   if (!value) return "—";
   if (typeof value === "string") return value;
   if (typeof value === "object" && value.used != null && value.total != null) {
-    return `${value.used}/${value.total} ${t(
-      "dashboard:employeeHome.info.days"
-    )}`;
+    return `${value.used}/${value.total} ${daysText}`;
   }
   return String(value);
 };
@@ -172,6 +174,13 @@ export const EmployeeHome: React.FC = () => {
     }));
   }, [recentAttendance]);
 
+  // Status texts for badges
+  const statusTexts = {
+    ontime: t("dashboard:employeeHome.status.ontime"),
+    late: t("dashboard:employeeHome.status.late"),
+    absent: t("dashboard:employeeHome.status.absent"),
+  };
+
   // Check if user has checked in today
   const todayAttendance = useMemo(() => {
     if (attendanceRows.length === 0) return null;
@@ -204,6 +213,84 @@ export const EmployeeHome: React.FC = () => {
 
     return null;
   }, [attendanceRows]);
+
+  // Update working time timer
+  useEffect(() => {
+    if (
+      todayAttendance?.hasCheckedIn &&
+      !todayAttendance?.hasCheckedOut &&
+      todayAttendance?.checkInTime
+    ) {
+      const interval = setInterval(() => {
+        // Parse check-in time (format: "HH:MM")
+        const [hours, minutes] = todayAttendance.checkInTime
+          .split(":")
+          .map(Number);
+        const today = new Date();
+        const checkInDate = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+          hours,
+          minutes,
+          0
+        );
+        const now = new Date();
+        const diff = now.getTime() - checkInDate.getTime();
+
+        const workHours = Math.floor(diff / (1000 * 60 * 60));
+        const workMinutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const workSeconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        setWorkingTime(
+          `${workHours.toString().padStart(2, "0")}:${workMinutes
+            .toString()
+            .padStart(2, "0")}:${workSeconds.toString().padStart(2, "0")}`
+        );
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [todayAttendance]);
+
+  // Calculate total working hours
+  const getTotalWorkingHours = () => {
+    if (todayAttendance?.checkInTime && todayAttendance?.checkOutTime) {
+      const [inHours, inMinutes] = todayAttendance.checkInTime
+        .split(":")
+        .map(Number);
+      const [outHours, outMinutes] = todayAttendance.checkOutTime
+        .split(":")
+        .map(Number);
+
+      const today = new Date();
+      const checkIn = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        inHours,
+        inMinutes,
+        0
+      );
+      const checkOut = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        outHours,
+        outMinutes,
+        0
+      );
+      const diff = checkOut.getTime() - checkIn.getTime();
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      return `${hours} ${t("dashboard:employeeHome.info.hours")} ${minutes} ${t(
+        "dashboard:employeeHome.info.minutes"
+      )}`;
+    }
+    return `0 ${t("dashboard:employeeHome.info.hours")}`;
+  };
 
   const loadingState = loading && (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/40 p-6 text-sm text-[var(--text-sub)]">
@@ -321,41 +408,166 @@ export const EmployeeHome: React.FC = () => {
             }}
           />
           <CardContent className="p-8 relative z-10 mt-4">
-            {todayAttendance?.hasCheckedIn ? (
-              // Đã điểm danh
+            {todayAttendance?.hasCheckedOut ? (
+              // Status 3: CHECKED_OUT - Show thank you message and summary
               <div className="text-center space-y-6">
                 <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", duration: 0.8 }}
+                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)] mb-4 shadow-lg shadow-[var(--success)]/30"
+                >
+                  <PartyPopper className="h-10 w-10 text-white" />
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <h2 className="text-2xl text-[var(--text-main)] mb-2">
+                    🎉 {t("dashboard:employeeHome.attendance.thankYou")}
+                  </h2>
+                  <p className="text-[var(--text-sub)] mb-6">
+                    {t("dashboard:employeeHome.attendance.seeYouTomorrow")}
+                  </p>
+
+                  {/* Summary */}
+                  <div className="bg-[var(--shell)] rounded-xl p-6 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[var(--text-sub)]">
+                        {t("dashboard:employeeHome.recentHistory.checkIn")}:
+                      </span>
+                      <span className="text-[var(--text-main)]">
+                        {todayAttendance.checkInTime}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[var(--text-sub)]">
+                        {t("dashboard:employeeHome.recentHistory.checkOut")}:
+                      </span>
+                      <span className="text-[var(--text-main)]">
+                        {todayAttendance.checkOutTime}
+                      </span>
+                    </div>
+                    <div className="border-t border-[var(--border)] pt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[var(--text-main)]">
+                          {t("dashboard:employeeHome.attendance.totalTime")}:
+                        </span>
+                        <span className="text-[var(--success)] text-lg">
+                          {getTotalWorkingHours()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            ) : todayAttendance?.hasCheckedIn ? (
+              // Status 2: CHECKED_IN - Show working status and checkout button
+              <div className="text-center space-y-8">
+                {/* Success Icon */}
+                <motion.div
                   animate={{
-                    scale: [0.7, 0.8, 0.7],
+                    scale: [1, 1.05, 1],
                   }}
                   transition={{
                     duration: 2,
                     repeat: Infinity,
                     ease: "easeInOut",
                   }}
-                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)] mb-4 shadow-lg shadow-[var(--success)]/30"
+                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)] mb-2 shadow-lg shadow-[var(--success)]/30"
                 >
                   <CheckCircle2 className="h-10 w-10 text-white" />
                 </motion.div>
+
+                {/* Title */}
                 <div>
                   <h2 className="text-2xl text-[var(--text-main)] mb-2">
-                    {t("dashboard:employeeHome.attendance.checkedIn")}
+                    ✅ {t("dashboard:employeeHome.attendance.working")}
                   </h2>
-                  <p className="text-[var(--text-sub)] mb-4">
-                    {t("dashboard:employeeHome.attendance.completed")}
+                  <p className="text-[var(--text-sub)]">
+                    {t("dashboard:employeeHome.recentHistory.checkIn")}:{" "}
+                    {todayAttendance.checkInTime}
                   </p>
+                </div>
 
-                  {/* Thông tin chi tiết */}
-                  <div className="bg-[var(--shell)]/50 rounded-xl p-4 space-y-3 text-left max-w-md mx-auto">
-                    {!todayAttendance.hasCheckedOut && (
-                      <div className="pt-2 border-t border-[var(--border)]">
-                        <p className="text-[15px] text-[var(--warning)] text-center">
-                          {t("dashboard:employeeHome.attendance.notCheckedOut")}
-                        </p>
+                {/* Enhanced Timer Display */}
+                <div className="bg-gradient-to-br from-[var(--primary)]/10 to-[var(--accent-cyan)]/10 rounded-2xl p-8 border-2 border-[var(--primary)]/20">
+                  <div className="flex items-center justify-center space-x-3 mb-3">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                    >
+                      <Timer className="h-6 w-6 text-[var(--primary)]" />
+                    </motion.div>
+                    <p className="text-sm text-[var(--text-sub)] uppercase tracking-wider">
+                      {t("dashboard:employeeHome.attendance.workingTime")}
+                    </p>
+                  </div>
+
+                  <motion.div
+                    className="text-6xl text-[var(--primary)] mb-2 font-mono tracking-wider"
+                    animate={{
+                      textShadow: [
+                        "0 0 10px rgba(99, 102, 241, 0.3)",
+                        "0 0 20px rgba(99, 102, 241, 0.6)",
+                        "0 0 10px rgba(99, 102, 241, 0.3)",
+                      ],
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    {workingTime}
+                  </motion.div>
+
+                  {/* Time Breakdown */}
+                  <div className="flex justify-center gap-6 text-sm">
+                    <div className="text-center">
+                      <div className="text-[var(--text-main)]">
+                        {workingTime.split(":")[0]}
                       </div>
-                    )}
+                      <div className="text-[var(--text-sub)] text-xs">
+                        {t("dashboard:employeeHome.info.hours")}
+                      </div>
+                    </div>
+                    <div className="text-[var(--text-sub)]">:</div>
+                    <div className="text-center">
+                      <div className="text-[var(--text-main)]">
+                        {workingTime.split(":")[1]}
+                      </div>
+                      <div className="text-[var(--text-sub)] text-xs">
+                        {t("dashboard:employeeHome.info.minutes")}
+                      </div>
+                    </div>
+                    <div className="text-[var(--text-sub)]">:</div>
+                    <div className="text-center">
+                      <div className="text-[var(--text-main)]">
+                        {workingTime.split(":")[2]}
+                      </div>
+                      <div className="text-[var(--text-sub)] text-xs">
+                        {t("dashboard:employeeHome.info.seconds")}
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* Checkout Button */}
+                <motion.button
+                  onClick={() => navigate("/employee/scan")}
+                  className="px-8 py-4 rounded-xl bg-gradient-to-r from-[var(--error)] to-[var(--warning)] hover:opacity-90 transition-opacity text-white shadow-lg shadow-[var(--error)]/30"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <span className="flex items-center space-x-2">
+                    <LogOut className="h-5 w-5" />
+                    <span>
+                      {t("dashboard:employeeHome.attendance.checkOut")}
+                    </span>
+                  </span>
+                </motion.button>
               </div>
             ) : (
               // Chưa điểm danh
@@ -407,7 +619,10 @@ export const EmployeeHome: React.FC = () => {
           const summaryValue = summary[item.key];
           const value =
             item.key === "workingDays"
-              ? formatWorkingDays(summaryValue, t)
+              ? formatWorkingDays(
+                  summaryValue,
+                  t("dashboard:employeeHome.info.days")
+                )
               : (summaryValue as { name?: string })?.name ||
                 (summaryValue as string) ||
                 "—";
@@ -589,7 +804,7 @@ export const EmployeeHome: React.FC = () => {
                           {record.location}
                         </td>
                         <td className="py-3 px-4">
-                          {getStatusBadge(record.status, t)}
+                          {getStatusBadge(record.status, statusTexts)}
                         </td>
                       </tr>
                     ))
