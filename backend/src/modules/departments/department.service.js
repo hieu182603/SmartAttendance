@@ -213,7 +213,7 @@ export class DepartmentService {
   }
 
   /**
-   * Xóa phòng ban
+   * Xóa phòng ban (Soft Delete)
    */
   static async deleteDepartment(id) {
     const department = await DepartmentModel.findById(id);
@@ -221,15 +221,34 @@ export class DepartmentService {
       throw new Error("Không tìm thấy phòng ban");
     }
 
-    // Kiểm tra có nhân viên không
-    const employeeCount = await UserModel.countDocuments({ department: department._id });
-    if (employeeCount > 0) {
-      throw new Error("Không thể xóa phòng ban vì còn nhân viên");
+    // Kiểm tra đã bị xóa chưa
+    if (department.deletedAt) {
+      throw new Error("Phòng ban này đã bị xóa trước đó");
     }
 
-    await DepartmentModel.findByIdAndDelete(id);
+    // Kiểm tra có nhân viên đang hoạt động không
+    const activeEmployeeCount = await UserModel.countDocuments({ 
+      department: department._id,
+      isActive: true 
+    });
+    
+    if (activeEmployeeCount > 0) {
+      const totalEmployeeCount = await UserModel.countDocuments({ 
+        department: department._id 
+      });
+      throw new Error(
+        `Không thể xóa phòng ban vì còn ${totalEmployeeCount} nhân viên ` +
+        `(${activeEmployeeCount} đang hoạt động). ` +
+        `Vui lòng chuyển nhân viên sang phòng ban khác trước.`
+      );
+    }
 
-    return { message: "Đã xóa phòng ban thành công" };
+    // Soft delete: Chuyển status sang "inactive" và đánh dấu deletedAt
+    department.status = "inactive";
+    department.deletedAt = new Date();
+    await department.save();
+
+    return { message: "Đã vô hiệu hóa phòng ban thành công" };
   }
 }
 

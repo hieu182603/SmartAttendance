@@ -4,19 +4,53 @@ import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
 import { SHIFT_CONFIG, ATTENDANCE_CONFIG } from "../../config/app.config.js";
 
+/**
+ * Kiểm tra xem user có approved leave request trong ngày đó không
+ * @param {ObjectId} userId - ID của user
+ * @param {Date} date - Ngày cần kiểm tra
+ * @returns {Promise<Object|null>} Leave request nếu có, null nếu không
+ */
+const checkApprovedLeaveRequest = async (userId, date) => {
+  try {
+    const { RequestModel } = await import("../requests/request.model.js");
+
+    // Lấy ngày bắt đầu và kết thúc của ngày đó (00:00:00 - 23:59:59)
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Tìm approved leave request có ngày nghỉ bao phủ ngày đó
+    // Leave types: leave, sick, unpaid, compensatory, maternity
+    const leaveRequest = await RequestModel.findOne({
+      userId,
+      type: { $in: ["leave", "sick", "unpaid", "compensatory", "maternity"] },
+      status: "approved",
+      startDate: { $lte: endOfDay },
+      endDate: { $gte: startOfDay },
+    }).lean();
+
+    return leaveRequest;
+  } catch (error) {
+    console.error("[attendance] Error checking leave request:", error);
+    return null;
+  }
+};
+
 // Hàm tính khoảng cách giữa 2 điểm GPS (Haversine formula)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const toRad = (value) => (value * Math.PI) / 180;
   const R = 6371e3; // Bán kính trái đất (mét)
-  
+
   const φ1 = toRad(lat1);
   const φ2 = toRad(lat2);
   const Δφ = toRad(lat2 - lat1);
   const Δλ = toRad(lon2 - lon1);
-  
+
   const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  
+
   return R * c; // Khoảng cách tính bằng mét
 };
 
@@ -460,6 +494,25 @@ export const checkIn = async (req, res) => {
       today.getDate()
     );
 
+    // Kiểm tra xem user có approved leave request trong ngày đó không
+    const leaveRequest = await checkApprovedLeaveRequest(userId, dateOnly);
+    if (leaveRequest) {
+      const leaveTypeMap = {
+        leave: "nghỉ phép",
+        sick: "nghỉ ốm",
+        unpaid: "nghỉ không lương",
+        compensatory: "nghỉ bù",
+        maternity: "nghỉ thai sản",
+      };
+      const leaveTypeName = leaveTypeMap[leaveRequest.type] || "nghỉ phép";
+
+      return res.status(400).json({
+        success: false,
+        message: `Bạn đã được duyệt ${leaveTypeName} trong ngày hôm nay. Không thể check-in khi đang nghỉ phép.`,
+        code: "ON_LEAVE",
+      });
+    }
+
     const schedule = await getUserSchedule(userId, dateOnly);
     const shiftInfo = await getShiftInfo(schedule);
 
@@ -648,6 +701,25 @@ export const checkOut = async (req, res) => {
       today.getMonth(),
       today.getDate()
     );
+
+    // Kiểm tra xem user có approved leave request trong ngày đó không
+    const leaveRequest = await checkApprovedLeaveRequest(userId, dateOnly);
+    if (leaveRequest) {
+      const leaveTypeMap = {
+        leave: "nghỉ phép",
+        sick: "nghỉ ốm",
+        unpaid: "nghỉ không lương",
+        compensatory: "nghỉ bù",
+        maternity: "nghỉ thai sản",
+      };
+      const leaveTypeName = leaveTypeMap[leaveRequest.type] || "nghỉ phép";
+
+      return res.status(400).json({
+        success: false,
+        message: `Bạn đã được duyệt ${leaveTypeName} trong ngày hôm nay. Không thể check-out khi đang nghỉ phép.`,
+        code: "ON_LEAVE",
+      });
+    }
 
     let attendance = await AttendanceModel.findOne({
       userId,

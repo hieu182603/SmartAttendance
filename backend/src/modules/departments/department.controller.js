@@ -143,19 +143,20 @@ export class DepartmentController {
 
   /**
    * DELETE /api/departments/:id
-   * Xóa phòng ban
+   * Xóa phòng ban (Soft Delete)
    */
   static async deleteDepartment(req, res) {
     try {
       const { id } = req.params;
-      await DepartmentService.deleteDepartment(id);
+      const result = await DepartmentService.deleteDepartment(id);
 
-      res.json({ message: "Đã xóa phòng ban thành công" });
+      res.json({ message: result.message || "Đã vô hiệu hóa phòng ban thành công" });
     } catch (error) {
       console.error("[departments] deleteDepartment error:", error);
       if (
         error.message === "Không tìm thấy phòng ban" ||
-        error.message.includes("Không thể xóa")
+        error.message.includes("Không thể xóa") ||
+        error.message.includes("đã bị xóa")
       ) {
         return res.status(400).json({ message: error.message });
       }

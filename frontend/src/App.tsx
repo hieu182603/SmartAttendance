@@ -5,8 +5,6 @@ import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import NotFoundPage from "@/components/NotFoundPage";
 import { UserRole, Permission } from "@/utils/roles";
 
 // Public Pages - Lazy Load
@@ -54,6 +52,10 @@ const ShiftsPage = lazy(() =>
     default: module.ShiftsPage,
   }))
 );
+
+// Layout & Common Components - Lazy Load
+const DashboardLayout = lazy(() => import("@/components/dashboard/DashboardLayout"));
+const NotFoundPage = lazy(() => import("@/components/NotFoundPage"));
 
 
 // Loading component sử dụng Loader2 từ lucide-react
