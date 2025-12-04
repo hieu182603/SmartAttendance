@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ export function CreateEventDialog({
   onSuccess,
   initialDate,
 }: CreateEventDialogProps) {
+  const { t } = useTranslation(["dashboard", "common"]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -87,7 +89,7 @@ export function CreateEventDialog({
         endTime: formData.isAllDay ? undefined : formData.endTime,
       });
 
-      toast.success(`✅ ${t('dashboard:eventDialogs.success.created')}`);
+      toast.success(`✅ ${t("dashboard:eventDialogs.success.created")}`);
       onSuccess();
       onOpenChange(false);
 
