@@ -128,6 +128,8 @@ const RequestsPage: React.FC = () => {
     totalPages: 0,
   });
 
+  const today = new Date().toISOString().split("T")[0];
+
   // Fallback request types with i18n
   const FALLBACK_REQUEST_TYPES: RequestTypeOption[] = [
     { value: "leave", label: t('dashboard:requests.types.leave') },
@@ -319,6 +321,23 @@ const RequestsPage: React.FC = () => {
   };
 
   const handleCreateRequest = async (): Promise<void> => {
+
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    if (requestDateRange.start < todayStr) {
+      toast.error("Ngày bắt đầu không được nhỏ hơn ngày hiện tại");
+      return;
+    }
+
+    if (
+      requestDateRange.end &&
+      requestDateRange.end < requestDateRange.start
+    ) {
+      toast.error("Ngày kết thúc không được nhỏ hơn ngày bắt đầu");
+      return;
+    }
+
+
     if (!requestType || !requestReason || !requestDateRange.start) {
       toast.error(t('dashboard:requests.errors.fillAllFields'));
       return;
@@ -533,6 +552,7 @@ const RequestsPage: React.FC = () => {
   };
 
   return (
+    
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -577,10 +597,12 @@ const RequestsPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                
                 <div className="space-y-2">
                   <Label>{t('dashboard:requests.dialog.startDate')}</Label>
                   <Input
                     type="date"
+                    min={today}
                     value={requestDateRange.start}
                     onChange={(e) =>
                       setRequestDateRange((prev) => ({
@@ -595,6 +617,7 @@ const RequestsPage: React.FC = () => {
                   <Label>{t('dashboard:requests.dialog.endDate')}</Label>
                   <Input
                     type="date"
+                    min={requestDateRange.start || today}
                     value={requestDateRange.end}
                     onChange={(e) =>
                       setRequestDateRange((prev) => ({
