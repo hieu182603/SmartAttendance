@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
@@ -12,6 +12,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNotifications } from "@/hooks/useNotifications";
+import type { Notification as APINotification } from "@/services/notificationService";
 
 interface Notification {
   id: string;
@@ -23,44 +25,57 @@ interface Notification {
   read: boolean;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    type: "warning",
-    category: "attendance",
-    title: "Nhắc nhở check-out",
-    message: "dashboard:notificationCenter.samples.checkoutReminder",
-    time: "5 phút trước",
-    read: false,
-  },
-  {
-    id: "2",
-    type: "success",
-    category: "leave",
-    title: "Yêu cầu được duyệt",
-    message: "dashboard:notificationCenter.samples.leaveApproved",
-    time: "1 giờ trước",
-    read: false,
-  },
-  {
-    id: "3",
-    type: "info",
-    category: "payroll",
-    title: "Bảng lương tháng 10",
-    message: "Bảng lương tháng 10 đã được tính. Vui lòng kiểm tra",
-    time: "2 giờ trước",
-    read: true,
-  },
-  {
-    id: "4",
-    type: "info",
-    category: "todo",
-    title: "Deadline sắp tới",
-    message: 'Công việc "Hoàn thành báo cáo tháng" sẽ hết hạn vào ngày mai',
-    time: "3 giờ trước",
-    read: true,
-  },
-];
+// Helper function to format time
+const formatTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Vừa xong";
+  if (diffMins < 60) return `${diffMins} phút trước`;
+  if (diffHours < 24) return `${diffHours} giờ trước`;
+  if (diffDays < 7) return `${diffDays} ngày trước`;
+  return date.toLocaleDateString("vi-VN");
+};
+
+// Map API notification type to UI type
+const mapNotificationType = (
+  type: APINotification["type"]
+): Notification["type"] => {
+  switch (type) {
+    case "request_approved":
+      return "success";
+    case "request_rejected":
+      return "error";
+    case "attendance_reminder":
+      return "warning";
+    default:
+      return "info";
+  }
+};
+
+// Map API notification to UI notification
+const mapNotification = (apiNotif: APINotification): Notification => {
+  let category: Notification["category"] = "system";
+  if (apiNotif.type === "request_approved" || apiNotif.type === "request_rejected") {
+    category = "leave";
+  } else if (apiNotif.type === "attendance_reminder") {
+    category = "attendance";
+  }
+
+  return {
+    id: apiNotif._id || apiNotif.id || "",
+    type: mapNotificationType(apiNotif.type),
+    category,
+    title: apiNotif.title,
+    message: apiNotif.message,
+    time: formatTime(apiNotif.createdAt),
+    read: apiNotif.isRead,
+  };
+};
 
 const categoryIcon: Record<Notification["category"], LucideIcon> = {
   attendance: Clock,
@@ -155,27 +170,29 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [notifications, setNotifications] =
-    useState<Notification[]>(mockNotifications);
+  const { t } = useTranslation(['dashboard', 'common']);
+  const {
+    notifications: apiNotifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    loadNotifications,
+  } = useNotifications();
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.read).length,
-    [notifications]
+  // Reload notifications when panel opens to ensure data is fresh
+  useEffect(() => {
+    if (isOpen) {
+      loadNotifications();
+    }
+  }, [isOpen, loadNotifications]);
+
+  // Map API notifications to UI format
+  const notifications = useMemo(
+    () => apiNotifications.map(mapNotification),
+    [apiNotifications]
   );
-
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
 
   return (
     <AnimatePresence>
@@ -233,7 +250,12 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 )}
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {notifications.length > 0 ? (
+                {loading ? (
+                  <div className="text-center py-12 text-[var(--text-sub)]">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)] mx-auto mb-4"></div>
+                    <p>Đang tải thông báo...</p>
+                  </div>
+                ) : notifications.length > 0 ? (
                   notifications.map((notification, index) => (
                     <NotificationItem
                       key={notification.id}

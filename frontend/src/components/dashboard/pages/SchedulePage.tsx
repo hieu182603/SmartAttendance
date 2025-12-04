@@ -126,17 +126,10 @@ const SchedulePage: React.FC = () => {
 
         // Fetch schedule, attendance, and available shifts in parallel
         const [scheduleData, attendanceData, availableShifts] = await Promise.all([
-          shiftService.getMySchedule(startDateStr, endDateStr).catch((err) => {
-            console.error('[SchedulePage] Error fetching schedule:', err);
-            return [];
-          }),
+          shiftService.getMySchedule(startDateStr, endDateStr).catch(() => []),
           getAttendanceHistory({ limit: 1000 }).catch(() => ({ records: [], pagination: null })),
           shiftService.getAllShifts().catch(() => []),
         ]);
-
-        console.log('[SchedulePage] Schedule data from API:', scheduleData);
-        console.log('[SchedulePage] Date range:', { startDateStr, endDateStr });
-        console.log('[SchedulePage] Available shifts:', availableShifts);
 
         // Store attendance records
         const records = (attendanceData.records || []) as AttendanceRecord[];
@@ -180,12 +173,10 @@ const SchedulePage: React.FC = () => {
               
               if (dateStr) {
                 attendanceMap.set(dateStr, record);
-              } else {
-                console.warn("Could not parse attendance date:", record.date);
               }
             }
           } catch (err) {
-            console.warn("Error parsing attendance date:", record.date, err);
+            // Silently skip invalid date records
           }
         });
 
@@ -200,12 +191,10 @@ const SchedulePage: React.FC = () => {
                 scheduleMap.set(dateStr, sched);
               }
             } catch (err) {
-              console.warn("Error parsing schedule date:", sched.date, err);
+              // Silently skip invalid schedule dates
             }
           }
         });
-        
-        console.log('[SchedulePage] Schedule map size:', scheduleMap.size);
 
         // Fallback: Nếu có schedule từ assignments nhưng thiếu một số ngày,
         // có thể dùng default shift để lấp khoảng trống.
@@ -299,8 +288,6 @@ const SchedulePage: React.FC = () => {
                   notes: scheduleToUse.notes || description,
                   attendanceRecord: attendance,
                 });
-              } else {
-                console.warn('[SchedulePage] Missing required fields for schedule:', dateStr, scheduleToUse);
               }
             } else if (
               // Chỉ tạo "virtual shift" từ attendance cho NGÀY HÔM NAY
@@ -357,11 +344,8 @@ const SchedulePage: React.FC = () => {
         }
 
         finalSchedule.sort((a, b) => a.date.localeCompare(b.date));
-        console.log('[SchedulePage] Final schedule count:', finalSchedule.length);
-        console.log('[SchedulePage] Final schedule:', finalSchedule);
         setSchedule(finalSchedule);
       } catch (err) {
-        console.error(t('dashboard:schedule.error'), err);
         setSchedule([]);
       } finally {
         setLoading(false);

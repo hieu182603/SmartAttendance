@@ -47,7 +47,6 @@ import { getRequestTypes } from "@/services/requestService";
 import type {
   RequestType as RequestTypeOption,
 } from "@/services/requestService";
-import { getAllDepartments } from "@/services/departmentService";
 
 
 type RequestStatus = "pending" | "approved" | "rejected";
@@ -101,6 +100,7 @@ const RequestsPage: React.FC = () => {
   const [requests, setRequests] = useState<Request[]>([]); // Current page requests
   const [selectedTab, setSelectedTab] = useState<string>("pending");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -136,23 +136,14 @@ const RequestsPage: React.FC = () => {
     { value: "correction", label: t('dashboard:requests.types.correction') },
   ];
 
-  // Fetch request types and departments
+  // Fetch request types only (no need for departments API - will extract from requests)
   useEffect(() => {
     let isMounted = true;
     const fetchOptions = async () => {
       try {
-        const [typesResult, deptsResult] = await Promise.all([
-          getRequestTypes(),
-          getAllDepartments({ limit: 1000, status: 'active' })
-        ]);
-
+        const typesResult = await getRequestTypes();
         if (isMounted) {
           setRequestTypes(typesResult.types || []);
-          const deptOptions = deptsResult.departments.map(dept => ({
-            value: dept.name,
-            label: dept.name
-          }));
-          setDepartments(deptOptions);
         }
       } catch (error) {
         console.error('[RequestsPage] Options fetch error:', error);
@@ -163,6 +154,24 @@ const RequestsPage: React.FC = () => {
       isMounted = false;
     };
   }, []);
+
+  // Extract unique departments from allRequests for filter dropdown
+  useEffect(() => {
+    const uniqueDepartments = Array.from(
+      new Set(
+        allRequests
+          .map(req => req.department)
+          .filter((dept): dept is string => Boolean(dept) && dept !== 'N/A')
+      )
+    ).sort();
+
+    setDepartments(
+      uniqueDepartments.map(dept => ({
+        value: dept,
+        label: dept
+      }))
+    );
+  }, [allRequests]);
 
   // Fetch stats (all requests without pagination for accurate stats)
   useEffect(() => {
