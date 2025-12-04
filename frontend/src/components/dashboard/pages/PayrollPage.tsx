@@ -462,14 +462,8 @@ export default function PayrollPage() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl text-[var(--text-main)] flex items-center space-x-3">
-              <motion.span
-                animate={{ rotate: [0, 360] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-              >
-                💰
-              </motion.span>
-              <span>{t("payroll.title")}</span>
+            <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
+              {t("payroll.title")}
             </h1>
             <p className="text-[var(--text-sub)]">{t("payroll.description")}</p>
           </div>
