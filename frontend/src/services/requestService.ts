@@ -80,6 +80,25 @@ export const rejectRequest = async (id: string, comments = ''): Promise<unknown>
   return data
 }
 
+export interface BulkActionResponse {
+  message: string
+  success: Array<{ id: string; status: string }>
+  failed: Array<{ id: string; error: string }>
+  total: number
+  successCount: number
+  failedCount: number
+}
+
+export const bulkApproveRequests = async (ids: string[], comments = ''): Promise<BulkActionResponse> => {
+  const { data } = await api.post('/requests/bulk-approve', { ids, comments })
+  return data
+}
+
+export const bulkRejectRequests = async (ids: string[], comments = ''): Promise<BulkActionResponse> => {
+  const { data } = await api.post('/requests/bulk-reject', { ids, comments })
+  return data
+}
+
 export interface RequestType {
   value: string
   label: string

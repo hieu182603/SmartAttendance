@@ -121,6 +121,13 @@ export const DashboardOverview: React.FC = () => {
     growthPercentage: 0,
   });
 
+  const [currentTime, setCurrentTime] = useState(() => 
+    new Date().toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  );
+
   useEffect(() => {
     const fetchDashboardStats = async () => {
       setLoading(true);
@@ -149,10 +156,19 @@ export const DashboardOverview: React.FC = () => {
     fetchDashboardStats();
   }, []);
 
-  const currentTime = new Date().toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // Update time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(
+        new Date().toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Prepare KPI data from API - đảm bảo luôn có giá trị mặc định
   const kpiData: KPICard[] = [

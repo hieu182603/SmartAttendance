@@ -68,6 +68,12 @@ export default function PayrollPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+  });
   
   // Dialog states
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -93,11 +99,32 @@ export default function PayrollPage() {
     const fetchPayrollData = async () => {
       try {
         setLoading(true);
-        const response = await getPayrollRecords({
-          month: selectedMonth,
-          limit: 1000,
-        });
+        const params: {
+          month?: string;
+          page: number;
+          limit: number;
+          status?: string;
+          department?: string;
+        } = {
+          page: currentPage,
+          limit: itemsPerPage,
+        };
+
+        if (selectedMonth) {
+          params.month = selectedMonth;
+        }
+        if (filterStatus !== "all") {
+          params.status = filterStatus;
+        }
+        if (filterDepartment !== "all") {
+          params.department = filterDepartment;
+        }
+
+        const response = await getPayrollRecords(params);
         setPayrollData(response.records || []);
+        if (response.pagination) {
+          setPagination(response.pagination);
+        }
       } catch (error: any) {
         console.error("Error fetching payroll:", error);
         console.error("Error details:", error.response?.data || error.message);
@@ -109,54 +136,40 @@ export default function PayrollPage() {
         toast.error(errorMsg);
 
         setPayrollData([]);
+        setPagination({
+          total: 0,
+          page: 1,
+          limit: itemsPerPage,
+          totalPages: 1,
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchPayrollData();
-  }, [selectedMonth]);
+  }, [selectedMonth, currentPage, itemsPerPage, filterStatus, filterDepartment]);
 
+  // Client-side search filtering (by name/employeeId)
   const filteredData = useMemo(() => {
+    if (!searchTerm) {
+      return payrollData;
+    }
     return payrollData.filter((record) => {
       const employeeName = record.userId?.name || "";
       const empId = record.employeeId || record.userId?.employeeId || "";
 
-      const matchSearch =
+      return (
         employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        empId.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchDepartment =
-        filterDepartment === "all" || record.department === filterDepartment;
-      const matchStatus =
-        filterStatus === "all" || record.status === filterStatus;
-
-      return matchSearch && matchDepartment && matchStatus;
+        empId.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     });
-  }, [payrollData, searchTerm, filterDepartment, filterStatus]);
+  }, [payrollData, searchTerm]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters change (except search which is client-side)
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterDepartment, filterStatus, selectedMonth]);
-
-  // Calculate pagination
-  const pagination = useMemo(() => {
-    const total = filteredData.length;
-    const totalPages = Math.ceil(total / itemsPerPage);
-    return {
-      total,
-      page: currentPage,
-      limit: itemsPerPage,
-      totalPages,
-    };
-  }, [filteredData.length, currentPage, itemsPerPage]);
-
-  // Get paginated data
-  const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return filteredData.slice(startIndex, endIndex);
-  }, [filteredData, currentPage, itemsPerPage]);
+  }, [filterDepartment, filterStatus, selectedMonth]);
 
   const exportToExcel = () => {
     const headers = [
@@ -176,9 +189,12 @@ export default function PayrollPage() {
       t("payroll.table.status"),
     ];
 
+    // For export, we need to fetch all records
+    // This is acceptable for export functionality
+    const exportData = searchTerm ? filteredData : payrollData;
     const csvContent = [
       headers.join(","),
-      ...filteredData.map((record) =>
+      ...exportData.map((record) =>
         [
           record.userId?.name || "N/A",
           record.department,
@@ -249,8 +265,10 @@ export default function PayrollPage() {
     }).format(amount);
   };
 
+  // Stats calculation - using current page data only
+  // Note: For accurate stats, you might want a separate stats endpoint
   const stats = {
-    totalEmployees: payrollData.length,
+    totalEmployees: pagination.total || payrollData.length,
     totalPayroll: payrollData.reduce((sum, r) => sum + r.totalSalary, 0),
     avgSalary:
       payrollData.length > 0
@@ -294,12 +312,33 @@ export default function PayrollPage() {
       setIsApproveDialogOpen(false);
       setSelectedRecord(null);
       
-      // Refresh data
-      const response = await getPayrollRecords({
-        month: selectedMonth,
-        limit: 1000,
-      });
+      // Refresh data with current pagination
+      const params: {
+        month?: string;
+        page: number;
+        limit: number;
+        status?: string;
+        department?: string;
+      } = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      if (selectedMonth) {
+        params.month = selectedMonth;
+      }
+      if (filterStatus !== "all") {
+        params.status = filterStatus;
+      }
+      if (filterDepartment !== "all") {
+        params.department = filterDepartment;
+      }
+
+      const response = await getPayrollRecords(params);
       setPayrollData(response.records || []);
+      if (response.pagination) {
+        setPagination(response.pagination);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Không thể duyệt bảng lương");
     } finally {
@@ -317,12 +356,33 @@ export default function PayrollPage() {
       setIsMarkPaidDialogOpen(false);
       setSelectedRecord(null);
       
-      // Refresh data
-      const response = await getPayrollRecords({
-        month: selectedMonth,
-        limit: 1000,
-      });
+      // Refresh data with current pagination
+      const params: {
+        month?: string;
+        page: number;
+        limit: number;
+        status?: string;
+        department?: string;
+      } = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
+      if (selectedMonth) {
+        params.month = selectedMonth;
+      }
+      if (filterStatus !== "all") {
+        params.status = filterStatus;
+      }
+      if (filterDepartment !== "all") {
+        params.department = filterDepartment;
+      }
+
+      const response = await getPayrollRecords(params);
       setPayrollData(response.records || []);
+      if (response.pagination) {
+        setPagination(response.pagination);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Không thể đánh dấu đã thanh toán");
     } finally {
@@ -605,8 +665,8 @@ export default function PayrollPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : paginatedData.length > 0 ? (
-                    paginatedData.map((record, index) => (
+                  ) : filteredData.length > 0 ? (
+                    filteredData.map((record, index) => (
                       <TableRow
                         key={record._id}
                         className="border-[var(--border)] hover:bg-[var(--shell)] transition-colors"
@@ -685,7 +745,7 @@ export default function PayrollPage() {
               </Table>
             </div>
 
-            {!loading && filteredData.length === 0 && (
+            {!loading && payrollData.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -701,13 +761,14 @@ export default function PayrollPage() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 mt-6 border-t border-[var(--border)]">
                 <div className="flex items-center gap-2 text-sm text-[var(--text-sub)]">
                   <span>
-                    Hiển thị {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} của {pagination.total}
+                    Hiển thị {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} của {pagination.total}
                   </span>
                   <span className="hidden sm:inline">•</span>
                   <div className="flex items-center gap-2">
                     <span>Dòng mỗi trang</span>
                     <Select value={itemsPerPage.toString()} onValueChange={(v) => {
-                      setItemsPerPage(Number(v));
+                      const newLimit = Number(v);
+                      setItemsPerPage(newLimit);
                       setCurrentPage(1);
                     }}>
                       <SelectTrigger className="w-20 h-8 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
@@ -728,7 +789,7 @@ export default function PayrollPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
+                    disabled={pagination.page === 1}
                     className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
                   >
                     «
@@ -737,21 +798,21 @@ export default function PayrollPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
+                    disabled={pagination.page === 1}
                     className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
                   >
                     ‹
                   </Button>
 
                   <span className="px-4 text-sm text-[var(--text-main)]">
-                    Trang {currentPage} / {pagination.totalPages}
+                    Trang {pagination.page} / {pagination.totalPages}
                   </span>
 
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))}
-                    disabled={currentPage >= pagination.totalPages}
+                    disabled={pagination.page >= pagination.totalPages}
                     className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
                   >
                     ›
@@ -760,7 +821,7 @@ export default function PayrollPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(pagination.totalPages)}
-                    disabled={currentPage >= pagination.totalPages}
+                    disabled={pagination.page >= pagination.totalPages}
                     className="h-8 w-8 border-[var(--border)] text-[var(--text-main)]"
                   >
                     »
