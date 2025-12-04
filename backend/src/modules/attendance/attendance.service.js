@@ -1,0 +1,953 @@
+import { SHIFT_CONFIG, ATTENDANCE_CONFIG } from "../../config/app.config.js";
+import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
+import { AttendanceModel } from "./attendance.model.js";
+import { BranchModel } from "../branches/branch.model.js";
+import { uploadToCloudinary } from "../../config/cloudinary.js";
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+const EARTH_RADIUS_M = 6371e3; // Bán kính trái đất (mét)
+const MAX_DISTANCE = 100; // 100m
+
+// ============================================================================
+// LOCATION UTILITIES
+// ============================================================================
+
+/**
+ * Tính khoảng cách giữa 2 điểm GPS (Haversine formula)
+ * @param {number} lat1 - Vĩ độ điểm 1
+ * @param {number} lon1 - Kinh độ điểm 1
+ * @param {number} lat2 - Vĩ độ điểm 2
+ * @param {number} lon2 - Kinh độ điểm 2
+ * @returns {number} Khoảng cách tính bằng mét
+ */
+export const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δφ = toRad(lat2 - lat1);
+  const Δλ = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return EARTH_RADIUS_M * c;
+};
+
+/**
+ * Tìm chi nhánh gần nhất từ danh sách branches
+ * @param {Array} branches - Danh sách branches
+ * @param {number} latitude - Vĩ độ hiện tại
+ * @param {number} longitude - Kinh độ hiện tại
+ * @returns {Object|null} { branch, distance } hoặc null
+ */
+export const findNearestBranch = (branches, latitude, longitude) => {
+  if (!branches || branches.length === 0) return null;
+
+  let nearest = branches[0];
+  let minDistance = calculateDistance(
+    latitude,
+    longitude,
+    nearest.latitude,
+    nearest.longitude
+  );
+
+  for (const branch of branches) {
+    const distance = calculateDistance(
+      latitude,
+      longitude,
+      branch.latitude,
+      branch.longitude
+    );
+    if (distance < minDistance) {
+      minDistance = distance;
+      nearest = branch;
+    }
+  }
+
+  return { branch: nearest, distance: Math.round(minDistance) };
+};
+
+/**
+ * Kiểm tra vị trí có hợp lệ để chấm công không
+ * @param {Object} nearestBranch - Kết quả từ findNearestBranch
+ * @returns {boolean}
+ */
+export const isValidLocation = (nearestBranch) => {
+  return nearestBranch && nearestBranch.distance <= MAX_DISTANCE;
+};
+
+/**
+ * Validate và tìm branch hợp lệ cho check-in/check-out
+ * @param {number} latitude - Vĩ độ
+ * @param {number} longitude - Kinh độ
+ * @returns {Promise<Object>} { valid, branch, distance, message }
+ */
+export const validateAndFindBranch = async (latitude, longitude) => {
+  const locationValidation = validateLocation(latitude, longitude);
+  if (!locationValidation.valid) {
+    return {
+      valid: false,
+      branch: null,
+      distance: null,
+      message: locationValidation.message,
+    };
+  }
+
+  const branches = await BranchModel.find({ status: "active" });
+  const nearest = findNearestBranch(branches, latitude, longitude);
+
+  if (!isValidLocation(nearest)) {
+    return {
+      valid: false,
+      branch: null,
+      distance: nearest?.distance || null,
+      message: `Bạn không ở trong khu vực cho phép chấm công. Vui lòng đến văn phòng và kết nối WiFi của công ty để chấm công.`,
+    };
+  }
+
+  return {
+    valid: true,
+    branch: nearest.branch,
+    distance: nearest.distance,
+    message: null,
+  };
+};
+
+// ============================================================================
+// DATE & TIME UTILITIES
+// ============================================================================
+
+/**
+ * Format ngày thành label (DD/MM/YYYY)
+ * @param {Date} date - Ngày cần format
+ * @returns {string}
+ */
+export const formatDateLabel = (date) => {
+  const pad = (value) => String(value).padStart(2, "0");
+  const d = new Date(date);
+  return `${pad(d.getUTCDate())}/${pad(
+    d.getUTCMonth() + 1
+  )}/${d.getUTCFullYear()}`;
+};
+
+/**
+ * Format thời gian thành HH:MM
+ * @param {Date|string} value - Thời gian cần format
+ * @returns {string}
+ */
+export const formatTime = (value) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  const pad = (v) => String(v).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/**
+ * Format giờ làm việc thành "Xh Ym"
+ * @param {number} hours - Số giờ làm việc
+ * @returns {string}
+ */
+export const formatWorkHours = (hours) => {
+  if (!hours && hours !== 0) return "-";
+  const whole = Math.floor(hours);
+  const minutes = Math.round((hours - whole) * 60);
+  return `${whole}h ${minutes}m`;
+};
+
+/**
+ * Áp dụng thời gian vào một ngày cụ thể
+ * @param {Date} baseDate - Ngày cơ sở
+ * @param {string} timeString - Chuỗi thời gian (HH:MM)
+ * @returns {Date|null}
+ */
+export const applyTimeToDate = (baseDate, timeString) => {
+  if (!timeString || typeof timeString !== "string") return null;
+  const [hourStr, minuteStr] = timeString.split(":");
+  const hour = Number(hourStr);
+  const minute = Number(minuteStr);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+  const result = new Date(baseDate);
+  result.setHours(hour, minute, 0, 0);
+  return result;
+};
+
+/**
+ * Tạo date query cho MongoDB
+ * @param {string|Date} from - Ngày bắt đầu
+ * @param {string|Date} to - Ngày kết thúc
+ * @returns {Object} MongoDB date query
+ */
+export const buildDateQuery = (from, to) => {
+  const query = {};
+  if (from || to) {
+    query.date = {};
+    if (from) {
+      const fromDate = new Date(from + "T00:00:00.000Z");
+      query.date.$gte = fromDate;
+    }
+    if (to) {
+      const toDate = new Date(to + "T23:59:59.999Z");
+      query.date.$lte = toDate;
+    }
+  }
+  return query;
+};
+
+/**
+ * Tạo date range cho một ngày cụ thể
+ * @param {Date|string} date - Ngày cần tạo range
+ * @returns {Object} { start, end }
+ */
+export const getDateRange = (date) => {
+  const targetDate = date ? new Date(date) : new Date();
+  targetDate.setHours(0, 0, 0, 0);
+  const nextDay = new Date(targetDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+  return { start: targetDate, end: nextDay };
+};
+
+/**
+ * Lấy date only (không có time)
+ * @param {Date} date - Ngày cần convert
+ * @returns {Date}
+ */
+export const getDateOnly = (date = new Date()) => {
+  const d = new Date(date);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+};
+
+// ============================================================================
+// STATUS UTILITIES
+// ============================================================================
+
+/**
+ * Xác định trạng thái chấm công
+ * @param {Object} doc - Document attendance
+ * @returns {string} Status: 'ontime' | 'late' | 'absent' | 'overtime' | 'weekend' | 'on_leave'
+ */
+export const deriveStatus = (doc) => {
+  const dow = new Date(doc.date).getDay();
+  if (dow === 0 || dow === 6) {
+    return "weekend";
+  }
+  if (doc.status === "absent") return "absent";
+  if (doc.status === "late") return "late";
+  if (doc.workHours && doc.workHours > 8) return "overtime";
+  if (!doc.checkIn && !doc.checkOut) return "absent";
+  return "ontime";
+};
+
+// ============================================================================
+// SCHEDULE UTILITIES
+// ============================================================================
+
+/**
+ * Lấy schedule của nhân viên trong ngày (với populate shift)
+ * @param {string} userId - ID nhân viên
+ * @param {Date} date - Ngày cần lấy schedule
+ * @returns {Promise<Object|null>}
+ */
+export const getUserSchedule = async (userId, date) => {
+  try {
+    const schedule = await EmployeeScheduleModel.findOne({
+      userId,
+      date: date,
+    })
+      .populate("shiftId")
+      .lean();
+
+    return schedule;
+  } catch (error) {
+    console.error("[getUserSchedule] Error:", error);
+    return null;
+  }
+};
+
+/**
+ * Lấy thông tin shift từ schedule hoặc tìm shift mặc định trong DB
+ * @param {Object} schedule - Schedule object
+ * @returns {Promise<Object>} Shift info
+ */
+export const getShiftInfo = async (schedule) => {
+  try {
+    const { ShiftModel } = await import("../shifts/shift.model.js");
+
+    // Nếu schedule có shiftId đã được populate
+    if (schedule?.shiftId && typeof schedule.shiftId === "object") {
+      return {
+        startTime: schedule.shiftId.startTime,
+        endTime: schedule.shiftId.endTime,
+        breakDuration: schedule.shiftId.breakDuration || 0,
+        shiftName: schedule.shiftId.name,
+        isFlexible: schedule.shiftId.isFlexible || false,
+      };
+    }
+
+    // Nếu schedule có shiftId nhưng chưa populate
+    if (schedule?.shiftId) {
+      const shift = await ShiftModel.findById(schedule.shiftId).lean();
+      if (shift) {
+        return {
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          breakDuration: shift.breakDuration || 0,
+          shiftName: shift.name,
+          isFlexible: shift.isFlexible || false,
+        };
+      }
+    }
+
+    // Nếu schedule có startTime và endTime trực tiếp
+    if (schedule?.startTime && schedule?.endTime) {
+      return {
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        breakDuration: 0,
+        shiftName: schedule.shiftName || "Ca làm việc",
+        isFlexible: false,
+      };
+    }
+
+    // Tìm shift mặc định trong DB
+    let defaultShift = await ShiftModel.findOne({
+      isActive: true,
+      name: { $regex: /full time|hành chính/i },
+    }).lean();
+
+    if (!defaultShift) {
+      defaultShift = await ShiftModel.findOne({ isActive: true })
+        .sort({ createdAt: 1 })
+        .lean();
+    }
+
+    if (defaultShift) {
+      return {
+        startTime: defaultShift.startTime,
+        endTime: defaultShift.endTime,
+        breakDuration: defaultShift.breakDuration || 0,
+        shiftName: defaultShift.name,
+        isFlexible: defaultShift.isFlexible || false,
+      };
+    }
+
+    // Fallback về config mặc định
+    console.warn(
+      "[getShiftInfo] ⚠ Không tìm thấy shift trong DB, sử dụng giá trị mặc định"
+    );
+    return {
+      startTime: SHIFT_CONFIG.DEFAULT_START_TIME,
+      endTime: SHIFT_CONFIG.DEFAULT_END_TIME,
+      breakDuration: SHIFT_CONFIG.DEFAULT_BREAK_DURATION,
+      shiftName: SHIFT_CONFIG.DEFAULT_SHIFT_NAME,
+      isFlexible: false,
+    };
+  } catch (error) {
+    console.error("[getShiftInfo] ❌ Error:", error);
+    return {
+      startTime: SHIFT_CONFIG.DEFAULT_START_TIME,
+      endTime: SHIFT_CONFIG.DEFAULT_END_TIME,
+      breakDuration: SHIFT_CONFIG.DEFAULT_BREAK_DURATION,
+      shiftName: SHIFT_CONFIG.DEFAULT_SHIFT_NAME,
+      isFlexible: false,
+    };
+  }
+};
+
+/**
+ * Kiểm tra đi muộn dựa trên shift info
+ * @param {Date} checkInTime - Thời gian check-in
+ * @param {Object} shiftInfo - Thông tin shift
+ * @returns {boolean}
+ */
+export const checkLateStatus = (checkInTime, shiftInfo) => {
+  const LATE_TOLERANCE_MINUTES = SHIFT_CONFIG.LATE_TOLERANCE_MINUTES;
+
+  if (shiftInfo?.isFlexible) {
+    return false;
+  }
+
+  const startTime = shiftInfo?.startTime || SHIFT_CONFIG.DEFAULT_START_TIME;
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+
+  const dateOnly = new Date(checkInTime);
+  dateOnly.setHours(0, 0, 0, 0);
+  const lateTime = new Date(dateOnly);
+  lateTime.setHours(startHour, startMinute + LATE_TOLERANCE_MINUTES, 0, 0);
+
+  return checkInTime > lateTime;
+};
+
+/**
+ * Kiểm tra về sớm/overtime dựa trên shift info
+ * @param {Date} checkOutTime - Thời gian check-out
+ * @param {Object} shiftInfo - Thông tin shift
+ * @returns {Object} { isEarlyLeave, isOvertime, minutesEarly, minutesOvertime }
+ */
+export const checkEarlyLeaveOrOvertime = (checkOutTime, shiftInfo) => {
+  const EARLY_TOLERANCE_MINUTES = SHIFT_CONFIG.EARLY_LEAVE_TOLERANCE_MINUTES;
+  const OVERTIME_THRESHOLD_MINUTES = SHIFT_CONFIG.OVERTIME_THRESHOLD_MINUTES;
+
+  if (shiftInfo?.isFlexible) {
+    return {
+      isEarlyLeave: false,
+      isOvertime: false,
+      minutesEarly: 0,
+      minutesOvertime: 0,
+    };
+  }
+
+  const endTime = shiftInfo?.endTime || SHIFT_CONFIG.DEFAULT_END_TIME;
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+
+  const dateOnly = new Date(checkOutTime);
+  dateOnly.setHours(0, 0, 0, 0);
+  const shiftEndTime = new Date(dateOnly);
+  shiftEndTime.setHours(endHour, endMinute, 0, 0);
+
+  const earliestLeaveTime = new Date(shiftEndTime);
+  earliestLeaveTime.setMinutes(
+    earliestLeaveTime.getMinutes() - EARLY_TOLERANCE_MINUTES
+  );
+
+  const minutesEarly =
+    checkOutTime < earliestLeaveTime
+      ? Math.round((earliestLeaveTime - checkOutTime) / (1000 * 60))
+      : 0;
+
+  const minutesOvertime =
+    checkOutTime > shiftEndTime
+      ? Math.round((checkOutTime - shiftEndTime) / (1000 * 60))
+      : 0;
+
+  return {
+    isEarlyLeave: minutesEarly > 0,
+    isOvertime: minutesOvertime >= OVERTIME_THRESHOLD_MINUTES,
+    minutesEarly,
+    minutesOvertime,
+  };
+};
+
+/**
+ * Kiểm tra có thể check-in sớm không
+ * @param {Date} currentTime - Thời gian hiện tại
+ * @param {Object} shiftInfo - Thông tin shift
+ * @returns {Object} { canCheckIn, earliestTime, message }
+ */
+export const canCheckInEarly = (currentTime, shiftInfo) => {
+  if (shiftInfo?.isFlexible) {
+    return { canCheckIn: true, earliestTime: null, message: null };
+  }
+
+  const EARLY_CHECKIN_MINUTES = SHIFT_CONFIG.EARLY_CHECKIN_MINUTES;
+  const startTime = shiftInfo?.startTime || SHIFT_CONFIG.DEFAULT_START_TIME;
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+
+  const currentHour = currentTime.getHours();
+  const currentMinute = currentTime.getMinutes();
+  const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+  const workStartInMinutes = startHour * 60 + startMinute;
+  const earliestCheckInTime = workStartInMinutes - EARLY_CHECKIN_MINUTES;
+
+  if (currentTimeInMinutes < earliestCheckInTime) {
+    const earliestHour = Math.floor(earliestCheckInTime / 60);
+    const earliestMin = earliestCheckInTime % 60;
+    return {
+      canCheckIn: false,
+      earliestTime: `${earliestHour}:${earliestMin
+        .toString()
+        .padStart(2, "0")}`,
+      message: `Chưa đến giờ chấm công (${
+        shiftInfo.shiftName
+      }). Vui lòng chấm công sau ${earliestHour}:${earliestMin
+        .toString()
+        .padStart(2, "0")}.`,
+    };
+  }
+
+  return { canCheckIn: true, earliestTime: null, message: null };
+};
+
+// ============================================================================
+// PHOTO UTILITIES
+// ============================================================================
+
+/**
+ * Upload photo và trả về URL hoặc error message
+ * @param {Buffer} photoBuffer - Buffer của ảnh
+ * @param {string} folder - Thư mục trên Cloudinary
+ * @returns {Promise<Object>} { success, url, error }
+ */
+export const uploadPhoto = async (photoBuffer, folder = "attendance") => {
+  try {
+    const result = await uploadToCloudinary(photoBuffer, folder);
+    return { success: true, url: result.url, error: null };
+  } catch (error) {
+    console.error("Upload to Cloudinary failed:", error);
+    return { success: false, url: null, error: error.message };
+  }
+};
+
+/**
+ * Thêm photo URL vào notes
+ * @param {string} existingNotes - Notes hiện tại
+ * @param {string} photoUrl - URL của ảnh
+ * @param {string} type - 'checkin' | 'checkout'
+ * @returns {string}
+ */
+export const addPhotoToNotes = (existingNotes, photoUrl, type = "checkin") => {
+  const photoTag =
+    type === "checkin" ? `[Ảnh: ${photoUrl}]` : `[Ảnh check-out: ${photoUrl}]`;
+  return existingNotes ? `${existingNotes}\n${photoTag}` : photoTag;
+};
+
+// ============================================================================
+// RESPONSE BUILDERS
+// ============================================================================
+
+/**
+ * Build attendance record response
+ * @param {Object} doc - Attendance document
+ * @returns {Object|null}
+ */
+export const buildAttendanceRecordResponse = (doc) => {
+  if (!doc) return null;
+  const populatedUser =
+    doc.userId && typeof doc.userId === "object" ? doc.userId : null;
+  const name = populatedUser?.name || "N/A";
+  const departmentValue =
+    populatedUser?.department && typeof populatedUser.department === "object"
+      ? populatedUser.department.name || "N/A"
+      : populatedUser?.department || "N/A";
+
+  return {
+    id: doc._id.toString(),
+    userId: populatedUser?._id?.toString() || doc.userId?.toString(),
+    name,
+    role: populatedUser?.role || "N/A",
+    email: populatedUser?.email || "N/A",
+    department: departmentValue,
+    date: formatDateLabel(doc.date),
+    checkIn: formatTime(doc.checkIn),
+    checkOut: formatTime(doc.checkOut),
+    hours: formatWorkHours(doc.workHours),
+    status: deriveStatus(doc),
+    location: doc.locationId?.name || "-",
+    notes: doc.notes || "",
+  };
+};
+
+/**
+ * Format department từ user object
+ * @param {Object|string} department - Department object hoặc string
+ * @returns {string}
+ */
+export const formatDepartment = (department) => {
+  if (!department) return "N/A";
+  if (typeof department === "object" && department.name) {
+    return department.name;
+  }
+  return department.toString();
+};
+
+// ============================================================================
+// VALIDATION UTILITIES
+// ============================================================================
+
+/**
+ * Validate location coordinates
+ * @param {number} latitude - Vĩ độ
+ * @param {number} longitude - Kinh độ
+ * @returns {Object} { valid, message }
+ */
+export const validateLocation = (latitude, longitude) => {
+  if (latitude === undefined || longitude === undefined) {
+    return {
+      valid: false,
+      message: "Vui lòng cung cấp vị trí (latitude và longitude)",
+    };
+  }
+
+  if (
+    typeof latitude !== "number" ||
+    typeof longitude !== "number" ||
+    Number.isNaN(latitude) ||
+    Number.isNaN(longitude)
+  ) {
+    return { valid: false, message: "Vị trí không hợp lệ" };
+  }
+
+  return { valid: true, message: null };
+};
+
+/**
+ * Validate GPS accuracy
+ * @param {number} accuracy - Độ chính xác GPS (mét)
+ * @returns {Object} { valid, message }
+ */
+export const validateGPSAccuracy = (accuracy) => {
+  if (accuracy && accuracy > ATTENDANCE_CONFIG.GPS_ACCURACY_THRESHOLD) {
+    return {
+      valid: false,
+      message: "Vị trí không chính xác. Vui lòng bật GPS và thử lại.",
+    };
+  }
+  return { valid: true, message: null };
+};
+
+/**
+ * Validate minimum work hours for checkout
+ * @param {number} hoursWorked - Số giờ đã làm việc
+ * @param {Object} shiftInfo - Thông tin shift
+ * @returns {Object} { valid, minRequired, remainingMinutes, message }
+ */
+export const validateWorkHours = (hoursWorked, shiftInfo) => {
+  let minWorkHours = ATTENDANCE_CONFIG.MIN_WORK_HOURS;
+
+  if (!shiftInfo.isFlexible && shiftInfo.startTime && shiftInfo.endTime) {
+    const [startH, startM] = shiftInfo.startTime.split(":").map(Number);
+    const [endH, endM] = shiftInfo.endTime.split(":").map(Number);
+    const shiftDurationMinutes =
+      endH * 60 +
+      endM -
+      (startH * 60 + startM) -
+      (shiftInfo.breakDuration || 0);
+    const shiftDurationHours = shiftDurationMinutes / 60;
+
+    minWorkHours = Math.max(
+      ATTENDANCE_CONFIG.MIN_WORK_HOURS,
+      Math.floor(shiftDurationHours * 0.25)
+    );
+  }
+
+  if (hoursWorked < minWorkHours) {
+    const remainingMinutes = Math.ceil((minWorkHours - hoursWorked) * 60);
+    const hours = Math.floor(remainingMinutes / 60);
+    const minutes = remainingMinutes % 60;
+    const timeStr =
+      hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
+
+    return {
+      valid: false,
+      minRequired: minWorkHours,
+      remainingMinutes,
+      message: `Bạn cần làm việc ít nhất ${minWorkHours} giờ (${shiftInfo.shiftName}). Vui lòng chờ thêm ${timeStr} nữa.`,
+    };
+  }
+
+  return {
+    valid: true,
+    minRequired: minWorkHours,
+    remainingMinutes: 0,
+    message: null,
+  };
+};
+
+// ============================================================================
+// ATTENDANCE BUSINESS LOGIC
+// ============================================================================
+
+/**
+ * Process check-in
+ * @param {string} userId - User ID
+ * @param {number} latitude - Vĩ độ
+ * @param {number} longitude - Kinh độ
+ * @param {number} accuracy - Độ chính xác GPS
+ * @param {Buffer|null} photoFile - Photo buffer
+ * @returns {Promise<Object>} { success, data, error }
+ */
+export const processCheckIn = async (
+  userId,
+  latitude,
+  longitude,
+  accuracy,
+  photoFile
+) => {
+  try {
+    // Validate location
+    const locationValidation = validateLocation(latitude, longitude);
+    if (!locationValidation.valid) {
+      return { success: false, data: null, error: locationValidation.message };
+    }
+
+    // Validate GPS accuracy
+    const accuracyValidation = validateGPSAccuracy(accuracy);
+    if (!accuracyValidation.valid) {
+      return { success: false, data: null, error: accuracyValidation.message };
+    }
+
+    // Find valid branch
+    const branchResult = await validateAndFindBranch(latitude, longitude);
+    if (!branchResult.valid) {
+      return { success: false, data: null, error: branchResult.message };
+    }
+
+    const now = new Date();
+    const dateOnly = getDateOnly(now);
+
+    // Get schedule and shift info
+    const schedule = await getUserSchedule(userId, dateOnly);
+    const shiftInfo = await getShiftInfo(schedule);
+
+    // Check if can check-in early
+    if (!shiftInfo.isFlexible) {
+      const earlyCheck = canCheckInEarly(now, shiftInfo);
+      if (!earlyCheck.canCheckIn) {
+        return {
+          success: false,
+          data: null,
+          error: earlyCheck.message,
+          code: "TOO_EARLY",
+        };
+      }
+    }
+
+    // Find or create attendance record
+    let attendance = await AttendanceModel.findOne({
+      userId,
+      date: dateOnly,
+    });
+
+    if (attendance) {
+      if (attendance.checkIn) {
+        return {
+          success: false,
+          data: null,
+          error: "Bạn đã chấm công vào hôm nay rồi.",
+          code: "ALREADY_CHECKED_IN",
+        };
+      }
+
+      attendance.checkIn = now;
+      attendance.locationId = branchResult.branch._id;
+      const isLate = checkLateStatus(now, shiftInfo);
+      attendance.status = isLate ? "late" : "present";
+    } else {
+      const isLate = checkLateStatus(now, shiftInfo);
+      attendance = new AttendanceModel({
+        userId,
+        date: dateOnly,
+        checkIn: now,
+        locationId: branchResult.branch._id,
+        status: isLate ? "late" : "present",
+        notes: "",
+      });
+    }
+
+    // Upload photo if provided
+    if (photoFile) {
+      const photoResult = await uploadPhoto(photoFile, "attendance/checkins");
+      if (photoResult.success) {
+        attendance.notes = addPhotoToNotes(
+          attendance.notes,
+          photoResult.url,
+          "checkin"
+        );
+      } else {
+        attendance.notes = attendance.notes
+          ? `${attendance.notes}\n[Ảnh lưu thất bại]`
+          : "[Ảnh lưu thất bại]";
+      }
+    }
+
+    await attendance.save();
+
+    const statusMsg = attendance.status === "late" ? " (Đi muộn)" : "";
+    const message = `Chấm công thành công!${statusMsg} (${shiftInfo.shiftName})`;
+
+    return {
+      success: true,
+      data: {
+        checkInTime: formatTime(attendance.checkIn),
+        checkInDate: formatDateLabel(attendance.date),
+        location: branchResult.branch.name,
+        distance: `${branchResult.distance}m`,
+        shiftName: shiftInfo.shiftName,
+        shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
+        status: attendance.status,
+      },
+      error: null,
+      message,
+    };
+  } catch (error) {
+    console.error("[processCheckIn] Error:", error);
+    if (error.code === 11000) {
+      return {
+        success: false,
+        data: null,
+        error: "Bạn đã chấm công vào hôm nay rồi.",
+      };
+    }
+    return {
+      success: false,
+      data: null,
+      error: "Có lỗi xảy ra khi chấm công. Vui lòng thử lại.",
+    };
+  }
+};
+
+/**
+ * Process check-out
+ * @param {string} userId - User ID
+ * @param {number} latitude - Vĩ độ
+ * @param {number} longitude - Kinh độ
+ * @param {number} accuracy - Độ chính xác GPS
+ * @param {Buffer|null} photoFile - Photo buffer
+ * @returns {Promise<Object>} { success, data, error }
+ */
+export const processCheckOut = async (
+  userId,
+  latitude,
+  longitude,
+  accuracy,
+  photoFile
+) => {
+  try {
+    // Validate location
+    const locationValidation = validateLocation(latitude, longitude);
+    if (!locationValidation.valid) {
+      return { success: false, data: null, error: locationValidation.message };
+    }
+
+    // Validate GPS accuracy
+    const accuracyValidation = validateGPSAccuracy(accuracy);
+    if (!accuracyValidation.valid) {
+      return { success: false, data: null, error: accuracyValidation.message };
+    }
+
+    // Find valid branch
+    const branchResult = await validateAndFindBranch(latitude, longitude);
+    if (!branchResult.valid) {
+      return {
+        success: false,
+        data: null,
+        error: `Bạn cách văn phòng gần nhất ${branchResult.distance}m. Vui lòng đến gần hơn (trong vòng ${MAX_DISTANCE}m) để check-out.`,
+      };
+    }
+
+    const now = new Date();
+    const dateOnly = getDateOnly(now);
+
+    // Find attendance record
+    const attendance = await AttendanceModel.findOne({
+      userId,
+      date: dateOnly,
+    });
+
+    if (!attendance || !attendance.checkIn) {
+      return {
+        success: false,
+        data: null,
+        error: "Bạn chưa check-in hôm nay. Vui lòng check-in trước.",
+        code: "NOT_CHECKED_IN",
+      };
+    }
+
+    if (attendance.checkOut) {
+      return {
+        success: false,
+        data: null,
+        error: "Bạn đã check-out hôm nay rồi.",
+        code: "ALREADY_CHECKED_OUT",
+      };
+    }
+
+    // Get schedule and shift info
+    const schedule = await getUserSchedule(userId, dateOnly);
+    const shiftInfo = await getShiftInfo(schedule);
+
+    // Validate work hours
+    const checkInTime = new Date(attendance.checkIn);
+    const hoursWorked = (now - checkInTime) / (1000 * 60 * 60);
+    const workHoursValidation = validateWorkHours(hoursWorked, shiftInfo);
+
+    if (!workHoursValidation.valid) {
+      return {
+        success: false,
+        data: {
+          hoursWorked: Math.floor(hoursWorked * 100) / 100,
+          minRequired: workHoursValidation.minRequired,
+          remainingMinutes: workHoursValidation.remainingMinutes,
+          shiftName: shiftInfo.shiftName,
+        },
+        error: workHoursValidation.message,
+        code: "INSUFFICIENT_WORK_HOURS",
+      };
+    }
+
+    // Process check-out
+    attendance.checkOut = now;
+    const checkOutInfo = checkEarlyLeaveOrOvertime(now, shiftInfo);
+
+    let additionalNote = "";
+    if (checkOutInfo.isEarlyLeave) {
+      additionalNote = `\n[Về sớm ${checkOutInfo.minutesEarly} phút - ${shiftInfo.shiftName}]`;
+    } else if (checkOutInfo.isOvertime) {
+      additionalNote = `\n[Tăng ca ${checkOutInfo.minutesOvertime} phút - ${shiftInfo.shiftName}]`;
+    }
+
+    // Upload photo if provided
+    if (photoFile) {
+      const photoResult = await uploadPhoto(photoFile, "attendance/checkouts");
+      if (photoResult.success) {
+        attendance.notes =
+          addPhotoToNotes(attendance.notes, photoResult.url, "checkout") +
+          additionalNote;
+      } else if (additionalNote) {
+        attendance.notes = attendance.notes
+          ? `${attendance.notes}${additionalNote}`
+          : additionalNote.trim();
+      }
+    } else if (additionalNote) {
+      attendance.notes = attendance.notes
+        ? `${attendance.notes}${additionalNote}`
+        : additionalNote.trim();
+    }
+
+    attendance.calculateWorkHours();
+    await attendance.save();
+
+    const workHours = attendance.workHours
+      ? `${Math.floor(attendance.workHours)}h ${Math.round(
+          (attendance.workHours % 1) * 60
+        )}m`
+      : "0h";
+
+    // Create message
+    let message = `Check-out thành công! (${shiftInfo.shiftName})`;
+    if (checkOutInfo.isEarlyLeave) {
+      message = `Check-out thành công! Về sớm ${checkOutInfo.minutesEarly} phút (${shiftInfo.shiftName})`;
+    } else if (checkOutInfo.isOvertime) {
+      message = `Check-out thành công! Tăng ca ${checkOutInfo.minutesOvertime} phút (${shiftInfo.shiftName})`;
+    }
+
+    return {
+      success: true,
+      data: {
+        checkOutTime: formatTime(attendance.checkOut),
+        checkOutDate: formatDateLabel(attendance.date),
+        workHours,
+        location: branchResult.branch.name,
+        distance: `${branchResult.distance}m`,
+        shiftName: shiftInfo.shiftName,
+        shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
+        isEarlyLeave: checkOutInfo.isEarlyLeave,
+        isOvertime: checkOutInfo.isOvertime,
+        minutesEarly: checkOutInfo.minutesEarly,
+        minutesOvertime: checkOutInfo.minutesOvertime,
+      },
+      error: null,
+      message,
+    };
+  } catch (error) {
+    console.error("[processCheckOut] Error:", error);
+    return {
+      success: false,
+      data: null,
+      error: "Có lỗi xảy ra khi check-out. Vui lòng thử lại.",
+    };
+  }
+};
