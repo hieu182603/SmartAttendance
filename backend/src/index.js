@@ -107,6 +107,10 @@ async function start() {
     // Initialize Socket.io
     const { initializeSocket } = await import("./config/socket.js");
     initializeSocket(server);
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('✅ Socket.io server ready');
+    }
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);

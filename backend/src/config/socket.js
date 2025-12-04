@@ -14,7 +14,14 @@ export function initializeSocket(server) {
             methods: ["GET", "POST"],
             credentials: true,
         },
+        transports: ['websocket', 'polling'],
+        allowEIO3: true,
     });
+
+    // Log khi socket.io được khởi tạo
+    if (process.env.NODE_ENV !== 'production') {
+        console.log('✅ Socket.io initialized');
+    }
 
     // Authentication middleware for Socket.io
     io.use(async (socket, next) => {
@@ -73,6 +80,42 @@ export function emitNotificationToUsers(userIds, notification) {
     const socketIO = getIO();
     userIds.forEach((userId) => {
         socketIO.to(`user:${userId}`).emit("notification", notification);
+    });
+}
+
+/**
+ * Emit attendance update event to a specific user
+ */
+export function emitAttendanceUpdate(userId, attendanceData) {
+    const socketIO = getIO();
+    socketIO.to(`user:${userId}`).emit("attendance-updated", attendanceData);
+}
+
+/**
+ * Emit attendance update to all admins/managers (for dashboard updates)
+ */
+export function emitAttendanceUpdateToAdmins(attendanceData) {
+    const socketIO = getIO();
+    // Emit to a room for admins/managers (can be enhanced with role-based rooms)
+    socketIO.to("admins").emit("attendance-updated", attendanceData);
+}
+
+/**
+ * Emit payroll update event to a specific user
+ */
+export function emitPayrollUpdate(userId, payrollData) {
+    const socketIO = getIO();
+    socketIO.to(`user:${userId}`).emit("payroll-updated", payrollData);
+}
+
+/**
+ * Emit data update event (generic for any entity type)
+ */
+export function emitDataUpdate(userId, entityType, data) {
+    const socketIO = getIO();
+    socketIO.to(`user:${userId}`).emit("data-updated", {
+        entityType,
+        data,
     });
 }
 

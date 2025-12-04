@@ -3,6 +3,7 @@ import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { AttendanceModel } from "./attendance.model.js";
 import { BranchModel } from "../branches/branch.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
+import { emitAttendanceUpdate, emitAttendanceUpdateToAdmins } from "../../config/socket.js";
 
 // ============================================================================
 // CONSTANTS
@@ -789,6 +790,26 @@ export const processCheckIn = async (
 
     await attendance.save();
 
+    // Emit real-time update to user and admins
+    try {
+      const attendanceData = {
+        _id: attendance._id.toString(),
+        userId: attendance.userId.toString(),
+        date: attendance.date,
+        checkIn: attendance.checkIn,
+        checkOut: attendance.checkOut,
+        status: attendance.status,
+        workHours: attendance.workHours,
+        locationId: attendance.locationId?.toString(),
+        action: "check-in",
+      };
+      emitAttendanceUpdate(userId, attendanceData);
+      emitAttendanceUpdateToAdmins(attendanceData);
+    } catch (socketError) {
+      console.error("[attendance] Error emitting check-in update:", socketError);
+      // Don't fail if socket emit fails
+    }
+
     const statusMsg = attendance.status === "late" ? " (Đi muộn)" : "";
     const message = `Chấm công thành công!${statusMsg} (${shiftInfo.shiftName})`;
 
@@ -942,6 +963,26 @@ export const processCheckOut = async (
 
     attendance.calculateWorkHours();
     await attendance.save();
+
+    // Emit real-time update to user and admins
+    try {
+      const attendanceData = {
+        _id: attendance._id.toString(),
+        userId: attendance.userId.toString(),
+        date: attendance.date,
+        checkIn: attendance.checkIn,
+        checkOut: attendance.checkOut,
+        status: attendance.status,
+        workHours: attendance.workHours,
+        locationId: attendance.locationId?.toString(),
+        action: "check-out",
+      };
+      emitAttendanceUpdate(userId, attendanceData);
+      emitAttendanceUpdateToAdmins(attendanceData);
+    } catch (socketError) {
+      console.error("[attendance] Error emitting check-out update:", socketError);
+      // Don't fail if socket emit fails
+    }
 
     const workHours = attendance.workHours
       ? `${Math.floor(attendance.workHours)}h ${Math.round(
