@@ -422,23 +422,18 @@ export class UserService {
     // Nếu có thay đổi defaultShiftId, có 2 cách xử lý:
     // 1. Nếu muốn full time (tất cả các ngày) → cập nhật defaultShiftId và vô hiệu hóa assignments
     // 2. Nếu muốn assignment mới (theo pattern) → tạo assignment mới
-    // Hiện tại: Luôn tạo assignment mới với pattern 'all' (tất cả các ngày) để giữ nguyên behavior như defaultShiftId
-    let assignmentCreated = false;
+    // Đối với màn quản lý nhân viên hiện tại: coi đây là ca làm việc mặc định (full time) → dùng cách 1
     if (updateFields.defaultShiftId !== undefined && oldDefaultShiftId !== newDefaultShiftId) {
       if (newDefaultShiftId) {
-        // Tạo assignment mới với pattern 'all' (tất cả các ngày) để giống như defaultShiftId
-        // Điều này đảm bảo user vẫn có schedule cho tất cả các ngày
         try {
           const { shiftAssignmentService } = await import('../shifts/shiftAssignment.service.js');
+          // Gán ca làm việc full time cho nhân viên (sử dụng defaultShiftId)
           await shiftAssignmentService.assignShiftToUser(userId.toString(), newDefaultShiftId, {
-            pattern: 'all', // Tất cả các ngày (giống như defaultShiftId)
-            isFullTime: false, // Tạo assignment mới, không phải full time
+            isFullTime: true,
           });
-          assignmentCreated = true;
         } catch (assignmentError) {
           console.error(`[UserService] Error creating assignment for user ${userId}:`, assignmentError);
-          // Nếu tạo assignment thất bại, vẫn cập nhật defaultShiftId như cũ
-          assignmentCreated = false;
+          // Nếu tạo assignment thất bại, vẫn tiếp tục cập nhật defaultShiftId bên dưới
         }
       } else {
         // Nếu xóa defaultShiftId (set về null/empty), vô hiệu hóa tất cả assignments
@@ -454,18 +449,9 @@ export class UserService {
       }
     }
 
-    // Cập nhật user
-    // Nếu assignment được tạo thành công → không cập nhật defaultShiftId (đã bị xóa trong assignShiftToUser)
-    // Nếu assignment tạo thất bại → cập nhật defaultShiftId như bình thường
-    const fieldsToUpdate = { ...updateFields };
-    if (updateFields.defaultShiftId !== undefined && oldDefaultShiftId !== newDefaultShiftId && newDefaultShiftId && assignmentCreated) {
-      // Không cập nhật defaultShiftId nữa vì đã tạo assignment thành công (đã xóa trong assignShiftToUser)
-      delete fieldsToUpdate.defaultShiftId;
-    }
-
     const user = await UserModel.findByIdAndUpdate(
       userId,
-      { $set: fieldsToUpdate },
+      { $set: updateFields },
       { new: true, runValidators: true }
     ).select("-password -otp -otpExpires").populate("branch", "name address").populate("department", "name code").populate("defaultShiftId");
 
