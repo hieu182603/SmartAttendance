@@ -556,6 +556,13 @@ const SchedulePage: React.FC = () => {
     // Nếu schedule có status = "off" thì luôn hiển thị off, dù là hôm nay hay ngày khác
     if (dayShifts.some((s) => s.status === "off")) return "off";
     
+    // Check if has attendance record with status "absent" or "weekend"
+    const hasAbsentRecord = dayShifts.some((s) => 
+      s.attendanceRecord && 
+      (s.attendanceRecord.status === "absent" || s.attendanceRecord.status === "weekend")
+    );
+    if (hasAbsentRecord) return "off";
+    
     // Check if today
     if (dateStr === todayStr) {
       // Check if has attendance record with checkIn
