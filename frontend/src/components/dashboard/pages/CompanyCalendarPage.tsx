@@ -300,21 +300,21 @@ const CompanyCalendarPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
             {t("dashboard:companyCalendar.title")}
           </h1>
-          <p className="text-[var(--text-sub)] mt-2">
+          <p className="text-sm sm:text-base text-[var(--text-sub)] mt-2">
             {t("dashboard:companyCalendar.description")}
           </p>
         </div>
         {canCreateEvent && (
           <Button
             onClick={handleCreateEvent}
-            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
+            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             {t("dashboard:companyCalendar.createEvent")}
@@ -324,9 +324,9 @@ const CompanyCalendarPage: React.FC = () => {
 
       {/* Filter Tabs */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardContent className="p-6">
+        <CardContent className="p-4 md:p-6">
           <Tabs value={filterType} onValueChange={(v) => setFilterType(v)}>
-            <TabsList className="grid w-full grid-cols-6 mt-4">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 gap-1 md:gap-2 mt-4 overflow-x-auto">
               <TabsTrigger value="all">
                 {t("dashboard:companyCalendar.tabs.all")}
               </TabsTrigger>
@@ -351,7 +351,7 @@ const CompanyCalendarPage: React.FC = () => {
       </Card>
 
       {/* Summary Stats - 4 KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {statCards.map((stat, index) => (
           <motion.div
             key={index}
@@ -394,7 +394,7 @@ const CompanyCalendarPage: React.FC = () => {
       </div>
 
       {/* Main Content - Calendar (4) + Upcoming Events (8) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
         {/* Calendar - 4 columns */}
         <motion.div
           className="lg:col-span-4"
@@ -403,7 +403,7 @@ const CompanyCalendarPage: React.FC = () => {
           transition={{ delay: 0.5 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 p-4 md:p-6">
               <div className="flex items-center justify-between">
                 <Button
                   variant="ghost"
@@ -417,7 +417,7 @@ const CompanyCalendarPage: React.FC = () => {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <h3 className="text-base font-medium text-[var(--text-main)]">
+                <h3 className="text-sm sm:text-base font-medium text-[var(--text-main)]">
                   {selectedDate.toLocaleDateString("en-US", {
                     month: "long",
                     year: "numeric",
@@ -437,7 +437,7 @@ const CompanyCalendarPage: React.FC = () => {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 p-4 md:p-6">
               <Calendar
                 {...({
                   mode: "single",
@@ -452,7 +452,7 @@ const CompanyCalendarPage: React.FC = () => {
 
               {/* Selected Date Info */}
               {selectedDate && (
-                <div className="mt-4 p-3 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
+                <div className="mt-4 p-3 md:p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
                   <p className="text-xs text-[var(--text-sub)] mb-1">
                     {t("dashboard:companyCalendar.selectedDate")}
                   </p>
@@ -513,15 +513,15 @@ const CompanyCalendarPage: React.FC = () => {
           transition={{ delay: 0.6 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader>
+            <CardHeader className="p-4 md:p-6">
               <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <CardTitle className="text-[var(--text-main)]">
+                <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-cyan)]" />
+                <CardTitle className="text-[var(--text-main)] text-base md:text-lg">
                   {t("dashboard:companyCalendar.upcomingEvents")}
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 p-4 md:p-6 pt-0">
               {loading ? (
                 <div className="text-center py-12">
                   <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -542,11 +542,11 @@ const CompanyCalendarPage: React.FC = () => {
                       className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all cursor-pointer relative"
                       onClick={() => handleViewEvent(event)}
                     >
-                      <CardContent className="p-4 mt-4">
-                        <div className="flex items-start gap-4">
+                      <CardContent className="p-3 md:p-4 mt-0 md:mt-4">
+                        <div className="flex items-start gap-3 md:gap-4">
                           {/* Icon */}
                           <div
-                            className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
+                            className={`h-10 w-10 md:h-12 md:w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                           >
                             <span
                               className={`${event.color.replace(
@@ -560,14 +560,14 @@ const CompanyCalendarPage: React.FC = () => {
 
                           {/* Event Info */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <h4 className="text-[var(--text-main)]">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm md:text-base text-[var(--text-main)] break-words">
                                   {event.title}
                                 </h4>
-                                <div className="flex items-center gap-2 mt-1">
+                                <div className="flex flex-wrap items-center gap-2 mt-1">
                                   <Badge
-                                    className={`${event.color} bg-opacity-20 text-black`}
+                                    className={`${event.color} bg-opacity-20 text-black text-xs`}
                                     style={{
                                       color: event.color.replace("bg-", ""),
                                     }}
@@ -584,7 +584,7 @@ const CompanyCalendarPage: React.FC = () => {
                                   )}
                                 </div>
                               </div>
-                              <Badge className="bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] text-xs whitespace-nowrap">
+                              <Badge className="bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] text-xs whitespace-nowrap self-start">
                                 {new Date(event.date).toLocaleDateString(
                                   "vi-VN",
                                   { day: "numeric", month: "short" }
@@ -592,14 +592,14 @@ const CompanyCalendarPage: React.FC = () => {
                               </Badge>
                             </div>
 
-                            <p className="text-sm text-[var(--text-sub)] mb-3">
+                            <p className="text-xs md:text-sm text-[var(--text-sub)] mb-3 break-words">
                               {event.description}
                             </p>
 
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--text-sub)]">
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-xs md:text-sm text-[var(--text-sub)]">
                               {!event.isAllDay && (
                                 <div className="flex items-center gap-2">
-                                  <Clock className="h-4 w-4 text-[var(--accent-cyan)]" />
+                                  <Clock className="h-3 w-3 md:h-4 md:w-4 text-[var(--accent-cyan)]" />
                                   <span>
                                     {event.startTime} - {event.endTime}
                                   </span>
@@ -607,13 +607,13 @@ const CompanyCalendarPage: React.FC = () => {
                               )}
                               {event.location && (
                                 <div className="flex items-center gap-2">
-                                  <MapPin className="h-4 w-4 text-[var(--success)]" />
-                                  <span>{event.location}</span>
+                                  <MapPin className="h-3 w-3 md:h-4 md:w-4 text-[var(--success)]" />
+                                  <span className="break-words">{event.location}</span>
                                 </div>
                               )}
                               {event.attendees > 0 && (
                                 <div className="flex items-center gap-2">
-                                  <Users className="h-4 w-4 text-[var(--primary)]" />
+                                  <Users className="h-3 w-3 md:h-4 md:w-4 text-[var(--primary)]" />
                                   <span>{event.attendees} người</span>
                                 </div>
                               )}
@@ -621,7 +621,7 @@ const CompanyCalendarPage: React.FC = () => {
 
                             {/* Action Buttons for HR_MANAGER */}
                             {canCreateEvent && (
-                              <div className="absolute bottom-3 right-3 flex gap-1.5">
+                              <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 flex gap-1.5">
                                 <Button
                                   size="icon"
                                   variant="ghost"
@@ -671,8 +671,8 @@ const CompanyCalendarPage: React.FC = () => {
 
       {/* All Events List */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">
+        <CardHeader className="p-4 md:p-6">
+          <CardTitle className="text-[var(--text-main)] text-base md:text-lg">
             {t("dashboard:companyCalendar.allEvents")} ({filteredEvents.length})
             - {t("dashboard:companyCalendar.month")}{" "}
             {selectedDate.toLocaleDateString("vi-VN", {
@@ -681,7 +681,7 @@ const CompanyCalendarPage: React.FC = () => {
             })}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6 pt-0">
           <div className="space-y-3">
             {loading ? (
               <div className="text-center py-12">
@@ -702,12 +702,12 @@ const CompanyCalendarPage: React.FC = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.03 }}
-                    className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all relative"
+                    className="p-3 md:p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all relative"
                     onClick={() => handleViewEvent(event)}
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-3 md:gap-4">
                       <div
-                        className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
+                        className={`h-10 w-10 md:h-12 md:w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                       >
                         <span
                           className={`${event.color.replace("bg-", "text-")}`}
@@ -715,13 +715,13 @@ const CompanyCalendarPage: React.FC = () => {
                           {getTypeIcon(event.type)}
                         </span>
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-[var(--text-main)]">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="text-sm md:text-base text-[var(--text-main)] break-words">
                             {event.title}
                           </h3>
                           <Badge
-                            className={`${event.color} bg-opacity-20 text-black`}
+                            className={`${event.color} bg-opacity-20 text-black text-xs`}
                             style={{ color: event.color.replace("bg-", "") }}
                           >
                             {getTypeLabel(event.type)}
@@ -729,25 +729,25 @@ const CompanyCalendarPage: React.FC = () => {
                           {event.isAllDay && (
                             <Badge
                               variant="outline"
-                              className="border-[var(--border)] text-[var(--text-sub)]"
+                              className="border-[var(--border)] text-[var(--text-sub)] text-xs"
                             >
                               Cả ngày
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-[var(--text-sub)] mb-3">
+                        <p className="text-xs md:text-sm text-[var(--text-sub)] mb-3 break-words">
                           {event.description}
                         </p>
-                        <div className="flex items-center gap-6 text-sm text-[var(--text-sub)]">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-xs md:text-sm text-[var(--text-sub)]">
                           <div className="flex items-center gap-2">
-                            <CalendarIcon className="h-4 w-4" />
+                            <CalendarIcon className="h-3 w-3 md:h-4 md:w-4" />
                             <span>
                               {new Date(event.date).toLocaleDateString("vi-VN")}
                             </span>
                           </div>
                           {!event.isAllDay && (
                             <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
+                              <Clock className="h-3 w-3 md:h-4 md:w-4" />
                               <span>
                                 {event.startTime} - {event.endTime}
                               </span>
@@ -755,13 +755,13 @@ const CompanyCalendarPage: React.FC = () => {
                           )}
                           {event.location && (
                             <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              <span>{event.location}</span>
+                              <MapPin className="h-3 w-3 md:h-4 md:w-4" />
+                              <span className="break-words">{event.location}</span>
                             </div>
                           )}
                           {event.attendees > 0 && (
                             <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4" />
+                              <Users className="h-3 w-3 md:h-4 md:w-4" />
                               <span>{event.attendees} người tham gia</span>
                             </div>
                           )}
@@ -769,7 +769,7 @@ const CompanyCalendarPage: React.FC = () => {
 
                         {/* Action Buttons for HR_MANAGER */}
                         {canCreateEvent && (
-                          <div className="absolute bottom-3 right-3 flex gap-1.5">
+                          <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 flex gap-1.5">
                             <Button
                               size="icon"
                               variant="ghost"
@@ -829,7 +829,7 @@ const CompanyCalendarPage: React.FC = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] mx-4 max-w-md">
           <DialogHeader>
             <DialogTitle>
               {t("dashboard:companyCalendar.deleteDialog.title")}
