@@ -6,7 +6,6 @@ import {
   Clock,
   MapPin,
   Users,
-  AlertCircle,
   TrendingUp,
   Award,
   Zap,
@@ -380,16 +379,6 @@ const SchedulePage: React.FC = () => {
   const todayStr = today.toISOString().split("T")[0];
 
   const todayShifts = schedule.filter((s) => s.date === todayStr);
-  const upcomingShifts = schedule
-    .filter((s) => {
-      const date = new Date(s.date);
-      date.setHours(0, 0, 0, 0);
-      const dayOfWeek = date.getDay();
-      // Chỉ hiển thị từ Thứ 2 đến Thứ 6 (loại bỏ Thứ 7 và Chủ nhật)
-      // Loại bỏ các ca có status = "off" (đã được duyệt nghỉ)
-      return date > today && s.status === "scheduled" && dayOfWeek >= 1 && dayOfWeek <= 5 && s.shift._id;
-    })
-    .slice(0, 6);
 
   const currentMonthKey = `${today.getFullYear()}-${String(
     today.getMonth() + 1
@@ -459,11 +448,51 @@ const SchedulePage: React.FC = () => {
 
   const formattedTotalHours =
     Math.round((stats.totalHours + Number.EPSILON) * 10) / 10;
+  const monthRangeLabel = t('dashboard:schedule.timeRangeMonth');
+
+  // Month-level quick stats for bottom widgets
+  const monthAttendanceLabel =
+    stats.thisMonth > 0
+      ? `${stats.completed}/${stats.thisMonth} ${t('dashboard:schedule.shift')}`
+      : `0/0 ${t('dashboard:schedule.shift')}`;
+  const monthAttendancePercent =
+    stats.thisMonth > 0
+      ? ((stats.completed / stats.thisMonth) * 100).toFixed(0)
+      : "0";
+  const monthOnTimeLabel =
+    stats.completed > 0 ? `${stats.onTimeCount}/${stats.completed}` : "0/0";
+  const monthOnTimePercent =
+    stats.completed > 0
+      ? ((stats.onTimeCount / stats.completed) * 100).toFixed(0)
+      : "0";
+  const avgMonthHours =
+    stats.thisMonth > 0
+      ? (stats.totalHours / stats.thisMonth).toFixed(1)
+      : "0.0";
 
   const currentMonthLabel = today.toLocaleDateString("vi-VN", {
     month: "long",
     year: "numeric",
   });
+
+  // Build month calendar grid (Mon-first) for compact month view
+  const monthStartDisplay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEndDisplay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const daysInMonth = monthEndDisplay.getDate();
+  const leadingEmpty = (monthStartDisplay.getDay() + 6) % 7; // convert Sunday=0 to Monday=0
+  const monthDaysRaw: Array<{ date: Date | null }> = [
+    ...Array.from({ length: leadingEmpty }, () => ({ date: null })),
+    ...Array.from({ length: daysInMonth }, (_, i) => ({
+      date: new Date(today.getFullYear(), today.getMonth(), i + 1),
+    })),
+  ];
+  const totalCells = Math.ceil(monthDaysRaw.length / 7) * 7;
+  const monthDays = [
+    ...monthDaysRaw,
+    ...Array.from({ length: totalCells - monthDaysRaw.length }, () => ({
+      date: null,
+    })),
+  ];
 
   const currentDayOfWeek = today.getDay();
   const mondayDiff = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
@@ -473,76 +502,6 @@ const SchedulePage: React.FC = () => {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
-
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const day = new Date(weekStart);
-    day.setDate(weekStart.getDate() + i);
-    return day;
-  });
-
-  const weekShiftEntries = schedule.filter((s) => {
-    const date = new Date(s.date);
-    date.setHours(0, 0, 0, 0);
-    return date >= weekStart && date <= weekEnd;
-  });
-
-  // Total shifts in week (excluding weekends)
-  const expectedWeekdays = weekShiftEntries.length;
-
-  // Count week attended shifts (has checkIn)
-  const weekAttendedShifts = weekShiftEntries.filter((s) => {
-    if (!s.attendanceRecord) return false;
-    const checkIn = s.attendanceRecord.checkIn;
-    if (!checkIn) return false;
-    const checkInStr = String(checkIn).trim();
-    return checkInStr !== "" && 
-           checkInStr !== "—" && 
-           checkInStr !== "null" && 
-           checkInStr !== "undefined";
-  });
-
-  // Count week on-time shifts
-  const weekOnTimeShifts = weekAttendedShifts.filter((s) => {
-    return s.attendanceRecord?.status === "ontime";
-  });
-
-  // Calculate week total hours from attendance records
-  const weekTotalHours = weekAttendedShifts.reduce((acc, s) => {
-    if (s.attendanceRecord?.hours) {
-      const hoursStr = s.attendanceRecord.hours;
-      const hoursMatch = hoursStr.match(/(\d+\.?\d*)/);
-      if (hoursMatch) {
-        return acc + parseFloat(hoursMatch[1]);
-      }
-    }
-    return acc + calculateShiftHours(s.shift);
-  }, 0);
-
-  // Avg hours: total hours / number of attended shifts (not total shifts)
-  const avgWeekHours =
-    weekAttendedShifts.length > 0
-      ? (weekTotalHours / weekAttendedShifts.length).toFixed(1)
-      : "0.0";
-
-  // Week attendance: attended / total shifts in week
-  const weekAttendancePercent =
-    expectedWeekdays > 0
-      ? ((weekAttendedShifts.length / expectedWeekdays) * 100).toFixed(0)
-      : "0";
-  const weekAttendanceLabel =
-    expectedWeekdays > 0
-      ? `${weekAttendedShifts.length}/${expectedWeekdays} ${t('dashboard:schedule.shift')}`
-      : `0/0 ${t('dashboard:schedule.shift')}`;
-
-  // On-time: on-time shifts / total shifts in week
-  const weekOnTimePercent =
-    expectedWeekdays > 0
-      ? ((weekOnTimeShifts.length / expectedWeekdays) * 100).toFixed(0)
-      : "0";
-  const weekOnTimeLabel =
-    expectedWeekdays > 0
-      ? `${weekOnTimeShifts.length}/${expectedWeekdays}`
-      : "0/0";
 
   const getWeekDayStatus = (
     date: Date
@@ -731,10 +690,6 @@ const SchedulePage: React.FC = () => {
               })}
             </p>
           </div>
-          <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 px-4 py-2">
-            <AlertCircle className="h-4 w-4 mr-2" />
-            {upcomingShifts.length} {t('dashboard:schedule.upcomingShifts')}
-          </Badge>
         </div>
       </motion.div>
 
@@ -779,7 +734,7 @@ const SchedulePage: React.FC = () => {
       </div>
 
       {/* Main Dashboard - 2 Columns */}
-      <div className="grid lg:grid-cols-5 gap-6">
+      <div className="grid lg:grid-cols-5 gap-6 items-stretch">
         {/* Left Column - Today's Shifts Widget (2 cols) */}
         <motion.div
           className="lg:col-span-2 space-y-6"
@@ -788,7 +743,7 @@ const SchedulePage: React.FC = () => {
           transition={{ delay: 0.6 }}
         >
           {/* Today's Shift Card */}
-          <Card className="bg-gradient-to-br from-[var(--primary)]/[0.15] to-[var(--accent-cyan)]/[0.15] dark:from-[var(--primary)]/[0.08] dark:to-[var(--accent-cyan)]/[0.08] border-[var(--border)]">
+          <Card className="bg-gradient-to-br from-[var(--primary)]/[0.15] to-[var(--accent-cyan)]/[0.15] dark:from-[var(--primary)]/[0.08] dark:to-[var(--accent-cyan)]/[0.08] border-[var(--border)] h-full">
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -961,44 +916,47 @@ const SchedulePage: React.FC = () => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.7 }}
         >
-          {/* Week Overview */}
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
+          {/* Month Overview */}
+          <Card className="bg-[var(--surface)] border-[var(--border)] h-full flex flex-col">
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <CalendarIcon className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>{t('dashboard:schedule.thisWeek')}</span>
+                <span>{t('dashboard:schedule.monthLabel', { month: currentMonthLabel })}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-2 mb-4">
-                {weekDays.map((day, index) => {
-                  const status = getWeekDayStatus(day);
-                  const isToday = day.toISOString().split("T")[0] === todayStr;
+            <CardContent className="flex-1 flex flex-col">
+              <div className="grid grid-cols-7 gap-2 mb-2 text-center text-xs text-[var(--text-sub)]">
+                {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((label) => (
+                  <div key={label}>{label}</div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-4">
+                {monthDays.map((cell, index) => {
+                  const status = cell.date ? getWeekDayStatus(cell.date) : "none";
+                  const isToday =
+                    cell.date?.toISOString().split("T")[0] === todayStr;
                   return (
                     <motion.div
                       key={index}
-                      initial={{ opacity: 0, scale: 0.8 }}
+                      initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.8 + index * 0.05 }}
-                      whileHover={{ scale: 1.1 }}
+                      transition={{ delay: 0.8 + (index % 7) * 0.03 }}
                       className="text-center"
                     >
-                      <div className="text-xs text-[var(--text-sub)] mb-2">
-                        {["T2", "T3", "T4", "T5", "T6", "T7", "CN"][index]}
-                      </div>
                       <div
                         className={`
-                        w-full aspect-square rounded-lg flex items-center justify-center
-                        ${getWeekDayColor(status)}
-                        ${
-                          isToday
-                            ? "ring-2 ring-[var(--accent-cyan)] ring-offset-2 ring-offset-[var(--background)]"
-                            : ""
-                        }
-                        transition-all cursor-pointer
-                      `}
+                          min-h-[44px] sm:min-h-[52px] rounded-md flex items-center justify-center text-sm
+                          ${cell.date ? getWeekDayColor(status) : "bg-transparent"}
+                          ${
+                            isToday && cell.date
+                              ? "ring-2 ring-[var(--accent-cyan)] ring-offset-1 ring-offset-[var(--background)]"
+                              : ""
+                          }
+                          transition-all
+                        `}
                       >
-                        <span>{day.getDate()}</span>
+                        {cell.date ? cell.date.getDate() : ""}
                       </div>
                     </motion.div>
                   );
@@ -1033,15 +991,15 @@ const SchedulePage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Week Stats */}
+              {/* Month Stats */}
               <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-[var(--border)]">
                 <div className="text-center">
-                  <p className="text-sm text-[var(--text-sub)]">{t('dashboard:schedule.thisWeekLabel')}</p>
+                  <p className="text-sm text-[var(--text-sub)]">{monthRangeLabel}</p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
-                    {weekAttendanceLabel}
+                    {monthAttendanceLabel}
                   </p>
                   <p className="text-xs text-[var(--success)]">
-                    {weekAttendancePercent}%
+                    {monthAttendancePercent}%
                   </p>
                 </div>
                 <div className="text-center">
@@ -1049,18 +1007,18 @@ const SchedulePage: React.FC = () => {
                     {t('dashboard:schedule.weekStats.onTime')}
                   </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
-                    {weekOnTimeLabel}
+                    {monthOnTimeLabel}
                   </p>
                   <p className="text-xs text-[var(--success)]">
-                    {weekOnTimePercent}%
+                    {monthOnTimePercent}%
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-[var(--text-sub)]">
-                    {t('dashboard:schedule.weekStats.avgHoursShort')}
+                    {t('dashboard:schedule.monthStats.averageLabel')}
                   </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
-                    {avgWeekHours}h
+                    {avgMonthHours}h
                   </p>
                   <p className="text-xs text-[var(--text-sub)]">{t('dashboard:schedule.perDay')}</p>
                 </div>
@@ -1068,83 +1026,10 @@ const SchedulePage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Month Progress */}
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
-                <TrendingUp className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>
-                  {t('dashboard:schedule.monthStats.title', {
-                    month: currentMonthLabel,
-                  })}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-[var(--text-sub)]">
-                    {t('dashboard:schedule.monthProgress')}
-                  </span>
-                  <span className="text-sm text-[var(--text-main)]">
-                    {stats.completed}/{stats.thisMonth} {t('dashboard:schedule.shift')} (
-                    {stats.thisMonth > 0
-                      ? ((stats.completed / stats.thisMonth) * 100).toFixed(0)
-                      : 0}
-                    %)
-                  </span>
-                </div>
-                <Progress
-                  value={
-                    stats.thisMonth > 0
-                      ? (stats.completed / stats.thisMonth) * 100
-                      : 0
-                  }
-                  className="h-3"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[var(--shell)] rounded-lg p-3 border border-[var(--border)]/50 dark:border-transparent">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Zap className="h-4 w-4 text-[var(--warning)]" />
-                    <span className="text-sm text-[var(--text-sub)]">
-                      {t('dashboard:schedule.monthStats.totalHours')}
-                    </span>
-                  </div>
-                  <p className="text-2xl text-[var(--text-main)]">
-                    {formattedTotalHours}h
-                  </p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">
-                    {t('dashboard:schedule.monthStats.averageLabel')}{" "}
-                    {stats.completed > 0
-                      ? (stats.totalHours / stats.completed).toFixed(1)
-                      : 0}
-                    {t('dashboard:schedule.hoursPerDay')}
-                  </p>
-                </div>
-
-                <div className="bg-[var(--shell)] rounded-lg p-3 border border-[var(--border)]/50 dark:border-transparent">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Star className="h-4 w-4 text-[var(--warning)]" />
-                    <span className="text-sm text-[var(--text-sub)]">
-                      {t('dashboard:schedule.stats.performance')}
-                    </span>
-                  </div>
-                  <p className="text-2xl text-[var(--success)]">
-                    {stats.performance}%
-                  </p>
-                  <p className="text-xs text-[var(--text-sub)] mt-1">
-                    {t('dashboard:schedule.updatedFromMonth')}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </motion.div>
       </div>
 
-      {/* Upcoming Shifts - Compact List */}
+      {/* Month Progress (moved down, replacing upcoming list) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1153,55 +1038,72 @@ const SchedulePage: React.FC = () => {
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
             <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5 text-[var(--warning)]" />
-              <span>{t('dashboard:schedule.upcomingShiftsTitle')} ({upcomingShifts.length} {t('dashboard:schedule.upcomingShifts')})</span>
+              <TrendingUp className="h-5 w-5 text-[var(--accent-cyan)]" />
+              <span>
+                {t('dashboard:schedule.monthStats.title', {
+                  month: currentMonthLabel,
+                })}
+              </span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {upcomingShifts.map((shift, index) => (
-                <motion.div
-                  key={shift._id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 1.0 + index * 0.05 }}
-                  whileHover={{ scale: 1.03, y: -3 }}
-                >
-                  <div className="bg-[var(--shell)] rounded-lg p-4 border border-[var(--border)]/50 dark:border-transparent hover:border-[var(--accent-cyan)] transition-colors duration-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25 text-xs">
-                        {new Date(shift.date).toLocaleDateString("vi-VN", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                        })}
-                      </Badge>
-                      <span className="text-xl">
-                        {shift.status === "off"
-                          ? "🏖️"
-                          : shift.shift.name.toLowerCase().includes("xa")
-                          ? "💻"
-                          : shift.shift.name.toLowerCase().includes("sáng")
-                          ? "🌅"
-                          : "🌆"}
-                      </span>
-                    </div>
-                    <h4 className="text-[var(--text-main)] mb-1">
-                      {shift.shift.name}
-                    </h4>
-                    <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
-                      <Clock className="h-3 w-3" />
-                      <span>
-                        {shift.shift.startTime} - {shift.shift.endTime}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)] mt-1">
-                      <MapPin className="h-3 w-3" />
-                      <span className="truncate">{shift.location}</span>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-[var(--text-sub)]">
+                  {t('dashboard:schedule.monthProgress')}
+                </span>
+                <span className="text-sm text-[var(--text-main)]">
+                  {stats.completed}/{stats.thisMonth} {t('dashboard:schedule.shift')} (
+                  {stats.thisMonth > 0
+                    ? ((stats.completed / stats.thisMonth) * 100).toFixed(0)
+                    : 0}
+                  %)
+                </span>
+              </div>
+              <Progress
+                value={
+                  stats.thisMonth > 0
+                    ? (stats.completed / stats.thisMonth) * 100
+                    : 0
+                }
+                className="h-3"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[var(--shell)] rounded-lg p-3 border border-[var(--border)]/50 dark:border-transparent">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Zap className="h-4 w-4 text-[var(--warning)]" />
+                  <span className="text-sm text-[var(--text-sub)]">
+                    {t('dashboard:schedule.monthStats.totalHours')}
+                  </span>
+                </div>
+                <p className="text-2xl text-[var(--text-main)]">
+                  {formattedTotalHours}h
+                </p>
+                <p className="text-xs text-[var(--text-sub)] mt-1">
+                  {t('dashboard:schedule.monthStats.averageLabel')}{" "}
+                  {stats.completed > 0
+                    ? (stats.totalHours / stats.completed).toFixed(1)
+                    : 0}
+                  {t('dashboard:schedule.hoursPerDay')}
+                </p>
+              </div>
+
+              <div className="bg-[var(--shell)] rounded-lg p-3 border border-[var(--border)]/50 dark:border-transparent">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Star className="h-4 w-4 text-[var(--warning)]" />
+                  <span className="text-sm text-[var(--text-sub)]">
+                    {t('dashboard:schedule.stats.performance')}
+                  </span>
+                </div>
+                <p className="text-2xl text-[var(--success)]">
+                  {stats.performance}%
+                </p>
+                <p className="text-xs text-[var(--text-sub)] mt-1">
+                  {t('dashboard:schedule.updatedFromMonth')}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

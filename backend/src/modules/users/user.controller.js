@@ -480,8 +480,17 @@ export class UserController {
         });
       }
 
-      // Lấy URL từ Cloudinary (đã được upload tự động bởi multer-storage-cloudinary)
-      const avatarUrl = req.file.path;
+        // Lấy URL từ Cloudinary (được set trong custom CloudinaryStorage)
+        // Thứ tự ưu tiên: location (secure_url), metadata.url, secure_url, path
+        const avatarUrl =
+          req.file?.location ||
+          req.file?.metadata?.url ||
+          req.file?.secure_url ||
+          req.file?.path;
+
+        if (!avatarUrl) {
+          return res.status(500).json({ message: "Không lấy được URL ảnh sau khi upload" });
+        }
 
       const updatedUser = await UserService.updateAvatar(userId, avatarUrl);
 

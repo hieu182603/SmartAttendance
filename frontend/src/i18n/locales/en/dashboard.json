@@ -381,6 +381,7 @@
     "shift": "shift",
     "error": "Error loading shifts:",
     "timeRange": "Working hours",
+    "timeRangeMonth": "This month",
     "legend": {
       "done": "Done",
       "today": "Today",
