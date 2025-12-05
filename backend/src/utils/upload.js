@@ -1,5 +1,5 @@
 import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
+import { CloudinaryStorage } from "./cloudinaryStorage.js";
 import cloudinary from "./cloudinary.js";
 
 // Cấu hình Cloudinary storage
