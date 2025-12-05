@@ -19,35 +19,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useNavigate } from "react-router-dom";
-
-type AttendanceStatus = "ontime" | "late" | "absent" | "unknown";
+import { getAttendanceStatusBadgeClass, type AttendanceStatus } from "@/utils/attendanceStatus";
 
 const getStatusBadge = (
   status: AttendanceStatus,
   t: (key: string) => string
 ): React.JSX.Element | null => {
-  switch (status) {
-    case "ontime":
-      return (
-        <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
-          {t("dashboard:employeeHome.status.ontime")}
-        </Badge>
-      );
-    case "late":
-      return (
-        <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">
-          {t("dashboard:employeeHome.status.late")}
-        </Badge>
-      );
-    case "absent":
-      return (
-        <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">
-          {t("dashboard:employeeHome.status.absent")}
-        </Badge>
-      );
-    default:
-      return null;
-  }
+  const statusLabels: Record<string, string> = {
+    ontime: t("dashboard:employeeHome.status.ontime"),
+    late: t("dashboard:employeeHome.status.late"),
+    absent: t("dashboard:employeeHome.status.absent"),
+  };
+
+  const label = statusLabels[status];
+  if (!label) return null;
+
+  return (
+    <Badge className={getAttendanceStatusBadgeClass(status)}>
+      {label}
+    </Badge>
+  );
 };
 
 interface InfoCard {

@@ -16,17 +16,53 @@ export default function ForgotPassword() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | undefined>()
+  const [touched, setTouched] = useState(false)
+
+  // Validation function
+  const validateEmail = (email: string): string | undefined => {
+    const trimmed = email.trim()
+    if (!trimmed) return t('auth:forgotPassword.emailRequired')
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(trimmed)) return t('auth:forgotPassword.emailInvalid')
+    return undefined
+  }
+
+  const handleBlur = () => {
+    setTouched(true)
+    setError(validateEmail(email))
+  }
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value)
+    if (error) {
+      setError(undefined)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    
+    // Mark as touched
+    setTouched(true)
+
+    // Validate email
+    const emailError = validateEmail(email)
+    setError(emailError)
+
+    if (emailError) {
+      toast.error(t('auth:forgotPassword.formValidationError'))
+      return
+    }
+
     setIsLoading(true)
 
     try {
-      const response = await forgotPassword({ email })
+      const response = await forgotPassword({ email: email.trim() })
       
       if (response.success) {
         toast.success(response.message || t('auth:forgotPassword.success'))
-        navigate('/verify-reset-otp', { state: { email, purpose: 'reset' } })
+        navigate('/verify-reset-otp', { state: { email: email.trim(), purpose: 'reset' } })
       } else {
         toast.error(response.message || t('auth:forgotPassword.genericError'))
       }
@@ -77,11 +113,23 @@ export default function ForgotPassword() {
               type="email"
               placeholder="your.email@company.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent"
+              onChange={(e) => handleEmailChange(e.target.value)}
+              onBlur={handleBlur}
+              className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent ${
+                touched && error ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
               required
               disabled={isLoading}
             />
+            {touched && error && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-red-500"
+              >
+                {error}
+              </motion.p>
+            )}
           </div>
 
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>

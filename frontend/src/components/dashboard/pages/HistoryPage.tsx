@@ -13,23 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getAttendanceHistory } from "@/services/attendanceService";
+import { getAttendanceStatusBadgeClass, type AttendanceStatus } from "@/utils/attendanceStatus";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 const ITEMS_PER_PAGE = 20;
 const STATS_LIMIT = 1000;
-
-// ============================================================================
-// TYPES & INTERFACES
-// ============================================================================
-type AttendanceStatus =
-  | "ontime"
-  | "late"
-  | "absent"
-  | "overtime"
-  | "weekend"
-  | "on_leave";
 
 interface AttendanceRecord {
   id?: string;
@@ -63,18 +53,6 @@ const getStatusBadge = (
   status: AttendanceStatus,
   t: TranslationFunction
 ): React.JSX.Element | null => {
-  const badgeClasses: Record<AttendanceStatus, string> = {
-    ontime:
-      "bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30",
-    late: "bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30",
-    absent: "bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30",
-    overtime:
-      "bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/30",
-    weekend:
-      "bg-[var(--text-sub)]/20 text-[var(--text-sub)] border-[var(--text-sub)]/30",
-    on_leave: "bg-blue-500/20 text-blue-500 border-blue-500/30",
-  };
-
   const statusLabels: Record<AttendanceStatus, string> = {
     ontime: t("dashboard:history.statusLabels.ontime"),
     late: t("dashboard:history.statusLabels.late"),
@@ -84,13 +62,14 @@ const getStatusBadge = (
     on_leave: t("dashboard:history.statusLabels.onLeave", {
       defaultValue: "Nghỉ phép",
     }),
+    unknown: t("dashboard:history.statusLabels.unknown", { defaultValue: "Không xác định" }),
   };
 
   if (status === "absent") {
     return <Badge variant="error">{statusLabels[status]}</Badge>;
   }
 
-  return <Badge className={badgeClasses[status]}>{statusLabels[status]}</Badge>;
+  return <Badge className={getAttendanceStatusBadgeClass(status)}>{statusLabels[status]}</Badge>;
 };
 
 const extractPhotoUrl = (

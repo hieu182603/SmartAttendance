@@ -25,6 +25,26 @@ export default function VerifyOtp() {
   const [isLoading, setIsLoading] = useState(false)
   const [countdown, setCountdown] = useState(60)
   const [canResend, setCanResend] = useState(false)
+  const [error, setError] = useState<string | undefined>()
+
+  // Validation function
+  const validateOtp = (otp: string): string | undefined => {
+    if (!otp) return t('auth:verifyOtp.otpRequired')
+    if (otp.length !== 6) return t('auth:verifyOtp.otpLengthError')
+    if (!/^\d+$/.test(otp)) return t('auth:verifyOtp.otpDigitsOnly')
+    return undefined
+  }
+
+  const handleOtpChange = (value: string) => {
+    // Only allow digits
+    const digitsOnly = value.replace(/\D/g, '')
+    // Limit to 6 digits
+    const limited = digitsOnly.slice(0, 6)
+    setOtp(limited)
+    if (error) {
+      setError(undefined)
+    }
+  }
 
   useEffect(() => {
     // Countdown timer
@@ -36,18 +56,25 @@ export default function VerifyOtp() {
     }
   }, [countdown])
 
-  // Auto-submit when OTP is complete
+  // Auto-submit when OTP is complete (only if valid)
   useEffect(() => {
-    if (otp.length === 6) {
+    if (otp.length === 6 && !validateOtp(otp)) {
       handleVerify()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp])
 
   const handleVerify = async () => {
-    if (otp.length !== 6) return
+    // Validate OTP
+    const otpError = validateOtp(otp)
+    if (otpError) {
+      setError(otpError)
+      toast.error(otpError)
+      return
+    }
     
     setIsLoading(true)
+    setError(undefined)
 
     try {
       if (purpose === 'reset') {
@@ -56,7 +83,9 @@ export default function VerifyOtp() {
           toast.success(t('auth:verifyOtp.verifySuccess'))
           navigate('/reset-password', { state: { email } })
         } else {
-          toast.error(data?.message || t('auth:verifyOtp.verifyError'))
+          const errorMsg = data?.message || t('auth:verifyOtp.verifyError')
+          setError(errorMsg)
+          toast.error(errorMsg)
           setOtp('')
         }
       } else {
@@ -70,13 +99,17 @@ export default function VerifyOtp() {
             : '/employee'
           setTimeout(() => navigate(redirectPath), 1000)
         } else {
-          toast.error(t('auth:verifyOtp.verifyError'))
+          const errorMsg = t('auth:verifyOtp.verifyError')
+          setError(errorMsg)
+          toast.error(errorMsg)
           setOtp('')
         }
       }
     } catch (err) {
       const error = err as ErrorWithMessage
-      toast.error(error.message || t('auth:verifyOtp.error'))
+      const errorMsg = error.message || t('auth:verifyOtp.error')
+      setError(errorMsg)
+      toast.error(errorMsg)
       setOtp('')
     } finally {
       setIsLoading(false)
@@ -141,7 +174,7 @@ export default function VerifyOtp() {
           <InputOTP
             maxLength={6}
             value={otp}
-            onChange={(value) => setOtp(value)}
+            onChange={handleOtpChange}
             disabled={isLoading}
           >
             <InputOTPGroup>
@@ -154,9 +187,20 @@ export default function VerifyOtp() {
             </InputOTPGroup>
           </InputOTP>
 
-          <p className="text-sm text-[var(--text-main)]">
-            {otp.length}/6 {t('auth:verifyOtp.otpLength')}
-          </p>
+          <div className="flex flex-col items-center space-y-1">
+            <p className="text-sm text-[var(--text-main)]">
+              {otp.length}/6 {t('auth:verifyOtp.otpLength')}
+            </p>
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-red-500"
+              >
+                {error}
+              </motion.p>
+            )}
+          </div>
         </div>
 
         {/* Verify Button */}

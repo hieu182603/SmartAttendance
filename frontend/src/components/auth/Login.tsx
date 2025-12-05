@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { toast } from 'sonner'
 import type { ErrorWithMessage } from '@/types'
@@ -34,13 +34,74 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
+  const [touched, setTouched] = useState<{ email?: boolean; password?: boolean }>({})
+
+  // Validation functions
+  const validateEmail = (email: string): string | undefined => {
+    const trimmed = email.trim()
+    if (!trimmed) return t('auth:login.emailRequired')
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(trimmed)) return t('auth:login.emailInvalid')
+    return undefined
+  }
+
+  const validatePassword = (password: string): string | undefined => {
+    if (!password) return t('auth:login.passwordRequired')
+    return undefined
+  }
+
+  const handleBlur = (field: 'email' | 'password') => {
+    setTouched({ ...touched, [field]: true })
+    const newErrors = { ...errors }
+    
+    if (field === 'email') {
+      newErrors.email = validateEmail(email)
+    } else if (field === 'password') {
+      newErrors.password = validatePassword(password)
+    }
+    
+    setErrors(newErrors)
+  }
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value)
+    if (errors.email) {
+      setErrors({ ...errors, email: undefined })
+    }
+  }
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value)
+    if (errors.password) {
+      setErrors({ ...errors, password: undefined })
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    
+    // Mark all fields as touched
+    setTouched({ email: true, password: true })
+
+    // Validate all fields
+    const newErrors = {
+      email: validateEmail(email),
+      password: validatePassword(password),
+    }
+
+    setErrors(newErrors)
+
+    // Check if form is valid
+    if (newErrors.email || newErrors.password) {
+      toast.error(t('auth:login.formValidationError'))
+      return
+    }
+
     setIsLoading(true)
     
     try {
-      const data = await login({ email, password })
+      const data = await login({ email: email.trim(), password })
       toast.success(t('auth:login.success'))
       const nextRoute = data?.user?.role 
         ? getRoleBasePath(data.user.role as UserRoleType)
@@ -58,14 +119,21 @@ export default function Login() {
     <AuthLayout 
       title={t('auth:login.title')} 
       subtitle={t('auth:login.subtitle')}
+      showBackButton={true}
+      backTo="/"
     >
-      <motion.form 
-        onSubmit={handleSubmit} 
-        className="space-y-4"
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
+        <motion.form 
+          onSubmit={handleSubmit} 
+          className="space-y-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
         <div className="space-y-2">
           <Label htmlFor="email" className="text-[var(--text-main)]">{t('auth:login.email')}</Label>
           <Input
@@ -73,11 +141,23 @@ export default function Login() {
             type="email"
             placeholder={t('auth:login.emailPlaceholder')}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent"
+            onChange={(e) => handleEmailChange(e.target.value)}
+            onBlur={() => handleBlur('email')}
+            className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent ${
+              touched.email && errors.email ? 'border-red-500 focus-visible:ring-red-500' : ''
+            }`}
             required
             disabled={isLoading}
           />
+          {touched.email && errors.email && (
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-xs text-red-500"
+            >
+              {errors.email}
+            </motion.p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -88,8 +168,11 @@ export default function Login() {
               type={showPassword ? 'text' : 'password'}
               placeholder={t('auth:login.passwordPlaceholder')}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent pr-10"
+              onChange={(e) => handlePasswordChange(e.target.value)}
+              onBlur={() => handleBlur('password')}
+              className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent pr-10 ${
+                touched.password && errors.password ? 'border-red-500 focus-visible:ring-red-500' : ''
+              }`}
               required
               disabled={isLoading}
             />
@@ -101,6 +184,15 @@ export default function Login() {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
+          {touched.password && errors.password && (
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-xs text-red-500"
+            >
+              {errors.password}
+            </motion.p>
+          )}
         </div>
 
         <div className="flex items-center justify-between">
@@ -149,6 +241,7 @@ export default function Login() {
           </Link>
         </p>
       </motion.form>
+      </motion.div>
     </AuthLayout>
   )
 }

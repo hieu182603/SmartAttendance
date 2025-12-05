@@ -20,6 +20,14 @@ interface FormData {
   agreeTerms: boolean
 }
 
+interface FormErrors {
+  fullName?: string
+  email?: string
+  password?: string
+  confirmPassword?: string
+  agreeTerms?: string
+}
+
 export default function Register() {
   const { t } = useTranslation(['auth', 'common'])
   const navigate = useNavigate()
@@ -30,9 +38,43 @@ export default function Register() {
     confirmPassword: '',
     agreeTerms: false,
   })
+  const [errors, setErrors] = useState<FormErrors>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Validation functions
+  const validateFullName = (name: string): string | undefined => {
+    const trimmed = name.trim()
+    if (!trimmed) return t('auth:register.fullNameRequired')
+    if (trimmed.length < 2) return t('auth:register.invalidName')
+    if (trimmed.length > 100) return t('auth:register.fullNameMaxLength')
+    return undefined
+  }
+
+  const validateEmail = (email: string): string | undefined => {
+    const trimmed = email.trim()
+    if (!trimmed) return t('auth:register.emailRequired')
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(trimmed)) return t('auth:register.invalidEmail')
+    return undefined
+  }
+
+  const validatePassword = (password: string): string | undefined => {
+    if (!password) return t('auth:register.passwordRequired')
+    if (password.length < 8) return t('auth:register.passwordMinLength')
+    if (!/[A-Z]/.test(password)) return t('auth:register.passwordHasUpperCase')
+    if (!/[a-z]/.test(password)) return t('auth:register.passwordHasLowerCase')
+    if (!/[0-9]/.test(password)) return t('auth:register.passwordHasNumber')
+    return undefined
+  }
+
+  const validateConfirmPassword = (confirmPassword: string, password: string): string | undefined => {
+    if (!confirmPassword) return t('auth:register.confirmPasswordRequired')
+    if (confirmPassword !== password) return t('auth:register.passwordsNotMatch')
+    return undefined
+  }
 
   // Password strength validation
   const passwordStrength = {
@@ -46,44 +88,83 @@ export default function Register() {
 
   // Validate form completeness
   const isFormValid = 
-    formData.fullName.trim().length >= 2 &&
-    formData.email.trim().length > 0 &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) &&
-    passwordStrength.hasMinLength &&
-    passwordStrength.hasUpperCase &&
-    passwordStrength.hasLowerCase &&
-    passwordStrength.hasNumber &&
-    passwordsMatch &&
+    !validateFullName(formData.fullName) &&
+    !validateEmail(formData.email) &&
+    !validatePassword(formData.password) &&
+    !validateConfirmPassword(formData.confirmPassword, formData.password) &&
     formData.agreeTerms
+
+  // Handle field blur
+  const handleBlur = (field: keyof FormData) => {
+    setTouched({ ...touched, [field]: true })
+    const newErrors: FormErrors = { ...errors }
+    
+    switch (field) {
+      case 'fullName':
+        newErrors.fullName = validateFullName(formData.fullName)
+        break
+      case 'email':
+        newErrors.email = validateEmail(formData.email)
+        break
+      case 'password':
+        newErrors.password = validatePassword(formData.password)
+        // Re-validate confirm password if it's already filled
+        if (formData.confirmPassword) {
+          newErrors.confirmPassword = validateConfirmPassword(formData.confirmPassword, formData.password)
+        }
+        break
+      case 'confirmPassword':
+        newErrors.confirmPassword = validateConfirmPassword(formData.confirmPassword, formData.password)
+        break
+    }
+    
+    setErrors(newErrors)
+  }
+
+  // Handle field change
+  const handleChange = (field: keyof FormData, value: string | boolean) => {
+    setFormData({ ...formData, [field]: value })
+    
+    // Clear error when user starts typing
+    if (errors[field as keyof FormErrors]) {
+      setErrors({ ...errors, [field]: undefined })
+    }
+    
+    // Re-validate confirm password when password changes
+    if (field === 'password' && formData.confirmPassword) {
+      const confirmError = validateConfirmPassword(formData.confirmPassword, value as string)
+      setErrors({ ...errors, confirmPassword: confirmError })
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
-    // Validate email format
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      toast.error(t('auth:register.invalidEmail'))
-      return
+    // Mark all fields as touched
+    setTouched({
+      fullName: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    })
+
+    // Validate all fields
+    const newErrors: FormErrors = {
+      fullName: validateFullName(formData.fullName),
+      email: validateEmail(formData.email),
+      password: validatePassword(formData.password),
+      confirmPassword: validateConfirmPassword(formData.confirmPassword, formData.password),
     }
 
-    // Validate full name
-    if (formData.fullName.trim().length < 2) {
-      toast.error(t('auth:register.invalidName'))
-      return
-    }
-
-    // Validate password strength
-    if (!passwordStrength.hasMinLength || !passwordStrength.hasUpperCase || 
-        !passwordStrength.hasLowerCase || !passwordStrength.hasNumber) {
-      toast.error(t('auth:register.weakPassword'))
-      return
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      toast.error(t('auth:register.passwordsNotMatch'))
-      return
-    }
     if (!formData.agreeTerms) {
-      toast.error(t('auth:register.agreeTermsRequired'))
+      newErrors.agreeTerms = t('auth:register.agreeTermsRequired')
+    }
+
+    setErrors(newErrors)
+
+    // Check if form is valid
+    if (Object.values(newErrors).some(error => error !== undefined)) {
+      toast.error(t('auth:register.formValidationError'))
       return
     }
 
@@ -91,12 +172,12 @@ export default function Register() {
 
     try {
       await registerApi({
-        name: formData.fullName,
-        email: formData.email,
+        name: formData.fullName.trim(),
+        email: formData.email.trim(),
         password: formData.password,
       })
       toast.success(t('auth:register.success'))
-      navigate('/verify-otp', { state: { email: formData.email, purpose: 'register' } })
+      navigate('/verify-otp', { state: { email: formData.email.trim(), purpose: 'register' } })
     } catch (err) {
       const error = err as ErrorWithMessage
       toast.error(error.message || t('auth:register.error'))
@@ -124,12 +205,22 @@ export default function Register() {
             type="text"
             placeholder={t('auth:register.fullNamePlaceholder')}
             value={formData.fullName}
-            onChange={(e) => setFormData({ ...formData, fullName: e.target.value.trim() })}
-            className="h-9 text-sm"
+            onChange={(e) => handleChange('fullName', e.target.value)}
+            onBlur={() => handleBlur('fullName')}
+            className={`h-9 text-sm ${touched.fullName && errors.fullName ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
             required
             disabled={isLoading}
             autoComplete="name"
           />
+          {touched.fullName && errors.fullName && (
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[10px] text-red-500"
+            >
+              {errors.fullName}
+            </motion.p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -139,12 +230,22 @@ export default function Register() {
             type="email"
             placeholder="your.email@company.com"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value.trim() })}
-            className="h-9 text-sm"
+            onChange={(e) => handleChange('email', e.target.value)}
+            onBlur={() => handleBlur('email')}
+            className={`h-9 text-sm ${touched.email && errors.email ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
             required
             disabled={isLoading}
             autoComplete="email"
           />
+          {touched.email && errors.email && (
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[10px] text-red-500"
+            >
+              {errors.email}
+            </motion.p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -155,8 +256,9 @@ export default function Register() {
               type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="h-9 text-sm pr-10"
+              onChange={(e) => handleChange('password', e.target.value)}
+              onBlur={() => handleBlur('password')}
+              className={`h-9 text-sm pr-10 ${touched.password && errors.password ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
               required
               disabled={isLoading}
             />
@@ -168,6 +270,15 @@ export default function Register() {
               {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </button>
           </div>
+          {touched.password && errors.password && (
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[10px] text-red-500"
+            >
+              {errors.password}
+            </motion.p>
+          )}
           
           {/* Password Strength Indicators - Single Row */}
           {formData.password && (
@@ -215,9 +326,10 @@ export default function Register() {
               type={showConfirmPassword ? 'text' : 'password'}
               placeholder="••••••••"
               value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              onChange={(e) => handleChange('confirmPassword', e.target.value)}
+              onBlur={() => handleBlur('confirmPassword')}
               className={`h-9 text-sm pr-10 ${
-                formData.confirmPassword && !passwordsMatch ? 'border-red-500' : ''
+                touched.confirmPassword && errors.confirmPassword ? 'border-red-500 focus-visible:ring-red-500' : ''
               }`}
               required
               disabled={isLoading}
@@ -230,13 +342,13 @@ export default function Register() {
               {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </button>
           </div>
-          {formData.confirmPassword && !passwordsMatch && (
+          {touched.confirmPassword && errors.confirmPassword && (
             <motion.p
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
               className="text-[10px] text-red-500"
             >
-              {t('auth:register.confirmPasswordNotMatch')}
+              {errors.confirmPassword}
             </motion.p>
           )}
         </div>
@@ -245,7 +357,7 @@ export default function Register() {
           <Checkbox 
             id="terms" 
             checked={formData.agreeTerms}
-            onCheckedChange={(checked) => setFormData({ ...formData, agreeTerms: checked })}
+            onCheckedChange={(checked) => handleChange('agreeTerms', checked as boolean)}
             className="h-3.5 w-3.5 mt-0.5"
           />
           <label htmlFor="terms" className="text-xs text-[var(--text-sub)] cursor-pointer leading-tight">
@@ -259,6 +371,15 @@ export default function Register() {
             </a>
           </label>
         </div>
+        {touched.agreeTerms !== undefined && errors.agreeTerms && (
+          <motion.p
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-[10px] text-red-500"
+          >
+            {errors.agreeTerms}
+          </motion.p>
+        )}
 
         <motion.div whileHover={{ scale: isFormValid ? 1.02 : 1 }} whileTap={{ scale: isFormValid ? 0.98 : 1 }} className="pt-1">
           <Button
