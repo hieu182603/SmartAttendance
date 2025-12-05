@@ -21,6 +21,7 @@ import {
   exportAttendanceAnalytics,
   type AttendanceRecord,
 } from "@/services/attendanceService";
+import { getAttendanceStatusBadgeClass, type AttendanceStatus } from "@/utils/attendanceStatus";
 
 interface AttendanceSummary {
   total: number;
@@ -93,34 +94,23 @@ const DepartmentAttendancePage: React.FC = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "ontime":
-        return (
-          <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
-            {t('dashboard:departmentAttendance.filters.ontime')}
-          </Badge>
-        );
-      case "late":
-        return (
-          <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30">
-            {t('dashboard:departmentAttendance.filters.late')}
-          </Badge>
-        );
-      case "absent":
-        return (
-          <Badge className="bg-red-500/20 text-red-500 border-red-500/30">
-            {t('dashboard:departmentAttendance.filters.absent')}
-          </Badge>
-        );
-      case "overtime":
-        return (
-          <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30">
-            {t('dashboard:departmentAttendance.filters.overtime')}
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+    const statusLabels: Record<string, string> = {
+      ontime: t('dashboard:departmentAttendance.filters.ontime'),
+      late: t('dashboard:departmentAttendance.filters.late'),
+      absent: t('dashboard:departmentAttendance.filters.absent'),
+      overtime: t('dashboard:departmentAttendance.filters.overtime'),
+    };
+
+    const label = statusLabels[status];
+    if (!label) {
+      return <Badge variant="outline">{status}</Badge>;
     }
+
+    return (
+      <Badge className={getAttendanceStatusBadgeClass(status as AttendanceStatus)}>
+        {label}
+      </Badge>
+    );
   };
 
   const getInitials = (name: string) => {

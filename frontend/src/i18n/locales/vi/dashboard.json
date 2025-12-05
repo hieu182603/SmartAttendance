@@ -141,13 +141,22 @@
       "newPassword": "Mật khẩu mới",
       "confirmPassword": "Xác nhận mật khẩu mới",
       "updateButton": "Cập nhật mật khẩu",
+      "passwordRequirements": "Yêu cầu mật khẩu:",
+      "minLength": "8+ ký tự",
+      "hasUpperCase": "A-Z",
+      "hasLowerCase": "a-z",
+      "hasNumber": "0-9",
       "errors": {
         "currentRequired": "Vui lòng nhập mật khẩu hiện tại",
-        "newRequired": "Vui lòng nhập mật khẩu mới",
-        "confirmRequired": "Vui lòng xác nhận mật khẩu mới",
-        "minLength": "Mật khẩu mới phải có ít nhất 6 ký tự",
-        "notMatch": "Mật khẩu mới không khớp",
-        "currentIncorrect": "Mật khẩu hiện tại không đúng"
+        "newRequired": "Mật khẩu là bắt buộc",
+        "confirmRequired": "Vui lòng xác nhận mật khẩu",
+        "minLength": "Mật khẩu phải có ít nhất 8 ký tự",
+        "hasUpperCase": "Mật khẩu phải có ít nhất 1 chữ hoa",
+        "hasLowerCase": "Mật khẩu phải có ít nhất 1 chữ thường",
+        "hasNumber": "Mật khẩu phải có ít nhất 1 số",
+        "notMatch": "Mật khẩu không khớp",
+        "currentIncorrect": "Mật khẩu hiện tại không đúng",
+        "formValidationError": "Vui lòng kiểm tra lại thông tin đã nhập"
       },
       "success": "Đổi mật khẩu thành công!",
       "error": "Đổi mật khẩu thất bại"

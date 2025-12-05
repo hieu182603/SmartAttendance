@@ -34,6 +34,7 @@ import {
   ROLE_NAMES,
 } from "@/utils/roles";
 import { useAuth } from "@/context/AuthContext";
+import { getAttendanceStatusBadgeClass, type AttendanceStatus } from "@/utils/attendanceStatus";
 import {
   getAllAttendance,
   updateAttendanceRecord as updateAttendanceRecordApi,
@@ -156,40 +157,22 @@ const buildRoleAccessConfig = (
 });
 
 const getStatusBadge = (status: string, t: (key: string) => string) => {
-  switch (status) {
-    case "ontime":
-      return (
-        <Badge className="bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
-          {t('dashboard:adminAttendance.filters.ontime')}
-        </Badge>
-      );
-    case "late":
-      return (
-        <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] border-[var(--warning)]/30">
-          {t('dashboard:adminAttendance.filters.late')}
-        </Badge>
-      );
-    case "absent":
-      return (
-        <Badge className="bg-[var(--error)]/20 text-[var(--error)] border-[var(--error)]/30">
-          {t('dashboard:adminAttendance.filters.absent')}
-        </Badge>
-      );
-    case "overtime":
-      return (
-        <Badge className="bg-purple-500/20 text-purple-600 border-purple-500/30">
-          {t('dashboard:adminAttendance.filters.overtime')}
-        </Badge>
-      );
-    case "weekend":
-      return (
-        <Badge className="bg-[var(--text-sub)]/20 text-[var(--text-sub)] border-[var(--text-sub)]/30">
-          {t('dashboard:adminAttendance.filters.weekend')}
-        </Badge>
-      );
-    default:
-      return null;
-  }
+  const statusLabels: Record<string, string> = {
+    ontime: t('dashboard:adminAttendance.filters.ontime'),
+    late: t('dashboard:adminAttendance.filters.late'),
+    absent: t('dashboard:adminAttendance.filters.absent'),
+    overtime: t('dashboard:adminAttendance.filters.overtime'),
+    weekend: t('dashboard:adminAttendance.filters.weekend'),
+  };
+
+  const label = statusLabels[status];
+  if (!label) return null;
+
+  return (
+    <Badge className={getAttendanceStatusBadgeClass(status as AttendanceStatus)}>
+      {label}
+    </Badge>
+  );
 };
 
 export default function AdminAttendancePage() {

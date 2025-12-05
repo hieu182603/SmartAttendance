@@ -12,11 +12,9 @@ import {
   CreditCard,
   Camera,
   Lock,
-  Globe,
-  Moon,
-  Sun,
   Eye,
   EyeOff,
+  CheckCircle2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,20 +22,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { updateUserProfile, changePassword, uploadAvatar } from "@/services/userService";
+import { updateUserProfile, changePassword, uploadAvatar, getUserProfile } from "@/services/userService";
 import { useAuth } from "@/context/AuthContext";
-import { useTheme } from "@/components/ThemeProvider";
 import { UserRole, getRolePosition, type UserRoleType } from "@/utils/roles";
 import type { User as UserType } from "@/types";
 import type { ErrorWithMessage } from "@/types";
@@ -96,10 +85,10 @@ interface PasswordErrors {
 }
 
 export function Profile({ role, user }: ProfileProps): React.JSX.Element {
-  const { t } = useTranslation(['dashboard', 'common']);
-  const { setUser } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { t } = useTranslation(['dashboard', 'common', 'auth']);
+  const { setUser, user: contextUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [avatarTimestamp, setAvatarTimestamp] = useState(Date.now()); // Force reload avatar image
 
   const [profile, setProfile] = useState<ProfileData>({
     fullName: "",
@@ -115,20 +104,23 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     bankName: "",
   });
 
+  // Use contextUser if available, otherwise use prop user
+  const currentUser = contextUser || user;
+
   useEffect(() => {
-    if (user) {
+    if (currentUser) {
       // Format birthday từ ISO string sang YYYY-MM-DD cho input date
       let formattedBirthday = "";
-      if (user.birthday) {
+      if (currentUser.birthday) {
         try {
-          formattedBirthday = new Date(user.birthday).toISOString().split("T")[0];
+          formattedBirthday = new Date(currentUser.birthday).toISOString().split("T")[0];
         } catch (e) {
           formattedBirthday = "";
         }
       }
 
       // Get position from role using roles.ts helper
-      const userRole = (user.role || UserRole.EMPLOYEE) as UserRoleType;
+      const userRole = (currentUser.role || UserRole.EMPLOYEE) as UserRoleType;
       const position = getRolePosition(userRole);
 
       // Extract department name from object or string
@@ -139,22 +131,22 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       };
 
       setProfile({
-        fullName: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        address: user.address || "",
+        fullName: currentUser.name || "",
+        email: currentUser.email || "",
+        phone: currentUser.phone || "",
+        address: currentUser.address || "",
         birthday: formattedBirthday,
-        department: getDepartmentName(user.department),
+        department: getDepartmentName(currentUser.department),
         position: position,
-        joinDate: user.createdAt
-          ? new Date(user.createdAt).toISOString().split("T")[0]
+        joinDate: currentUser.createdAt
+          ? new Date(currentUser.createdAt).toISOString().split("T")[0]
           : "",
-        employeeId: user._id ? user._id.slice(-6).toUpperCase() : "",
-        bankAccount: user.bankAccount || "",
-        bankName: user.bankName || "",
+        employeeId: currentUser._id ? currentUser._id.slice(-6).toUpperCase() : "",
+        bankAccount: currentUser.bankAccount || "",
+        bankName: currentUser.bankName || "",
       });
     }
-  }, [user, role]);
+  }, [currentUser, role]);
 
   const [passwordData, setPasswordData] = useState<PasswordData>({
     current: "",
@@ -173,6 +165,60 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     new: "",
     confirm: "",
   });
+
+  const [passwordTouched, setPasswordTouched] = useState<{
+    current?: boolean;
+    new?: boolean;
+    confirm?: boolean;
+  }>({});
+
+  // Password strength validation
+  const passwordStrength = {
+    hasMinLength: passwordData.new.length >= 8,
+    hasUpperCase: /[A-Z]/.test(passwordData.new),
+    hasLowerCase: /[a-z]/.test(passwordData.new),
+    hasNumber: /[0-9]/.test(passwordData.new),
+  };
+
+  // Validation functions
+  const validateCurrentPassword = (password: string): string | undefined => {
+    if (!password) return t('dashboard:profile.security.errors.currentRequired');
+    return undefined;
+  };
+
+  const validateNewPassword = (password: string): string | undefined => {
+    if (!password) return t('dashboard:profile.security.errors.newRequired');
+    if (password.length < 8) return t('dashboard:profile.security.errors.minLength');
+    if (!/[A-Z]/.test(password)) return t('dashboard:profile.security.errors.hasUpperCase');
+    if (!/[a-z]/.test(password)) return t('dashboard:profile.security.errors.hasLowerCase');
+    if (!/[0-9]/.test(password)) return t('dashboard:profile.security.errors.hasNumber');
+    return undefined;
+  };
+
+  const validateConfirmPassword = (confirmPassword: string, password: string): string | undefined => {
+    if (!confirmPassword) return t('dashboard:profile.security.errors.confirmRequired');
+    if (confirmPassword !== password) return t('dashboard:profile.security.errors.notMatch');
+    return undefined;
+  };
+
+  const handlePasswordBlur = (field: 'current' | 'new' | 'confirm') => {
+    setPasswordTouched({ ...passwordTouched, [field]: true });
+    const newErrors = { ...passwordErrors };
+
+    if (field === 'current') {
+      newErrors.current = validateCurrentPassword(passwordData.current);
+    } else if (field === 'new') {
+      newErrors.new = validateNewPassword(passwordData.new);
+      // Re-validate confirm password if it's already filled
+      if (passwordData.confirm) {
+        newErrors.confirm = validateConfirmPassword(passwordData.confirm, passwordData.new);
+      }
+    } else if (field === 'confirm') {
+      newErrors.confirm = validateConfirmPassword(passwordData.confirm, passwordData.new);
+    }
+
+    setPasswordErrors(newErrors);
+  };
 
   const handleSaveProfile = async (): Promise<void> => {
     try {
@@ -199,34 +245,21 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
   };
 
   const handleChangePassword = async (): Promise<void> => {
-    // Reset errors
-    setPasswordErrors({ current: "", new: "", confirm: "" });
+    // Mark all fields as touched
+    setPasswordTouched({ current: true, new: true, confirm: true });
 
-    // Validate
-    if (!passwordData.current || !passwordData.new || !passwordData.confirm) {
-      setPasswordErrors({
-        current: !passwordData.current ? t('dashboard:profile.security.errors.currentRequired') : "",
-        new: !passwordData.new ? t('dashboard:profile.security.errors.newRequired') : "",
-        confirm: !passwordData.confirm ? t('dashboard:profile.security.errors.confirmRequired') : "",
-      });
-      return;
-    }
+    // Validate all fields
+    const newErrors: PasswordErrors = {
+      current: validateCurrentPassword(passwordData.current),
+      new: validateNewPassword(passwordData.new),
+      confirm: validateConfirmPassword(passwordData.confirm, passwordData.new),
+    };
 
-    if (passwordData.new.length < 6) {
-      setPasswordErrors({
-        current: "",
-        new: t('dashboard:profile.security.errors.minLength'),
-        confirm: "",
-      });
-      return;
-    }
+    setPasswordErrors(newErrors);
 
-    if (passwordData.new !== passwordData.confirm) {
-      setPasswordErrors({
-        current: "",
-        new: "",
-        confirm: t('dashboard:profile.security.errors.notMatch'),
-      });
+    // Check if form is valid
+    if (newErrors.current || newErrors.new || newErrors.confirm) {
+      toast.error(t('dashboard:profile.security.errors.formValidationError'));
       return;
     }
 
@@ -235,6 +268,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       toast.success(t('dashboard:profile.security.success'));
       setPasswordData({ current: "", new: "", confirm: "" });
       setPasswordErrors({ current: "", new: "", confirm: "" });
+      setPasswordTouched({});
     } catch (error) {
       // API interceptor wraps error, so check both error.message and error.response
       const err = error as ErrorWithMessage;
@@ -279,9 +313,38 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
 
       const response = await uploadAvatar(file);
 
-      if (response.user) {
-        setUser(response.user);
-        toast.success(t('dashboard:profile.avatar.success'), { id: 'upload-avatar' });
+      console.log('Upload avatar response:', response); // Debug log
+
+      // Fetch fresh user data to ensure we have all fields including avatar
+      try {
+        const freshUser = await getUserProfile();
+        console.log('Fresh user data:', freshUser); // Debug log
+        
+        if (freshUser) {
+          // Update user in context with fresh data
+          setUser(freshUser);
+          // Force avatar reload by updating timestamp
+          setAvatarTimestamp(Date.now());
+          toast.success(t('dashboard:profile.avatar.success'), { id: 'upload-avatar' });
+        } else if (response.user) {
+          // Fallback to response.user if getUserProfile fails
+          setUser(response.user);
+          setAvatarTimestamp(Date.now());
+          toast.success(t('dashboard:profile.avatar.success'), { id: 'upload-avatar' });
+        } else {
+          console.error('No user data available:', { response, freshUser });
+          toast.error('Không nhận được thông tin user sau khi upload', { id: 'upload-avatar' });
+        }
+      } catch (fetchError) {
+        console.error('Error fetching fresh user:', fetchError);
+        // Fallback to response.user if available
+        if (response.user) {
+          setUser(response.user);
+          setAvatarTimestamp(Date.now());
+          toast.success(t('dashboard:profile.avatar.success'), { id: 'upload-avatar' });
+        } else {
+          toast.error('Upload thành công nhưng không thể tải lại thông tin user', { id: 'upload-avatar' });
+        }
       }
     } catch (error) {
       const err = error as ErrorWithMessage;
@@ -331,11 +394,18 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                   <motion.div whileHover={{ scale: 1.05 }}>
                     <Avatar className="h-32 w-32 border-4 border-[var(--accent-cyan)] shadow-lg">
                       <AvatarImage
+                        key={`avatar-${avatarTimestamp}-${currentUser?.avatar || currentUser?.avatarUrl || 'default'}`}
                         src={
-                          user?.avatar || user?.avatarUrl ||
-                          `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "user"
-                          }`
+                          (currentUser?.avatar || currentUser?.avatarUrl)
+                            ? `${currentUser.avatar || currentUser.avatarUrl}?t=${avatarTimestamp}`
+                            : `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name || "user"}`
                         }
+                        onError={(e) => {
+                          console.error('Avatar load error:', e);
+                          // Fallback to default if avatar fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name || "user"}`;
+                        }}
                       />
                       <AvatarFallback className="text-2xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white">
                         {profile.fullName
@@ -443,12 +513,6 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     className="flex-1 flex items-center justify-center"
                   >
                     {t('dashboard:profile.tabs.security')}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="settings"
-                    className="flex-1 flex items-center justify-center"
-                  >
-                    {t('dashboard:profile.tabs.settings')}
                   </TabsTrigger>
                 </TabsList>
 
@@ -656,10 +720,12 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                               });
                             }
                           }}
-                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${passwordErrors.current
-                            ? "border-[var(--error)]"
-                            : ""
-                            }`}
+                          onBlur={() => handlePasswordBlur('current')}
+                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${
+                            passwordTouched.current && passwordErrors.current
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
                           placeholder="••••••••"
                         />
                         <button
@@ -679,10 +745,14 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                           )}
                         </button>
                       </div>
-                      {passwordErrors.current && (
-                        <p className="text-sm text-[var(--error)]">
+                      {passwordTouched.current && passwordErrors.current && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-xs text-red-500"
+                        >
                           {passwordErrors.current}
-                        </p>
+                        </motion.p>
                       )}
                     </div>
 
@@ -707,9 +777,21 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                                 new: "",
                               });
                             }
+                            // Re-validate confirm password when password changes
+                            if (passwordData.confirm) {
+                              const confirmError = validateConfirmPassword(passwordData.confirm, e.target.value);
+                              setPasswordErrors({
+                                ...passwordErrors,
+                                confirm: confirmError || "",
+                              });
+                            }
                           }}
-                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${passwordErrors.new ? "border-[var(--error)]" : ""
-                            }`}
+                          onBlur={() => handlePasswordBlur('new')}
+                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${
+                            passwordTouched.new && passwordErrors.new
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
                           placeholder="••••••••"
                         />
                         <button
@@ -729,10 +811,51 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                           )}
                         </button>
                       </div>
-                      {passwordErrors.new && (
-                        <p className="text-sm text-[var(--error)]">
+                      {passwordTouched.new && passwordErrors.new && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-xs text-red-500"
+                        >
                           {passwordErrors.new}
-                        </p>
+                        </motion.p>
+                      )}
+
+                      {/* Password Strength Indicators */}
+                      {passwordData.new && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5"
+                        >
+                          {[
+                            { label: t('dashboard:profile.security.minLength'), valid: passwordStrength.hasMinLength },
+                            { label: t('dashboard:profile.security.hasUpperCase'), valid: passwordStrength.hasUpperCase },
+                            { label: t('dashboard:profile.security.hasLowerCase'), valid: passwordStrength.hasLowerCase },
+                            { label: t('dashboard:profile.security.hasNumber'), valid: passwordStrength.hasNumber },
+                          ].map((requirement, index) => (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: index * 0.02 }}
+                              className="flex items-center space-x-1.5"
+                            >
+                              <CheckCircle2
+                                className={`h-3 w-3 transition-colors flex-shrink-0 ${
+                                  requirement.valid ? 'text-[var(--success)]' : 'text-[var(--text-sub)] opacity-30'
+                                }`}
+                              />
+                              <span
+                                className={`text-xs transition-colors whitespace-nowrap ${
+                                  requirement.valid ? 'text-[var(--success)]' : 'text-[var(--text-sub)]'
+                                }`}
+                              >
+                                {requirement.label}
+                              </span>
+                            </motion.div>
+                          ))}
+                        </motion.div>
                       )}
                     </div>
 
@@ -758,10 +881,12 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                               });
                             }
                           }}
-                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${passwordErrors.confirm
-                            ? "border-[var(--error)]"
-                            : ""
-                            }`}
+                          onBlur={() => handlePasswordBlur('confirm')}
+                          className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] pr-10 ${
+                            passwordTouched.confirm && passwordErrors.confirm
+                              ? "border-red-500 focus-visible:ring-red-500"
+                              : ""
+                          }`}
                           placeholder="••••••••"
                         />
                         <button
@@ -781,10 +906,14 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                           )}
                         </button>
                       </div>
-                      {passwordErrors.confirm && (
-                        <p className="text-sm text-[var(--error)]">
+                      {passwordTouched.confirm && passwordErrors.confirm && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-xs text-red-500"
+                        >
                           {passwordErrors.confirm}
-                        </p>
+                        </motion.p>
                       )}
                     </div>
 
@@ -794,69 +923,6 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     >
                       {t('dashboard:profile.security.updateButton')}
                     </Button>
-                  </div>
-                </TabsContent>
-
-                {/* Settings Tab */}
-                <TabsContent value="settings" className="space-y-6">
-                  <div>
-                    <h3 className="text-lg text-[var(--text-main)] mb-1">
-                      {t('dashboard:profile.settings.title')}
-                    </h3>
-                    <p className="text-sm text-[var(--text-sub)]">
-                      {t('dashboard:profile.settings.title')}
-                    </p>
-                  </div>
-
-                  <div className="space-y-6">
-                    {/* Theme */}
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 rounded-lg bg-[var(--accent-cyan)]/10">
-                          {theme === 'dark' ? (
-                            <Moon className="h-5 w-5 text-[var(--accent-cyan)]" />
-                          ) : (
-                            <Sun className="h-5 w-5 text-[var(--warning)]" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-[var(--text-main)]">Chế độ tối</p>
-                          <p className="text-sm text-[var(--text-sub)]">
-                            Giao diện tối dễ nhìn
-                          </p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={theme === 'dark'}
-                        onCheckedChange={toggleTheme}
-                      />
-                    </div>
-
-                    {/* Language */}
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 rounded-lg bg-[var(--primary)]/10">
-                          <Globe className="h-5 w-5 text-[var(--primary)]" />
-                        </div>
-                        <div>
-                          <p className="text-[var(--text-main)]">Ngôn ngữ</p>
-                          <p className="text-sm text-[var(--text-sub)]">
-                            Chọn ngôn ngữ hiển thị
-                          </p>
-                        </div>
-                      </div>
-                      <Select defaultValue="vi">
-                        <SelectTrigger className="w-32 bg-[var(--input-bg)] border-[var(--border)]">
-                          <SelectValue placeholder="Tiếng Việt" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="vi">Tiếng Việt</SelectItem>
-                          <SelectItem value="en">English</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-
                   </div>
                 </TabsContent>
               </Tabs>

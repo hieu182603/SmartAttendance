@@ -28,6 +28,61 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string }>({})
+  const [touched, setTouched] = useState<{ password?: boolean; confirmPassword?: boolean }>({})
+
+  // Validation functions
+  const validatePassword = (password: string): string | undefined => {
+    if (!password) return t('auth:resetPassword.passwordRequired')
+    if (password.length < 8) return t('auth:resetPassword.passwordMinLength')
+    if (!/[A-Z]/.test(password)) return t('auth:resetPassword.passwordHasUpperCase')
+    if (!/[a-z]/.test(password)) return t('auth:resetPassword.passwordHasLowerCase')
+    if (!/[0-9]/.test(password)) return t('auth:resetPassword.passwordHasNumber')
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return t('auth:resetPassword.passwordHasSpecialChar')
+    return undefined
+  }
+
+  const validateConfirmPassword = (confirmPassword: string, password: string): string | undefined => {
+    if (!confirmPassword) return t('auth:resetPassword.confirmPasswordRequired')
+    if (confirmPassword !== password) return t('auth:resetPassword.passwordsNotMatch')
+    return undefined
+  }
+
+  const handleBlur = (field: 'password' | 'confirmPassword') => {
+    setTouched({ ...touched, [field]: true })
+    const newErrors = { ...errors }
+    
+    if (field === 'password') {
+      newErrors.password = validatePassword(formData.password)
+      // Re-validate confirm password if it's already filled
+      if (formData.confirmPassword) {
+        newErrors.confirmPassword = validateConfirmPassword(formData.confirmPassword, formData.password)
+      }
+    } else if (field === 'confirmPassword') {
+      newErrors.confirmPassword = validateConfirmPassword(formData.confirmPassword, formData.password)
+    }
+    
+    setErrors(newErrors)
+  }
+
+  const handlePasswordChange = (value: string) => {
+    setFormData({ ...formData, password: value })
+    if (errors.password) {
+      setErrors({ ...errors, password: undefined })
+    }
+    // Re-validate confirm password when password changes
+    if (formData.confirmPassword) {
+      const confirmError = validateConfirmPassword(formData.confirmPassword, value)
+      setErrors({ ...errors, confirmPassword: confirmError })
+    }
+  }
+
+  const handleConfirmPasswordChange = (value: string) => {
+    setFormData({ ...formData, confirmPassword: value })
+    if (errors.confirmPassword) {
+      setErrors({ ...errors, confirmPassword: undefined })
+    }
+  }
 
   // Password strength validation
   const passwordStrength = {
@@ -44,13 +99,20 @@ export default function ResetPassword() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    if (!isPasswordValid) {
-      toast.error(t('auth:resetPassword.weakPassword'))
-      return
+    // Mark all fields as touched
+    setTouched({ password: true, confirmPassword: true })
+
+    // Validate all fields
+    const newErrors = {
+      password: validatePassword(formData.password),
+      confirmPassword: validateConfirmPassword(formData.confirmPassword, formData.password),
     }
 
-    if (!passwordsMatch) {
-      toast.error(t('auth:resetPassword.confirmPasswordNotMatch'))
+    setErrors(newErrors)
+
+    // Check if form is valid
+    if (newErrors.password || newErrors.confirmPassword) {
+      toast.error(t('auth:resetPassword.formValidationError'))
       return
     }
 
@@ -102,8 +164,11 @@ export default function ResetPassword() {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent pr-10"
+                onChange={(e) => handlePasswordChange(e.target.value)}
+                onBlur={() => handleBlur('password')}
+                className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent pr-10 ${
+                  touched.password && errors.password ? 'border-red-500 focus-visible:ring-red-500' : ''
+                }`}
                 required
                 disabled={isLoading}
               />
@@ -115,6 +180,15 @@ export default function ResetPassword() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {touched.password && errors.password && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-red-500"
+              >
+                {errors.password}
+              </motion.p>
+            )}
           </div>
 
           {/* Password Strength Indicators */}
@@ -169,9 +243,10 @@ export default function ResetPassword() {
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+                onBlur={() => handleBlur('confirmPassword')}
                 className={`bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] focus:ring-[var(--primary)] focus:ring-2 focus:border-transparent pr-10 ${
-                  formData.confirmPassword && !passwordsMatch ? 'border-red-500' : ''
+                  touched.confirmPassword && errors.confirmPassword ? 'border-red-500 focus-visible:ring-red-500' : ''
                 }`}
                 required
                 disabled={isLoading}
@@ -184,13 +259,13 @@ export default function ResetPassword() {
                 {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {formData.confirmPassword && !passwordsMatch && (
+            {touched.confirmPassword && errors.confirmPassword && (
               <motion.p
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="text-xs text-red-500"
               >
-                {t('auth:resetPassword.confirmPasswordNotMatch')}
+                {errors.confirmPassword}
               </motion.p>
             )}
           </div>

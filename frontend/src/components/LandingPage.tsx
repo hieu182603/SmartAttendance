@@ -13,6 +13,16 @@ import {
   CheckCircle,
   Sun,
   Moon,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Instagram,
+  BookOpen,
+  FileText,
+  HelpCircle,
+  Phone,
+  Mail,
+  Building2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/components/ThemeProvider'
@@ -34,6 +44,10 @@ export default function LandingPage() {
       navigate('/employee', { replace: true })
     }
   }, [token, loading, navigate, user])
+
+  const onGetStarted = () => {
+    navigate('/register')
+  }
 
   return (
     <div className="min-h-screen bg-background overflow-hidden relative" style={{ backgroundColor: 'var(--background)' }}>
@@ -186,7 +200,7 @@ export default function LandingPage() {
               className="flex flex-wrap gap-4"
             >
               <Button
-                onClick={() => navigate('/register')}
+                onClick={onGetStarted}
                 size="lg"
                 className="relative overflow-hidden group bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90 transition-all duration-300 text-lg px-8 py-6"
               >
@@ -312,7 +326,7 @@ export default function LandingPage() {
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
-              className="absolute top-10 -right-10 bg-gradient-to-br from-[var(--success)]/90 to-[var(--accent-cyan)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--success)]/30"
+              className="absolute top-10 -right-10 z-20 bg-gradient-to-br from-[var(--success)]/90 to-[var(--accent-cyan)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--success)]/30"
             >
               <MapPin className="h-8 w-8 text-white mb-2" />
               <div className="text-white text-sm">
@@ -331,7 +345,7 @@ export default function LandingPage() {
                 ease: "easeInOut",
                 delay: 1,
               }}
-              className="absolute bottom-10 -left-10 bg-gradient-to-br from-[var(--primary)]/90 to-[var(--warning)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--primary)]/30"
+              className="absolute bottom-10 -left-10 z-20 bg-gradient-to-br from-[var(--primary)]/90 to-[var(--warning)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--primary)]/30"
             >
               <Users className="h-8 w-8 text-white mb-2" />
               <div className="text-white text-sm">
@@ -508,20 +522,139 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--border)] py-12">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center space-x-3 mb-4 md:mb-0">
-              <div className="bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] p-2 rounded-xl">
-                <Clock className="h-5 w-5 text-white" />
+      <footer className="border-t border-[var(--border)] bg-[var(--surface)]/50 backdrop-blur-sm">
+        <div className="container mx-auto px-6 py-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 ">
+            {/* Company Info */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] p-2 rounded-xl">
+                  <Clock className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xl text-[var(--text-main)]">
+                  Attendance Smart
+                </span>
               </div>
-              <span className="text-xl text-[var(--text-main)]">
-                SmartAttendance
-              </span>
+              <p className="text-sm text-[var(--text-sub)] leading-relaxed">
+                Giải pháp chấm công thông minh hàng đầu Việt Nam, 
+                giúp doanh nghiệp quản lý nhân sự hiệu quả và chính xác.
+              </p>
+              <div className="flex items-center space-x-3">
+                <a
+                  href="#"
+                  className="p-2 rounded-lg bg-[var(--shell)] hover:bg-[var(--primary)] text-[var(--text-sub)] hover:text-white transition-all duration-300"
+                >
+                  <Facebook className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="p-2 rounded-lg bg-[var(--shell)] hover:bg-[var(--accent-cyan)] text-[var(--text-sub)] hover:text-white transition-all duration-300"
+                >
+                  <Twitter className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="p-2 rounded-lg bg-[var(--shell)] hover:bg-[var(--primary)] text-[var(--text-sub)] hover:text-white transition-all duration-300"
+                >
+                  <Linkedin className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="p-2 rounded-lg bg-[var(--shell)] hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-500 text-[var(--text-sub)] hover:text-white transition-all duration-300"
+                >
+                  <Instagram className="h-5 w-5" />
+                </a>
+              </div>
             </div>
 
-            <div className="text-[var(--text-sub)] text-sm">
-              © 2024 SmartAttendance. All rights reserved.
+            {/* Quick Links */}
+            <div>
+              <h3 className="text-[var(--text-main)] mb-4 flex items-center space-x-2">
+                <Zap className="h-5 w-5 text-[var(--accent-cyan)]" />
+                <span>Liên kết nhanh</span>
+              </h3>
+              <ul className="space-y-3">
+                {[
+                  { label: 'Về chúng tôi', href: '#' },
+                  { label: 'Tính năng', href: '#' },
+                  { label: 'Bảng giá', href: '#' },
+                  { label: 'Khách hàng', href: '#' },
+                  { label: 'Tin tức', href: '#' },
+                ].map((link, index) => (
+                  <li key={index}>
+                    <a
+                      href={link.href}
+                      className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors duration-300 flex items-center space-x-2 group"
+                    >
+                      <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span>{link.label}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Resources */}
+            <div>
+              <h3 className="text-[var(--text-main)] mb-4 flex items-center space-x-2">
+                <BookOpen className="h-5 w-5 text-[var(--success)]" />
+                <span>Tài nguyên</span>
+              </h3>
+              <ul className="space-y-3">
+                {[
+                  { label: 'Hướng dẫn sử dụng', href: '#', icon: FileText },
+                  { label: 'API Documentation', href: '#', icon: FileText },
+                  { label: 'Câu hỏi thường gặp', href: '#', icon: HelpCircle },
+                  { label: 'Hỗ trợ kỹ thuật', href: '#', icon: Shield },
+                  { label: 'Điều khoản dịch vụ', href: '#', icon: FileText },
+                ].map((link, index) => (
+                  <li key={index}>
+                    <a
+                      href={link.href}
+                      className="text-sm text-[var(--text-sub)] hover:text-[var(--success)] transition-colors duration-300 flex items-center space-x-2 group"
+                    >
+                      <link.icon className="h-4 w-4 opacity-60 group-hover:opacity-100" />
+                      <span>{link.label}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h3 className="text-[var(--text-main)] mb-4 flex items-center space-x-2">
+                <Phone className="h-5 w-5 text-[var(--warning)]" />
+                <span>Liên hệ</span>
+              </h3>
+              <ul className="space-y-4">
+                <li className="flex items-start space-x-3">
+                  <Building2 className="h-5 w-5 text-[var(--text-sub)] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-[var(--text-sub)]">
+                      Tầng 12, Tòa nhà Smart city, Hà Nội
+                    </p>
+                  </div>
+                </li>
+                <li className="flex items-center space-x-3">
+                  <Phone className="h-5 w-5 text-[var(--success)] flex-shrink-0" />
+                  <a
+                    href="tel:1900123456"
+                    className="text-sm text-[var(--text-sub)] hover:text-[var(--success)] transition-colors"
+                  >
+                    1900123456
+                  </a>
+                </li>
+                <li className="flex items-center space-x-3">
+                  <Mail className="h-5 w-5 text-[var(--accent-cyan)] flex-shrink-0" />
+                  <a
+                    href="mailto:hieunguyenn1501@gmail.com"
+                    className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors"
+                  >
+                    hieunguyenn1501@gmail.com
+                  </a>
+                </li>
+              </ul>
             </div>
           </div>
         </div>

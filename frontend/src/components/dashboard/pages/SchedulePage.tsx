@@ -21,7 +21,6 @@ import shiftService from "@/services/shiftService";
 import { getAttendanceHistory } from "@/services/attendanceService";
 import { useAuth } from "@/context/AuthContext";
 
-type ShiftStatus = "completed" | "scheduled" | "missed" | "off";
 
 interface AttendanceRecord {
   id?: string;
@@ -604,18 +603,7 @@ const SchedulePage: React.FC = () => {
   };
 
   const getStatusColor = (status: ShiftStatus): string => {
-    switch (status) {
-      case "completed":
-        return "bg-[var(--success)]/20 text-[var(--success)] border border-[var(--success)]/40 dark:bg-[var(--success)]/10 dark:border-[var(--success)]/25";
-      case "scheduled":
-        return "bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border border-[var(--accent-cyan)]/40 dark:bg-[var(--accent-cyan)]/10 dark:border-[var(--accent-cyan)]/25";
-      case "missed":
-        return "bg-[var(--error)]/20 text-[var(--error)] border border-[var(--error)]/40 dark:bg-[var(--error)]/10 dark:border-[var(--error)]/25";
-      case "off":
-        return "bg-[var(--text-sub)]/20 text-[var(--text-sub)] border border-[var(--text-sub)]/40 dark:bg-[var(--text-sub)]/10 dark:border-[var(--text-sub)]/25";
-      default:
-        return "bg-[var(--surface)] border border-[var(--border)]";
-    }
+    return getShiftStatusBadgeClass(status);
   };
 
 

@@ -94,13 +94,22 @@
       "newPassword": "New Password",
       "confirmPassword": "Confirm New Password",
       "updateButton": "Update Password",
+      "passwordRequirements": "Password requirements:",
+      "minLength": "8+ characters",
+      "hasUpperCase": "A-Z",
+      "hasLowerCase": "a-z",
+      "hasNumber": "0-9",
       "errors": {
         "currentRequired": "Please enter current password",
-        "newRequired": "Please enter new password",
-        "confirmRequired": "Please confirm new password",
-        "minLength": "New password must be at least 6 characters",
-        "notMatch": "New passwords do not match",
-        "currentIncorrect": "Current password is incorrect"
+        "newRequired": "Password is required",
+        "confirmRequired": "Please confirm your password",
+        "minLength": "Password must be at least 8 characters",
+        "hasUpperCase": "Password must contain at least 1 uppercase letter",
+        "hasLowerCase": "Password must contain at least 1 lowercase letter",
+        "hasNumber": "Password must contain at least 1 number",
+        "notMatch": "Passwords do not match",
+        "currentIncorrect": "Current password is incorrect",
+        "formValidationError": "Please check your input information"
       },
       "success": "Password changed successfully!",
       "error": "Failed to change password"

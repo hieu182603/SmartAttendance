@@ -1,19 +1,39 @@
 import { motion } from 'framer-motion'
-import { Sun, Moon, QrCode, MapPin, BarChart3 } from 'lucide-react'
+import { Sun, Moon, QrCode, MapPin, BarChart3, ArrowLeft } from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
 import { Button } from '@/components/ui/button'
+import { Link } from 'react-router-dom'
 
 interface AuthLayoutProps {
   children: React.ReactNode
   title: string
   subtitle?: string
+  showBackButton?: boolean
+  backTo?: string
 }
 
-export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
+export function AuthLayout({ children, title, subtitle, showBackButton = false, backTo = '/' }: AuthLayoutProps) {
   const { toggleTheme } = useTheme()
 
   return (
     <div className="h-screen grid lg:grid-cols-2 relative overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
+      {/* Back Button - Top Left Corner */}
+      {showBackButton && (
+        <motion.div
+          className="absolute top-4 left-4 sm:top-6 sm:left-6 z-50"
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3, type: "spring" }}
+        >
+          <Link
+            to={backTo}
+            className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[var(--surface)]/80 backdrop-blur-xl border border-[var(--border)] hover:bg-[var(--surface)] hover:border-[var(--accent-cyan)] text-[var(--text-main)] hover:text-[var(--accent-cyan)] transition-all duration-300 shadow-lg group"
+          >
+            <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+          </Link>
+        </motion.div>
+      )}
+
       {/* Theme Toggle Button */}
       <motion.div
         className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50"

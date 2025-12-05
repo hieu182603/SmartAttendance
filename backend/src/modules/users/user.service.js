@@ -470,7 +470,10 @@ export class UserService {
       userId,
       { $set: { avatar: avatarUrl, avatarUrl } },
       { new: true, runValidators: true }
-    ).select("-password -otp -otpExpires");
+    )
+      .select("-password -otp -otpExpires")
+      .populate("department", "name code")
+      .populate("branch", "name address");
 
     if (!user) {
       throw new Error("User not found");
