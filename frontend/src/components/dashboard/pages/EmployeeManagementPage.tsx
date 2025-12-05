@@ -514,18 +514,18 @@ const EmployeeManagementPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
             {t('dashboard:employeeManagement.title')}
           </h1>
         </div>
       </div>
       {/* Search & Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardContent className="p-6 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr] gap-4">
+        <CardContent className="p-4 md:p-6 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-3 md:gap-4">
             {/* Search Bar - Wider */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
@@ -606,7 +606,7 @@ const EmployeeManagementPage: React.FC = () => {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-4 text-center">
@@ -643,17 +643,19 @@ const EmployeeManagementPage: React.FC = () => {
 
       {/* Table */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">{t('dashboard:employeeManagement.table.title')}</CardTitle>
+        <CardHeader className="p-4 md:p-6">
+          <CardTitle className="text-[var(--text-main)] text-base md:text-lg">{t('dashboard:employeeManagement.table.title')}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6 pt-0">
           {loading ? (
             <div className="text-center py-12">
               <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.loading')}</p>
             </div>
           ) : (
-            <div className="w-full">
-              <table className="w-full">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block w-full overflow-x-auto">
+                <table className="w-full">
                 <thead>
                   <tr className="bg-[var(--shell)]">
                     <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[18%]">{t('dashboard:employeeManagement.table.employee')}</th>
@@ -694,7 +696,7 @@ const EmployeeManagementPage: React.FC = () => {
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{user.email || t('dashboard:employeeManagement.viewDialog.notAvailable')}</td>
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getDepartmentName(user.department, t)}</td>
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getShiftName(user.defaultShiftId, t)}</td>
-                        <td className="py-2 px-3">{getRoleBadge(user.role, t)}</td>
+                        <td className="py-2 px-3">{getRoleBadge(user.role)}</td>
                         <td className="py-2 px-3">{getStatusBadge(user.isActive, t)}</td>
                         <td className="py-2 px-3">
                           <div className="flex items-center justify-center space-x-1">
@@ -730,12 +732,90 @@ const EmployeeManagementPage: React.FC = () => {
                   )}
                 </tbody>
               </table>
-            </div>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {paginatedUsers.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.noEmployees')}</p>
+                  </div>
+                ) : (
+                  paginatedUsers.map((user, index) => (
+                    <Card
+                      key={user._id || user.id}
+                      className="bg-[var(--shell)] border-[var(--border)]"
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <Avatar className="h-10 w-10 flex-shrink-0">
+                              <AvatarFallback className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white text-xs">
+                                {getAvatarInitials(user.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-[var(--text-main)] truncate">{user.name || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
+                              <p className="text-xs text-[var(--text-sub)] truncate">{user.email || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-1 flex-shrink-0">
+                            <button
+                              onClick={() => handleViewUser(user)}
+                              className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--accent-cyan)]"
+                              title={t('dashboard:employeeManagement.table.viewDetails')}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <RoleGuard permission={Permission.USERS_UPDATE} showDisabled>
+                              <button
+                                onClick={() => handleEditUser(user)}
+                                className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--primary)]"
+                                title={t('dashboard:employeeManagement.table.edit')}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                            </RoleGuard>
+                            <RoleGuard permission={Permission.USERS_DELETE} showDisabled>
+                              <button
+                                onClick={() => handleDeleteUser(user)}
+                                className="p-1.5 hover:bg-[var(--surface)] rounded text-red-500"
+                                title={t('dashboard:employeeManagement.table.disable')}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </RoleGuard>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.department')}</span>
+                            <span className="text-[var(--text-main)]">{getDepartmentName(user.department, t)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.shift') || 'Ca làm việc'}</span>
+                            <span className="text-[var(--text-main)]">{getShiftName(user.defaultShiftId, t)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.role')}</span>
+                            <div>{getRoleBadge(user.role)}</div>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.status')}</span>
+                            <div>{getStatusBadge(user.isActive, t)}</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </>
           )}
 
           {/* Pagination Controls */}
           {paginatedUsers.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 md:gap-4 px-2 py-4 mt-4">
               <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <span>
                   {t('dashboard:employeeManagement.pagination.showing')} {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.total)} {t('dashboard:employeeManagement.pagination.of')} {pagination.total}
@@ -809,31 +889,31 @@ const EmployeeManagementPage: React.FC = () => {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-2xl">
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
           <DialogHeader>
-            <DialogTitle>{t('dashboard:employeeManagement.viewDialog.title')}</DialogTitle>
-            <DialogDescription className="text-[var(--text-sub)]">
+            <DialogTitle className="text-lg md:text-xl">{t('dashboard:employeeManagement.viewDialog.title')}</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)] text-sm">
               {t('dashboard:employeeManagement.viewDialog.description')}
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-6">
-              <div className="flex items-center space-x-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarFallback className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white text-xl">
+            <div className="space-y-4 md:space-y-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
+                <Avatar className="h-16 w-16 sm:h-20 sm:w-20">
+                  <AvatarFallback className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white text-lg sm:text-xl">
                     {getAvatarInitials(selectedUser.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <h3 className="text-xl text-[var(--text-main)]">{selectedUser.name || t('dashboard:employeeManagement.viewDialog.notAvailable')}</h3>
-                  <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.id')} {selectedUser._id || selectedUser.id}</p>
-                  {getStatusBadge(selectedUser.isActive, t)}
+                <div className="text-center sm:text-left flex-1">
+                  <h3 className="text-lg sm:text-xl text-[var(--text-main)]">{selectedUser.name || t('dashboard:employeeManagement.viewDialog.notAvailable')}</h3>
+                  <p className="text-xs sm:text-sm text-[var(--text-sub)] mt-1">{t('dashboard:employeeManagement.viewDialog.id')} {selectedUser._id || selectedUser.id}</p>
+                  <div className="mt-2 flex justify-center sm:justify-start">{getStatusBadge(selectedUser.isActive, t)}</div>
                 </div>
               </div>
 
               <Separator className="bg-[var(--border)]" />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.email')}</Label>
                   <p className="text-[var(--text-main)] mt-1">{selectedUser.email || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
@@ -848,7 +928,7 @@ const EmployeeManagementPage: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.role')}</Label>
-                  <div className="mt-1">{getRoleBadge(selectedUser.role, t)}</div>
+                  <div className="mt-1">{getRoleBadge(selectedUser.role)}</div>
                 </div>
                 <div>
                   <Label className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.viewDialog.phone')}</Label>
@@ -881,15 +961,15 @@ const EmployeeManagementPage: React.FC = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-4xl">
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
           <DialogHeader>
-            <DialogTitle className="text-xl">{t('dashboard:employeeManagement.editDialog.title')}</DialogTitle>
-            <DialogDescription className="text-[var(--text-sub)]">
+            <DialogTitle className="text-lg md:text-xl">{t('dashboard:employeeManagement.editDialog.title')}</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)] text-sm">
               {t('dashboard:employeeManagement.editDialog.description')} <strong className="text-[var(--text-main)]">{selectedUser?.name}</strong>
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-6 pt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 pt-4">
             {/* Left Column */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-[var(--border)]">
@@ -1094,7 +1174,7 @@ const EmployeeManagementPage: React.FC = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] mx-4 max-w-md">
           <DialogHeader>
             <DialogTitle>{t('dashboard:employeeManagement.deleteDialog.title')}</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
