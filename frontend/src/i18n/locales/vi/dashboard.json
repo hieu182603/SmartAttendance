@@ -453,6 +453,7 @@
     "shift": "ca",
     "error": "Lỗi tải ca làm việc:",
     "timeRange": "Khung giờ làm việc",
+    "timeRangeMonth": "Tháng này",
     "legend": {
       "done": "Hoàn thành",
       "today": "Hôm nay",

@@ -355,6 +355,16 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     }
   };
 
+  // Ensure avatar URL is https to avoid mixed-content blocking on https pages
+  const getAvatarSrc = (): string => {
+    const raw = currentUser?.avatar || currentUser?.avatarUrl;
+    if (raw) {
+      const safeUrl = raw.startsWith("http://") ? raw.replace("http://", "https://") : raw;
+      return `${safeUrl}?t=${avatarTimestamp}`;
+    }
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name || "user"}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -395,11 +405,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     <Avatar className="h-32 w-32 border-4 border-[var(--accent-cyan)] shadow-lg">
                       <AvatarImage
                         key={`avatar-${avatarTimestamp}-${currentUser?.avatar || currentUser?.avatarUrl || 'default'}`}
-                        src={
-                          (currentUser?.avatar || currentUser?.avatarUrl)
-                            ? `${currentUser.avatar || currentUser.avatarUrl}?t=${avatarTimestamp}`
-                            : `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name || "user"}`
-                        }
+                        src={getAvatarSrc()}
                         onError={(e) => {
                           console.error('Avatar load error:', e);
                           // Fallback to default if avatar fails to load
