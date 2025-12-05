@@ -47,21 +47,58 @@ export function useNotifications() {
       // Emit custom browser event để các màn hình khác (ví dụ: RequestsPage)
       // có thể lắng nghe và refetch dữ liệu liên quan mà không phụ thuộc trực tiếp vào hook này
       try {
-        if (typeof window !== 'undefined' && notification.relatedEntityType === 'request') {
-          const event = new CustomEvent('request-status-changed', {
-            detail: notification,
-          })
-          window.dispatchEvent(event)
+        if (typeof window !== 'undefined') {
+          if (notification.relatedEntityType === 'request') {
+            const event = new CustomEvent('request-status-changed', {
+              detail: notification,
+            })
+            window.dispatchEvent(event)
+          } else if (notification.relatedEntityType === 'payroll') {
+            const event = new CustomEvent('payroll-status-changed', {
+              detail: notification,
+            })
+            window.dispatchEvent(event)
+          }
         }
       } catch {
         // Fail silently nếu môi trường không hỗ trợ CustomEvent (rất hiếm)
       }
     }
 
+    const handleAttendanceUpdate = (data: any) => {
+      try {
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('attendance-updated', {
+            detail: data,
+          })
+          window.dispatchEvent(event)
+        }
+      } catch {
+        // Fail silently
+      }
+    }
+
+    const handlePayrollUpdate = (data: any) => {
+      try {
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('payroll-updated', {
+            detail: data,
+          })
+          window.dispatchEvent(event)
+        }
+      } catch {
+        // Fail silently
+      }
+    }
+
     socket.on('notification', handleNotification)
+    socket.on('attendance-updated', handleAttendanceUpdate)
+    socket.on('payroll-updated', handlePayrollUpdate)
 
     return () => {
       socket.off('notification', handleNotification)
+      socket.off('attendance-updated', handleAttendanceUpdate)
+      socket.off('payroll-updated', handlePayrollUpdate)
     }
   }, [socket])
 

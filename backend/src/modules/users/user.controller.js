@@ -552,7 +552,7 @@ export class UserController {
 
       // Lấy thông tin manager để biết department
       const manager = await UserModel.findById(managerId).select("department");
-      
+
       if (!manager || !manager.department) {
         return res.json({ users: [] });
       }

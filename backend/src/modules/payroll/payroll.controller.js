@@ -1,4 +1,5 @@
 import { PayrollReportModel } from "./payroll.model.js";
+import { emitPayrollUpdate } from "../../config/socket.js";
 
 const sanitizeNumber = (value = 0) => {
   if (Number.isFinite(value)) return value;
@@ -178,7 +179,7 @@ export const approvePayrollRecord = async (req, res) => {
         type: "system",
         title: "Bảng lương đã được duyệt",
         message: `Bảng lương tháng ${updated.month || record.month} của bạn đã được duyệt.`,
-        relatedEntityType: "other",
+        relatedEntityType: "payroll",
         relatedEntityId: updated._id,
         metadata: {
           month: updated.month || record.month,
@@ -187,6 +188,22 @@ export const approvePayrollRecord = async (req, res) => {
       });
     } catch (notifError) {
       console.error("[payroll] approve notification error", notifError);
+    }
+
+    // Emit real-time payroll update
+    try {
+      const payrollData = {
+        _id: updated._id.toString(),
+        userId: updated.userId?._id?.toString() || record.userId?.toString(),
+        month: updated.month || record.month,
+        status: "approved",
+        action: "approved",
+      };
+      if (payrollData.userId) {
+        emitPayrollUpdate(payrollData.userId, payrollData);
+      }
+    } catch (socketError) {
+      console.error("[payroll] Error emitting approve update:", socketError);
     }
 
     res.json({ data: updated });
@@ -232,7 +249,7 @@ export const markPayrollAsPaid = async (req, res) => {
         type: "system",
         title: "Bảng lương đã được thanh toán",
         message: `Bảng lương tháng ${updated.month || record.month} của bạn đã được thanh toán.`,
-        relatedEntityType: "other",
+        relatedEntityType: "payroll",
         relatedEntityId: updated._id,
         metadata: {
           month: updated.month || record.month,
@@ -241,6 +258,22 @@ export const markPayrollAsPaid = async (req, res) => {
       });
     } catch (notifError) {
       console.error("[payroll] paid notification error", notifError);
+    }
+
+    // Emit real-time payroll update
+    try {
+      const payrollData = {
+        _id: updated._id.toString(),
+        userId: updated.userId?._id?.toString() || record.userId?.toString(),
+        month: updated.month || record.month,
+        status: "paid",
+        action: "paid",
+      };
+      if (payrollData.userId) {
+        emitPayrollUpdate(payrollData.userId, payrollData);
+      }
+    } catch (socketError) {
+      console.error("[payroll] Error emitting paid update:", socketError);
     }
 
     res.json({ data: updated });

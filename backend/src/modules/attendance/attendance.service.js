@@ -3,6 +3,7 @@ import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { AttendanceModel } from "./attendance.model.js";
 import { BranchModel } from "../branches/branch.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
+import { emitAttendanceUpdate, emitAttendanceUpdateToAdmins } from "../../config/socket.js";
 
 // ============================================================================
 // CONSTANTS
@@ -133,6 +134,21 @@ export const validateAndFindBranch = async (latitude, longitude) => {
 // ============================================================================
 
 /**
+ * Lấy giờ và phút theo timezone GMT+7 (Việt Nam) từ một Date object
+ * @param {Date} date - Date object (có thể ở bất kỳ timezone nào)
+ * @returns {Object} { hour, minute } - Giờ và phút theo GMT+7
+ */
+export const getTimeInGMT7 = (date) => {
+  // Convert sang GMT+7 bằng cách thêm 7 giờ vào UTC
+  const utcTime = date.getTime() + (date.getTimezoneOffset() * 60 * 1000);
+  const gmt7Time = new Date(utcTime + (7 * 60 * 60 * 1000));
+  return {
+    hour: gmt7Time.getUTCHours(),
+    minute: gmt7Time.getUTCMinutes(),
+  };
+};
+
+/**
  * Format ngày thành label (DD/MM/YYYY)
  * @param {Date} date - Ngày cần format
  * @returns {string}
@@ -146,7 +162,7 @@ export const formatDateLabel = (date) => {
 };
 
 /**
- * Format thời gian thành HH:MM
+ * Format thời gian thành HH:MM (theo GMT+7)
  * @param {Date|string} value - Thời gian cần format
  * @returns {string}
  */
@@ -154,7 +170,9 @@ export const formatTime = (value) => {
   if (!value) return "-";
   const d = new Date(value);
   const pad = (v) => String(v).padStart(2, "0");
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // Sử dụng GMT+7 để format (tránh lỗi timezone khi deploy)
+  const { hour, minute } = getTimeInGMT7(d);
+  return `${pad(hour)}:${pad(minute)}`;
 };
 
 /**
@@ -379,12 +397,15 @@ export const checkLateStatus = (checkInTime, shiftInfo) => {
   const startTime = shiftInfo?.startTime || SHIFT_CONFIG.DEFAULT_START_TIME;
   const [startHour, startMinute] = startTime.split(":").map(Number);
 
-  const dateOnly = new Date(checkInTime);
-  dateOnly.setHours(0, 0, 0, 0);
-  const lateTime = new Date(dateOnly);
-  lateTime.setHours(startHour, startMinute + LATE_TOLERANCE_MINUTES, 0, 0);
-
-  return checkInTime > lateTime;
+  // Lấy giờ/phút của checkInTime theo GMT+7
+  const { hour: checkInHour, minute: checkInMinute } = getTimeInGMT7(checkInTime);
+  const checkInTimeInMinutes = checkInHour * 60 + checkInMinute;
+  
+  // Tính thời gian muộn (startTime + tolerance) theo phút
+  const lateTimeInMinutes = startHour * 60 + startMinute + LATE_TOLERANCE_MINUTES;
+  
+  // So sánh: nếu checkInTime > lateTime thì đi muộn
+  return checkInTimeInMinutes > lateTimeInMinutes;
 };
 
 /**
@@ -409,24 +430,24 @@ export const checkEarlyLeaveOrOvertime = (checkOutTime, shiftInfo) => {
   const endTime = shiftInfo?.endTime || SHIFT_CONFIG.DEFAULT_END_TIME;
   const [endHour, endMinute] = endTime.split(":").map(Number);
 
-  const dateOnly = new Date(checkOutTime);
-  dateOnly.setHours(0, 0, 0, 0);
-  const shiftEndTime = new Date(dateOnly);
-  shiftEndTime.setHours(endHour, endMinute, 0, 0);
+  // Lấy giờ/phút của checkOutTime theo GMT+7
+  const { hour: checkOutHour, minute: checkOutMinute } = getTimeInGMT7(checkOutTime);
+  const checkOutTimeInMinutes = checkOutHour * 60 + checkOutMinute;
+  
+  // Tính các mốc thời gian theo phút
+  const shiftEndTimeInMinutes = endHour * 60 + endMinute;
+  const earliestLeaveTimeInMinutes = shiftEndTimeInMinutes - EARLY_TOLERANCE_MINUTES;
 
-  const earliestLeaveTime = new Date(shiftEndTime);
-  earliestLeaveTime.setMinutes(
-    earliestLeaveTime.getMinutes() - EARLY_TOLERANCE_MINUTES
-  );
-
+  // Tính số phút về sớm
   const minutesEarly =
-    checkOutTime < earliestLeaveTime
-      ? Math.round((earliestLeaveTime - checkOutTime) / (1000 * 60))
+    checkOutTimeInMinutes < earliestLeaveTimeInMinutes
+      ? earliestLeaveTimeInMinutes - checkOutTimeInMinutes
       : 0;
 
+  // Tính số phút tăng ca
   const minutesOvertime =
-    checkOutTime > shiftEndTime
-      ? Math.round((checkOutTime - shiftEndTime) / (1000 * 60))
+    checkOutTimeInMinutes > shiftEndTimeInMinutes
+      ? checkOutTimeInMinutes - shiftEndTimeInMinutes
       : 0;
 
   return {
@@ -452,8 +473,8 @@ export const canCheckInEarly = (currentTime, shiftInfo) => {
   const startTime = shiftInfo?.startTime || SHIFT_CONFIG.DEFAULT_START_TIME;
   const [startHour, startMinute] = startTime.split(":").map(Number);
 
-  const currentHour = currentTime.getHours();
-  const currentMinute = currentTime.getMinutes();
+  // Sử dụng GMT+7 để so sánh (tránh lỗi timezone khi deploy)
+  const { hour: currentHour, minute: currentMinute } = getTimeInGMT7(currentTime);
   const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
   const workStartInMinutes = startHour * 60 + startMinute;
@@ -789,6 +810,26 @@ export const processCheckIn = async (
 
     await attendance.save();
 
+    // Emit real-time update to user and admins
+    try {
+      const attendanceData = {
+        _id: attendance._id.toString(),
+        userId: attendance.userId.toString(),
+        date: attendance.date,
+        checkIn: attendance.checkIn,
+        checkOut: attendance.checkOut,
+        status: attendance.status,
+        workHours: attendance.workHours,
+        locationId: attendance.locationId?.toString(),
+        action: "check-in",
+      };
+      emitAttendanceUpdate(userId, attendanceData);
+      emitAttendanceUpdateToAdmins(attendanceData);
+    } catch (socketError) {
+      console.error("[attendance] Error emitting check-in update:", socketError);
+      // Don't fail if socket emit fails
+    }
+
     const statusMsg = attendance.status === "late" ? " (Đi muộn)" : "";
     const message = `Chấm công thành công!${statusMsg} (${shiftInfo.shiftName})`;
 
@@ -942,6 +983,26 @@ export const processCheckOut = async (
 
     attendance.calculateWorkHours();
     await attendance.save();
+
+    // Emit real-time update to user and admins
+    try {
+      const attendanceData = {
+        _id: attendance._id.toString(),
+        userId: attendance.userId.toString(),
+        date: attendance.date,
+        checkIn: attendance.checkIn,
+        checkOut: attendance.checkOut,
+        status: attendance.status,
+        workHours: attendance.workHours,
+        locationId: attendance.locationId?.toString(),
+        action: "check-out",
+      };
+      emitAttendanceUpdate(userId, attendanceData);
+      emitAttendanceUpdateToAdmins(attendanceData);
+    } catch (socketError) {
+      console.error("[attendance] Error emitting check-out update:", socketError);
+      // Don't fail if socket emit fails
+    }
 
     const workHours = attendance.workHours
       ? `${Math.floor(attendance.workHours)}h ${Math.round(
