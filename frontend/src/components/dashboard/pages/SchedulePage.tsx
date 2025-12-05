@@ -20,6 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import shiftService from "@/services/shiftService";
 import { getAttendanceHistory } from "@/services/attendanceService";
 import { useAuth } from "@/context/AuthContext";
+import { getShiftStatusBadgeClass, type ShiftStatus } from "@/utils/attendanceStatus";
 
 
 interface AttendanceRecord {
