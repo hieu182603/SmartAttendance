@@ -179,7 +179,6 @@ const ScanPage: React.FC = () => {
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [offices, setOffices] = useState<Office[]>([]);
-  const [showOvertimeWarning, setShowOvertimeWarning] = useState(false);
 
   // ==========================================================================
   // REFS
@@ -200,17 +199,6 @@ const ScanPage: React.FC = () => {
     checkInTime,
   } = state;
 
-  const getWorkedHours = useCallback(() => {
-    if (!checkInTime || hasCheckedOut) return null;
-    const now = new Date();
-    const hoursWorked =
-      (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-    const hours = Math.floor(hoursWorked);
-    const minutes = Math.floor((hoursWorked - hours) * 60);
-    return { hours, minutes, total: hoursWorked };
-  }, [checkInTime, hasCheckedOut]);
-
-  const workedTime = getWorkedHours();
 
   // ==========================================================================
   // CAMERA FUNCTIONS
@@ -402,7 +390,6 @@ const ScanPage: React.FC = () => {
           checkInTime: now,
           canCheckOut: false,
         }));
-        setShowOvertimeWarning(false);
 
         if (response.data.data) {
           const { distance, location } = response.data.data;
@@ -466,7 +453,6 @@ const ScanPage: React.FC = () => {
 
       if (response.data.success) {
         setState((prev) => ({ ...prev, hasCheckedOut: true }));
-        setShowOvertimeWarning(false);
 
         if (response.data.data) {
           const { distance, location } = response.data.data;
@@ -606,7 +592,7 @@ const ScanPage: React.FC = () => {
     return () => clearInterval(checkNewDay);
   }, []);
 
-  // Monitor work hours and show overtime warning
+  // Monitor work hours and show toast notifications
   useEffect(() => {
     if (!checkInTime || hasCheckedOut) return;
 
@@ -614,12 +600,11 @@ const ScanPage: React.FC = () => {
     const hoursWorked =
       (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
-    if (hoursWorked >= MIN_WORK_HOURS) {
+    if (hoursWorked >= MIN_WORK_HOURS && !canCheckOut) {
       setState((prev) => ({ ...prev, canCheckOut: true }));
-    }
-
-    if (hoursWorked >= STANDARD_WORK_HOURS) {
-      setShowOvertimeWarning(true);
+      toast.success("✅ Bạn đã có thể check-out!", {
+        duration: 5000,
+      });
     }
 
     const checkInterval = setInterval(() => {
@@ -629,12 +614,16 @@ const ScanPage: React.FC = () => {
 
       if (hoursWorked >= MIN_WORK_HOURS && !canCheckOut) {
         setState((prev) => ({ ...prev, canCheckOut: true }));
+        toast.success("✅ Bạn đã có thể check-out!", {
+          duration: 5000,
+        });
       }
 
-      if (hoursWorked >= STANDARD_WORK_HOURS && !showOvertimeWarning) {
-        setShowOvertimeWarning(true);
+      if (hoursWorked >= STANDARD_WORK_HOURS) {
+        const hours = Math.floor(hoursWorked);
+        const minutes = Math.floor((hoursWorked - hours) * 60);
         toast.warning(
-          "⏰ Bạn đã làm việc được 8 tiếng! Đừng quên check-out nhé.",
+          `⏰ Bạn đã làm việc được ${hours}h ${minutes}m! Đừng quên check-out nhé.`,
           {
             duration: 10000,
           }
@@ -643,7 +632,7 @@ const ScanPage: React.FC = () => {
     }, WORK_HOURS_CHECK_INTERVAL);
 
     return () => clearInterval(checkInterval);
-  }, [checkInTime, hasCheckedOut, canCheckOut, showOvertimeWarning]);
+  }, [checkInTime, hasCheckedOut, canCheckOut]);
 
   // Initialize camera on mount
   useEffect(() => {
@@ -658,57 +647,6 @@ const ScanPage: React.FC = () => {
   // ==========================================================================
   return (
     <div className="space-y-6">
-      {/* Overtime Warning */}
-      {showOvertimeWarning && hasCheckedIn && !hasCheckedOut && (
-        <div className="rounded-lg border-2 border-orange-500 bg-orange-50 dark:bg-orange-900/20 p-4 animate-pulse">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-6 w-6 text-orange-600 dark:text-orange-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-orange-800 dark:text-orange-300">
-                ⏰ Nhắc nhở: Đã quá giờ làm việc!
-              </h3>
-              <p className="mt-1 text-sm text-orange-700 dark:text-orange-400">
-                Bạn đã làm việc {workedTime?.hours}h {workedTime?.minutes}m.
-                Đừng quên check-out để ghi nhận thời gian làm việc chính xác
-                nhé!
-              </p>
-            </div>
-            <button
-              onClick={() => setShowOvertimeWarning(false)}
-              className="flex-shrink-0 text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
@@ -776,69 +714,6 @@ const ScanPage: React.FC = () => {
               )}
             </div>
           </div>
-
-          {/* Work Time */}
-          {hasCheckedIn && !hasCheckedOut && workedTime && (
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--text-main)]">
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Thời gian làm việc
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-sub)]">Đã làm việc:</span>
-                  <span
-                    className={`font-mono font-semibold ${
-                      workedTime.total >= 8
-                        ? "text-orange-600 dark:text-orange-400"
-                        : "text-[var(--text-main)]"
-                    }`}
-                  >
-                    {workedTime.hours}h {workedTime.minutes}m
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-sub)]">Check-in lúc:</span>
-                  <span className="font-mono text-[var(--text-main)]">
-                    {checkInTime?.toLocaleTimeString("vi-VN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-                {workedTime.total >= 8 && (
-                  <div className="mt-2 pt-2 border-t border-[var(--border)]">
-                    <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                      <svg
-                        className="h-3 w-3"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      Đã quá 8 giờ làm việc
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Location Info */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
