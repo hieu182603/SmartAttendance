@@ -12,6 +12,8 @@ export const UserRole = {
 export type UserRoleType = typeof UserRole[keyof typeof UserRole];
 
 // Role hierarchy - higher number = more permissions
+// IMPORTANT: This must match backend/src/config/roles.config.js ROLE_HIERARCHY
+// If you change this, you must also update the backend file
 export const ROLE_HIERARCHY: Record<UserRoleType, number> = {
     [UserRole.SUPER_ADMIN]: 5,
     [UserRole.ADMIN]: 4,
@@ -160,17 +162,69 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.AUDIT_LOGS_VIEW,
     ],
 
-    [UserRole.SUPER_ADMIN]: Object.values(Permission) as PermissionType[], // All permissions
+    [UserRole.SUPER_ADMIN]: [
+        // Attendance
+        Permission.ATTENDANCE_VIEW_OWN,
+        Permission.ATTENDANCE_VIEW_DEPARTMENT,
+        Permission.ATTENDANCE_VIEW_ALL,
+        Permission.ATTENDANCE_MANUAL_CHECKIN,
+        Permission.ATTENDANCE_APPROVE,
+        // Requests
+        Permission.REQUESTS_CREATE,
+        Permission.REQUESTS_VIEW_OWN,
+        Permission.REQUESTS_APPROVE_DEPARTMENT,
+        Permission.REQUESTS_APPROVE_ALL,
+        // Analytics
+        Permission.ANALYTICS_VIEW_DEPARTMENT,
+        Permission.ANALYTICS_VIEW_ALL,
+        Permission.VIEW_REPORTS,
+        // User Management
+        Permission.USERS_VIEW,
+        Permission.USERS_CREATE,
+        Permission.USERS_UPDATE,
+        Permission.USERS_DELETE,
+        Permission.USERS_MANAGE_ROLE,
+        // Payroll
+        Permission.PAYROLL_VIEW,
+        Permission.PAYROLL_MANAGE,
+        Permission.PAYROLL_EXPORT,
+        // Departments
+        Permission.DEPARTMENTS_VIEW,
+        Permission.DEPARTMENTS_MANAGE,
+        // Branches
+        Permission.BRANCHES_VIEW,
+        Permission.BRANCHES_MANAGE,
+        // System
+        Permission.SYSTEM_SETTINGS_VIEW,
+        Permission.SYSTEM_SETTINGS_UPDATE,
+        Permission.AUDIT_LOGS_VIEW,
+    ] as PermissionType[], // All permissions (explicit list to avoid duplicates from legacy permissions)
 };
 
 // Helper Functions
 
 /**
- * Check if a role has a specific permission
+ * Check if a role has a specific permission (with hierarchy support)
+ * Higher level permissions automatically grant access to lower level permissions
  */
 export function hasPermission(role: UserRoleType, permission: PermissionType): boolean {
     const permissions = ROLE_PERMISSIONS[role];
-    return permissions ? permissions.includes(permission) : false;
+    if (!permissions) return false;
+    
+    // Direct permission check
+    if (permissions.includes(permission)) return true;
+    
+    // Check for higher level permissions (hierarchy)
+    const permissionHierarchy: Record<string, string[]> = {
+        [Permission.REQUESTS_APPROVE_DEPARTMENT]: [Permission.REQUESTS_APPROVE_ALL],
+        [Permission.ATTENDANCE_VIEW_DEPARTMENT]: [Permission.ATTENDANCE_VIEW_ALL],
+        [Permission.ANALYTICS_VIEW_DEPARTMENT]: [Permission.ANALYTICS_VIEW_ALL],
+        [Permission.ATTENDANCE_VIEW_OWN]: [Permission.ATTENDANCE_VIEW_DEPARTMENT, Permission.ATTENDANCE_VIEW_ALL],
+        [Permission.REQUESTS_VIEW_OWN]: [Permission.REQUESTS_APPROVE_DEPARTMENT, Permission.REQUESTS_APPROVE_ALL],
+    };
+    
+    const higherPermissions = permissionHierarchy[permission] || [];
+    return higherPermissions.some(perm => permissions.includes(perm as PermissionType));
 }
 
 /**

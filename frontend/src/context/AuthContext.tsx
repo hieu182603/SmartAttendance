@@ -70,11 +70,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }
 
   const logout = () => {
+    // Clear all storage immediately
     localStorage.removeItem('sa_token')
     localStorage.removeItem('sa_user_role')
+    sessionStorage.clear()
+    
+    // Clear state immediately
     setToken('')
     setUser(null)
-    setLoading(false) 
+    setLoading(false)
+    
+    // Cancel any pending API requests by clearing token in interceptor
+    // The API interceptor will handle this automatically
+    
+    // Redirect to login immediately (don't wait for React state updates)
+    // Use window.location for immediate redirect to prevent any delays
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login'
+    }
   }
 
   const value = useMemo(() => ({ token, user, loading, login, logout, setUser, setToken }), [token, user, loading])

@@ -224,7 +224,7 @@ export default function App() {
                 </Route>
                 <Route 
                   path="shifts" 
-                  element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_ALL} />}
+                  element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_DEPARTMENT} />}
                 >
                   <Route index element={<ShiftsPage />} />
                 </Route>
@@ -291,7 +291,7 @@ export default function App() {
                 </Route>
                 <Route 
                   path="shifts" 
-                  element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_ALL} />}
+                  element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_DEPARTMENT} />}
                 >
                   <Route index element={<ShiftsPage />} />
                 </Route>

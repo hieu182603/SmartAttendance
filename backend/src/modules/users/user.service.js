@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { UserModel } from "./user.model.js";
 import { DepartmentModel } from "../departments/department.model.js";
 import { BranchModel } from "../branches/branch.model.js";
+import { canManageRole } from "../../config/roles.config.js";
 
 export class UserService {
   /**
@@ -300,23 +301,9 @@ export class UserService {
 
     // Kiểm tra phân quyền role assignment nếu có thay đổi role
     if (updateFields.role && currentUserRole) {
-      const roleHierarchy = {
-        EMPLOYEE: 1,
-        MANAGER: 2,
-        HR_MANAGER: 3,
-        ADMIN: 4,
-        SUPER_ADMIN: 5
-      };
-
-      const currentLevel = roleHierarchy[currentUserRole] || 0;
-      const targetLevel = roleHierarchy[updateFields.role] || 0;
-
-      // SUPER_ADMIN có thể assign tất cả roles
-      if (currentUserRole !== "SUPER_ADMIN") {
-        // Các role khác chỉ có thể assign role thấp hơn mình
-        if (currentLevel <= targetLevel) {
-          throw new Error(`Bạn không có quyền phân quyền role ${updateFields.role}`);
-        }
+      // Use centralized role hierarchy check
+      if (!canManageRole(currentUserRole, updateFields.role)) {
+        throw new Error(`Bạn không có quyền phân quyền role ${updateFields.role}`);
       }
     }
 
