@@ -3,7 +3,10 @@ import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { AttendanceModel } from "./attendance.model.js";
 import { BranchModel } from "../branches/branch.model.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
-import { emitAttendanceUpdate, emitAttendanceUpdateToAdmins } from "../../config/socket.js";
+import {
+  emitAttendanceUpdate,
+  emitAttendanceUpdateToAdmins,
+} from "../../config/socket.js";
 
 // ============================================================================
 // CONSTANTS
@@ -99,7 +102,7 @@ export const validateAndFindBranch = async (latitude, longitude) => {
 
   // Tìm tất cả branch active
   const branches = await BranchModel.find({ status: "active" });
-  
+
   // Kiểm tra nếu không có branch nào active
   if (!branches || branches.length === 0) {
     return {
@@ -140,8 +143,8 @@ export const validateAndFindBranch = async (latitude, longitude) => {
  */
 export const getTimeInGMT7 = (date) => {
   // Convert sang GMT+7 bằng cách thêm 7 giờ vào UTC
-  const utcTime = date.getTime() + (date.getTimezoneOffset() * 60 * 1000);
-  const gmt7Time = new Date(utcTime + (7 * 60 * 60 * 1000));
+  const utcTime = date.getTime() + date.getTimezoneOffset() * 60 * 1000;
+  const gmt7Time = new Date(utcTime + 7 * 60 * 60 * 1000);
   return {
     hour: gmt7Time.getUTCHours(),
     minute: gmt7Time.getUTCMinutes(),
@@ -162,17 +165,21 @@ export const formatDateLabel = (date) => {
 };
 
 /**
- * Format thời gian thành HH:MM (theo GMT+7)
+ * Format thời gian thành HH:MM (theo GMT+7 - Việt Nam)
  * @param {Date|string} value - Thời gian cần format
  * @returns {string}
  */
 export const formatTime = (value) => {
   if (!value) return "-";
   const d = new Date(value);
-  const pad = (v) => String(v).padStart(2, "0");
-  // Sử dụng GMT+7 để format (tránh lỗi timezone khi deploy)
-  const { hour, minute } = getTimeInGMT7(d);
-  return `${pad(hour)}:${pad(minute)}`;
+  // Sử dụng toLocaleTimeString với timezone Asia/Ho_Chi_Minh để đảm bảo thời gian chính xác
+  const timeString = d.toLocaleTimeString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return timeString;
 };
 
 /**
@@ -398,12 +405,14 @@ export const checkLateStatus = (checkInTime, shiftInfo) => {
   const [startHour, startMinute] = startTime.split(":").map(Number);
 
   // Lấy giờ/phút của checkInTime theo GMT+7
-  const { hour: checkInHour, minute: checkInMinute } = getTimeInGMT7(checkInTime);
+  const { hour: checkInHour, minute: checkInMinute } =
+    getTimeInGMT7(checkInTime);
   const checkInTimeInMinutes = checkInHour * 60 + checkInMinute;
-  
+
   // Tính thời gian muộn (startTime + tolerance) theo phút
-  const lateTimeInMinutes = startHour * 60 + startMinute + LATE_TOLERANCE_MINUTES;
-  
+  const lateTimeInMinutes =
+    startHour * 60 + startMinute + LATE_TOLERANCE_MINUTES;
+
   // So sánh: nếu checkInTime > lateTime thì đi muộn
   return checkInTimeInMinutes > lateTimeInMinutes;
 };
@@ -431,12 +440,14 @@ export const checkEarlyLeaveOrOvertime = (checkOutTime, shiftInfo) => {
   const [endHour, endMinute] = endTime.split(":").map(Number);
 
   // Lấy giờ/phút của checkOutTime theo GMT+7
-  const { hour: checkOutHour, minute: checkOutMinute } = getTimeInGMT7(checkOutTime);
+  const { hour: checkOutHour, minute: checkOutMinute } =
+    getTimeInGMT7(checkOutTime);
   const checkOutTimeInMinutes = checkOutHour * 60 + checkOutMinute;
-  
+
   // Tính các mốc thời gian theo phút
   const shiftEndTimeInMinutes = endHour * 60 + endMinute;
-  const earliestLeaveTimeInMinutes = shiftEndTimeInMinutes - EARLY_TOLERANCE_MINUTES;
+  const earliestLeaveTimeInMinutes =
+    shiftEndTimeInMinutes - EARLY_TOLERANCE_MINUTES;
 
   // Tính số phút về sớm
   const minutesEarly =
@@ -474,7 +485,8 @@ export const canCheckInEarly = (currentTime, shiftInfo) => {
   const [startHour, startMinute] = startTime.split(":").map(Number);
 
   // Sử dụng GMT+7 để so sánh (tránh lỗi timezone khi deploy)
-  const { hour: currentHour, minute: currentMinute } = getTimeInGMT7(currentTime);
+  const { hour: currentHour, minute: currentMinute } =
+    getTimeInGMT7(currentTime);
   const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
   const workStartInMinutes = startHour * 60 + startMinute;
@@ -715,10 +727,28 @@ export const processCheckIn = async (
     const now = new Date();
     const dateOnly = getDateOnly(now);
 
+    // Chặn chấm công vào cuối tuần (Thứ Bảy và Chủ Nhật)
+    const dayOfWeek = now.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
+      return {
+        success: false,
+        data: null,
+        error: `Không thể chấm công vào ${dayName}. Vui lòng chấm công vào ngày làm việc (Thứ Hai - Thứ Sáu).`,
+        code: "WEEKEND_NOT_ALLOWED",
+      };
+    }
+
     // Chặn chấm công nếu hôm nay đang trong thời gian nghỉ đã được duyệt
     try {
       const { RequestModel } = await import("../requests/request.model.js");
-      const leaveTypes = ["leave", "sick", "unpaid", "compensatory", "maternity"];
+      const leaveTypes = [
+        "leave",
+        "sick",
+        "unpaid",
+        "compensatory",
+        "maternity",
+      ];
 
       const approvedLeave = await RequestModel.findOne({
         userId,
@@ -826,7 +856,10 @@ export const processCheckIn = async (
       emitAttendanceUpdate(userId, attendanceData);
       emitAttendanceUpdateToAdmins(attendanceData);
     } catch (socketError) {
-      console.error("[attendance] Error emitting check-in update:", socketError);
+      console.error(
+        "[attendance] Error emitting check-in update:",
+        socketError
+      );
       // Don't fail if socket emit fails
     }
 
@@ -904,6 +937,18 @@ export const processCheckOut = async (
 
     const now = new Date();
     const dateOnly = getDateOnly(now);
+
+    // Chặn check-out vào cuối tuần (Thứ Bảy và Chủ Nhật)
+    const dayOfWeek = now.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
+      return {
+        success: false,
+        data: null,
+        error: `Không thể check-out vào ${dayName}. Vui lòng check-out vào ngày làm việc (Thứ Hai - Thứ Sáu).`,
+        code: "WEEKEND_NOT_ALLOWED",
+      };
+    }
 
     // Find attendance record
     const attendance = await AttendanceModel.findOne({
@@ -1000,7 +1045,10 @@ export const processCheckOut = async (
       emitAttendanceUpdate(userId, attendanceData);
       emitAttendanceUpdateToAdmins(attendanceData);
     } catch (socketError) {
-      console.error("[attendance] Error emitting check-out update:", socketError);
+      console.error(
+        "[attendance] Error emitting check-out update:",
+        socketError
+      );
       // Don't fail if socket emit fails
     }
 
