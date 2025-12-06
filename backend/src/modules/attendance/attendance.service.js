@@ -727,6 +727,18 @@ export const processCheckIn = async (
     const now = new Date();
     const dateOnly = getDateOnly(now);
 
+    // Chặn chấm công vào cuối tuần (Thứ Bảy và Chủ Nhật)
+    const dayOfWeek = now.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
+      return {
+        success: false,
+        data: null,
+        error: `Không thể chấm công vào ${dayName}. Vui lòng chấm công vào ngày làm việc (Thứ Hai - Thứ Sáu).`,
+        code: "WEEKEND_NOT_ALLOWED",
+      };
+    }
+
     // Chặn chấm công nếu hôm nay đang trong thời gian nghỉ đã được duyệt
     try {
       const { RequestModel } = await import("../requests/request.model.js");
@@ -925,6 +937,18 @@ export const processCheckOut = async (
 
     const now = new Date();
     const dateOnly = getDateOnly(now);
+
+    // Chặn check-out vào cuối tuần (Thứ Bảy và Chủ Nhật)
+    const dayOfWeek = now.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
+      return {
+        success: false,
+        data: null,
+        error: `Không thể check-out vào ${dayName}. Vui lòng check-out vào ngày làm việc (Thứ Hai - Thứ Sáu).`,
+        code: "WEEKEND_NOT_ALLOWED",
+      };
+    }
 
     // Find attendance record
     const attendance = await AttendanceModel.findOne({
