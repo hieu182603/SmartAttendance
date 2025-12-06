@@ -245,13 +245,45 @@ export default function PerformanceReviewPage() {
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate nghiệp vụ
+    if (!formData.employeeId) {
+      toast.error("Vui lòng chọn nhân viên");
+      return;
+    }
+    
+    if (!formData.period) {
+      toast.error("Vui lòng chọn kỳ đánh giá");
+      return;
+    }
+    
+    // Manager không thể set status = "completed"
+    if (isManager && formData.status === "completed") {
+      toast.error("Manager không thể phê duyệt đánh giá. Vui lòng gửi để HR phê duyệt (chọn trạng thái 'Chờ duyệt')");
+      return;
+    }
+    
+    // Validate điểm số
+    const categories = formData.categories || {};
+    const invalidScores = Object.entries(categories).filter(
+      ([_, value]) => value < 0 || value > 100
+    );
+    if (invalidScores.length > 0) {
+      toast.error("Điểm số phải trong khoảng 0-100");
+      return;
+    }
+    
     setFormLoading(true);
     try {
+      // Không gửi overallScore lên - backend sẽ tự tính
+      const submitData = { ...formData };
+      delete (submitData as any).overallScore;
+      
       if (selectedReview) {
-        await performanceService.updateReview(selectedReview._id, formData);
+        await performanceService.updateReview(selectedReview._id, submitData);
         toast.success("Cập nhật đánh giá thành công");
       } else {
-        await performanceService.createReview(formData);
+        await performanceService.createReview(submitData);
         toast.success("Tạo đánh giá thành công");
       }
       fetchReviews();
@@ -535,25 +567,13 @@ export default function PerformanceReviewPage() {
                             {getStatusText(review.status)}
                           </Badge>
 
-                          {/* Action Buttons - Use RoleGuard for permission checks */}
-                          <RoleGuard
-                            permission={
-                              review.status === "pending"
-                                ? Permission.REQUESTS_APPROVE_ALL
-                                : Permission.USERS_UPDATE
-                            }
-                            fallback={
-                              <Button
-                                onClick={() => handleOpenReview(review)}
-                                variant="outline"
-                                size="sm"
-                                className="border-[var(--border)] text-[var(--text-main)]"
-                              >
-                                <Eye className="h-4 w-4 mr-1" />
-                                Xem
-                              </Button>
-                            }
-                          >
+                          {/* Action Buttons - Logic nghiệp vụ đúng */}
+                          {/* Manager chỉ sửa được đánh giá của mình (draft/pending/rejected), không sửa được completed */}
+                          {/* HR+ có thể phê duyệt pending và sửa tất cả */}
+                          {(isManager && 
+                            (typeof review.reviewerId === 'object' ? review.reviewerId?._id : review.reviewerId) === user?.userId && 
+                            review.status !== "completed") ||
+                          (!isManager && (hasMinimumRole(UserRole.HR_MANAGER) || hasMinimumRole(UserRole.ADMIN))) ? (
                             <Button
                               onClick={() => handleOpenReview(review)}
                               variant="outline"
@@ -561,26 +581,34 @@ export default function PerformanceReviewPage() {
                               className="border-[var(--accent-cyan)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
                             >
                               <Edit className="h-4 w-4 mr-1" />
-                              {review.status === "pending" ? t('dashboard:performanceReview.actions.approve') : t('dashboard:performanceReview.actions.edit')}
+                              {review.status === "pending" && !isManager 
+                                ? t('dashboard:performanceReview.actions.approve') 
+                                : t('dashboard:performanceReview.actions.edit')}
                             </Button>
-                          </RoleGuard>
+                          ) : (
+                            <Button
+                              onClick={() => handleOpenReview(review)}
+                              variant="outline"
+                              size="sm"
+                              className="border-[var(--border)] text-[var(--text-main)]"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Xem
+                            </Button>
+                          )}
 
-                          <RoleGuard
-                            permission={Permission.REQUESTS_APPROVE_ALL}
-                            fallback={null}
-                          >
-                            {review.status === "pending" && (
-                              <Button
-                                onClick={() => handleReject(review)}
-                                variant="outline"
-                                size="sm"
-                                className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
-                              >
-                                <X className="h-4 w-4 mr-1" />
-                                Từ chối
-                              </Button>
-                            )}
-                          </RoleGuard>
+                          {/* Chỉ HR+ mới được từ chối đánh giá pending */}
+                          {review.status === "pending" && !isManager && (hasMinimumRole(UserRole.HR_MANAGER) || hasMinimumRole(UserRole.ADMIN)) && (
+                            <Button
+                              onClick={() => handleReject(review)}
+                              variant="outline"
+                              size="sm"
+                              className="border-[var(--error)] text-[var(--error)] hover:bg-[var(--error)]/10"
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Từ chối
+                            </Button>
+                          )}
                         </div>
                       </div>
 
@@ -777,15 +805,32 @@ export default function PerformanceReviewPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Nháp</SelectItem>
-                    <SelectItem value="pending">{isManager ? t('dashboard:performanceReview.actions.submit') : t('dashboard:performanceReview.actions.waitingApproval')}</SelectItem>
+                    <SelectItem value="pending">
+                      {isManager ? "Gửi để duyệt" : t('dashboard:performanceReview.actions.waitingApproval')}
+                    </SelectItem>
+                    {/* Chỉ HR+ mới được phê duyệt/từ chối */}
                     <RoleGuard permission={Permission.REQUESTS_APPROVE_ALL} fallback={null}>
                       <>
-                        <SelectItem value="completed">Hoàn thành</SelectItem>
-                        <SelectItem value="rejected">Từ chối</SelectItem>
+                        <SelectItem value="completed">Hoàn thành (Phê duyệt)</SelectItem>
+                        {/* Chỉ hiển thị "Từ chối" nếu đang edit và status là pending */}
+                        {selectedReview && selectedReview.status === "pending" && (
+                          <SelectItem value="rejected">Từ chối</SelectItem>
+                        )}
                       </>
                     </RoleGuard>
                   </SelectContent>
                 </Select>
+                {/* Thông báo nghiệp vụ */}
+                {isManager && formData.status === "pending" && (
+                  <p className="text-xs text-[var(--warning)] mt-2">
+                    💡 Ghi chú: Đánh giá ở trạng thái "Chờ duyệt" sẽ được HR xem xét và phê duyệt.
+                  </p>
+                )}
+                {isManager && formData.status === "completed" && (
+                  <p className="text-xs text-[var(--error)] mt-2">
+                    ⚠️ Manager không thể phê duyệt đánh giá. Vui lòng chọn "Gửi để duyệt".
+                  </p>
+                )}
               </div>
 
               {/* Categories */}
