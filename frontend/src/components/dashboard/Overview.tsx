@@ -2,14 +2,15 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
-import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Sparkles, Loader2 } from "lucide-react";
+import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { UserRole, type UserRoleType, getRoleName, getRoleColor } from "@/utils/roles";
+import { UserRole, type UserRoleType, getRoleName, getRoleColor, getRoleBasePath } from "@/utils/roles";
 import { getDashboardStats } from "@/services/dashboardService";
 import { toast } from "sonner";
+import { Clock as ClockComponent } from "@/components/common/Clock";
 import {
   AreaChart,
   Area,
@@ -108,6 +109,9 @@ export const DashboardOverview: React.FC = () => {
   
   const WelcomeIcon = welcomeMsg.icon;
 
+  // Track if component has mounted to prevent re-animation
+  const [hasMounted, setHasMounted] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardStats>({
     kpi: {
@@ -120,15 +124,8 @@ export const DashboardOverview: React.FC = () => {
     growthPercentage: 0,
   });
 
-  const [currentTime, setCurrentTime] = useState(() => 
-    new Date().toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  );
-
-  // Hàm fetch stats tách riêng để có thể dùng cho initial load + polling định kỳ
-  const fetchDashboardStats = useCallback(async () => {
+  // Hàm fetch stats cho initial load (có loading state)
+  const fetchDashboardStatsInitial = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getDashboardStats() as DashboardStats;
@@ -152,19 +149,37 @@ export const DashboardOverview: React.FC = () => {
     }
   }, [t]);
 
-  // Initial load + real-time updates + polling fallback
-  useEffect(() => {
-    void fetchDashboardStats();
+  // Hàm fetch stats cho polling (không có loading state để tránh re-render)
+  const fetchDashboardStatsSilent = useCallback(async () => {
+    try {
+      const data = await getDashboardStats() as DashboardStats;
+      setDashboardData(data);
+    } catch (error) {
+      console.error("[DashboardOverview] silent fetch error:", error);
+      // Không hiển thị toast khi polling để tránh spam
+    }
+  }, []);
 
-    // Polling mỗi 60s – fallback nếu real-time không hoạt động
+  // Mark component as mounted after initial render
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  // Initial load với loading state
+  useEffect(() => {
+    void fetchDashboardStatsInitial();
+  }, [fetchDashboardStatsInitial]);
+
+  // Polling mỗi 60s – không có loading state để tránh re-render
+  useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void fetchDashboardStats();
+      void fetchDashboardStatsSilent();
     }, 60000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [fetchDashboardStats]);
+  }, [fetchDashboardStatsSilent]);
 
   // Lắng nghe sự kiện realtime khi attendance được cập nhật
   useEffect(() => {
@@ -174,8 +189,8 @@ export const DashboardOverview: React.FC = () => {
       const customEvent = event as CustomEvent<any>;
       const data = customEvent.detail;
 
-      // Refetch dashboard stats để cập nhật KPI và charts mà không cần F5
-      fetchDashboardStats();
+      // Refetch dashboard stats để cập nhật KPI và charts mà không cần F5 (silent update)
+      fetchDashboardStatsSilent();
     }) as EventListener;
 
     window.addEventListener('attendance-updated', handleAttendanceUpdated);
@@ -183,21 +198,10 @@ export const DashboardOverview: React.FC = () => {
     return () => {
       window.removeEventListener('attendance-updated', handleAttendanceUpdated);
     };
-  }, [fetchDashboardStats]);
+  }, [fetchDashboardStatsSilent]);
 
-  // Update time every minute
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(
-        new Date().toLocaleTimeString("vi-VN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      );
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // Get base path based on user role
+  const basePath = useMemo(() => getRoleBasePath(userRole), [userRole]);
 
   // Prepare KPI data from API - đảm bảo luôn có giá trị mặc định
   const kpiData: KPICard[] = [
@@ -249,9 +253,10 @@ export const DashboardOverview: React.FC = () => {
       {/* Enhanced Welcome Banner with Role-based Customization */}
       <motion.div
         className={`bg-gradient-to-r ${welcomeMsg.gradient} rounded-2xl p-8 text-white relative overflow-hidden shadow-2xl`}
-        initial={{ opacity: 0, y: -20 }}
+        initial={!hasMounted ? { opacity: 0, y: -20 } : false}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={!hasMounted ? { duration: 0.6 } : { duration: 0 }}
+        key="welcome-banner"
       >
         {/* Animated background elements - reduced opacity */}
         <motion.div
@@ -281,9 +286,9 @@ export const DashboardOverview: React.FC = () => {
 
         <div className="flex items-center justify-between relative z-10">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
+            initial={!hasMounted ? { opacity: 0, x: -20 } : false}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={!hasMounted ? { delay: 0.2 } : { duration: 0 }}
             className="flex items-start space-x-4"
           >
             <motion.div
@@ -309,24 +314,9 @@ export const DashboardOverview: React.FC = () => {
             </div>
           </motion.div>
 
-          <motion.div
-            className="text-right hidden md:block"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <motion.div
-              className="text-6xl font-bold mb-2 drop-shadow-lg"
-              animate={{ scale: [1, 1.02, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              {currentTime}
-            </motion.div>
-            <div className="flex items-center justify-end space-x-2">
-              <Sparkles className="h-5 w-5 drop-shadow-md" />
-              <span className="text-lg font-medium drop-shadow-sm">Hệ thống hoạt động tốt</span>
-            </div>
-          </motion.div>
+          <div className="hidden md:block">
+            <ClockComponent />
+          </div>
         </div>
       </motion.div>
 
@@ -337,9 +327,9 @@ export const DashboardOverview: React.FC = () => {
           return (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 20 }}
+              initial={!hasMounted ? { opacity: 0, y: 20 } : false}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 + 0.2 }}
+              transition={!hasMounted ? { delay: index * 0.1 + 0.2 } : { duration: 0 }}
               whileHover={{ y: -8, scale: 1.03 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all duration-300 relative overflow-hidden group shadow-lg hover:shadow-2xl">
@@ -363,9 +353,9 @@ export const DashboardOverview: React.FC = () => {
                       <p className="text-sm text-[var(--text-sub)] font-medium">{kpi.title}</p>
                       <motion.p
                         className="text-4xl mt-2 text-[var(--text-main)] font-bold"
-                        initial={{ scale: 0 }}
+                        initial={!hasMounted ? { scale: 0 } : false}
                         animate={{ scale: 1 }}
-                        transition={{ delay: index * 0.1 + 0.4, type: "spring", stiffness: 200 }}
+                        transition={!hasMounted ? { delay: index * 0.1 + 0.4, type: "spring", stiffness: 200 } : { duration: 0 }}
                       >
                         {kpi.value}
                       </motion.p>
@@ -376,9 +366,9 @@ export const DashboardOverview: React.FC = () => {
                               ? "text-[var(--success)]"
                               : "text-[var(--error)]"
                           }`}
-                          initial={{ opacity: 0, x: -10 }}
+                          initial={!hasMounted ? { opacity: 0, x: -10 } : false}
                           animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 + 0.6 }}
+                          transition={!hasMounted ? { delay: index * 0.1 + 0.6 } : { duration: 0 }}
                         >
                           <TrendingUp className="h-3 w-3 mr-1" />
                           <span>
@@ -405,9 +395,9 @@ export const DashboardOverview: React.FC = () => {
 
       {/* Main Admin Actions - Highlighted 3 Pages */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={!hasMounted ? { opacity: 0, y: 20 } : false}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
+        transition={!hasMounted ? { delay: 0.6 } : { duration: 0 }}
       >
         <Card className="bg-[var(--surface)] border-[var(--border)] shadow-lg">
           <CardHeader>
@@ -425,13 +415,13 @@ export const DashboardOverview: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Dashboard Home - Primary */}
               <motion.button
-                onClick={() => navigate("/employee")}
+                onClick={() => navigate(basePath)}
                 className="relative p-6 rounded-2xl bg-gradient-to-br from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--primary)] hover:shadow-2xl transition-all duration-300 text-white text-left overflow-hidden group"
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 20 }}
+                initial={!hasMounted ? { opacity: 0, y: 20 } : false}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
+                transition={!hasMounted ? { delay: 0.7 } : { duration: 0 }}
               >
                 <motion.div
                   className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-300"
@@ -456,13 +446,13 @@ export const DashboardOverview: React.FC = () => {
 
               {/* Approve Requests - Secondary */}
               <motion.button
-                onClick={() => navigate("/employee/approve-requests")}
+                onClick={() => navigate(`${basePath}/approve-requests`)}
                 className="relative p-6 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:shadow-2xl transition-all duration-300 text-white text-left overflow-hidden group"
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 20 }}
+                initial={!hasMounted ? { opacity: 0, y: 20 } : false}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
+                transition={!hasMounted ? { delay: 0.8 } : { duration: 0 }}
               >
                 <motion.div
                   className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-300"
@@ -479,13 +469,13 @@ export const DashboardOverview: React.FC = () => {
 
               {/* Attendance Analytics - Secondary */}
               <motion.button
-                onClick={() => navigate("/employee/attendance-analytics")}
+                onClick={() => navigate(`${basePath}/attendance-analytics`)}
                 className="relative p-6 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 hover:shadow-2xl transition-all duration-300 text-white text-left overflow-hidden group"
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 20 }}
+                initial={!hasMounted ? { opacity: 0, y: 20 } : false}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
+                transition={!hasMounted ? { delay: 0.9 } : { duration: 0 }}
               >
                 <motion.div
                   className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-300"
@@ -508,9 +498,9 @@ export const DashboardOverview: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Attendance Trend */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
+          initial={!hasMounted ? { opacity: 0, x: -20 } : false}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 1.0 }}
+          transition={!hasMounted ? { delay: 1.0 } : { duration: 0 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)] shadow-lg hover:shadow-xl transition-shadow">
             <CardHeader>
@@ -555,9 +545,9 @@ export const DashboardOverview: React.FC = () => {
 
         {/* Status Breakdown */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
+          initial={!hasMounted ? { opacity: 0, x: 20 } : false}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 1.1 }}
+          transition={!hasMounted ? { delay: 1.1 } : { duration: 0 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)] shadow-lg hover:shadow-xl transition-shadow">
             <CardHeader>
@@ -593,9 +583,9 @@ export const DashboardOverview: React.FC = () => {
 
       {/* Additional Quick Actions */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={!hasMounted ? { opacity: 0, y: 20 } : false}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.2 }}
+        transition={!hasMounted ? { delay: 1.2 } : { duration: 0 }}
       >
         <Card className="bg-[var(--surface)] border-[var(--border)] shadow-lg">
           <CardHeader>
