@@ -26,19 +26,13 @@ import { logRouter } from "./modules/logs/log.router.js";
 
 dotenv.config();
 
-const app = express(
-  cors({
-    origin: "*",
-  })
-);
+const app = express();
 
 // Middleware
-app.use(cors());
-app.use(cors(
-  {
-    origin: "*",
-  }
-));
+// CORS configuration - allow all origins (adjust for production)
+app.use(cors({
+  origin: "*",
+}));
 // Tăng body size limit để nhận ảnh base64 (tối đa 10MB)
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));

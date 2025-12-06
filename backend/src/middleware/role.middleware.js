@@ -1,4 +1,5 @@
 import { UserModel } from "../modules/users/user.model.js";
+import { ROLES, ROLE_HIERARCHY, hasMinimumRole, canManageRole } from "../config/roles.config.js";
 
 /**
  * Helper function to get user role from token or DB (with caching per request)
@@ -105,28 +106,8 @@ export const requireAllRoles = (requiredRoles) => {
     };
 };
 
-export const ROLES = {
-    SUPER_ADMIN: "SUPER_ADMIN",
-    ADMIN: "ADMIN",
-    HR_MANAGER: "HR_MANAGER",
-    MANAGER: "MANAGER",
-    EMPLOYEE: "EMPLOYEE"
-};
-
-export const hasMinimumRole = (userRole, minimumRole) => {
-    const roleHierarchy = {
-        [ROLES.EMPLOYEE]: 1,
-        [ROLES.MANAGER]: 2,
-        [ROLES.HR_MANAGER]: 3,
-        [ROLES.ADMIN]: 4,
-        [ROLES.SUPER_ADMIN]: 5
-    };
-
-    const userLevel = roleHierarchy[userRole] || 0;
-    const minimumLevel = roleHierarchy[minimumRole] || 0;
-
-    return userLevel >= minimumLevel;
-};
+// Re-export ROLES and hasMinimumRole for backward compatibility
+export { ROLES, hasMinimumRole, canManageRole };
 
 export const requireMinimumRole = (minimumRole) => {
     return async (req, res, next) => {
