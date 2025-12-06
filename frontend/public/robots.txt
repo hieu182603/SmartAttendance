@@ -1,0 +1,11 @@
+# robots.txt for SmartAttendance
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://www.smart-attendance.com/sitemap.xml
+
+# Disallow admin and API routes (if needed)
+# Disallow: /api/
+# Disallow: /admin/
+
