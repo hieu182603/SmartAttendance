@@ -207,7 +207,59 @@
     "checkOut": "Check Out",
     "location": "Location",
     "status": "Status",
-    "time": "Time"
+    "time": "Time",
+    "camera": {
+      "title": "Live Camera",
+      "notActivated": "Camera not activated",
+      "switch": "Switch camera",
+      "switchToFront": "Front camera",
+      "switchToBack": "Back camera"
+    },
+    "locationInfo": {
+      "title": "Location Information",
+      "loading": "Getting location...",
+      "refreshing": "Refreshing...",
+      "nearestOffice": "Nearest office:",
+      "distance": "Distance:",
+      "latitude": "Latitude:",
+      "longitude": "Longitude:",
+      "refresh": "Refresh location",
+      "retry": "Retry",
+      "retrying": "Retrying..."
+    },
+    "permissions": {
+      "camera": "Camera",
+      "location": "Location",
+      "granted": "Granted",
+      "denied": "Denied"
+    },
+    "buttons": {
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "checkedIn": "Checked in",
+      "checkedOut": "Checked out",
+      "processing": "Processing..."
+    },
+    "toasts": {
+      "canCheckOut": "✅ You can now check-out!",
+      "workHoursReminder": "⏰ You have worked {{hours}}h {{minutes}}m! Don't forget to check-out.",
+      "checkInSuccess": "Check-in successful!",
+      "checkOutSuccess": "Check-out successful!"
+    },
+    "errors": {
+      "captureFailed": "Failed to capture photo",
+      "cameraAccess": "Unable to access camera. Please check permissions.",
+      "checkInError": "An error occurred during check-in",
+      "checkOutError": "An error occurred during check-out",
+      "locationFailed": "Unable to get location. ",
+      "locationPermissionDenied": "Please grant location access in your browser settings.",
+      "locationUnavailable": "GPS signal unavailable. Try moving outdoors.",
+      "locationTimeout": "Unable to get location within allowed time. Check GPS and try again.",
+      "locationGeneric": "Please check access permissions and GPS."
+    },
+    "tooltips": {
+      "waitOneHour": "Please wait at least 1 hour after check-in"
+    }
   },
   "history": {
     "title": "Attendance History",

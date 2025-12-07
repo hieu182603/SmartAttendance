@@ -7,6 +7,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -120,26 +121,17 @@ const calculateDistance = (
   return EARTH_RADIUS_M * c;
 };
 
-const getLocationErrorMessage = (errorCode: number): string => {
-  const baseMessage = "Không thể lấy vị trí. ";
+const getLocationErrorMessage = (errorCode: number, t: any): string => {
+  const baseMessage = t("dashboard:scan.errors.locationFailed");
   switch (errorCode) {
     case 1:
-      return (
-        baseMessage +
-        "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt."
-      );
+      return baseMessage + t("dashboard:scan.errors.locationPermissionDenied");
     case 2:
-      return (
-        baseMessage +
-        "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời."
-      );
+      return baseMessage + t("dashboard:scan.errors.locationUnavailable");
     case 3:
-      return (
-        baseMessage +
-        "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại."
-      );
+      return baseMessage + t("dashboard:scan.errors.locationTimeout");
     default:
-      return baseMessage + "Vui lòng kiểm tra quyền truy cập và GPS.";
+      return baseMessage + t("dashboard:scan.errors.locationGeneric");
   }
 };
 
@@ -179,6 +171,7 @@ const ScanPage: React.FC = () => {
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [offices, setOffices] = useState<Office[]>([]);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
 
   // ==========================================================================
   // REFS
@@ -203,11 +196,19 @@ const ScanPage: React.FC = () => {
   // ==========================================================================
   // CAMERA FUNCTIONS
   // ==========================================================================
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(async (mode?: "user" | "environment") => {
+    // Stop existing camera first
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    const targetMode = mode || facingMode;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "environment",
+          facingMode: targetMode,
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
@@ -218,15 +219,19 @@ const ScanPage: React.FC = () => {
         streamRef.current = stream;
         setState((prev) => ({ ...prev, isCameraReady: true }));
         setPermissions((prev) => ({ ...prev, camera: true }));
+        setFacingMode(targetMode);
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
-      toast.error(
-        "Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập."
-      );
+      toast.error(t("dashboard:scan.errors.cameraAccess"));
       setPermissions((prev) => ({ ...prev, camera: false }));
     }
-  }, []);
+  }, [facingMode, t]);
+
+  const toggleCamera = useCallback(async () => {
+    const newMode = facingMode === "environment" ? "user" : "environment";
+    await startCamera(newMode);
+  }, [facingMode, startCamera]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -333,14 +338,14 @@ const ScanPage: React.FC = () => {
       setPermissions((prev) => ({ ...prev, location: true }));
     } catch (error: any) {
       console.error("Error getting location:", error);
-      const errorMessage = getLocationErrorMessage(error.code || 0);
+      const errorMessage = getLocationErrorMessage(error.code || 0, t);
       setLocationError(errorMessage);
       setPermissions((prev) => ({ ...prev, location: false }));
       toast.error(errorMessage);
     } finally {
       setState((prev) => ({ ...prev, locationLoading: false }));
     }
-  }, [findNearestOffice]);
+  }, [findNearestOffice, t]);
 
   // ==========================================================================
   // ATTENDANCE FUNCTIONS
@@ -404,7 +409,7 @@ const ScanPage: React.FC = () => {
           );
         }
 
-        toast.success(response.data.message || "Check-in thành công!");
+        toast.success(response.data.message || t("dashboard:scan.toasts.checkInSuccess"));
       }
     } catch (error) {
       console.error("Check-in error:", error);
@@ -412,7 +417,7 @@ const ScanPage: React.FC = () => {
       const errorMessage =
         err.response?.data?.message ||
         err.message ||
-        "Có lỗi xảy ra khi chấm công";
+        t("dashboard:scan.errors.checkInError");
 
       if (err.response?.data?.code === "ALREADY_CHECKED_IN") {
         toast.info(errorMessage);
@@ -467,7 +472,7 @@ const ScanPage: React.FC = () => {
           );
         }
 
-        toast.success(response.data.message || "Check-out thành công!");
+        toast.success(response.data.message || t("dashboard:scan.toasts.checkOutSuccess"));
       }
     } catch (error) {
       console.error("Check-out error:", error);
@@ -475,7 +480,7 @@ const ScanPage: React.FC = () => {
       const errorMessage =
         err.response?.data?.message ||
         err.message ||
-        "Có lỗi xảy ra khi check-out";
+        t("dashboard:scan.errors.checkOutError");
 
       if (err.response?.data?.code === "NOT_CHECKED_IN") {
         toast.warning(errorMessage);
@@ -602,7 +607,7 @@ const ScanPage: React.FC = () => {
 
     if (hoursWorked >= MIN_WORK_HOURS && !canCheckOut) {
       setState((prev) => ({ ...prev, canCheckOut: true }));
-      toast.success("✅ Bạn đã có thể check-out!", {
+      toast.success(t("dashboard:scan.toasts.canCheckOut"), {
         duration: 5000,
       });
     }
@@ -614,7 +619,7 @@ const ScanPage: React.FC = () => {
 
       if (hoursWorked >= MIN_WORK_HOURS && !canCheckOut) {
         setState((prev) => ({ ...prev, canCheckOut: true }));
-        toast.success("✅ Bạn đã có thể check-out!", {
+        toast.success(t("dashboard:scan.toasts.canCheckOut"), {
           duration: 5000,
         });
       }
@@ -623,7 +628,7 @@ const ScanPage: React.FC = () => {
         const hours = Math.floor(hoursWorked);
         const minutes = Math.floor((hoursWorked - hours) * 60);
         toast.warning(
-          `⏰ Bạn đã làm việc được ${hours}h ${minutes}m! Đừng quên check-out nhé.`,
+          t("dashboard:scan.toasts.workHoursReminder", { hours, minutes }),
           {
             duration: 10000,
           }
@@ -632,7 +637,7 @@ const ScanPage: React.FC = () => {
     }, WORK_HOURS_CHECK_INTERVAL);
 
     return () => clearInterval(checkInterval);
-  }, [checkInTime, hasCheckedOut, canCheckOut]);
+  }, [checkInTime, hasCheckedOut, canCheckOut, t]);
 
   // Initialize camera on mount
   useEffect(() => {
@@ -677,24 +682,40 @@ const ScanPage: React.FC = () => {
                   ) : (
                     <AlertCircle className="h-3 w-3" />
                   )}
-                  {key === "camera" ? "Camera" : "Vị trí"} -{" "}
-                  {granted ? "Đã cấp" : "Chưa cấp"}
+                  {key === "camera" ? t("dashboard:scan.permissions.camera") : t("dashboard:scan.permissions.location")} -{" "}
+                  {granted ? t("dashboard:scan.permissions.granted") : t("dashboard:scan.permissions.denied")}
                 </span>
               ))}
             </div>
             {(!permissions.camera || !permissions.location) && (
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <p>{t("permissions.requestMessage")}</p>
+                <p>{t("dashboard:permissions.requestMessage")}</p>
               </div>
             )}
           </div>
 
           {/* Camera */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
-            <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">
-              Camera trực tiếp
-            </h3>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[var(--text-main)]">
+                {t("dashboard:scan.camera.title")}
+              </h3>
+              {isCameraReady && (
+                <button
+                  onClick={toggleCamera}
+                  className="flex items-center gap-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                  title={t("dashboard:scan.camera.switch")}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {facingMode === "environment" 
+                      ? t("dashboard:scan.camera.switchToFront") 
+                      : t("dashboard:scan.camera.switchToBack")}
+                  </span>
+                </button>
+              )}
+            </div>
             <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--shell)]">
               <video
                 ref={videoRef}
@@ -704,12 +725,12 @@ const ScanPage: React.FC = () => {
                 className={`h-full w-full object-cover ${
                   isCameraReady ? "block" : "hidden"
                 }`}
-                style={{ transform: "scaleX(-1)" }}
+                style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
               />
               {!isCameraReady && (
                 <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--shell)] text-[var(--text-sub)]">
                   <Camera className="h-12 w-12" />
-                  <p className="text-sm">Camera chưa được kích hoạt</p>
+                  <p className="text-sm">{t("dashboard:scan.camera.notActivated")}</p>
                 </div>
               )}
             </div>
@@ -719,12 +740,12 @@ const ScanPage: React.FC = () => {
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--text-main)]">
               <MapPin className="h-4 w-4" />
-              Thông tin vị trí
+              {t("dashboard:scan.locationInfo.title")}
             </h3>
             {!locationData && !locationError ? (
               <div className="flex items-center justify-center gap-2 py-4 text-sm text-[var(--text-sub)]">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Đang lấy vị trí...
+                {t("dashboard:scan.locationInfo.loading")}
               </div>
             ) : locationError ? (
               <div className="space-y-3">
@@ -740,12 +761,12 @@ const ScanPage: React.FC = () => {
                   {locationLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Đang thử lại...
+                      {t("dashboard:scan.locationInfo.retrying")}
                     </>
                   ) : (
                     <>
                       <MapPin className="h-4 w-4" />
-                      Thử lại
+                      {t("dashboard:scan.locationInfo.retry")}
                     </>
                   )}
                 </button>
@@ -756,7 +777,7 @@ const ScanPage: React.FC = () => {
                   <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[var(--shell)]/80 backdrop-blur-sm">
                     <div className="flex items-center gap-2 text-sm text-[var(--text-main)]">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Đang làm mới...
+                      {t("dashboard:scan.locationInfo.refreshing")}
                     </div>
                   </div>
                 )}
@@ -764,7 +785,7 @@ const ScanPage: React.FC = () => {
                   {locationData.nearestOffice && (
                     <div className="flex justify-between items-start">
                       <span className="text-[var(--text-sub)]">
-                        Văn phòng gần nhất:
+                        {t("dashboard:scan.locationInfo.nearestOffice")}
                       </span>
                       <span className="font-medium text-[var(--text-main)] text-right">
                         {locationData.nearestOffice}
@@ -774,7 +795,7 @@ const ScanPage: React.FC = () => {
                   {locationData.distance !== undefined && (
                     <div className="flex justify-between">
                       <span className="text-[var(--text-sub)]">
-                        Khoảng cách:
+                        {t("dashboard:scan.locationInfo.distance")}
                       </span>
                       <span
                         className={`font-mono font-medium ${
@@ -788,13 +809,13 @@ const ScanPage: React.FC = () => {
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">Vĩ độ:</span>
+                    <span className="text-[var(--text-sub)]">{t("dashboard:scan.locationInfo.latitude")}</span>
                     <span className="font-mono text-xs text-[var(--text-sub)]">
                       {locationData.latitude?.toFixed(6)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">Kinh độ:</span>
+                    <span className="text-[var(--text-sub)]">{t("dashboard:scan.locationInfo.longitude")}</span>
                     <span className="font-mono text-xs text-[var(--text-sub)]">
                       {locationData.longitude?.toFixed(6)}
                     </span>
@@ -806,7 +827,7 @@ const ScanPage: React.FC = () => {
                   className="mt-3 flex items-center justify-center gap-2 w-full rounded-lg border border-[var(--border)] bg-[var(--shell)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <MapPin className="h-4 w-4" />
-                  Làm mới vị trí
+                  {t("dashboard:scan.locationInfo.refresh")}
                 </button>
               </div>
             ) : null}
@@ -828,17 +849,17 @@ const ScanPage: React.FC = () => {
               {isProcessing && !hasCheckedIn ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang xử lý...
+                  {t("dashboard:scan.buttons.processing")}
                 </>
               ) : hasCheckedIn ? (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
-                  Đã check-in
+                  {t("dashboard:scan.buttons.checkedIn")}
                 </>
               ) : (
                 <>
                   <Camera className="h-4 w-4" />
-                  Check-in
+                  {t("dashboard:scan.buttons.checkIn")}
                 </>
               )}
             </button>
@@ -857,24 +878,24 @@ const ScanPage: React.FC = () => {
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               title={
                 !canCheckOut && hasCheckedIn && !hasCheckedOut
-                  ? "Vui lòng chờ ít nhất 1 giờ sau khi check-in"
+                  ? t("dashboard:scan.tooltips.waitOneHour")
                   : ""
               }
             >
               {isProcessing && hasCheckedIn && !hasCheckedOut ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang xử lý...
+                  {t("dashboard:scan.buttons.processing")}
                 </>
               ) : hasCheckedOut ? (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
-                  Đã check-out
+                  {t("dashboard:scan.buttons.checkedOut")}
                 </>
               ) : (
                 <>
                   <Camera className="h-4 w-4" />
-                  Check-out
+                  {t("dashboard:scan.buttons.checkOut")}
                 </>
               )}
             </button>

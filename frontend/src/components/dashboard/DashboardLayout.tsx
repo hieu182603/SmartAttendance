@@ -220,7 +220,9 @@ const DashboardLayout: React.FC = () => {
                           <NavLink
                             key={item.id}
                             to={item.path}
-                            onClick={() => setIsSidebarOpen(false)}
+                            onClick={() => {
+                              setIsSidebarOpen(false);
+                            }}
                             className={`
                               w-full flex items-center space-x-3 px-4 py-3 rounded-xl
                               transition-all duration-200
@@ -257,7 +259,9 @@ const DashboardLayout: React.FC = () => {
                             key={item.id}
                             to={item.path}
                             end={item.id === "home"}
-                            onClick={() => setIsSidebarOpen(false)}
+                            onClick={() => {
+                              setIsSidebarOpen(false);
+                            }}
                             className={`
                               w-full flex items-center space-x-3 px-4 py-3 rounded-xl
                               transition-all duration-200
@@ -288,7 +292,9 @@ const DashboardLayout: React.FC = () => {
                           <NavLink
                             key={item.id}
                             to={item.path}
-                            onClick={() => setIsSidebarOpen(false)}
+                            onClick={() => {
+                              setIsSidebarOpen(false);
+                            }}
                             className={`
                               w-full flex items-center space-x-3 px-4 py-3 rounded-xl
                               transition-all duration-200
