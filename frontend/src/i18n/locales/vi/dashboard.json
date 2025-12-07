@@ -325,8 +325,57 @@
     "location": "Vị trí",
     "status": "Trạng thái",
     "time": "Thời gian",
+    "camera": {
+      "title": "Camera trực tiếp",
+      "notActivated": "Camera chưa được kích hoạt",
+      "switch": "Chuyển đổi camera",
+      "switchToFront": "Camera trước",
+      "switchToBack": "Camera sau"
+    },
+    "locationInfo": {
+      "title": "Thông tin vị trí",
+      "loading": "Đang lấy vị trí...",
+      "refreshing": "Đang làm mới...",
+      "nearestOffice": "Văn phòng gần nhất:",
+      "distance": "Khoảng cách:",
+      "latitude": "Vĩ độ:",
+      "longitude": "Kinh độ:",
+      "refresh": "Làm mới vị trí",
+      "retry": "Thử lại",
+      "retrying": "Đang thử lại..."
+    },
+    "permissions": {
+      "camera": "Camera",
+      "location": "Vị trí",
+      "granted": "Đã cấp",
+      "denied": "Chưa cấp"
+    },
+    "buttons": {
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "checkedIn": "Đã check-in",
+      "checkedOut": "Đã check-out",
+      "processing": "Đang xử lý..."
+    },
+    "toasts": {
+      "canCheckOut": "✅ Bạn đã có thể check-out!",
+      "workHoursReminder": "⏰ Bạn đã làm việc được {{hours}}h {{minutes}}m! Đừng quên check-out nhé.",
+      "checkInSuccess": "Check-in thành công!",
+      "checkOutSuccess": "Check-out thành công!"
+    },
     "errors": {
-      "captureFailed": "Không thể chụp ảnh"
+      "captureFailed": "Không thể chụp ảnh",
+      "cameraAccess": "Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.",
+      "checkInError": "Có lỗi xảy ra khi chấm công",
+      "checkOutError": "Có lỗi xảy ra khi check-out",
+      "locationFailed": "Không thể lấy vị trí. ",
+      "locationPermissionDenied": "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.",
+      "locationUnavailable": "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.",
+      "locationTimeout": "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.",
+      "locationGeneric": "Vui lòng kiểm tra quyền truy cập và GPS."
+    },
+    "tooltips": {
+      "waitOneHour": "Vui lòng chờ ít nhất 1 giờ sau khi check-in"
     }
   },
   "history": {
