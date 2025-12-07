@@ -47,6 +47,7 @@ import { getRequestTypes } from "@/services/requestService";
 import type {
   RequestType as RequestTypeOption,
 } from "@/services/requestService";
+import { getLeaveBalance } from "@/services/dashboardService";
 
 
 type RequestStatus = "pending" | "approved" | "rejected";
@@ -92,6 +93,16 @@ interface TypeIconLabel {
   label: string;
 }
 
+interface LeaveType {
+  id: string;
+  name?: string;
+  description?: string;
+  total?: number | null;
+  used?: number;
+  remaining?: number | null;
+  pending?: number;
+}
+
 // FALLBACK_REQUEST_TYPES will be created with i18n in component
 
 const RequestsPage: React.FC = () => {
@@ -116,6 +127,7 @@ const RequestsPage: React.FC = () => {
   const [itemsPerPage] = useState(20);
   const [requestTypes, setRequestTypes] = useState<RequestTypeOption[]>([]);
   const [departments, setDepartments] = useState<Array<{ value: string; label: string }>>([]);
+  const [leaveBalance, setLeaveBalance] = useState<LeaveType[]>([]);
   const [pagination, setPagination] = useState<{
     total: number;
     page: number;
@@ -156,6 +168,25 @@ const RequestsPage: React.FC = () => {
       isMounted = false;
     };
   }, []);
+
+  // Fetch leave balance when dialog opens
+  useEffect(() => {
+    if (isCreateDialogOpen) {
+      const fetchLeaveBalance = async () => {
+        try {
+          const balance = await getLeaveBalance();
+          setLeaveBalance(balance as LeaveType[]);
+        } catch (error) {
+          console.error('[RequestsPage] Leave balance fetch error:', error);
+          setLeaveBalance([]);
+        }
+      };
+      fetchLeaveBalance();
+    } else {
+      // Reset leave balance when dialog closes
+      setLeaveBalance([]);
+    }
+  }, [isCreateDialogOpen]);
 
   // Extract unique departments from allRequests for filter dropdown
   useEffect(() => {
@@ -320,6 +351,26 @@ const RequestsPage: React.FC = () => {
     return requests;
   };
 
+  // Helper function to calculate days between two dates (inclusive)
+  const calculateDays = (startDate: string, endDate: string): number => {
+    if (!startDate || !endDate) return 0;
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return 0;
+    }
+    
+    if (start > end) {
+      return 0;
+    }
+    
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays + 1; // +1 to include both start and end date
+  };
+
   const handleCreateRequest = async (): Promise<void> => {
 
     const todayStr = new Date().toISOString().split("T")[0];
@@ -341,6 +392,49 @@ const RequestsPage: React.FC = () => {
     if (!requestType || !requestReason || !requestDateRange.start) {
       toast.error(t('dashboard:requests.errors.fillAllFields'));
       return;
+    }
+
+    // Validate leave balance for leave, sick, and maternity requests
+    if (requestType === "leave" || requestType === "sick" || requestType === "maternity") {
+      // Only validate if we have leave balance data
+      if (leaveBalance.length > 0) {
+        const endDate = requestDateRange.end || requestDateRange.start;
+        const requestedDays = calculateDays(requestDateRange.start, endDate);
+        
+        // Map request type to leave balance id
+        const leaveTypeMap: Record<string, string> = {
+          "leave": "annual",
+          "sick": "sick",
+          "maternity": "maternity"
+        };
+        
+        const leaveBalanceId = leaveTypeMap[requestType];
+        const leaveType = leaveBalance.find((lb) => lb.id === leaveBalanceId);
+        
+        if (leaveType) {
+          const remainingDays = leaveType.remaining;
+          
+          // Check if remaining is null or undefined (unlimited)
+          if (remainingDays === null || remainingDays === undefined) {
+            // Unlimited, allow it
+          } else {
+            // Has specific remaining days
+            if (requestedDays > remainingDays) {
+              const leaveTypeName = requestType === "leave" 
+                ? t('dashboard:requests.types.leave')
+                : requestType === "sick"
+                ? "nghỉ ốm"
+                : "nghỉ thai sản";
+              
+              toast.error(
+                `Số ngày yêu cầu (${requestedDays} ngày) vượt quá số ngày ${leaveTypeName} còn lại (${remainingDays} ngày). Vui lòng chọn số ngày nhỏ hơn hoặc bằng số ngày còn lại.`
+              );
+              return;
+            }
+          }
+        }
+      }
+      // If leaveBalance is not loaded yet, let backend handle the validation
     }
 
     setSubmitting(true);
@@ -594,6 +688,66 @@ const RequestsPage: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {(requestType === "leave" || requestType === "sick" || requestType === "maternity") && (
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)] p-3">
+                    {leaveBalance.length > 0 ? (
+                      (() => {
+                        const leaveTypeMap: Record<string, string> = {
+                          "leave": "annual",
+                          "sick": "sick",
+                          "maternity": "maternity"
+                        };
+                        
+                        const leaveBalanceId = leaveTypeMap[requestType];
+                        const leaveType = leaveBalance.find((lb) => lb.id === leaveBalanceId);
+                        
+                        if (!leaveType) {
+                          return (
+                            <p className="text-sm text-[var(--text-sub)]">Không tìm thấy thông tin ngày phép</p>
+                          );
+                        }
+                        
+                        const remaining = leaveType.remaining ?? 0;
+                        const requestedDays = requestDateRange.start && (requestDateRange.end || requestDateRange.start)
+                          ? calculateDays(requestDateRange.start, requestDateRange.end || requestDateRange.start)
+                          : 0;
+                        const isValid = requestedDays === 0 || remaining === null || remaining === undefined || requestedDays <= remaining;
+                        
+                        const leaveTypeName = requestType === "leave" 
+                          ? t('dashboard:requests.types.leave')
+                          : requestType === "sick"
+                          ? "Nghỉ ốm"
+                          : "Nghỉ thai sản";
+                        
+                        return (
+                          <div className="space-y-1 text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[var(--text-sub)]">Số ngày {leaveTypeName.toLowerCase()} còn lại:</span>
+                              <span className={`font-semibold ${remaining > 0 || remaining === null || remaining === undefined ? 'text-[var(--success)]' : 'text-[var(--error)]'}`}>
+                                {remaining === null || remaining === undefined ? '∞' : remaining} ngày
+                              </span>
+                            </div>
+                            {requestedDays > 0 && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-[var(--text-sub)]">Số ngày yêu cầu:</span>
+                                <span className={`font-semibold ${isValid ? 'text-[var(--text-main)]' : 'text-[var(--error)]'}`}>
+                                  {requestedDays} ngày
+                                </span>
+                              </div>
+                            )}
+                            {requestedDays > 0 && !isValid && remaining !== null && remaining !== undefined && (
+                              <p className="text-xs text-[var(--error)] mt-1">
+                                Số ngày yêu cầu vượt quá số ngày còn lại
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <p className="text-sm text-[var(--text-sub)]">Đang tải thông tin ngày phép...</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

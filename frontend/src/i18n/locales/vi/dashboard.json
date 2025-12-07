@@ -107,7 +107,8 @@
       "createError": "Không thể gửi yêu cầu"
     },
     "errors": {
-      "fillAllFields": "Vui lòng điền đầy đủ thông tin đơn yêu cầu"
+      "fillAllFields": "Vui lòng điền đầy đủ thông tin đơn yêu cầu",
+      "insufficientLeaveDays": "Số ngày yêu cầu ({{requested}} ngày) vượt quá số ngày {{leaveType}} còn lại ({{remaining}} ngày). Vui lòng chọn số ngày nhỏ hơn hoặc bằng số ngày còn lại."
     }
   },
   "profile": {
