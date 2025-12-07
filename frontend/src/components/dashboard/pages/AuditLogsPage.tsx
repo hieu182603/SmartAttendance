@@ -501,7 +501,8 @@ export default function AuditLogsPage() {
                         </TabsList>
 
                         <TabsContent value={selectedTab}>
-                            <div className="overflow-x-auto">
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="border-gray-200 dark:border-gray-700">
@@ -579,6 +580,76 @@ export default function AuditLogsPage() {
                                         )}
                                     </TableBody>
                                 </Table>
+                            </div>
+
+                            {/* Mobile Card View */}
+                            <div className="md:hidden space-y-3">
+                                {loading ? (
+                                    <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                        {t('auditLogs.loadingData')}
+                                    </div>
+                                ) : filteredLogs.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                        {t('auditLogs.noLogsFound')}
+                                    </div>
+                                ) : (
+                                    filteredLogs.map((log) => (
+                                        <Card
+                                            key={log.id}
+                                            className={`border-gray-200 dark:border-gray-700 cursor-pointer ${
+                                                log.status === 'failed' ? 'bg-red-500/5' :
+                                                log.status === 'warning' ? 'bg-yellow-500/5' : ''
+                                            }`}
+                                            onClick={() => handleViewDetails(log)}
+                                        >
+                                            <CardContent className="p-4">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        <Clock className="h-4 w-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+                                                        <span className="text-sm text-gray-900 dark:text-gray-100 truncate">{log.timestamp}</span>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleViewDetails(log);
+                                                        }}
+                                                        className="h-8 w-8 text-cyan-500 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-950 flex-shrink-0"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.user')}</span>
+                                                        <div className="text-right flex-1 ml-2">
+                                                            <p className="text-gray-900 dark:text-gray-100 font-medium truncate">{log.userName}</p>
+                                                            <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{log.userRole}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.action')}</span>
+                                                        <Badge className={getActionColor(log.action)}>
+                                                            <span className="mr-1">{getActionIcon(log.action)}</span>
+                                                            {log.action}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="flex items-start justify-between text-xs">
+                                                        <span className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.description')}</span>
+                                                        <span className="text-gray-900 dark:text-gray-100 text-right flex-1 ml-2 line-clamp-2">{log.description}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.status')}</span>
+                                                        <Badge className={getStatusColor(log.status)}>
+                                                            {log.status}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))
+                                )}
                             </div>
 
                             {/* Pagination */}

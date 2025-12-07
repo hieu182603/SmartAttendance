@@ -706,7 +706,8 @@ export default function PayrollPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-[var(--border)] hover:bg-transparent">
@@ -835,6 +836,109 @@ export default function PayrollPage() {
                   ) : null}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
+                    <p className="text-[var(--text-sub)]">
+                      {t("payroll.loading")}
+                    </p>
+                  </div>
+                </div>
+              ) : filteredData.length > 0 ? (
+                filteredData.map((record) => (
+                  <Card
+                    key={record._id}
+                    className="bg-[var(--shell)] border-[var(--border)]"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-[var(--text-main)] truncate">
+                            {record.userId?.name || "N/A"}
+                          </p>
+                          <p className="text-xs text-[var(--text-sub)] truncate">
+                            {record.department}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewDetails(record)}
+                            className="h-8 w-8 p-0 border-[var(--border)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {record.status === "pending" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenApproveDialog(record)}
+                              className="h-8 w-8 p-0 border-[var(--success)] text-[var(--success)] hover:bg-[var(--success)]/10"
+                              title="Duyệt"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {record.status === "approved" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenMarkPaidDialog(record)}
+                              className="h-8 w-8 p-0 border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                              title="Đánh dấu đã thanh toán"
+                            >
+                              <DollarSign className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t("payroll.table.workDays")}</span>
+                          <span className="text-[var(--text-main)] font-medium">{record.workDays}/{record.totalDays}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t("payroll.table.overtimeHours")}</span>
+                          <span className="text-[var(--text-main)] font-medium">{record.overtimeHours}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t("payroll.table.baseSalary")}</span>
+                          <span className="text-[var(--text-main)] font-medium">{formatCurrency(record.baseSalary)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t("payroll.table.overtimePay")}</span>
+                          <span className="text-[var(--success)] font-medium">+{formatCurrency(record.overtimePay)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t("payroll.table.bonus")}</span>
+                          <span className="text-[var(--success)] font-medium">+{formatCurrency(record.bonus)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t("payroll.table.deductions")}</span>
+                          <span className="text-[var(--error)] font-medium">-{formatCurrency(record.deductions)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-[var(--border)]">
+                          <span className="text-[var(--text-sub)] font-semibold">{t("payroll.table.totalSalary")}</span>
+                          <span className="text-[var(--text-main)] font-bold text-base">{formatCurrency(record.totalSalary)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1">
+                          <span className="text-[var(--text-sub)]">{t("payroll.table.status")}</span>
+                          <Badge className={getStatusColor(record.status)}>
+                            {getStatusLabel(record.status)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : null}
             </div>
 
             {!loading && payrollData.length === 0 && (

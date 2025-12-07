@@ -622,7 +622,8 @@ const HistoryPage: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block w-full overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-[var(--shell)]">
@@ -654,6 +655,91 @@ const HistoryPage: React.FC = () => {
               </thead>
               <tbody>{renderTableBody()}</tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            {loading ? (
+              <div className="text-center py-12">
+                <p className="text-[var(--text-sub)]">{t("dashboard:history.details.loading")}</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <p className="text-[var(--error)]">{error}</p>
+              </div>
+            ) : records.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-[var(--text-sub)]">{t("dashboard:history.details.noData")}</p>
+              </div>
+            ) : (
+              records.map((record, index) => {
+                const hasPhoto =
+                  record.notes?.includes("http") || record.location?.includes("http");
+                return (
+                  <Card
+                    key={record.id || index}
+                    className="bg-[var(--shell)] border-[var(--border)]"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="text-sm font-semibold text-[var(--text-main)]">
+                              {record.date}
+                            </p>
+                            <span className="text-xs text-[var(--text-sub)]">({record.day})</span>
+                            {getStatusBadge(record.status, t)}
+                          </div>
+                        </div>
+                        {hasPhoto && (
+                          <button
+                            onClick={() => handleRecordClick(record)}
+                            className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--primary)]"
+                            title={t("dashboard:history.photo.viewTitle")}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">
+                            {t("dashboard:history.checkIn")}
+                          </span>
+                          <span className="text-[var(--text-main)] font-medium">
+                            {record.checkIn}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">
+                            {t("dashboard:history.checkOut")}
+                          </span>
+                          <span className="text-[var(--text-main)] font-medium">
+                            {record.checkOut || "-"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">
+                            {t("dashboard:history.totalHours")}
+                          </span>
+                          <span className="text-[var(--text-main)] font-medium">
+                            {record.hours}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">
+                            {t("dashboard:history.location")}
+                          </span>
+                          <span className="text-[var(--text-sub)] text-right flex-1 ml-2 truncate">
+                            {formatLocation(record.location, t)}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
 
           {/* Pagination */}

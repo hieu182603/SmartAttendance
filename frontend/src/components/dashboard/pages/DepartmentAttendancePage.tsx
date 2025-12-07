@@ -233,48 +233,104 @@ const DepartmentAttendancePage: React.FC = () => {
               {t('dashboard:departmentAttendance.table.noData')}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('dashboard:departmentAttendance.table.employee')}</TableHead>
-                    <TableHead>{t('dashboard:departmentAttendance.table.date')}</TableHead>
-                    <TableHead>{t('dashboard:departmentAttendance.table.checkIn')}</TableHead>
-                    <TableHead>{t('dashboard:departmentAttendance.table.checkOut')}</TableHead>
-                    <TableHead>{t('dashboard:departmentAttendance.table.hours')}</TableHead>
-                    <TableHead>{t('dashboard:departmentAttendance.table.location')}</TableHead>
-                    <TableHead>{t('dashboard:departmentAttendance.table.status')}</TableHead>
-                    <TableHead>{t('dashboard:departmentAttendance.table.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {records.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('dashboard:departmentAttendance.table.employee')}</TableHead>
+                      <TableHead>{t('dashboard:departmentAttendance.table.date')}</TableHead>
+                      <TableHead>{t('dashboard:departmentAttendance.table.checkIn')}</TableHead>
+                      <TableHead>{t('dashboard:departmentAttendance.table.checkOut')}</TableHead>
+                      <TableHead>{t('dashboard:departmentAttendance.table.hours')}</TableHead>
+                      <TableHead>{t('dashboard:departmentAttendance.table.location')}</TableHead>
+                      <TableHead>{t('dashboard:departmentAttendance.table.status')}</TableHead>
+                      <TableHead>{t('dashboard:departmentAttendance.table.actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {records.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback>
+                                {getInitials(record.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-[var(--text-main)]">
+                                {record.name}
+                              </p>
+                              <p className="text-sm text-[var(--text-sub)]">
+                                ID: {record.employeeId || record.userId.slice(-3)}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{record.date}</TableCell>
+                        <TableCell>{record.checkIn || "-"}</TableCell>
+                        <TableCell>{record.checkOut || "-"}</TableCell>
+                        <TableCell>{record.hours}</TableCell>
+                        <TableCell>{record.location}</TableCell>
+                        <TableCell>{getStatusBadge(record.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {records.map((record) => (
+                  <Card
+                    key={record.id}
+                    className="bg-[var(--shell)] border-[var(--border)]"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Avatar className="h-10 w-10 flex-shrink-0">
                             <AvatarFallback>
                               {getInitials(record.name)}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <p className="font-medium text-[var(--text-main)]">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-[var(--text-main)] truncate">
                               {record.name}
                             </p>
-                            <p className="text-sm text-[var(--text-sub)]">
+                            <p className="text-sm text-[var(--text-sub)] truncate">
                               ID: {record.employeeId || record.userId.slice(-3)}
                             </p>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>{record.date}</TableCell>
-                      <TableCell>{record.checkIn || "-"}</TableCell>
-                      <TableCell>{record.checkOut || "-"}</TableCell>
-                      <TableCell>{record.hours}</TableCell>
-                      <TableCell>{record.location}</TableCell>
-                      <TableCell>{getStatusBadge(record.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -297,12 +353,38 @@ const DepartmentAttendancePage: React.FC = () => {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t('dashboard:departmentAttendance.table.date')}</span>
+                          <span className="text-[var(--text-main)] font-medium">{record.date}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t('dashboard:departmentAttendance.table.checkIn')}</span>
+                          <span className="text-[var(--text-main)] font-medium">{record.checkIn || "-"}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t('dashboard:departmentAttendance.table.checkOut')}</span>
+                          <span className="text-[var(--text-main)] font-medium">{record.checkOut || "-"}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t('dashboard:departmentAttendance.table.hours')}</span>
+                          <span className="text-[var(--text-main)] font-medium">{record.hours}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t('dashboard:departmentAttendance.table.location')}</span>
+                          <span className="text-[var(--text-sub)] text-right flex-1 ml-2 truncate">{record.location}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">{t('dashboard:departmentAttendance.table.status')}</span>
+                          {getStatusBadge(record.status)}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
 
           {/* Pagination */}
