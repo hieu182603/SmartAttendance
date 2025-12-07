@@ -648,7 +648,8 @@ export default function AdminAttendancePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg">
+          {/* Desktop Table View */}
+          <div className="hidden md:block w-full overflow-x-auto rounded-lg">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[var(--shell)]">
@@ -762,6 +763,93 @@ export default function AdminAttendancePage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            {isLoading ? (
+              <div className="text-center py-12">
+                <p className="text-[var(--text-sub)]">{t('dashboard:adminAttendance.table.loading')}</p>
+              </div>
+            ) : fetchError ? (
+              <div className="text-center py-12">
+                <p className="text-[var(--error)]">{fetchError}</p>
+              </div>
+            ) : records.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-[var(--text-sub)]">{t('dashboard:adminAttendance.table.noData')}</p>
+              </div>
+            ) : (
+              records.map((record) => (
+                <Card
+                  key={record.id}
+                  className="bg-[var(--shell)] border-[var(--border)]"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <Avatar className="h-10 w-10 flex-shrink-0">
+                          <AvatarFallback className="bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] text-white text-xs font-semibold">
+                            {record.avatar}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-[var(--text-main)] truncate">
+                            {record.name}
+                          </p>
+                          <p className="text-xs text-[var(--text-sub)] truncate">
+                            Role: {record.role}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-1 flex-shrink-0">
+                        <button
+                          onClick={() => handleViewRecord(record)}
+                          className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--accent-cyan)]"
+                          title={t('dashboard:adminAttendance.table.view')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleEditRecord(record)}
+                          disabled={!roleConfig.canEdit}
+                          className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--primary)] disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={t('dashboard:adminAttendance.table.edit')}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-sub)]">{t('dashboard:adminAttendance.table.date')}</span>
+                        <span className="text-[var(--text-main)] font-medium">{record.date}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-sub)]">{t('dashboard:adminAttendance.table.checkIn')}</span>
+                        <span className="text-[var(--text-main)] font-medium">{record.checkIn}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-sub)]">{t('dashboard:adminAttendance.table.checkOut')}</span>
+                        <span className="text-[var(--text-main)] font-medium">{record.checkOut || "-"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-sub)]">{t('dashboard:adminAttendance.table.hours')}</span>
+                        <span className="text-[var(--text-main)] font-medium">{record.hours}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-sub)]">{t('dashboard:adminAttendance.table.location')}</span>
+                        <span className="text-[var(--text-sub)] text-right flex-1 ml-2 truncate">{record.location}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-sub)]">{t('dashboard:adminAttendance.table.status')}</span>
+                        {getStatusBadge(record.status, t)}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4 mt-4 text-[var(--text-sub)]">
             <div className="flex items-center gap-2 text-sm">
