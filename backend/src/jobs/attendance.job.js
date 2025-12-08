@@ -2,7 +2,8 @@ import cron from "node-cron";
 import { AttendanceModel } from "../modules/attendance/attendance.model.js";
 import { UserModel } from "../modules/users/user.model.js";
 import { RequestModel } from "../modules/requests/request.model.js";
-import { ATTENDANCE_CONFIG } from "../config/app.config.js";
+import { ATTENDANCE_CONFIG, APP_CONFIG } from "../config/app.config.js";
+import { applyTimeToDate } from "../modules/attendance/attendance.service.js";
 
 /**
  * Logic xử lý attendance cuối ngày
@@ -36,10 +37,15 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
     });
 
     if (notCheckedOut.length > 0) {
-      const autoCheckoutTime = new Date(dateOnly);
-      autoCheckoutTime.setHours(DEFAULT_CHECKOUT_HOUR, DEFAULT_CHECKOUT_MINUTE, 0, 0);
+      // Dùng applyTimeToDate để convert timezone chính xác
+      const checkoutTimeStr = `${DEFAULT_CHECKOUT_HOUR}:${String(
+        DEFAULT_CHECKOUT_MINUTE
+      ).padStart(2, "0")}`;
+      const autoCheckoutTime = applyTimeToDate(dateOnly, checkoutTimeStr);
 
-      const { NotificationService } = await import("../modules/notifications/notification.service.js");
+      const { NotificationService } = await import(
+        "../modules/notifications/notification.service.js"
+      );
 
       for (const attendance of notCheckedOut) {
         attendance.checkOut = autoCheckoutTime;
@@ -47,8 +53,12 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
 
         const existingNotes = attendance.notes || "";
         attendance.notes = existingNotes
-          ? `${existingNotes}\n[Tự động check-out lúc ${DEFAULT_CHECKOUT_HOUR}:${String(DEFAULT_CHECKOUT_MINUTE).padStart(2, '0')} - Quên check-out]`
-          : `[Tự động check-out lúc ${DEFAULT_CHECKOUT_HOUR}:${String(DEFAULT_CHECKOUT_MINUTE).padStart(2, '0')} - Quên check-out]`;
+          ? `${existingNotes}\n[Tự động check-out lúc ${DEFAULT_CHECKOUT_HOUR}:${String(
+              DEFAULT_CHECKOUT_MINUTE
+            ).padStart(2, "0")} - Quên check-out]`
+          : `[Tự động check-out lúc ${DEFAULT_CHECKOUT_HOUR}:${String(
+              DEFAULT_CHECKOUT_MINUTE
+            ).padStart(2, "0")} - Quên check-out]`;
 
         await attendance.save();
 
@@ -60,9 +70,10 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
             title: "Nhắc nhở chấm công",
             message: `Hệ thống đã tự động check-out cho bạn vào lúc ${String(
               DEFAULT_CHECKOUT_HOUR
-            ).padStart(2, "0")}:${String(
-              DEFAULT_CHECKOUT_MINUTE
-            ).padStart(2, "0")} vì bạn quên check-out ngày ${dateOnly.toLocaleDateString(
+            ).padStart(2, "0")}:${String(DEFAULT_CHECKOUT_MINUTE).padStart(
+              2,
+              "0"
+            )} vì bạn quên check-out ngày ${dateOnly.toLocaleDateString(
               "vi-VN"
             )}.`,
             relatedEntityType: "attendance",
@@ -73,7 +84,10 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
             },
           });
         } catch (notifError) {
-          console.error("[CRON] Không thể gửi notification auto check-out", notifError);
+          console.error(
+            "[CRON] Không thể gửi notification auto check-out",
+            notifError
+          );
         }
       }
     }
@@ -86,7 +100,9 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
       endDate: { $gte: dateOnly },
     }).select("userId type");
 
-    const onLeaveUserIds = approvedLeaveRequests.map((r) => r.userId.toString());
+    const onLeaveUserIds = approvedLeaveRequests.map((r) =>
+      r.userId.toString()
+    );
 
     // Tạo bản ghi "on_leave" cho những người nghỉ phép
     if (approvedLeaveRequests.length > 0) {
@@ -132,7 +148,7 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
     // === 3. Đánh dấu absent cho nhân viên không chấm công (trừ người nghỉ phép) ===
     const activeUsers = await UserModel.find({
       isActive: true,
-      role: { $in: ["EMPLOYEE", "MANAGER"] },
+      role: { $in: ["EMPLOYEE", "MANAGER", "HR_MANAGER"] },
     }).select("_id");
 
     const userIds = activeUsers.map((u) => u._id);
@@ -145,7 +161,9 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
     const attendedUserIds = attendedToday.map((a) => a.userId.toString());
 
     const absentUserIds = userIds.filter(
-      (id) => !attendedUserIds.includes(id.toString()) && !onLeaveUserIds.includes(id.toString())
+      (id) =>
+        !attendedUserIds.includes(id.toString()) &&
+        !onLeaveUserIds.includes(id.toString())
     );
 
     if (absentUserIds.length > 0) {
@@ -158,11 +176,15 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
       }));
 
       try {
-        const inserted = await AttendanceModel.insertMany(absentRecords, { ordered: false });
+        const inserted = await AttendanceModel.insertMany(absentRecords, {
+          ordered: false,
+        });
 
         // Gửi notification nhắc nhở vắng mặt không chấm công
         try {
-          const { NotificationService } = await import("../modules/notifications/notification.service.js");
+          const { NotificationService } = await import(
+            "../modules/notifications/notification.service.js"
+          );
 
           for (const record of inserted) {
             await NotificationService.createAndEmitNotification({
@@ -190,7 +212,7 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
         }
       }
     }
-    
+
     return {
       success: true,
       date: dateOnly,
@@ -214,7 +236,7 @@ export const markAbsentJob = cron.schedule(
   },
   {
     scheduled: false,
-    timezone: "Asia/Ho_Chi_Minh",
+    timezone: APP_CONFIG.TIMEZONE,
   }
 );
 
@@ -227,7 +249,7 @@ export const backupAbsentJob = cron.schedule(
   },
   {
     scheduled: false,
-    timezone: "Asia/Ho_Chi_Minh",
+    timezone: APP_CONFIG.TIMEZONE,
   }
 );
 
@@ -239,59 +261,67 @@ export const checkMissingDays = async () => {
     const today = new Date();
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(today.getDate() - 7);
-    
+
     const activeUsers = await UserModel.find({
       isActive: true,
-      role: { $in: ["EMPLOYEE", "MANAGER"] },
+      role: { $in: ["EMPLOYEE", "MANAGER", "HR_MANAGER"] },
     }).select("_id");
-    
+
     if (activeUsers.length === 0) return;
-    
-    for (let d = new Date(sevenDaysAgo); d < today; d.setDate(d.getDate() + 1)) {
+
+    for (
+      let d = new Date(sevenDaysAgo);
+      d < today;
+      d.setDate(d.getDate() + 1)
+    ) {
       const checkDate = new Date(d);
       const dayOfWeek = checkDate.getDay();
-      
+
       if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-      
+
       const dateOnly = new Date(
         checkDate.getFullYear(),
         checkDate.getMonth(),
         checkDate.getDate()
       );
-      
+
       const existingRecords = await AttendanceModel.find({
         date: dateOnly,
       }).select("userId");
-      
-      const existingUserIds = existingRecords.map(r => r.userId.toString());
-      
+
+      const existingUserIds = existingRecords.map((r) => r.userId.toString());
+
       const missingUserIds = activeUsers
-        .map(u => u._id)
-        .filter(id => !existingUserIds.includes(id.toString()));
-      
+        .map((u) => u._id)
+        .filter((id) => !existingUserIds.includes(id.toString()));
+
       if (missingUserIds.length > 0) {
         const approvedLeaveRequests = await RequestModel.find({
-          type: { $in: ["leave", "sick", "unpaid", "compensatory", "maternity"] },
+          type: {
+            $in: ["leave", "sick", "unpaid", "compensatory", "maternity"],
+          },
           status: "approved",
           startDate: { $lte: dateOnly },
           endDate: { $gte: dateOnly },
         }).select("userId");
-        
-        const onLeaveUserIds = approvedLeaveRequests.map(r => r.userId.toString());
-        
-        const absentUserIds = missingUserIds.filter(
-          id => !onLeaveUserIds.includes(id.toString())
+
+        const onLeaveUserIds = approvedLeaveRequests.map((r) =>
+          r.userId.toString()
         );
-        
+
+        const absentUserIds = missingUserIds.filter(
+          (id) => !onLeaveUserIds.includes(id.toString())
+        );
+
         if (absentUserIds.length > 0) {
-          const absentRecords = absentUserIds.map(userId => ({
+          const absentRecords = absentUserIds.map((userId) => ({
             userId,
             date: dateOnly,
             status: "absent",
             workHours: 0,
             notes: "Tự động đánh dấu absent - Không chấm công",
           }));
-          
+
           try {
             await AttendanceModel.insertMany(absentRecords, { ordered: false });
           } catch (error) {
