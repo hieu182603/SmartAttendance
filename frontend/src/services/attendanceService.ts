@@ -46,6 +46,11 @@ interface AnalyticsSummary {
   avgLate: number;
   avgAbsent: number;
   trend: number;
+  totalEmployees?: number;
+  total?: number;
+  ontime?: number;
+  late?: number;
+  absent?: number;
 }
 
 interface AttendanceAnalytics {
