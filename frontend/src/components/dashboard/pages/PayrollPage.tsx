@@ -76,7 +76,6 @@ export default function PayrollPage() {
     totalPages: 1,
   });
   
-  // Dialog states
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
@@ -151,12 +150,10 @@ export default function PayrollPage() {
     fetchPayrollData();
   }, [selectedMonth, currentPage, itemsPerPage, filterStatus, filterDepartment]);
 
-  // Lắng nghe sự kiện realtime khi payroll được duyệt/thanh toán
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const handlePayrollUpdated = ((_event: Event) => {
-      // Refetch danh sách payroll để cập nhật trạng thái mà không cần F5
       fetchPayrollData();
     }) as EventListener;
 
@@ -164,17 +161,14 @@ export default function PayrollPage() {
       const customEvent = event as CustomEvent<any>;
       const notification = customEvent.detail;
 
-      // Chỉ xử lý các notification liên quan đến payroll
       if (!notification || notification.relatedEntityType !== 'payroll') {
         return;
       }
 
-      // Hiển thị toast thân thiện cho người dùng
       if (notification.type === 'system') {
         toast.success(notification.title || 'Bảng lương đã được cập nhật');
       }
 
-      // Refetch danh sách payroll để cập nhật trạng thái mà không cần F5
       fetchPayrollData();
     }) as EventListener;
 
@@ -187,7 +181,6 @@ export default function PayrollPage() {
     };
   }, []);
 
-  // Client-side search filtering (by name/employeeId)
   const filteredData = useMemo(() => {
     if (!searchTerm) {
       return payrollData;
@@ -203,24 +196,19 @@ export default function PayrollPage() {
     });
   }, [payrollData, searchTerm]);
 
-  // Reset to page 1 when filters change (except search which is client-side)
   useEffect(() => {
     setCurrentPage(1);
   }, [filterDepartment, filterStatus, selectedMonth]);
 
   const exportToExcel = async () => {
     try {
-      // Show loading toast
       toast.loading("Đang xuất file Excel...", { id: "export-excel" });
 
-      // Fetch all records for export (without pagination)
       let allExportData: PayrollRecord[] = [];
       
       if (searchTerm) {
-        // If there's a search term, use filtered data (client-side)
         allExportData = filteredData;
       } else {
-        // Fetch all records from server for export
         const params: {
           month?: string;
           page?: number;
@@ -250,7 +238,6 @@ export default function PayrollPage() {
         return;
       }
 
-      // Prepare data for Excel
       const excelData = allExportData.map((record) => ({
         [t("payroll.employeeName")]: record.userId?.name || "N/A",
         [t("payroll.table.department")]: record.department || "N/A",
@@ -273,11 +260,9 @@ export default function PayrollPage() {
             : t("payroll.filters.pending"),
       }));
 
-      // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
 
-      // Set column widths for better readability
       const colWidths = [
         { wch: 25 }, // Employee Name
         { wch: 20 }, // Department
@@ -296,17 +281,14 @@ export default function PayrollPage() {
       ];
       ws["!cols"] = colWidths;
 
-      // Add worksheet to workbook
       XLSX.utils.book_append_sheet(wb, ws, "Bảng lương");
 
-      // Generate Excel file
       const excelBuffer = XLSX.write(wb, { 
         bookType: "xlsx", 
         type: "array",
         cellStyles: true,
       });
 
-      // Create blob and download
       const blob = new Blob([excelBuffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
@@ -363,8 +345,6 @@ export default function PayrollPage() {
     }).format(amount);
   };
 
-  // Stats calculation - using current page data only
-  // Note: For accurate stats, you might want a separate stats endpoint
   const stats = {
     totalEmployees: pagination.total || payrollData.length,
     totalPayroll: payrollData.reduce((sum, r) => sum + r.totalSalary, 0),
@@ -376,7 +356,6 @@ export default function PayrollPage() {
     pendingApproval: payrollData.filter((r) => r.status === "pending").length,
   };
 
-  // Handler functions
   const handleViewDetails = async (record: PayrollRecord) => {
     try {
       setLoadingAction(true);
@@ -410,7 +389,6 @@ export default function PayrollPage() {
       setIsApproveDialogOpen(false);
       setSelectedRecord(null);
       
-      // Refresh data with current pagination
       const params: {
         month?: string;
         page: number;
@@ -454,7 +432,6 @@ export default function PayrollPage() {
       setIsMarkPaidDialogOpen(false);
       setSelectedRecord(null);
       
-      // Refresh data with current pagination
       const params: {
         month?: string;
         page: number;
@@ -799,6 +776,7 @@ export default function PayrollPage() {
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
                             <Button
+                              type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => handleViewDetails(record)}
@@ -809,6 +787,7 @@ export default function PayrollPage() {
                             </Button>
                             {record.status === "pending" && (
                               <Button
+                                type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleOpenApproveDialog(record)}
@@ -820,6 +799,7 @@ export default function PayrollPage() {
                             )}
                             {record.status === "approved" && (
                               <Button
+                                type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleOpenMarkPaidDialog(record)}
@@ -867,6 +847,7 @@ export default function PayrollPage() {
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewDetails(record)}
@@ -877,6 +858,7 @@ export default function PayrollPage() {
                           </Button>
                           {record.status === "pending" && (
                             <Button
+                              type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => handleOpenApproveDialog(record)}
@@ -888,6 +870,7 @@ export default function PayrollPage() {
                           )}
                           {record.status === "approved" && (
                             <Button
+                              type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => handleOpenMarkPaidDialog(record)}

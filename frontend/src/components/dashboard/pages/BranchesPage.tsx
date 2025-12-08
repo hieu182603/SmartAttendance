@@ -113,18 +113,15 @@ export function BranchesPage() {
     timezone: 'GMT+7',
   });
 
-  // Load data
   useEffect(() => {
     loadManagers();
     loadStats();
   }, []);
 
-  // Load branches when filters or pagination change
   useEffect(() => {
     loadBranches();
   }, [currentPage, itemsPerPage, searchQuery]);
 
-  // Reset to page 1 when search changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
@@ -167,7 +164,6 @@ export function BranchesPage() {
       }));
       setBranches(branchesData);
 
-      // Update pagination info from backend
       if (response.total !== undefined) {
         setPagination({
           total: response.total || 0,
@@ -202,7 +198,6 @@ export function BranchesPage() {
     }
   };
 
-  // Server-side filtering - no client-side filtering needed
   const filteredBranches = branches;
 
   const handleOpenDialog = (mode: 'create' | 'edit', branch?: Branch) => {
@@ -303,7 +298,6 @@ export function BranchesPage() {
     }
     
     try {
-      // Fetch chi tiết chi nhánh để hiển thị thông tin
       const details = await getBranchById(branch._id || branch.id);
       setDeleteBranchDetails({
         ...branch,
@@ -328,7 +322,6 @@ export function BranchesPage() {
       await loadBranches();
       await loadStats();
     } catch (error: any) {
-      // Hiển thị lỗi chi tiết từ backend
       const errorMessage = error.response?.data?.message || error.message || t('dashboard:branches.errors.generic');
       toast.error(errorMessage, { duration: 5000 });
     } finally {
@@ -496,6 +489,7 @@ export function BranchesPage() {
                       </div>
                       <div className="flex gap-1">
                         <Button
+                          type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => handleOpenDialog('edit', branch)}
@@ -505,6 +499,7 @@ export function BranchesPage() {
                         </Button>
                         {branch.id !== 'HQ' && (
                           <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDelete(branch)}

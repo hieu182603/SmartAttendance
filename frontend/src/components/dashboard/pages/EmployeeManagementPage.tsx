@@ -163,12 +163,10 @@ const EmployeeManagementPage: React.FC = () => {
   const { user: currentUser } = useAuth()
   const { hasPermission } = usePermissions()
 
-  // Permission flags
   const canView = hasPermission(Permission.USERS_VIEW)
   const canCreate = hasPermission(Permission.USERS_CREATE)
   const canUpdate = hasPermission(Permission.USERS_UPDATE)
   const canDelete = hasPermission(Permission.USERS_DELETE)
-  // Use distinct name to avoid shadowing imported canManageRole() helper
   const canManageRolePermission = hasPermission(Permission.USERS_MANAGE_ROLE)
   
   if (!canView) {
@@ -211,7 +209,6 @@ const EmployeeManagementPage: React.FC = () => {
     totalPages: 0
   })
 
-  // Fetch users from API with server-side pagination, search, and filters
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
@@ -220,25 +217,20 @@ const EmployeeManagementPage: React.FC = () => {
         limit: itemsPerPage
       }
       
-      // Search filter
       if (searchTerm) params.search = searchTerm
       
-      // Role filter
       if (roleFilter !== 'all') params.role = roleFilter
       
-      // Status filter
       if (statusFilter !== 'all') {
         params.isActive = statusFilter === 'active' ? 'true' : 'false'
       }
 
-      // Shift filter
       if (shiftFilter !== 'all') {
         params.shift = shiftFilter
       }
 
       const result = await getAllUsers(params) as GetAllUsersResponse
       
-      // Backend trả về { users: [...], pagination: {...} }
       setUsersList(result.users || [])
       if (result.pagination) {
         setPagination(result.pagination)
@@ -259,22 +251,18 @@ const EmployeeManagementPage: React.FC = () => {
     fetchUsers()
   }, [fetchUsers])
 
-  // Fetch departments when component mounts (only if user has permission)
   useEffect(() => {
     const fetchDepartments = async () => {
-      // Check if user has permission to access departments API
       const userRole = currentUser?.role as UserRoleType
       const hasPermission = userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN
       
       if (!hasPermission) {
-        // User doesn't have permission, skip fetching
         console.log('[EmployeeManagement] User does not have permission to fetch departments')
         return
       }
 
       try {
         const response = await getAllDepartments({ status: 'active', limit: 1000 })
-        // Filter only active departments and map to DepartmentType array
         const activeDepartments = (response.departments || []).filter(
           (dept: DepartmentType) => dept.status === 'active'
         )
@@ -283,12 +271,10 @@ const EmployeeManagementPage: React.FC = () => {
         const err = error as ErrorWithMessage
         const errorMessage = err.message || ''
         
-        // Only show toast if it's not a permission error
         if (!errorMessage.includes('Insufficient permissions') && !errorMessage.includes('403')) {
           console.error('[EmployeeManagement] fetch departments error:', error)
           toast.error(t('dashboard:employeeManagement.errors.loadDepartmentsFailed'))
         } else {
-          // Permission error - just log, don't show toast
           console.log('[EmployeeManagement] No permission to fetch departments')
         }
       }
@@ -296,7 +282,6 @@ const EmployeeManagementPage: React.FC = () => {
     fetchDepartments()
   }, [currentUser?.role])
 
-  // Fetch shifts when component mounts
   useEffect(() => {
     const fetchShifts = async () => {
       try {
@@ -330,19 +315,15 @@ const EmployeeManagementPage: React.FC = () => {
   const handleEditUser = async (user: User): Promise<void> => {
     setSelectedUser(user)
     
-    // Get shift ID - ưu tiên lấy từ assignment hiện tại (nếu có)
-    // Nếu không có assignment, mới lấy từ defaultShiftId
     let shiftId = ''
     
     try {
-      // Lấy assignments hiện tại của user (nếu có)
       const userId = user._id || user.id || ''
       const response = await api.get(`/shifts/assignments/user/${userId}`)
       
       if (response.data?.success && response.data?.data) {
         const activeAssignments = response.data.data.filter((a: any) => a.isActive === true) || []
         if (activeAssignments.length > 0) {
-          // Lấy assignment mới nhất (theo effectiveFrom)
           const latestAssignment = activeAssignments.sort((a: any, b: any) => 
             new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime()
           )[0]
@@ -353,7 +334,6 @@ const EmployeeManagementPage: React.FC = () => {
         }
       }
       
-      // Fallback: lấy từ defaultShiftId nếu không có assignment
       if (!shiftId && user.defaultShiftId) {
         if (typeof user.defaultShiftId === 'string') {
           shiftId = user.defaultShiftId
@@ -363,7 +343,6 @@ const EmployeeManagementPage: React.FC = () => {
       }
     } catch (error) {
       console.error('[EmployeeManagement] Error getting current shift:', error)
-      // Fallback: lấy từ defaultShiftId nếu có lỗi
       if (user.defaultShiftId) {
         if (typeof user.defaultShiftId === 'string') {
           shiftId = user.defaultShiftId
@@ -395,7 +374,6 @@ const EmployeeManagementPage: React.FC = () => {
     if (!selectedUser) return
 
     try {
-      // Update user to inactive instead of deleting
       await updateUserByAdmin(selectedUser._id || selectedUser.id || '', { isActive: false })
       toast.success(t('dashboard:employeeManagement.success.disableSuccess'))
       setIsDeleteDialogOpen(false)
@@ -412,7 +390,6 @@ const EmployeeManagementPage: React.FC = () => {
   const handleSubmitEdit = async (): Promise<void> => {
     if (!selectedUser) return
 
-    // Validation
     const errors: ValidationErrors = {}
 
     if (!formData.name || formData.name.trim().length === 0) {
@@ -454,14 +431,12 @@ const EmployeeManagementPage: React.FC = () => {
       console.error('[EmployeeManagement] update error:', error)
       const err = error as ErrorWithMessage & { fieldErrors?: FieldErrors; response?: { status?: number } }
       
-      // Xử lý 403 Forbidden - không có quyền
       if (err.response?.status === 403 || err.message?.includes('Insufficient permissions') || err.message?.includes('403')) {
         const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.noPermission')
         toast.error(errorMessage)
         return
       }
       
-      // Xử lý validation errors từ backend
       if (err.fieldErrors) {
         const backendErrors: ValidationErrors = {}
         Object.keys(err.fieldErrors).forEach(field => {
@@ -476,13 +451,11 @@ const EmployeeManagementPage: React.FC = () => {
         }
       }
       
-      // Hiển thị error message từ backend hoặc message mặc định
       const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.updateError')
       toast.error(errorMessage)
     }
   }
 
-  // Server-side filtering and pagination - no client-side filtering needed
   const paginatedUsers = usersList
 
   const getAvatarInitials = (name?: string): string => {
@@ -492,25 +465,22 @@ const EmployeeManagementPage: React.FC = () => {
 
   const canAssignRole = (targetRole: UserRoleType): boolean => {
     if (!currentUser?.role) return false
-    // Use imported helper to compare role hierarchy
     return canManageRole(currentUser.role as UserRoleType, targetRole)
   }
 
   const canUpdateUser = () => canUpdate
   const canChangeRole = () => canManageRolePermission
 
-  // Stats: Note - these are approximate since we only have paginated data
-  // For accurate stats, backend should provide a separate stats endpoint
   const stats: Stats = {
-    total: pagination.total, // Use total from backend pagination
-    active: usersList.filter(u => u.isActive !== false).length, // Approximate - only for current page
-    admin: usersList.filter(u => u.role === UserRole.ADMIN || u.role === UserRole.SUPER_ADMIN).length, // Approximate - only for current page
+    total: pagination.total,
+    active: usersList.filter(u => u.isActive !== false).length,
+    admin: usersList.filter(u => u.role === UserRole.ADMIN || u.role === UserRole.SUPER_ADMIN).length,
     newThisMonth: usersList.filter(u => {
       if (!u.createdAt) return false
       const created = new Date(u.createdAt)
       const now = new Date()
       return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
-    }).length, // Approximate - only for current page
+    }).length,
   }
 
   return (
@@ -701,6 +671,7 @@ const EmployeeManagementPage: React.FC = () => {
                         <td className="py-2 px-3">
                           <div className="flex items-center justify-center space-x-1">
                             <button
+                              type="button"
                               onClick={() => handleViewUser(user)}
                               className="p-1 hover:bg-[var(--shell)] rounded text-[var(--accent-cyan)]"
                               title={t('dashboard:employeeManagement.table.viewDetails')}
@@ -709,6 +680,7 @@ const EmployeeManagementPage: React.FC = () => {
                             </button>
                             <RoleGuard permission={Permission.USERS_UPDATE} showDisabled>
                               <button
+                                type="button"
                                 onClick={() => handleEditUser(user)}
                                 className="p-1 hover:bg-[var(--shell)] rounded text-[var(--primary)]"
                                 title={t('dashboard:employeeManagement.table.edit')}
@@ -718,6 +690,7 @@ const EmployeeManagementPage: React.FC = () => {
                             </RoleGuard>
                             <RoleGuard permission={Permission.USERS_DELETE} showDisabled>
                               <button
+                                type="button"
                                 onClick={() => handleDeleteUser(user)}
                                 className="p-1 hover:bg-[var(--shell)] rounded text-red-500"
                                 title={t('dashboard:employeeManagement.table.disable')}
@@ -761,6 +734,7 @@ const EmployeeManagementPage: React.FC = () => {
                           </div>
                           <div className="flex items-center space-x-1 flex-shrink-0">
                             <button
+                              type="button"
                               onClick={() => handleViewUser(user)}
                               className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--accent-cyan)]"
                               title={t('dashboard:employeeManagement.table.viewDetails')}
@@ -769,6 +743,7 @@ const EmployeeManagementPage: React.FC = () => {
                             </button>
                             <RoleGuard permission={Permission.USERS_UPDATE} showDisabled>
                               <button
+                                type="button"
                                 onClick={() => handleEditUser(user)}
                                 className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--primary)]"
                                 title={t('dashboard:employeeManagement.table.edit')}
@@ -778,6 +753,7 @@ const EmployeeManagementPage: React.FC = () => {
                             </RoleGuard>
                             <RoleGuard permission={Permission.USERS_DELETE} showDisabled>
                               <button
+                                type="button"
                                 onClick={() => handleDeleteUser(user)}
                                 className="p-1.5 hover:bg-[var(--surface)] rounded text-red-500"
                                 title={t('dashboard:employeeManagement.table.disable')}

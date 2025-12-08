@@ -49,8 +49,6 @@ interface InfoCard {
   delay: number;
 }
 
-// infoCards will be created inside component to use translations
-
 const formatWorkingDays = (
   value: string | number | { used: number; total: number } | null,
   t: (key: string) => string
@@ -78,10 +76,8 @@ export const EmployeeHome: React.FC = () => {
   const navigate = useNavigate();
   const { summary, recentAttendance, loading, error } = useDashboardData();
 
-  // Get current locale for date/time formatting
   const locale = i18n.language === "en" ? "en-US" : "vi-VN";
 
-  // Working time timer state
   const [workingTime, setWorkingTime] = useState<string>("00:00:00");
 
   const [currentTime, setCurrentTime] = useState<string>("");
@@ -111,7 +107,6 @@ export const EmployeeHome: React.FC = () => {
     return () => clearInterval(interval);
   }, [locale]);
 
-  // Get greeting based on time of day
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return t("dashboard:employeeHome.greeting.morning");
@@ -120,7 +115,6 @@ export const EmployeeHome: React.FC = () => {
     return t("dashboard:employeeHome.greeting.night");
   };
 
-  // Create infoCards with translations
   const infoCards: InfoCard[] = [
     {
       icon: Clock,
@@ -158,7 +152,6 @@ export const EmployeeHome: React.FC = () => {
     }));
   }, [recentAttendance]);
 
-  // Check if user has checked in today
   const todayAttendance = useMemo(() => {
     if (attendanceRows.length === 0) return null;
 
@@ -168,7 +161,6 @@ export const EmployeeHome: React.FC = () => {
     }/${today.getFullYear()}`;
 
     const latestRecord = attendanceRows[0];
-    // Parse date from format like "Thứ Hai, 25 tháng 11, 2025" or "25/11/2025"
     const dateMatch = latestRecord.date.match(
       /(\d{1,2})\s*(?:tháng\s*)?(\d{1,2})(?:,\s*|\s+)(\d{4})/
     );
@@ -191,7 +183,6 @@ export const EmployeeHome: React.FC = () => {
     return null;
   }, [attendanceRows]);
 
-  // Update working time timer
   useEffect(() => {
     if (
       todayAttendance?.hasCheckedIn &&
@@ -199,7 +190,6 @@ export const EmployeeHome: React.FC = () => {
       todayAttendance?.checkInTime
     ) {
       const interval = setInterval(() => {
-        // Parse check-in time (format: "HH:MM")
         const [hours, minutes] = todayAttendance.checkInTime
           .split(":")
           .map(Number);
@@ -230,7 +220,6 @@ export const EmployeeHome: React.FC = () => {
     }
   }, [todayAttendance]);
 
-  // Calculate total working hours
   const getTotalWorkingHours = () => {
     if (todayAttendance?.checkInTime && todayAttendance?.checkOutTime) {
       const [inHours, inMinutes] = todayAttendance.checkInTime
@@ -719,6 +708,7 @@ export const EmployeeHome: React.FC = () => {
                 {t("dashboard:employeeHome.recentHistory.title")}
               </CardTitle>
               <button
+                type="button"
                 onClick={() => navigate("/employee/history")}
                 className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center space-x-1"
               >

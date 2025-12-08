@@ -197,6 +197,13 @@ const ScanPage: React.FC = () => {
   // ==========================================================================
   // CAMERA FUNCTIONS
   // ==========================================================================
+
+  const startCamera = useCallback(async (mode?: "user" | "environment") => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
   const startCamera = useCallback(
     async (mode?: "user" | "environment") => {
       // Stop existing camera first
@@ -204,6 +211,7 @@ const ScanPage: React.FC = () => {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
+
 
       const targetMode = mode || facingMode;
 
@@ -512,7 +520,6 @@ const ScanPage: React.FC = () => {
   // ==========================================================================
   // EFFECTS
   // ==========================================================================
-  // Load offices and check today's attendance on mount
   useEffect(() => {
     const loadOffices = async () => {
       try {
@@ -589,14 +596,12 @@ const ScanPage: React.FC = () => {
     checkTodayAttendance();
   }, []);
 
-  // Get location when offices are loaded
   useEffect(() => {
     if (offices.length > 0) {
       getLocation();
     }
   }, [offices.length, getLocation]);
 
-  // Check for new day and reset state
   useEffect(() => {
     let lastCheckDate = new Date().toDateString();
 
@@ -649,7 +654,6 @@ const ScanPage: React.FC = () => {
     return () => clearInterval(checkInterval);
   }, [checkInTime, hasCheckedOut, canCheckOut, t]);
 
-  // Initialize camera on mount
   useEffect(() => {
     startCamera();
     return () => {
@@ -718,6 +722,7 @@ const ScanPage: React.FC = () => {
               </h3>
               {isCameraReady && (
                 <button
+                  type="button"
                   onClick={toggleCamera}
                   className="flex items-center gap-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
                   title={t("dashboard:scan.camera.switch")}
@@ -773,6 +778,7 @@ const ScanPage: React.FC = () => {
                   <p>{locationError}</p>
                 </div>
                 <button
+                  type="button"
                   onClick={getLocation}
                   disabled={locationLoading}
                   className="flex items-center justify-center gap-2 w-full rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
@@ -845,6 +851,7 @@ const ScanPage: React.FC = () => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={getLocation}
                   disabled={locationLoading}
                   className="mt-3 flex items-center justify-center gap-2 w-full rounded-lg border border-[var(--border)] bg-[var(--shell)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -859,6 +866,7 @@ const ScanPage: React.FC = () => {
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
             <button
+              type="button"
               onClick={handleCheckIn}
               disabled={
                 isProcessing ||
@@ -888,6 +896,7 @@ const ScanPage: React.FC = () => {
             </button>
 
             <button
+              type="button"
               onClick={handleCheckOut}
               disabled={
                 isProcessing ||

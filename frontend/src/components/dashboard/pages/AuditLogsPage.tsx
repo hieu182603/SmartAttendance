@@ -52,7 +52,6 @@ export default function AuditLogsPage() {
     const [filterCategory, setFilterCategory] = useState('all');
     const [selectedTab, setSelectedTab] = useState<'all' | 'success' | 'failed' | 'warning'>('all');
 
-    // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [pagination, setPagination] = useState<{
@@ -67,7 +66,6 @@ export default function AuditLogsPage() {
         totalPages: 0,
     });
 
-    // Stats state
     const [stats, setStats] = useState({
         total: 0,
         success: 0,
@@ -75,14 +73,11 @@ export default function AuditLogsPage() {
         warning: 0,
     });
 
-    // Auto-refresh state
     const [autoRefresh, setAutoRefresh] = useState(false);
 
-    // Details modal state
     const [selectedLog, setSelectedLog] = useState<AuditLogPage | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    // Load stats (separate call, not paginated)
     useEffect(() => {
         const fetchStats = async () => {
             try {
@@ -95,7 +90,6 @@ export default function AuditLogsPage() {
         fetchStats();
     }, []);
 
-    // Load logs with filters and pagination
     useEffect(() => {
         const fetchLogs = async () => {
             setLoading(true);
@@ -142,7 +136,6 @@ export default function AuditLogsPage() {
         fetchLogs();
     }, [currentPage, pageSize, searchQuery, selectedTab, filterAction, filterCategory]);
 
-    // Auto-refresh functionality
     useEffect(() => {
         if (!autoRefresh) return;
 
@@ -170,7 +163,6 @@ export default function AuditLogsPage() {
                     setLogs(result.logs as AuditLogPage[]);
                     setPagination(result.pagination);
 
-                    // Refresh stats too
                     const statsData = await getLogStats();
                     setStats(statsData);
                 } catch (error) {
@@ -183,12 +175,10 @@ export default function AuditLogsPage() {
         return () => clearInterval(interval);
     }, [autoRefresh, currentPage, pageSize, searchQuery, selectedTab, filterAction, filterCategory]);
 
-    // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1);
     }, [searchQuery, selectedTab, filterAction, filterCategory]);
 
-    // Server-side filtering - no client-side filtering needed
     const filteredLogs = logs;
 
     const getActionIcon = (action: string) => {
@@ -564,6 +554,7 @@ export default function AuditLogsPage() {
                                                     </TableCell>
                                                     <TableCell className="text-center">
                                                         <Button
+                                                            type="button"
                                                             variant="ghost"
                                                             size="icon"
                                                             onClick={(e) => {
@@ -609,6 +600,7 @@ export default function AuditLogsPage() {
                                                         <span className="text-sm text-gray-900 dark:text-gray-100 truncate">{log.timestamp}</span>
                                                     </div>
                                                     <Button
+                                                        type="button"
                                                         variant="ghost"
                                                         size="icon"
                                                         onClick={(e) => {

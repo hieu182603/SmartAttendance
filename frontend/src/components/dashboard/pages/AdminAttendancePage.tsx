@@ -390,7 +390,6 @@ export default function AdminAttendancePage() {
     void fetchAttendance();
   }, [fetchAttendance]);
 
-  // Lắng nghe sự kiện realtime khi attendance được cập nhật
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -398,7 +397,6 @@ export default function AdminAttendancePage() {
       const customEvent = event as CustomEvent<any>;
       const data = customEvent.detail;
 
-      // Refetch danh sách attendance để cập nhật mà không cần F5
       fetchAttendance();
     }) as EventListener;
 
@@ -409,7 +407,6 @@ export default function AdminAttendancePage() {
     };
   }, [fetchAttendance]);
 
-  // Fetch locations when component mounts
   useEffect(() => {
     const loadLocations = async () => {
       setIsLoadingLocations(true);
@@ -437,7 +434,6 @@ export default function AdminAttendancePage() {
 
   const handleEditRecord = (record: AttendanceRecordItem) => {
     setSelectedRecord(record);
-    // Tìm locationId từ location name
     const matchedLocation = locations.find((loc) => loc.name === record.location);
     setFormData({
       checkIn: record.checkIn === "-" ? "" : record.checkIn,
@@ -451,7 +447,6 @@ export default function AdminAttendancePage() {
     if (!selectedRecord) return;
     setIsSaving(true);
     try {
-      // Nếu là record vắng (ID bắt đầu bằng "absent-"), cần gửi thêm date
       const updatePayload: {
         checkIn?: string | null;
         checkOut?: string | null;
@@ -464,19 +459,15 @@ export default function AdminAttendancePage() {
         locationId: formData.locationId ? formData.locationId : null,
       };
 
-      // Nếu là record vắng, gửi thêm date để backend có thể tạo record mới
       if (selectedRecord.id.startsWith("absent-")) {
-        // Ưu tiên dùng selectedDate (format: YYYY-MM-DD)
         if (selectedDate) {
           updatePayload.date = selectedDate;
         } else {
-          // Parse date từ selectedRecord.date (format: DD/MM/YYYY)
           const dateParts = selectedRecord.date.split("/");
           if (dateParts.length === 3) {
             const [day, month, year] = dateParts;
             updatePayload.date = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
           } else {
-            // Fallback: dùng ngày hôm nay
             const today = new Date();
             updatePayload.date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
           }
@@ -742,6 +733,7 @@ export default function AdminAttendancePage() {
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-center space-x-1">
                           <button
+                            type="button"
                             onClick={() => handleViewRecord(record)}
                             className="rounded-md p-2 text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-colors"
                             title={t('dashboard:adminAttendance.table.view')}
@@ -749,6 +741,7 @@ export default function AdminAttendancePage() {
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleEditRecord(record)}
                             disabled={!roleConfig.canEdit}
                             className="rounded-md p-2 text-[var(--primary)] hover:bg-[var(--primary)]/10 disabled:cursor-not-allowed disabled:text-[var(--text-sub)] disabled:opacity-40 transition-colors"
@@ -804,6 +797,7 @@ export default function AdminAttendancePage() {
                       </div>
                       <div className="flex items-center space-x-1 flex-shrink-0">
                         <button
+                          type="button"
                           onClick={() => handleViewRecord(record)}
                           className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--accent-cyan)]"
                           title={t('dashboard:adminAttendance.table.view')}
@@ -811,6 +805,7 @@ export default function AdminAttendancePage() {
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleEditRecord(record)}
                           disabled={!roleConfig.canEdit}
                           className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--primary)] disabled:opacity-40 disabled:cursor-not-allowed"
