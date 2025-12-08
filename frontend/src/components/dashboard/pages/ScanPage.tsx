@@ -16,7 +16,7 @@ import api from "@/services/api";
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const MIN_WORK_HOURS = 1;
+const MIN_WORK_HOURS = 4;
 const STANDARD_WORK_HOURS = 8;
 const EARTH_RADIUS_M = 6371e3;
 const PHOTO_MAX_WIDTH = 800;
@@ -171,7 +171,9 @@ const ScanPage: React.FC = () => {
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [offices, setOffices] = useState<Office[]>([]);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">(
+    "environment"
+  );
 
   // ==========================================================================
   // REFS
@@ -192,40 +194,51 @@ const ScanPage: React.FC = () => {
     checkInTime,
   } = state;
 
-
   // ==========================================================================
   // CAMERA FUNCTIONS
   // ==========================================================================
+
   const startCamera = useCallback(async (mode?: "user" | "environment") => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
 
-    const targetMode = mode || facingMode;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: targetMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setState((prev) => ({ ...prev, isCameraReady: true }));
-        setPermissions((prev) => ({ ...prev, camera: true }));
-        setFacingMode(targetMode);
+  const startCamera = useCallback(
+    async (mode?: "user" | "environment") => {
+      // Stop existing camera first
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
       }
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      toast.error(t("dashboard:scan.errors.cameraAccess"));
-      setPermissions((prev) => ({ ...prev, camera: false }));
-    }
-  }, [facingMode, t]);
+
+
+      const targetMode = mode || facingMode;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: targetMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          streamRef.current = stream;
+          setState((prev) => ({ ...prev, isCameraReady: true }));
+          setPermissions((prev) => ({ ...prev, camera: true }));
+          setFacingMode(targetMode);
+        }
+      } catch (error) {
+        console.error("Error accessing camera:", error);
+        toast.error(t("dashboard:scan.errors.cameraAccess"));
+        setPermissions((prev) => ({ ...prev, camera: false }));
+      }
+    },
+    [facingMode, t]
+  );
 
   const toggleCamera = useCallback(async () => {
     const newMode = facingMode === "environment" ? "user" : "environment";
@@ -408,7 +421,9 @@ const ScanPage: React.FC = () => {
           );
         }
 
-        toast.success(response.data.message || t("dashboard:scan.toasts.checkInSuccess"));
+        toast.success(
+          response.data.message || t("dashboard:scan.toasts.checkInSuccess")
+        );
       }
     } catch (error) {
       console.error("Check-in error:", error);
@@ -423,7 +438,7 @@ const ScanPage: React.FC = () => {
         setState((prev) => ({ ...prev, hasCheckedIn: true }));
       } else if (err.response?.data?.code === "TOO_EARLY") {
         toast.warning(errorMessage);
-      } else if (err.response?.data?.code === 'ON_LEAVE') {
+      } else if (err.response?.data?.code === "ON_LEAVE") {
         toast.error(errorMessage, {
           duration: 5000,
         });
@@ -471,7 +486,9 @@ const ScanPage: React.FC = () => {
           );
         }
 
-        toast.success(response.data.message || t("dashboard:scan.toasts.checkOutSuccess"));
+        toast.success(
+          response.data.message || t("dashboard:scan.toasts.checkOutSuccess")
+        );
       }
     } catch (error) {
       console.error("Check-out error:", error);
@@ -488,7 +505,7 @@ const ScanPage: React.FC = () => {
         setState((prev) => ({ ...prev, hasCheckedOut: true }));
       } else if (err.response?.data?.code === "INSUFFICIENT_WORK_HOURS") {
         toast.warning(errorMessage);
-      } else if (err.response?.data?.code === 'ON_LEAVE') {
+      } else if (err.response?.data?.code === "ON_LEAVE") {
         toast.error(errorMessage, {
           duration: 5000,
         });
@@ -519,6 +536,12 @@ const ScanPage: React.FC = () => {
         }
       } catch (error) {
         console.error("Error loading branches:", error);
+        toast.error(
+          t("dashboard:scan.errors.loadBranches", {
+            defaultValue:
+              "Không thể tải danh sách văn phòng. Vui lòng thử lại.",
+          })
+        );
       }
     };
 
@@ -560,6 +583,12 @@ const ScanPage: React.FC = () => {
         }
       } catch (error) {
         console.error("Error checking today attendance:", error);
+        toast.error(
+          t("dashboard:scan.errors.checkStatus", {
+            defaultValue:
+              "Không thể kiểm tra trạng thái điểm danh. Vui lòng làm mới trang.",
+          })
+        );
       }
     };
 
@@ -585,6 +614,7 @@ const ScanPage: React.FC = () => {
           hasCheckedOut: false,
           checkInTime: null,
           canCheckOut: false,
+          hasShownCheckoutNotification: false, // Reset flag
         }));
         lastCheckDate = currentDate;
       }
@@ -596,17 +626,6 @@ const ScanPage: React.FC = () => {
   // Monitor work hours and show toast notifications
   useEffect(() => {
     if (!checkInTime || hasCheckedOut) return;
-
-    const now = new Date();
-    const hoursWorked =
-      (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-
-    if (hoursWorked >= MIN_WORK_HOURS && !canCheckOut) {
-      setState((prev) => ({ ...prev, canCheckOut: true }));
-      toast.success(t("dashboard:scan.toasts.canCheckOut"), {
-        duration: 5000,
-      });
-    }
 
     const checkInterval = setInterval(() => {
       const now = new Date();
@@ -677,8 +696,13 @@ const ScanPage: React.FC = () => {
                   ) : (
                     <AlertCircle className="h-3 w-3" />
                   )}
-                  {key === "camera" ? t("dashboard:scan.permissions.camera") : t("dashboard:scan.permissions.location")} -{" "}
-                  {granted ? t("dashboard:scan.permissions.granted") : t("dashboard:scan.permissions.denied")}
+                  {key === "camera"
+                    ? t("dashboard:scan.permissions.camera")
+                    : t("dashboard:scan.permissions.location")}{" "}
+                  -{" "}
+                  {granted
+                    ? t("dashboard:scan.permissions.granted")
+                    : t("dashboard:scan.permissions.denied")}
                 </span>
               ))}
             </div>
@@ -705,8 +729,8 @@ const ScanPage: React.FC = () => {
                 >
                   <RotateCcw className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {facingMode === "environment" 
-                      ? t("dashboard:scan.camera.switchToFront") 
+                    {facingMode === "environment"
+                      ? t("dashboard:scan.camera.switchToFront")
                       : t("dashboard:scan.camera.switchToBack")}
                   </span>
                 </button>
@@ -721,12 +745,16 @@ const ScanPage: React.FC = () => {
                 className={`h-full w-full object-cover ${
                   isCameraReady ? "block" : "hidden"
                 }`}
-                style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
+                style={{
+                  transform: facingMode === "user" ? "scaleX(-1)" : "none",
+                }}
               />
               {!isCameraReady && (
                 <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--shell)] text-[var(--text-sub)]">
                   <Camera className="h-12 w-12" />
-                  <p className="text-sm">{t("dashboard:scan.camera.notActivated")}</p>
+                  <p className="text-sm">
+                    {t("dashboard:scan.camera.notActivated")}
+                  </p>
                 </div>
               )}
             </div>
@@ -806,13 +834,17 @@ const ScanPage: React.FC = () => {
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">{t("dashboard:scan.locationInfo.latitude")}</span>
+                    <span className="text-[var(--text-sub)]">
+                      {t("dashboard:scan.locationInfo.latitude")}
+                    </span>
                     <span className="font-mono text-xs text-[var(--text-sub)]">
                       {locationData.latitude?.toFixed(6)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">{t("dashboard:scan.locationInfo.longitude")}</span>
+                    <span className="text-[var(--text-sub)]">
+                      {t("dashboard:scan.locationInfo.longitude")}
+                    </span>
                     <span className="font-mono text-xs text-[var(--text-sub)]">
                       {locationData.longitude?.toFixed(6)}
                     </span>

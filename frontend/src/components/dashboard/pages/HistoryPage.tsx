@@ -13,13 +13,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getAttendanceHistory } from "@/services/attendanceService";
-import { getAttendanceStatusBadgeClass, type AttendanceStatus } from "@/utils/attendanceStatus";
+import {
+  getAttendanceStatusBadgeClass,
+  type AttendanceStatus,
+} from "@/utils/attendanceStatus";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const ITEMS_PER_PAGE = 20;
-const STATS_LIMIT = 1000;
+const ITEMS_PER_PAGE = 20; // Số records mỗi page
+const STATS_LIMIT = 100; // Giảm từ 1000 → 100 để tránh lag
 
 interface AttendanceRecord {
   id?: string;
@@ -62,14 +65,20 @@ const getStatusBadge = (
     on_leave: t("dashboard:history.statusLabels.onLeave", {
       defaultValue: "Nghỉ phép",
     }),
-    unknown: t("dashboard:history.statusLabels.unknown", { defaultValue: "Không xác định" }),
+    unknown: t("dashboard:history.statusLabels.unknown", {
+      defaultValue: "Không xác định",
+    }),
   };
 
   if (status === "absent") {
     return <Badge variant="error">{statusLabels[status]}</Badge>;
   }
 
-  return <Badge className={getAttendanceStatusBadgeClass(status)}>{statusLabels[status]}</Badge>;
+  return (
+    <Badge className={getAttendanceStatusBadgeClass(status)}>
+      {statusLabels[status]}
+    </Badge>
+  );
 };
 
 const extractPhotoUrl = (
@@ -77,16 +86,33 @@ const extractPhotoUrl = (
   location: string,
   type: "checkin" | "checkout"
 ): string | null => {
-  if (type === "checkin") {
-    const checkInMatch = notes?.match(/\[Ảnh:\s*(https?:\/\/[^\]]+)\]/);
-    if (checkInMatch) return checkInMatch[1];
-    const locationMatch = location?.match(/https?:\/\/[^\s]+/);
-    if (locationMatch) return locationMatch[0];
-  } else {
-    const checkOutMatch = notes?.match(
-      /\[Ảnh check-out:\s*(https?:\/\/[^\]]+)\]/i
-    );
-    if (checkOutMatch) return checkOutMatch[1];
+  try {
+    if (type === "checkin") {
+      // Try extracting from notes first
+      const checkInMatch = notes?.match(/\[Ảnh:\s*(https?:\/\/[^\]]+)\]/);
+      if (checkInMatch) {
+        const url = checkInMatch[1].trim();
+        // Validate URL before returning
+        if (url.startsWith("http")) return url;
+      }
+
+      // Fallback to location field
+      const locationMatch = location?.match(/https?:\/\/[^\s]+/);
+      if (locationMatch) {
+        const url = locationMatch[0].trim();
+        if (url.startsWith("http")) return url;
+      }
+    } else {
+      const checkOutMatch = notes?.match(
+        /\[Ảnh check-out:\s*(https?:\/\/[^\]]+)\]/i
+      );
+      if (checkOutMatch) {
+        const url = checkOutMatch[1].trim();
+        if (url.startsWith("http")) return url;
+      }
+    }
+  } catch (error) {
+    console.error("[HistoryPage] Error extracting photo URL:", error);
   }
   return null;
 };
@@ -96,8 +122,33 @@ const formatLocation = (
   t: TranslationFunction
 ): string => {
   if (!location) return "-";
-  if (location.startsWith("http")) return t("dashboard:history.office");
-  if (location.includes("attendance")) return t("dashboard:history.office");
+
+  // Check if it's a URL (any URL pattern)
+  try {
+    const url = new URL(location);
+    // If it's a valid URL, assume it's office location
+    return t("dashboard:history.office");
+  } catch {
+    // Not a URL, continue checking
+  }
+
+  // Check common URL patterns that might not parse as URL
+  const urlPatterns = [
+    /^https?:\/\//i, // Standard http(s)
+    /cloudinary\.com/i, // Cloudinary CDN
+    /s3\.amazonaws\.com/i, // AWS S3
+    /firebasestorage/i, // Firebase Storage
+    /blob\.core\.windows/i, // Azure Blob
+    /attendance/i, // Contains "attendance"
+  ];
+
+  for (const pattern of urlPatterns) {
+    if (pattern.test(location)) {
+      return t("dashboard:history.office");
+    }
+  }
+
+  // If not URL, return as-is (could be branch name or address)
   return location;
 };
 
@@ -213,7 +264,7 @@ const HistoryPage: React.FC = () => {
   }, [fromDate, toDate, statusFilter]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     const handleAttendanceUpdated = ((event: Event) => {
       const customEvent = event as CustomEvent<any>;
@@ -222,10 +273,10 @@ const HistoryPage: React.FC = () => {
       setCurrentPage((prev) => prev);
     }) as EventListener;
 
-    window.addEventListener('attendance-updated', handleAttendanceUpdated);
+    window.addEventListener("attendance-updated", handleAttendanceUpdated);
 
     return () => {
-      window.removeEventListener('attendance-updated', handleAttendanceUpdated);
+      window.removeEventListener("attendance-updated", handleAttendanceUpdated);
     };
   }, []);
 
@@ -663,7 +714,9 @@ const HistoryPage: React.FC = () => {
           <div className="md:hidden space-y-3">
             {loading ? (
               <div className="text-center py-12">
-                <p className="text-[var(--text-sub)]">{t("dashboard:history.details.loading")}</p>
+                <p className="text-[var(--text-sub)]">
+                  {t("dashboard:history.details.loading")}
+                </p>
               </div>
             ) : error ? (
               <div className="text-center py-12">
@@ -671,12 +724,15 @@ const HistoryPage: React.FC = () => {
               </div>
             ) : records.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-[var(--text-sub)]">{t("dashboard:history.details.noData")}</p>
+                <p className="text-[var(--text-sub)]">
+                  {t("dashboard:history.details.noData")}
+                </p>
               </div>
             ) : (
               records.map((record, index) => {
                 const hasPhoto =
-                  record.notes?.includes("http") || record.location?.includes("http");
+                  record.notes?.includes("http") ||
+                  record.location?.includes("http");
                 return (
                   <Card
                     key={record.id || index}
@@ -689,7 +745,9 @@ const HistoryPage: React.FC = () => {
                             <p className="text-sm font-semibold text-[var(--text-main)]">
                               {record.date}
                             </p>
-                            <span className="text-xs text-[var(--text-sub)]">({record.day})</span>
+                            <span className="text-xs text-[var(--text-sub)]">
+                              ({record.day})
+                            </span>
                             {getStatusBadge(record.status, t)}
                           </div>
                         </div>

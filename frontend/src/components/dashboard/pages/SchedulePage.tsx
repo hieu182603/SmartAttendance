@@ -16,11 +16,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
 import shiftService from "@/services/shiftService";
 import { getAttendanceHistory } from "@/services/attendanceService";
 import { useAuth } from "@/context/AuthContext";
-import { getShiftStatusBadgeClass, type ShiftStatus } from "@/utils/attendanceStatus";
-
+import {
+  getShiftStatusBadgeClass,
+  type ShiftStatus,
+} from "@/utils/attendanceStatus";
 
 interface AttendanceRecord {
   id?: string;
@@ -73,7 +76,7 @@ const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
 };
 
 const SchedulePage: React.FC = () => {
-  const { t } = useTranslation(['dashboard', 'common']);
+  const { t } = useTranslation(["dashboard", "common"]);
   const { user } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
@@ -124,11 +127,18 @@ const SchedulePage: React.FC = () => {
         const endDateStr = rangeEnd.toISOString().split("T")[0];
 
         // Fetch schedule, attendance, and available shifts in parallel
-        const [scheduleData, attendanceData, availableShifts] = await Promise.all([
-          shiftService.getMySchedule(startDateStr, endDateStr).catch(() => []),
-          getAttendanceHistory({ limit: 1000 }).catch(() => ({ records: [], pagination: null })),
-          shiftService.getAllShifts().catch(() => []),
-        ]);
+        const [scheduleData, attendanceData, availableShifts] =
+          await Promise.all([
+            shiftService
+              .getMySchedule(startDateStr, endDateStr)
+              .catch(() => []),
+            getAttendanceHistory({ limit: 1000 }).catch((error) => {
+              console.error("[Schedule] Failed to load attendance:", error);
+              toast.error("Không thể tải lịch sử điểm danh cho lịch làm việc");
+              return { records: [], pagination: null };
+            }),
+            shiftService.getAllShifts().catch(() => []),
+          ]);
 
         // Store attendance records
         const records = (attendanceData.records || []) as AttendanceRecord[];
@@ -141,17 +151,18 @@ const SchedulePage: React.FC = () => {
             let dateStr = "";
             if (record.date) {
               const dateValue = String(record.date).trim();
-              
+
               // Try ISO format first (YYYY-MM-DD)
               if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
                 const d = new Date(dateValue);
                 if (!Number.isNaN(d.getTime())) {
                   dateStr = d.toISOString().split("T")[0];
                 }
-              } 
+              }
               // Try format like "24 tháng 11, 2024" or "24/11/2024" or "24-11-2024"
               else {
-                const dateRegex = /(\d{1,2})\s*(?:tháng|[/-])\s*(\d{1,2})(?:,\s*|\s+|[/-])\s*(\d{4})/;
+                const dateRegex =
+                  /(\d{1,2})\s*(?:tháng|[/-])\s*(\d{1,2})(?:,\s*|\s+|[/-])\s*(\d{4})/;
                 const dateMatch = dateRegex.exec(dateValue);
                 if (dateMatch) {
                   const day = Number.parseInt(dateMatch[1], 10);
@@ -169,13 +180,18 @@ const SchedulePage: React.FC = () => {
                   }
                 }
               }
-              
+
               if (dateStr) {
                 attendanceMap.set(dateStr, record);
               }
             }
           } catch (err) {
-            // Silently skip invalid date records
+            // Log skipped records
+            console.warn("[Schedule] Skipping invalid attendance record:", {
+              id: record.id,
+              dateStr: record.date,
+              error: err,
+            });
           }
         });
 
@@ -184,13 +200,18 @@ const SchedulePage: React.FC = () => {
         scheduleData.forEach((sched: any) => {
           if (sched && sched.date) {
             try {
-              const dateObj = sched.date instanceof Date ? sched.date : new Date(sched.date);
+              const dateObj =
+                sched.date instanceof Date ? sched.date : new Date(sched.date);
               if (!Number.isNaN(dateObj.getTime())) {
                 const dateStr = dateObj.toISOString().split("T")[0];
                 scheduleMap.set(dateStr, sched);
               }
             } catch (err) {
-              // Silently skip invalid schedule dates
+              // Log skipped schedule
+              console.warn("[Schedule] Skipping invalid schedule date:", {
+                scheduleId: sched._id,
+                error: err,
+              });
             }
           }
         });
@@ -200,10 +221,15 @@ const SchedulePage: React.FC = () => {
         // Không dùng fallback nếu hoàn toàn không có schedule nào (tài khoản mới),
         // để tránh hiển thị lịch "ảo" cho user mới đăng ký.
         let fallbackShift = null;
-        if (availableShifts && availableShifts.length > 0 && scheduleMap.size > 0) {
+        if (
+          availableShifts &&
+          availableShifts.length > 0 &&
+          scheduleMap.size > 0
+        ) {
           fallbackShift =
-            availableShifts.find((s: any) => s.name === t('dashboard:schedule.defaults.shiftName')) ||
-            availableShifts[0];
+            availableShifts.find(
+              (s: any) => s.name === t("dashboard:schedule.defaults.shiftName")
+            ) || availableShifts[0];
         }
 
         // Generate schedule for all days in range
@@ -223,7 +249,7 @@ const SchedulePage: React.FC = () => {
 
             // Nếu có schedule được gán, sử dụng nó
             let scheduleToUse = assignedSchedule;
-            
+
             // Fallback: Chỉ dùng default shift khi đã có ít nhất 1 schedule thật
             // (scheduleMap.size > 0) để lấp các ngày trống.
             if (!scheduleToUse && fallbackShift && scheduleMap.size > 0) {
@@ -238,30 +264,48 @@ const SchedulePage: React.FC = () => {
             }
 
             if (scheduleToUse) {
-              const shiftId = scheduleToUse.shiftId?._id || scheduleToUse.shiftId || "";
-              const shiftName = scheduleToUse.shiftName || scheduleToUse.shiftId?.name || "";
-              const startTime = scheduleToUse.startTime || scheduleToUse.shiftId?.startTime || "";
-              const endTime = scheduleToUse.endTime || scheduleToUse.shiftId?.endTime || "";
-              const breakDuration = scheduleToUse.shiftId?.breakDuration || scheduleToUse.breakDuration || 60;
-              const description = scheduleToUse.shiftId?.description || scheduleToUse.description || "";
+              const shiftId =
+                scheduleToUse.shiftId?._id || scheduleToUse.shiftId || "";
+              const shiftName =
+                scheduleToUse.shiftName || scheduleToUse.shiftId?.name || "";
+              const startTime =
+                scheduleToUse.startTime ||
+                scheduleToUse.shiftId?.startTime ||
+                "";
+              const endTime =
+                scheduleToUse.endTime || scheduleToUse.shiftId?.endTime || "";
+              const breakDuration =
+                scheduleToUse.shiftId?.breakDuration ||
+                scheduleToUse.breakDuration ||
+                60;
+              const description =
+                scheduleToUse.shiftId?.description ||
+                scheduleToUse.description ||
+                "";
               const dbStatus = scheduleToUse.status as ShiftStatus | undefined;
 
-              let status: ShiftStatus = (dbStatus && ["scheduled", "completed", "missed", "off"].includes(dbStatus)) 
-                ? dbStatus 
-                : "scheduled";
-              
+              let status: ShiftStatus =
+                dbStatus &&
+                ["scheduled", "completed", "missed", "off"].includes(dbStatus)
+                  ? dbStatus
+                  : "scheduled";
+
               if (status === "off") {
                 // Giữ nguyên status "off" từ database (từ leave request)
               } else if (attendance) {
-                const hasCheckIn = attendance.checkIn &&
-                                   String(attendance.checkIn).trim() !== "" &&
-                                   String(attendance.checkIn).trim() !== "—" &&
-                                   String(attendance.checkIn).trim() !== "null" &&
-                                   String(attendance.checkIn).trim() !== "undefined";
-                
+                const hasCheckIn =
+                  attendance.checkIn &&
+                  String(attendance.checkIn).trim() !== "" &&
+                  String(attendance.checkIn).trim() !== "—" &&
+                  String(attendance.checkIn).trim() !== "null" &&
+                  String(attendance.checkIn).trim() !== "undefined";
+
                 if (hasCheckIn) {
                   status = "completed";
-                } else if (attendance.status === "absent" || attendance.status === "weekend") {
+                } else if (
+                  attendance.status === "absent" ||
+                  attendance.status === "weekend"
+                ) {
                   status = "off";
                 } else if (isPast) {
                   status = "missed";
@@ -282,8 +326,12 @@ const SchedulePage: React.FC = () => {
                     breakDuration: breakDuration,
                   },
                   status,
-                  location: scheduleToUse.location || attendance?.location || t('dashboard:schedule.defaults.location'),
-                  team: scheduleToUse.team || t('dashboard:schedule.defaults.team'),
+                  location:
+                    scheduleToUse.location ||
+                    attendance?.location ||
+                    t("dashboard:schedule.defaults.location"),
+                  team:
+                    scheduleToUse.team || t("dashboard:schedule.defaults.team"),
                   notes: scheduleToUse.notes || description,
                   attendanceRecord: attendance,
                 });
@@ -312,12 +360,15 @@ const SchedulePage: React.FC = () => {
               const virtualStartTime = extractTime(attendance.checkIn);
               const virtualEndTime = extractTime(attendance.checkOut);
 
-              const hasCheckIn = attendance.checkIn &&
-                                 String(attendance.checkIn).trim() !== "" &&
-                                 String(attendance.checkIn).trim() !== "—" &&
-                                 String(attendance.checkIn).trim() !== "null" &&
-                                 String(attendance.checkIn).trim() !== "undefined";
-              const virtualStatus: ShiftStatus = hasCheckIn ? "completed" : "scheduled";
+              const hasCheckIn =
+                attendance.checkIn &&
+                String(attendance.checkIn).trim() !== "" &&
+                String(attendance.checkIn).trim() !== "—" &&
+                String(attendance.checkIn).trim() !== "null" &&
+                String(attendance.checkIn).trim() !== "undefined";
+              const virtualStatus: ShiftStatus = hasCheckIn
+                ? "completed"
+                : "scheduled";
 
               finalSchedule.push({
                 _id: `${dateStr}-${virtualShiftId}`,
@@ -330,8 +381,10 @@ const SchedulePage: React.FC = () => {
                   breakDuration: 0,
                 },
                 status: virtualStatus,
-                location: attendance.location || t('dashboard:schedule.defaults.location'),
-                team: t('dashboard:schedule.defaults.team'),
+                location:
+                  attendance.location ||
+                  t("dashboard:schedule.defaults.location"),
+                team: t("dashboard:schedule.defaults.team"),
                 notes: attendance.notes || "",
                 attendanceRecord: attendance,
               });
@@ -369,7 +422,7 @@ const SchedulePage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
-        <p className="text-lg">{t('dashboard:schedule.loading')}</p>
+        <p className="text-lg">{t("dashboard:schedule.loading")}</p>
       </div>
     );
   }
@@ -393,10 +446,12 @@ const SchedulePage: React.FC = () => {
     const checkIn = s.attendanceRecord.checkIn;
     if (!checkIn) return false;
     const checkInStr = String(checkIn).trim();
-    return checkInStr !== "" && 
-           checkInStr !== "—" && 
-           checkInStr !== "null" && 
-           checkInStr !== "undefined";
+    return (
+      checkInStr !== "" &&
+      checkInStr !== "—" &&
+      checkInStr !== "null" &&
+      checkInStr !== "undefined"
+    );
   });
 
   const monthOnTime = monthAttended.filter((s) => {
@@ -422,12 +477,13 @@ const SchedulePage: React.FC = () => {
   const monthUpcoming = monthShifts.filter((s) => {
     const date = new Date(s.date);
     date.setHours(0, 0, 0, 0);
-    const hasAttended = s.attendanceRecord && 
-                        s.attendanceRecord.checkIn && 
-                        String(s.attendanceRecord.checkIn).trim() !== "" && 
-                        String(s.attendanceRecord.checkIn).trim() !== "—" &&
-                        String(s.attendanceRecord.checkIn).trim() !== "null" &&
-                        String(s.attendanceRecord.checkIn).trim() !== "undefined";
+    const hasAttended =
+      s.attendanceRecord &&
+      s.attendanceRecord.checkIn &&
+      String(s.attendanceRecord.checkIn).trim() !== "" &&
+      String(s.attendanceRecord.checkIn).trim() !== "—" &&
+      String(s.attendanceRecord.checkIn).trim() !== "null" &&
+      String(s.attendanceRecord.checkIn).trim() !== "undefined";
     return !hasAttended && date >= today;
   });
 
@@ -441,20 +497,21 @@ const SchedulePage: React.FC = () => {
         ? Math.round((monthAttended.length / monthShifts.length) * 100)
         : 0,
     onTimeCount: monthOnTime.length,
-    onTimeRate: monthAttended.length > 0
-      ? Math.round((monthOnTime.length / monthAttended.length) * 100)
-      : 0,
+    onTimeRate:
+      monthAttended.length > 0
+        ? Math.round((monthOnTime.length / monthAttended.length) * 100)
+        : 0,
   };
 
   const formattedTotalHours =
     Math.round((stats.totalHours + Number.EPSILON) * 10) / 10;
-  const monthRangeLabel = t('dashboard:schedule.timeRangeMonth');
+  const monthRangeLabel = t("dashboard:schedule.timeRangeMonth");
 
   // Month-level quick stats for bottom widgets
   const monthAttendanceLabel =
     stats.thisMonth > 0
-      ? `${stats.completed}/${stats.thisMonth} ${t('dashboard:schedule.shift')}`
-      : `0/0 ${t('dashboard:schedule.shift')}`;
+      ? `${stats.completed}/${stats.thisMonth} ${t("dashboard:schedule.shift")}`
+      : `0/0 ${t("dashboard:schedule.shift")}`;
   const monthAttendancePercent =
     stats.thisMonth > 0
       ? ((stats.completed / stats.thisMonth) * 100).toFixed(0)
@@ -477,7 +534,11 @@ const SchedulePage: React.FC = () => {
 
   // Build month calendar grid (Mon-first) for compact month view
   const monthStartDisplay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const monthEndDisplay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const monthEndDisplay = new Date(
+    today.getFullYear(),
+    today.getMonth() + 1,
+    0
+  );
   const daysInMonth = monthEndDisplay.getDate();
   const leadingEmpty = (monthStartDisplay.getDay() + 6) % 7; // convert Sunday=0 to Monday=0
   const monthDaysRaw: Array<{ date: Date | null }> = [
@@ -510,24 +571,29 @@ const SchedulePage: React.FC = () => {
     const dayShifts = schedule.filter((s) => s.date === dateStr);
 
     if (dayShifts.length === 0) return "off";
-    
+
     // Ưu tiên check status = "off" trước (từ leave request đã được approve)
     // Nếu schedule có status = "off" thì luôn hiển thị off, dù là hôm nay hay ngày khác
     if (dayShifts.some((s) => s.status === "off")) return "off";
-    
+
     // Check if has attendance record with status "absent" or "weekend"
-    const hasAbsentRecord = dayShifts.some((s) => 
-      s.attendanceRecord && 
-      (s.attendanceRecord.status === "absent" || s.attendanceRecord.status === "weekend")
+    const hasAbsentRecord = dayShifts.some(
+      (s) =>
+        s.attendanceRecord &&
+        (s.attendanceRecord.status === "absent" ||
+          s.attendanceRecord.status === "weekend")
     );
     if (hasAbsentRecord) return "off";
-    
+
     // Check if today
     if (dateStr === todayStr) {
       // Check if has attendance record with checkIn
-      const hasAttended = dayShifts.some((s) => 
-        s.attendanceRecord && s.attendanceRecord.checkIn && 
-        s.attendanceRecord.checkIn !== "—" && s.attendanceRecord.checkIn !== ""
+      const hasAttended = dayShifts.some(
+        (s) =>
+          s.attendanceRecord &&
+          s.attendanceRecord.checkIn &&
+          s.attendanceRecord.checkIn !== "—" &&
+          s.attendanceRecord.checkIn !== ""
       );
       return hasAttended ? "completed" : "today";
     }
@@ -538,13 +604,15 @@ const SchedulePage: React.FC = () => {
       const checkIn = s.attendanceRecord.checkIn;
       if (!checkIn) return false;
       const checkInStr = String(checkIn).trim();
-      return checkInStr !== "" && 
-             checkInStr !== "—" && 
-             checkInStr !== "null" && 
-             checkInStr !== "undefined";
+      return (
+        checkInStr !== "" &&
+        checkInStr !== "—" &&
+        checkInStr !== "null" &&
+        checkInStr !== "undefined"
+      );
     });
     if (hasAttended) return "completed";
-    
+
     // Check if no attendance and in the past (should be "off"/nghỉ)
     const isPast = date < today;
     if (isPast && !hasAttended) return "off";
@@ -572,7 +640,6 @@ const SchedulePage: React.FC = () => {
   const getStatusColor = (status: ShiftStatus): string => {
     return getShiftStatusBadgeClass(status);
   };
-
 
   // Tìm ca hiện tại (đang diễn ra)
   const currentShift = todayShifts.find((s) => {
@@ -626,35 +693,35 @@ const SchedulePage: React.FC = () => {
 
   const statCards: StatCard[] = [
     {
-      label: t('dashboard:schedule.stats.thisMonth'),
+      label: t("dashboard:schedule.stats.thisMonth"),
       value: stats.thisMonth,
       color: "primary",
       icon: "📋",
       delay: 0.1,
     },
     {
-      label: t('dashboard:schedule.stats.checkedIn'),
+      label: t("dashboard:schedule.stats.checkedIn"),
       value: stats.completed,
       color: "success",
       icon: "✅",
       delay: 0.2,
     },
     {
-      label: t('dashboard:schedule.stats.upcoming'),
+      label: t("dashboard:schedule.stats.upcoming"),
       value: stats.upcoming,
       color: "accent-cyan",
       icon: "🔜",
       delay: 0.3,
     },
     {
-      label: t('dashboard:schedule.stats.totalHours'),
+      label: t("dashboard:schedule.stats.totalHours"),
       value: `${formattedTotalHours}h`,
       color: "warning",
       icon: "⏰",
       delay: 0.4,
     },
     {
-      label: t('dashboard:schedule.stats.performance'),
+      label: t("dashboard:schedule.stats.performance"),
       value: stats.performance + "%",
       color: "success",
       icon: "📊",
@@ -679,7 +746,7 @@ const SchedulePage: React.FC = () => {
               >
                 📆
               </motion.span>
-              <span>{t('dashboard:schedule.title')}</span>
+              <span>{t("dashboard:schedule.title")}</span>
             </h1>
             <p className="text-[var(--text-sub)] mt-1">
               {today.toLocaleDateString("vi-VN", {
@@ -748,12 +815,14 @@ const SchedulePage: React.FC = () => {
               <CardTitle className="text-[var(--text-main)] flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Target className="h-5 w-5 text-[var(--accent-cyan)]" />
-                  <span>{t('dashboard:schedule.todayShift')}</span>
+                  <span>{t("dashboard:schedule.todayShift")}</span>
                 </div>
                 {countdown && (
                   <Badge className="bg-[var(--warning)]/30 text-[var(--warning)] border border-[var(--warning)]/50 dark:bg-[var(--warning)]/20 dark:border-[var(--warning)]/30">
                     <Clock className="h-3 w-3 mr-1" />
-                    {t('dashboard:schedule.timeRemaining')} {countdown.hours}{t('dashboard:schedule.hours')} {countdown.minutes}{t('dashboard:schedule.minutes')}
+                    {t("dashboard:schedule.timeRemaining")} {countdown.hours}
+                    {t("dashboard:schedule.hours")} {countdown.minutes}
+                    {t("dashboard:schedule.minutes")}
                   </Badge>
                 )}
               </CardTitle>
@@ -771,7 +840,7 @@ const SchedulePage: React.FC = () => {
                 <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)]">
                   <div className="text-center">
                     <p className="text-sm text-[var(--text-sub)] mb-4">
-                      {t('dashboard:schedule.timeRange')}
+                      {t("dashboard:schedule.timeRange")}
                     </p>
                     <motion.div
                       className="text-3xl text-[var(--text-main)]"
@@ -812,7 +881,7 @@ const SchedulePage: React.FC = () => {
                               className="h-2"
                             />
                             <p className="text-xs text-[var(--text-sub)] mt-2">
-                              {t('dashboard:schedule.inShift')}
+                              {t("dashboard:schedule.inShift")}
                             </p>
                           </div>
                         );
@@ -852,16 +921,27 @@ const SchedulePage: React.FC = () => {
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge className={getStatusColor(shift.status)}>
                                   {shift.status === "completed"
-                                    ? `✅ ${t('dashboard:schedule.checkedInStatus')}`
-                                    : shift.status === "off" && shift.notes?.includes("Nghỉ")
-                                    ? `🏖️ ${shift.notes.split(":")[0] || "Nghỉ phép"}`
-                                    : `🔵 ${t('dashboard:schedule.notCheckedIn')}`}
+                                    ? `✅ ${t(
+                                        "dashboard:schedule.checkedInStatus"
+                                      )}`
+                                    : shift.status === "off" &&
+                                      shift.notes?.includes("Nghỉ")
+                                    ? `🏖️ ${
+                                        shift.notes.split(":")[0] || "Nghỉ phép"
+                                      }`
+                                    : `🔵 ${t(
+                                        "dashboard:schedule.notCheckedIn"
+                                      )}`}
                                 </Badge>
-                                {shift.status === "off" && shift.notes?.includes("Nghỉ") && (
-                                  <span className="text-xs text-[var(--text-sub)]" title={shift.notes}>
-                                    {shift.notes}
-                                  </span>
-                                )}
+                                {shift.status === "off" &&
+                                  shift.notes?.includes("Nghỉ") && (
+                                    <span
+                                      className="text-xs text-[var(--text-sub)]"
+                                      title={shift.notes}
+                                    >
+                                      {shift.notes}
+                                    </span>
+                                  )}
                               </div>
                             </div>
                           </div>
@@ -888,7 +968,9 @@ const SchedulePage: React.FC = () => {
                               {sanitizeNotes(shift.notes) && (
                                 <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
                                   <StickyNote className="h-4 w-4 text-[var(--warning)]" />
-                                  <span>{sanitizeNotes(shift.notes) as string}</span>
+                                  <span>
+                                    {sanitizeNotes(shift.notes) as string}
+                                  </span>
                                 </div>
                               )}
                             </>
@@ -900,8 +982,8 @@ const SchedulePage: React.FC = () => {
                 ) : (
                   <div className="text-center py-8 text-[var(--text-sub)] text-lg">
                     {new Date().getDay() === 0
-                      ? t('dashboard:schedule.offToday')
-                      : t('dashboard:schedule.noWorkToday')}
+                      ? t("dashboard:schedule.offToday")
+                      : t("dashboard:schedule.noWorkToday")}
                   </div>
                 )}
               </div>
@@ -921,7 +1003,11 @@ const SchedulePage: React.FC = () => {
             <CardHeader>
               <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
                 <CalendarIcon className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>{t('dashboard:schedule.monthLabel', { month: currentMonthLabel })}</span>
+                <span>
+                  {t("dashboard:schedule.monthLabel", {
+                    month: currentMonthLabel,
+                  })}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
@@ -933,7 +1019,9 @@ const SchedulePage: React.FC = () => {
 
               <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-4">
                 {monthDays.map((cell, index) => {
-                  const status = cell.date ? getWeekDayStatus(cell.date) : "none";
+                  const status = cell.date
+                    ? getWeekDayStatus(cell.date)
+                    : "none";
                   const isToday =
                     cell.date?.toISOString().split("T")[0] === todayStr;
                   return (
@@ -947,7 +1035,11 @@ const SchedulePage: React.FC = () => {
                       <div
                         className={`
                           min-h-[44px] sm:min-h-[52px] rounded-md flex items-center justify-center text-sm
-                          ${cell.date ? getWeekDayColor(status) : "bg-transparent"}
+                          ${
+                            cell.date
+                              ? getWeekDayColor(status)
+                              : "bg-transparent"
+                          }
                           ${
                             isToday && cell.date
                               ? "ring-2 ring-[var(--accent-cyan)] ring-offset-1 ring-offset-[var(--background)]"
@@ -968,25 +1060,25 @@ const SchedulePage: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--success)]" />
                   <span className="text-[var(--text-sub)]">
-                    {t('dashboard:schedule.legend.done')}
+                    {t("dashboard:schedule.legend.done")}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--accent-cyan)]" />
                   <span className="text-[var(--text-sub)]">
-                    {t('dashboard:schedule.legend.today')}
+                    {t("dashboard:schedule.legend.today")}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--primary)]" />
                   <span className="text-[var(--text-sub)]">
-                    {t('dashboard:schedule.legend.upcoming')}
+                    {t("dashboard:schedule.legend.upcoming")}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--text-sub)]" />
                   <span className="text-[var(--text-sub)]">
-                    {t('dashboard:schedule.legend.off')}
+                    {t("dashboard:schedule.legend.off")}
                   </span>
                 </div>
               </div>
@@ -994,7 +1086,9 @@ const SchedulePage: React.FC = () => {
               {/* Month Stats */}
               <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-[var(--border)]">
                 <div className="text-center">
-                  <p className="text-sm text-[var(--text-sub)]">{monthRangeLabel}</p>
+                  <p className="text-sm text-[var(--text-sub)]">
+                    {monthRangeLabel}
+                  </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {monthAttendanceLabel}
                   </p>
@@ -1004,7 +1098,7 @@ const SchedulePage: React.FC = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-[var(--text-sub)]">
-                    {t('dashboard:schedule.weekStats.onTime')}
+                    {t("dashboard:schedule.weekStats.onTime")}
                   </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {monthOnTimeLabel}
@@ -1015,17 +1109,18 @@ const SchedulePage: React.FC = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-[var(--text-sub)]">
-                    {t('dashboard:schedule.monthStats.averageLabel')}
+                    {t("dashboard:schedule.monthStats.averageLabel")}
                   </p>
                   <p className="text-xl text-[var(--text-main)] mt-1">
                     {avgMonthHours}h
                   </p>
-                  <p className="text-xs text-[var(--text-sub)]">{t('dashboard:schedule.perDay')}</p>
+                  <p className="text-xs text-[var(--text-sub)]">
+                    {t("dashboard:schedule.perDay")}
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
         </motion.div>
       </div>
 
@@ -1040,7 +1135,7 @@ const SchedulePage: React.FC = () => {
             <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-[var(--accent-cyan)]" />
               <span>
-                {t('dashboard:schedule.monthStats.title', {
+                {t("dashboard:schedule.monthStats.title", {
                   month: currentMonthLabel,
                 })}
               </span>
@@ -1050,10 +1145,11 @@ const SchedulePage: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-[var(--text-sub)]">
-                  {t('dashboard:schedule.monthProgress')}
+                  {t("dashboard:schedule.monthProgress")}
                 </span>
                 <span className="text-sm text-[var(--text-main)]">
-                  {stats.completed}/{stats.thisMonth} {t('dashboard:schedule.shift')} (
+                  {stats.completed}/{stats.thisMonth}{" "}
+                  {t("dashboard:schedule.shift")} (
                   {stats.thisMonth > 0
                     ? ((stats.completed / stats.thisMonth) * 100).toFixed(0)
                     : 0}
@@ -1075,18 +1171,18 @@ const SchedulePage: React.FC = () => {
                 <div className="flex items-center space-x-2 mb-2">
                   <Zap className="h-4 w-4 text-[var(--warning)]" />
                   <span className="text-sm text-[var(--text-sub)]">
-                    {t('dashboard:schedule.monthStats.totalHours')}
+                    {t("dashboard:schedule.monthStats.totalHours")}
                   </span>
                 </div>
                 <p className="text-2xl text-[var(--text-main)]">
                   {formattedTotalHours}h
                 </p>
                 <p className="text-xs text-[var(--text-sub)] mt-1">
-                  {t('dashboard:schedule.monthStats.averageLabel')}{" "}
+                  {t("dashboard:schedule.monthStats.averageLabel")}{" "}
                   {stats.completed > 0
                     ? (stats.totalHours / stats.completed).toFixed(1)
                     : 0}
-                  {t('dashboard:schedule.hoursPerDay')}
+                  {t("dashboard:schedule.hoursPerDay")}
                 </p>
               </div>
 
@@ -1094,14 +1190,14 @@ const SchedulePage: React.FC = () => {
                 <div className="flex items-center space-x-2 mb-2">
                   <Star className="h-4 w-4 text-[var(--warning)]" />
                   <span className="text-sm text-[var(--text-sub)]">
-                    {t('dashboard:schedule.stats.performance')}
+                    {t("dashboard:schedule.stats.performance")}
                   </span>
                 </div>
                 <p className="text-2xl text-[var(--success)]">
                   {stats.performance}%
                 </p>
                 <p className="text-xs text-[var(--text-sub)] mt-1">
-                  {t('dashboard:schedule.updatedFromMonth')}
+                  {t("dashboard:schedule.updatedFromMonth")}
                 </p>
               </div>
             </div>
@@ -1119,27 +1215,40 @@ const SchedulePage: React.FC = () => {
           <CardHeader>
             <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
               <Award className="h-5 w-5 text-[var(--warning)]" />
-              <span>{t('dashboard:schedule.achievements')}</span>
+              <span>{t("dashboard:schedule.achievements")}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             {(() => {
               const onTimeRate = stats.onTimeRate;
-              let onTimeMessage = t('dashboard:schedule.stats.performanceMessages.excellent');
-              if (onTimeRate < 50) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.needsImprovement');
-              else if (onTimeRate < 80) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.good');
-              else if (onTimeRate < 95) onTimeMessage = t('dashboard:schedule.stats.performanceMessages.veryGood');
+              let onTimeMessage = t(
+                "dashboard:schedule.stats.performanceMessages.excellent"
+              );
+              if (onTimeRate < 50)
+                onTimeMessage = t(
+                  "dashboard:schedule.stats.performanceMessages.needsImprovement"
+                );
+              else if (onTimeRate < 80)
+                onTimeMessage = t(
+                  "dashboard:schedule.stats.performanceMessages.good"
+                );
+              else if (onTimeRate < 95)
+                onTimeMessage = t(
+                  "dashboard:schedule.stats.performanceMessages.veryGood"
+                );
 
               let currentStreak = 0;
-              const sortedAttended = [...monthAttended].sort((a, b) => 
+              const sortedAttended = [...monthAttended].sort((a, b) =>
                 b.date.localeCompare(a.date)
               );
-              
+
               const checkDate = new Date(today);
               for (let i = 0; i < 365; i++) {
                 const dateStr = checkDate.toISOString().split("T")[0];
-                const hasAttended = sortedAttended.some((s) => s.date === dateStr);
-                
+                const hasAttended = sortedAttended.some(
+                  (s) => s.date === dateStr
+                );
+
                 if (hasAttended) {
                   currentStreak++;
                   checkDate.setDate(checkDate.getDate() - 1);
@@ -1148,9 +1257,10 @@ const SchedulePage: React.FC = () => {
                 }
               }
 
-              const avgHoursPerDay = stats.completed > 0
-                ? (stats.totalHours / stats.completed).toFixed(1)
-                : "0.0";
+              const avgHoursPerDay =
+                stats.completed > 0
+                  ? (stats.totalHours / stats.completed).toFixed(1)
+                  : "0.0";
 
               return (
                 <div className="grid md:grid-cols-3 gap-4">
@@ -1167,7 +1277,9 @@ const SchedulePage: React.FC = () => {
                       {onTimeRate}%
                     </p>
                     <p className="text-sm text-[var(--text-sub)] mb-1">
-                      {t('dashboard:schedule.stats.onTimeRateMessage', { rate: onTimeRate })}
+                      {t("dashboard:schedule.stats.onTimeRateMessage", {
+                        rate: onTimeRate,
+                      })}
                     </p>
                     <p className="text-xs text-[var(--text-sub)]">
                       {onTimeMessage}
@@ -1187,10 +1299,12 @@ const SchedulePage: React.FC = () => {
                       {currentStreak}
                     </p>
                     <p className="text-sm text-[var(--text-sub)] mb-1">
-                      {t('dashboard:schedule.stats.streak')}
+                      {t("dashboard:schedule.stats.streak")}
                     </p>
                     <p className="text-xs text-[var(--text-sub)]">
-                      {currentStreak > 0 ? t('dashboard:schedule.stats.streakMessages.keepGoing') : t('dashboard:schedule.stats.streakMessages.startNew')}
+                      {currentStreak > 0
+                        ? t("dashboard:schedule.stats.streakMessages.keepGoing")
+                        : t("dashboard:schedule.stats.streakMessages.startNew")}
                     </p>
                   </motion.div>
 
@@ -1207,10 +1321,12 @@ const SchedulePage: React.FC = () => {
                       {avgHoursPerDay}h
                     </p>
                     <p className="text-sm text-[var(--text-sub)] mb-1">
-                      {t('dashboard:schedule.avgHoursPerDay')}
+                      {t("dashboard:schedule.avgHoursPerDay")}
                     </p>
                     <p className="text-xs text-[var(--text-sub)]">
-                      {t('dashboard:schedule.monthLabel', { month: currentMonthLabel })}
+                      {t("dashboard:schedule.monthLabel", {
+                        month: currentMonthLabel,
+                      })}
                     </p>
                   </motion.div>
                 </div>
