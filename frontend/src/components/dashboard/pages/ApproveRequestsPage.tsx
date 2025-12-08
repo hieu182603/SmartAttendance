@@ -29,7 +29,6 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { getAllRequests, approveRequest, rejectRequest, bulkApproveRequests, bulkRejectRequests } from '@/services/requestService'
-import { getAllDepartments } from '@/services/departmentService'
 import type { ErrorWithMessage } from '@/types'
 
 type RequestStatus = 'pending' | 'approved' | 'rejected'
@@ -110,24 +109,30 @@ const ApproveRequestsPage: React.FC = () => {
     [t, typeLabelMap]
   )
 
-  // Fetch departments from API
+  // Extract unique departments from requests data (no API call needed)
+  // This avoids permission issues since the departments endpoint requires ADMIN/SUPER_ADMIN
   useEffect(() => {
-    const loadDepartments = async () => {
-      try {
-        const response = await getAllDepartments({ limit: 1000 }) // Get all departments
-        const deptList = response.departments.map((dept) => ({
-          _id: dept._id,
-          name: dept.name,
-        }))
-        setDepartments(deptList)
-      } catch (error) {
-        console.error('[ApproveRequests] Failed to load departments:', error)
-        // Fallback to empty list if API fails
-        setDepartments([])
-      }
+    if (allRequests.length > 0) {
+      // Extract unique departments from requests
+      const uniqueDepartments = Array.from(
+        new Set(
+          allRequests
+            .map((req) => req.department)
+            .filter((dept): dept is string => Boolean(dept && dept.trim() !== ''))
+        )
+      ).sort()
+
+      // Convert to the format expected by the component
+      const deptList = uniqueDepartments.map((name) => ({
+        _id: name, // Use name as ID since we don't have actual IDs
+        name: name,
+      }))
+      setDepartments(deptList)
+    } else {
+      // Reset to empty if no requests
+      setDepartments([])
     }
-    loadDepartments()
-  }, [])
+  }, [allRequests])
 
   const departmentOptions = useMemo(
     () => [

@@ -116,24 +116,18 @@ export const getAttendanceAnalytics = async (
 ): Promise<AttendanceAnalytics> => {
   try {
     const { data } = await api.get("/attendance/analytics", { params });
+    // Validate response structure
+    if (!data || typeof data !== 'object') {
+      throw new Error("Invalid response format from server");
+    }
     return data as AttendanceAnalytics;
   } catch (error) {
-    console.warn(
-      "[attendance] analytics unavailable",
-      (error as Error).message
+    console.error(
+      "[attendance] analytics error:",
+      error
     );
-    return {
-      dailyData: [],
-      departmentStats: [],
-      topPerformers: [],
-      summary: {
-        attendanceRate: 0,
-        avgPresent: 0,
-        avgLate: 0,
-        avgAbsent: 0,
-        trend: 0,
-      },
-    };
+    // Re-throw error so components can handle it properly
+    throw error;
   }
 };
 

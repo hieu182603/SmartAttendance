@@ -198,20 +198,12 @@ const ScanPage: React.FC = () => {
   // CAMERA FUNCTIONS
   // ==========================================================================
 
-  const startCamera = useCallback(async (mode?: "user" | "environment") => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
   const startCamera = useCallback(
     async (mode?: "user" | "environment") => {
-      // Stop existing camera first
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
-
 
       const targetMode = mode || facingMode;
 

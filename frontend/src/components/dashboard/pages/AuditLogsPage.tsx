@@ -777,23 +777,7 @@ export default function AuditLogsPage() {
                                 </div>
                             </div>
 
-                            {/* Metadata Section - Only show if exists */}
-                            {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 && (
-                                <>
-                                    <Separator />
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                                            <Info className="h-4 w-4" />
-                                            {t('auditLogs.dialog.metadata')}
-                                        </h4>
-                                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 overflow-auto max-h-64">
-                                            <pre className="text-xs text-gray-900 dark:text-gray-100 font-mono">
-                                                {JSON.stringify(selectedLog.metadata, null, 2)}
-                                            </pre>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
+
                         </div>
                     )}
 
