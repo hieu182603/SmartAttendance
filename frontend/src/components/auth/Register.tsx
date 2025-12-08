@@ -190,6 +190,8 @@ export default function Register() {
     <AuthLayout 
       title={t('auth:register.title')} 
       subtitle={t('auth:register.subtitle')}
+      showBackButton={true}
+      backTo="/"
     >
       <motion.form 
         onSubmit={handleSubmit} 
