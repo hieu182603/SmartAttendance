@@ -29,13 +29,13 @@ export const getReviews = async (req, res) => {
     // Nếu có search, dùng aggregation để search trong User collection
     if (search) {
       const searchRegex = new RegExp(search, "i");
-      
+
       // Tìm users matching search
       const { UserModel } = await import("../users/user.model.js");
       const matchingUsers = await UserModel.find({
         name: searchRegex,
       }).select("_id");
-      
+
       const userIds = matchingUsers.map((u) => u._id);
       if (userIds.length > 0) {
         filter.employeeId = { $in: userIds };
@@ -302,6 +302,24 @@ export const updateReview = async (req, res) => {
       .populate("reviewerId", "name")
       .populate("history.by", "name");
 
+    // Send notification if review was approved (status changed to completed)
+    if (updateData.status === "completed" && existingReview.status !== "completed") {
+      try {
+        const { NotificationService } = await import("../notifications/notification.service.js");
+        const { UserModel } = await import("../users/user.model.js");
+        const approver = await UserModel.findById(userId).select("name").lean();
+        const approverName = approver?.name || "Quản trị viên";
+
+        await NotificationService.createPerformanceReviewApprovedNotification(
+          review,
+          approverName
+        );
+      } catch (notificationError) {
+        console.error("[performance] Failed to send approval notification:", notificationError);
+        // Don't block response
+      }
+    }
+
     res.json({
       message: "Cập nhật đánh giá thành công",
       review,
@@ -384,7 +402,7 @@ export const getMyReviews = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const reviews = await PerformanceReviewModel.find({ 
+    const reviews = await PerformanceReviewModel.find({
       employeeId: userId,
       status: { $in: ["completed"] } // Chỉ thấy đánh giá đã hoàn thành
     })
@@ -451,8 +469,22 @@ export const rejectReview = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đánh giá" });
     }
 
-    // TODO: Send notification to reviewer
-    // await notificationService.notifyReviewRejected(review);
+    // Send notification to reviewer
+    try {
+      const { NotificationService } = await import("../notifications/notification.service.js");
+      const { UserModel } = await import("../users/user.model.js");
+      const rejecter = await UserModel.findById(req.user.userId).select("name").lean();
+      const rejecterName = rejecter?.name || "Quản trị viên";
+
+      await NotificationService.createPerformanceReviewRejectedNotification(
+        review,
+        rejecterName,
+        rejectionReason.trim()
+      );
+    } catch (notificationError) {
+      console.error("[performance] Failed to send rejection notification:", notificationError);
+      // Don't block response
+    }
 
     res.json({
       message: "Đã reject đánh giá",
