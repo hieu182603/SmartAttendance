@@ -31,19 +31,76 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [notifications])
 
   const loadNotifications = useCallback(async () => {
+    // Check if user is authenticated before making API call
+    const token = localStorage.getItem('sa_token')
+    if (!token) {
+      setLoading(false)
+      setNotifications([])
+      return
+    }
+
     try {
       setLoading(true)
       const data = await getNotifications({ limit: 50 })
       setNotifications(data.notifications)
     } catch (error) {
       console.error('[useNotifications] loadNotifications error:', error)
+      // If 401 error, clear notifications (user logged out)
+      const err = error as Error & { response?: { status?: number } }
+      if (err.response?.status === 401) {
+        setNotifications([])
+      }
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    loadNotifications()
+    // Only load notifications if user is authenticated
+    const token = localStorage.getItem('sa_token')
+    if (token) {
+      loadNotifications()
+    } else {
+      setLoading(false)
+      setNotifications([])
+    }
+  }, [loadNotifications])
+
+  // Listen for token changes (login/logout) to reload notifications
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'sa_token') {
+        if (e.newValue) {
+          // Token was added (user logged in)
+          loadNotifications()
+        } else {
+          // Token was removed (user logged out)
+          setNotifications([])
+          setLoading(false)
+        }
+      }
+    }
+
+    // Listen for storage events (from other tabs/windows)
+    window.addEventListener('storage', handleStorageChange)
+
+    // Also listen for custom events (from same tab)
+    const handleTokenChange = () => {
+      const token = localStorage.getItem('sa_token')
+      if (token) {
+        loadNotifications()
+      } else {
+        setNotifications([])
+        setLoading(false)
+      }
+    }
+
+    window.addEventListener('auth-token-changed', handleTokenChange)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('auth-token-changed', handleTokenChange)
+    }
   }, [loadNotifications])
 
   useEffect(() => {

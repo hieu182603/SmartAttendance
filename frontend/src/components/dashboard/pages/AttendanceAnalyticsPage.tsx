@@ -130,10 +130,41 @@ const AttendanceAnalyticsPage: React.FC = () => {
             totalEmployees: result.summary?.totalEmployees || 150
           }
         })
+      } else {
+        // If result is empty/null, set empty data
+        setData({
+          dailyData: [],
+          departmentStats: [],
+          topPerformers: [],
+          summary: {
+            attendanceRate: 0,
+            avgPresent: 0,
+            avgLate: 0,
+            avgAbsent: 0,
+            trend: 0,
+            totalEmployees: 150
+          }
+        })
       }
     } catch (error) {
       console.error('[AttendanceAnalytics] fetch error:', error)
-      toast.error(t('dashboard:attendanceAnalytics.error'))
+      const err = error as Error & { response?: { data?: { message?: string } } }
+      const errorMessage = err.response?.data?.message || err.message || t('dashboard:attendanceAnalytics.error')
+      toast.error(errorMessage)
+      // Set empty data on error so UI doesn't break
+      setData({
+        dailyData: [],
+        departmentStats: [],
+        topPerformers: [],
+        summary: {
+          attendanceRate: 0,
+          avgPresent: 0,
+          avgLate: 0,
+          avgAbsent: 0,
+          trend: 0,
+          totalEmployees: 150
+        }
+      })
     } finally {
       setLoading(false)
     }

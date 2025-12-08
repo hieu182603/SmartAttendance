@@ -149,9 +149,49 @@ export default function AdminReportsPage() {
             totalEmployees: result.summary?.totalEmployees || 0,
           },
         });
+      } else {
+        // If result is empty/null, set empty data
+        setData({
+          dailyData: [],
+          departmentStats: [],
+          topPerformers: [],
+          summary: {
+            attendanceRate: 0,
+            avgPresent: 0,
+            avgLate: 0,
+            avgAbsent: 0,
+            trend: 0,
+            total: 0,
+            ontime: 0,
+            late: 0,
+            absent: 0,
+            totalEmployees: 0,
+          },
+        });
       }
     } catch (error) {
-      toast.error(t("dashboard:adminReports.loadError"));
+      console.error('[AdminReports] fetch error:', error);
+      const err = error as Error & { response?: { data?: { message?: string } } };
+      const errorMessage = err.response?.data?.message || err.message || t("dashboard:adminReports.loadError");
+      toast.error(errorMessage);
+      // Set empty data on error so UI doesn't break
+      setData({
+        dailyData: [],
+        departmentStats: [],
+        topPerformers: [],
+        summary: {
+          attendanceRate: 0,
+          avgPresent: 0,
+          avgLate: 0,
+          avgAbsent: 0,
+          trend: 0,
+          total: 0,
+          ontime: 0,
+          late: 0,
+          absent: 0,
+          totalEmployees: 0,
+        },
+      });
     } finally {
       setLoading(false);
     }

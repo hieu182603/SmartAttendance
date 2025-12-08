@@ -255,12 +255,16 @@ export const getAttendanceAnalytics = async (req, res) => {
   try {
     const { from, to, department } = req.query;
 
+    console.log("[attendance] analytics request:", { from, to, department });
+
     const dateQuery = buildDateQuery(from, to);
     if (Object.keys(dateQuery).length === 0) {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       dateQuery.date = { $gte: sevenDaysAgo };
     }
+    
+    console.log("[attendance] dateQuery:", dateQuery);
 
     const attendanceQuery = { ...dateQuery };
     const userQuery = {};
@@ -302,6 +306,8 @@ export const getAttendanceAnalytics = async (req, res) => {
         },
       })
       .sort({ date: 1 });
+
+    console.log("[attendance] found", attendances.length, "attendance records");
 
     const dailyMap = new Map();
     const departmentMap = new Map();
@@ -485,7 +491,7 @@ export const getAttendanceAnalytics = async (req, res) => {
       }
     }
 
-    res.json({
+    const response = {
       dailyData,
       departmentStats,
       topPerformers,
@@ -501,10 +507,23 @@ export const getAttendanceAnalytics = async (req, res) => {
         late: totalLate,
         absent: totalAbsent,
       },
+    };
+
+    console.log("[attendance] analytics response summary:", {
+      dailyDataCount: dailyData.length,
+      departmentStatsCount: departmentStats.length,
+      topPerformersCount: topPerformers.length,
+      totalRecords,
+      totalEmployees,
     });
+
+    res.json(response);
   } catch (error) {
     console.error("[attendance] analytics error", error);
-    res.status(500).json({ message: "Không lấy được dữ liệu phân tích" });
+    res.status(500).json({ 
+      message: "Không lấy được dữ liệu phân tích",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

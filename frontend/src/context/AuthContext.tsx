@@ -66,6 +66,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (data.user?.role) {
       localStorage.setItem('sa_user_role', data.user.role)
     }
+    // Dispatch custom event to notify other contexts (e.g., NotificationsContext)
+    window.dispatchEvent(new CustomEvent('auth-token-changed'))
     return data
   }
 
@@ -79,6 +81,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setToken('')
     setUser(null)
     setLoading(false)
+    
+    // Dispatch custom event to notify other contexts
+    window.dispatchEvent(new CustomEvent('auth-token-changed'))
     
     // Cancel any pending API requests by clearing token in interceptor
     // The API interceptor will handle this automatically
