@@ -85,7 +85,6 @@ const DashboardLayout: React.FC = () => {
 
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
   
-  // Memoize values that don't change on navigation
   const basePath = useMemo(() => getRoleBasePath(userRole), [userRole]);
   const tMenu = useTranslation("menu").t;
   const menu = useMemo(
@@ -122,6 +121,7 @@ const DashboardLayout: React.FC = () => {
         <div className="px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
+              type="button"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="lg:hidden text-[var(--text-main)] hover:bg-[var(--surface)] p-2 rounded-lg"
             >

@@ -103,8 +103,6 @@ interface LeaveType {
   pending?: number;
 }
 
-// FALLBACK_REQUEST_TYPES will be created with i18n in component
-
 const RequestsPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common']);
   const [allRequests, setAllRequests] = useState<Request[]>([]); // Store all requests for stats calculation
@@ -142,7 +140,6 @@ const RequestsPage: React.FC = () => {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Fallback request types with i18n
   const FALLBACK_REQUEST_TYPES: RequestTypeOption[] = [
     { value: "leave", label: t('dashboard:requests.types.leave') },
     { value: "overtime", label: t('dashboard:requests.types.overtime') },
@@ -150,7 +147,6 @@ const RequestsPage: React.FC = () => {
     { value: "correction", label: t('dashboard:requests.types.correction') },
   ];
 
-  // Fetch request types only (no need for departments API - will extract from requests)
   useEffect(() => {
     let isMounted = true;
     const fetchOptions = async () => {
@@ -169,7 +165,6 @@ const RequestsPage: React.FC = () => {
     };
   }, []);
 
-  // Fetch leave balance when dialog opens
   useEffect(() => {
     if (isCreateDialogOpen) {
       const fetchLeaveBalance = async () => {
@@ -183,12 +178,10 @@ const RequestsPage: React.FC = () => {
       };
       fetchLeaveBalance();
     } else {
-      // Reset leave balance when dialog closes
       setLeaveBalance([]);
     }
   }, [isCreateDialogOpen]);
 
-  // Extract unique departments from allRequests for filter dropdown
   useEffect(() => {
     const uniqueDepartments = Array.from(
       new Set(

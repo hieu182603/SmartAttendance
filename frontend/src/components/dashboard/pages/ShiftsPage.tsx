@@ -40,7 +40,6 @@ function calculateWorkHours(start: string, end: string, breakMinutes: number): s
   let startTotal = startHour * 60 + startMin;
   let endTotal = endHour * 60 + endMin;
   
-  // Handle overnight shifts
   if (endTotal < startTotal) {
     endTotal += 24 * 60;
   }
@@ -76,10 +75,8 @@ export function ShiftsPage() {
       setLoading(true);
       const response = await api.get('/shifts');
       
-      // Backend trả về format: { success: true, data: [...] }
       const shiftsData = response.data.data || response.data.shifts || response.data || [];
       
-      // Map backend data to frontend format with colors
       const mappedShifts = shiftsData.map((shift: any, index: number) => ({
         ...shift,
         id: shift._id || shift.id,
@@ -91,7 +88,6 @@ export function ShiftsPage() {
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Không thể tải danh sách ca làm việc';
       toast.error(errorMessage);
-      // Không set mock data nữa, để hiển thị danh sách rỗng
       setShifts([]);
     } finally {
       setLoading(false);
@@ -308,12 +304,14 @@ export function ShiftsPage() {
                 </div>
                 <div className="flex space-x-2">
                   <button 
+                    type="button"
                     onClick={() => handleEditShift(shift)}
                     className="p-2 hover:bg-[var(--shell)] rounded text-[var(--primary)]"
                   >
                     <Edit className="h-4 w-4" />
                   </button>
                   <button 
+                    type="button"
                     onClick={() => handleDeleteShift(shift)}
                     className="p-2 hover:bg-[var(--shell)] rounded text-[var(--error)]"
                   >

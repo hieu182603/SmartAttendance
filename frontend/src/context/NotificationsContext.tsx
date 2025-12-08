@@ -21,18 +21,15 @@ interface NotificationsContextType {
 
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined)
 
-// Provider component
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const socket = useSocket()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Calculate unread count from notifications array (source of truth)
   const unreadCount = useMemo(() => {
     return notifications.filter(n => !n.isRead).length
   }, [notifications])
 
-  // Load notifications
   const loadNotifications = useCallback(async () => {
     try {
       setLoading(true)
@@ -45,21 +42,16 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
   }, [])
 
-  // Initial load
   useEffect(() => {
     loadNotifications()
   }, [loadNotifications])
 
-  // Listen for real-time notifications
   useEffect(() => {
     if (!socket) return
 
     const handleNotification = (notification: Notification) => {
-      // Add new notification to the beginning of the list
       setNotifications((prev) => [notification, ...prev])
 
-      // Emit custom browser event để các màn hình khác (ví dụ: RequestsPage)
-      // có thể lắng nghe và refetch dữ liệu liên quan mà không phụ thuộc trực tiếp vào hook này
       try {
         if (typeof window !== 'undefined') {
           if (notification.relatedEntityType === 'request') {
@@ -75,7 +67,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           }
         }
       } catch {
-        // Fail silently nếu môi trường không hỗ trợ CustomEvent (rất hiếm)
       }
     }
 
@@ -88,7 +79,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           window.dispatchEvent(event)
         }
       } catch {
-        // Fail silently
       }
     }
 
@@ -101,7 +91,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           window.dispatchEvent(event)
         }
       } catch {
-        // Fail silently
       }
     }
 
@@ -116,7 +105,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
   }, [socket])
 
-  // Mark as read
   const handleMarkAsRead = useCallback(async (id: string) => {
     try {
       await markAsRead(id)

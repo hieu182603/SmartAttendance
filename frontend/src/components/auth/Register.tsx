@@ -76,7 +76,6 @@ export default function Register() {
     return undefined
   }
 
-  // Password strength validation
   const passwordStrength = {
     hasMinLength: formData.password.length >= 8,
     hasUpperCase: /[A-Z]/.test(formData.password),
@@ -86,7 +85,6 @@ export default function Register() {
 
   const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0
 
-  // Validate form completeness
   const isFormValid = 
     !validateFullName(formData.fullName) &&
     !validateEmail(formData.email) &&
@@ -108,7 +106,6 @@ export default function Register() {
         break
       case 'password':
         newErrors.password = validatePassword(formData.password)
-        // Re-validate confirm password if it's already filled
         if (formData.confirmPassword) {
           newErrors.confirmPassword = validateConfirmPassword(formData.confirmPassword, formData.password)
         }
@@ -121,16 +118,13 @@ export default function Register() {
     setErrors(newErrors)
   }
 
-  // Handle field change
   const handleChange = (field: keyof FormData, value: string | boolean) => {
     setFormData({ ...formData, [field]: value })
     
-    // Clear error when user starts typing
     if (errors[field as keyof FormErrors]) {
       setErrors({ ...errors, [field]: undefined })
     }
     
-    // Re-validate confirm password when password changes
     if (field === 'password' && formData.confirmPassword) {
       const confirmError = validateConfirmPassword(formData.confirmPassword, value as string)
       setErrors({ ...errors, confirmPassword: confirmError })
@@ -140,7 +134,6 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
-    // Mark all fields as touched
     setTouched({
       fullName: true,
       email: true,
@@ -148,7 +141,6 @@ export default function Register() {
       confirmPassword: true,
     })
 
-    // Validate all fields
     const newErrors: FormErrors = {
       fullName: validateFullName(formData.fullName),
       email: validateEmail(formData.email),
@@ -162,7 +154,6 @@ export default function Register() {
 
     setErrors(newErrors)
 
-    // Check if form is valid
     if (Object.values(newErrors).some(error => error !== undefined)) {
       toast.error(t('auth:register.formValidationError'))
       return

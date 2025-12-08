@@ -212,7 +212,6 @@ const HistoryPage: React.FC = () => {
     setCurrentPage(1);
   }, [fromDate, toDate, statusFilter]);
 
-  // Lắng nghe sự kiện realtime khi attendance được cập nhật
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -220,7 +219,6 @@ const HistoryPage: React.FC = () => {
       const customEvent = event as CustomEvent<any>;
       const data = customEvent.detail;
 
-      // Refetch bằng cách trigger re-render với currentPage
       setCurrentPage((prev) => prev);
     }) as EventListener;
 
@@ -307,6 +305,7 @@ const HistoryPage: React.FC = () => {
           <td className="py-3 px-4 text-center">
             {hasPhoto ? (
               <button
+                type="button"
                 onClick={() => handleRecordClick(record)}
                 className="inline-flex items-center gap-1 text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors"
                 title={t("dashboard:history.photo.viewTitle")}
@@ -352,6 +351,7 @@ const HistoryPage: React.FC = () => {
         >
           {/* Close Button */}
           <button
+            type="button"
             onClick={handleCloseModal}
             className="absolute top-4 right-4 z-10 p-2 rounded-full bg-[var(--shell)]/80 hover:bg-[var(--border)] text-[var(--text-main)] transition-all hover:scale-110 shadow-lg backdrop-blur-sm"
             title={t("common.close")}
@@ -379,6 +379,7 @@ const HistoryPage: React.FC = () => {
           {/* Tabs */}
           <div className="flex border-b border-[var(--border)] bg-[var(--shell)]/30">
             <button
+              type="button"
               onClick={() => setActiveTab("checkin")}
               className={`flex-1 px-6 py-4 text-sm font-medium transition-all relative ${
                 activeTab === "checkin"
@@ -401,6 +402,7 @@ const HistoryPage: React.FC = () => {
               )}
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab("checkout")}
               className={`flex-1 px-6 py-4 text-sm font-medium transition-all relative ${
                 activeTab === "checkout"
@@ -693,6 +695,7 @@ const HistoryPage: React.FC = () => {
                         </div>
                         {hasPhoto && (
                           <button
+                            type="button"
                             onClick={() => handleRecordClick(record)}
                             className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--primary)]"
                             title={t("dashboard:history.photo.viewTitle")}
