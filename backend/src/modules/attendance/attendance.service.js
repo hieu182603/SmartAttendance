@@ -142,12 +142,15 @@ export const validateAndFindBranch = async (latitude, longitude) => {
  * @returns {Object} { hour, minute } - Giờ và phút theo GMT+7
  */
 export const getTimeInGMT7 = (date) => {
-  // Convert sang GMT+7 bằng cách thêm 7 giờ vào UTC
-  const utcTime = date.getTime() + date.getTimezoneOffset() * 60 * 1000;
-  const gmt7Time = new Date(utcTime + 7 * 60 * 60 * 1000);
+  const dateInGMT7 = new Date(
+    date.toLocaleString("en-US", {
+      timeZone: "Asia/Ho_Chi_Minh",
+    })
+  );
+
   return {
-    hour: gmt7Time.getUTCHours(),
-    minute: gmt7Time.getUTCMinutes(),
+    hour: dateInGMT7.getHours(),
+    minute: dateInGMT7.getMinutes(),
   };
 };
 
