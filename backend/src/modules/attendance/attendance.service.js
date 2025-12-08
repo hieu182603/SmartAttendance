@@ -15,8 +15,8 @@ import {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const EARTH_RADIUS_M = 6371e3; 
-const MAX_DISTANCE = 100; 
+const EARTH_RADIUS_M = 6371e3;
+const MAX_DISTANCE = 100;
 
 // ============================================================================
 // LOCATION UTILITIES
@@ -776,9 +776,10 @@ export const processCheckIn = async (
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
     // Kiểm tra ENABLE_WEEKEND_CHECKIN từ env hoặc mặc định false
-    const enableWeekendCheckin = process.env.ENABLE_WEEKEND_CHECKIN === "true";
+    const enableWeekendAttendance =
+      process.env.ENABLE_WEEKEND_CHECKIN === "true";
 
-    if (isWeekend && !enableWeekendCheckin) {
+    if (isWeekend && !enableWeekendAttendance) {
       const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
       return {
         success: false,
@@ -851,8 +852,13 @@ export const processCheckIn = async (
           photoFile,
           `attendance/${userId}/${dateOnly.toISOString().split("T")[0]}`
         );
-        photoNotes = `[Ảnh: ${uploadResult.secure_url}]`;
-      } catch (uploadError) {}
+        photoNotes = `[Ảnh: ${uploadResult.url}]`;
+      } catch (uploadError) {
+        console.error(
+          "[attendance] Photo upload failed during check-in:",
+          uploadError
+        );
+      }
     }
 
     const attendance = await AttendanceModel.findOneAndUpdate(
@@ -986,9 +992,10 @@ export const processCheckOut = async (
     const dayOfWeek = now.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    const enableWeekendCheckin = process.env.ENABLE_WEEKEND_CHECKIN === "true";
+    const enableWeekendAttendance =
+      process.env.ENABLE_WEEKEND_CHECKIN === "true";
 
-    if (isWeekend && !enableWeekendCheckin) {
+    if (isWeekend && !enableWeekendAttendance) {
       const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
       return {
         success: false,

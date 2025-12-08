@@ -143,7 +143,10 @@ export const getAttendanceHistory = async (req, res) => {
     });
   } catch (error) {
     console.error("[attendance] history error", error);
-    res.status(500).json({ message: "Không lấy được lịch sử chấm công" });
+    res.status(500).json({
+      message: "Không lấy được lịch sử chấm công. Vui lòng thử lại sau.",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -186,7 +189,9 @@ export const checkIn = async (req, res) => {
     console.error("[attendance] check-in error", error);
     res.status(500).json({
       success: false,
-      message: "Có lỗi xảy ra khi chấm công. Vui lòng thử lại.",
+      message:
+        "Có lỗi xảy ra khi chấm công vào. Vui lòng kiểm tra kết nối và thử lại.",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -231,7 +236,9 @@ export const checkOut = async (req, res) => {
     console.error("[attendance] check-out error", error);
     res.status(500).json({
       success: false,
-      message: "Có lỗi xảy ra khi check-out. Vui lòng thử lại.",
+      message:
+        "Có lỗi xảy ra khi chấm công ra. Vui lòng kiểm tra kết nối và thử lại.",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -728,6 +735,15 @@ export const updateAttendanceRecord = async (req, res) => {
             .json({ message: "Không tìm thấy chi nhánh phù hợp" });
         }
         attendance.locationId = resolvedBranch._id;
+      }
+    }
+
+    // Validate checkOut must be after checkIn
+    if (attendance.checkIn && attendance.checkOut) {
+      if (attendance.checkOut <= attendance.checkIn) {
+        return res.status(400).json({
+          message: "Giờ check-out phải sau giờ check-in",
+        });
       }
     }
 
