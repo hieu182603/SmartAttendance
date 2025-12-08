@@ -1,4 +1,8 @@
-import { SHIFT_CONFIG, ATTENDANCE_CONFIG } from "../../config/app.config.js";
+import {
+  SHIFT_CONFIG,
+  ATTENDANCE_CONFIG,
+  APP_CONFIG,
+} from "../../config/app.config.js";
 import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { AttendanceModel } from "./attendance.model.js";
 import { BranchModel } from "../branches/branch.model.js";
@@ -137,14 +141,14 @@ export const validateAndFindBranch = async (latitude, longitude) => {
 // ============================================================================
 
 /**
- * Lấy giờ và phút theo timezone GMT+7 (Việt Nam) từ một Date object
+ * Lấy giờ và phút theo configured timezone từ một Date object
  * @param {Date} date - Date object (có thể ở bất kỳ timezone nào)
- * @returns {Object} { hour, minute } - Giờ và phút theo GMT+7
+ * @returns {Object} { hour, minute } - Giờ và phút theo configured timezone
  */
 export const getTimeInGMT7 = (date) => {
   const dateInGMT7 = new Date(
     date.toLocaleString("en-US", {
-      timeZone: "Asia/Ho_Chi_Minh",
+      timeZone: APP_CONFIG.TIMEZONE,
     })
   );
 
@@ -160,11 +164,20 @@ export const getTimeInGMT7 = (date) => {
  * @returns {string}
  */
 export const formatDateLabel = (date) => {
-  const pad = (value) => String(value).padStart(2, "0");
   const d = new Date(date);
-  return `${pad(d.getUTCDate())}/${pad(
-    d.getUTCMonth() + 1
-  )}/${d.getUTCFullYear()}`;
+  // Sử dụng toLocaleString với configured timezone
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(d);
+
+  const day = parts.find((p) => p.type === "day")?.value || "01";
+  const month = parts.find((p) => p.type === "month")?.value || "01";
+  const year = parts.find((p) => p.type === "year")?.value || "2024";
+
+  return `${day}/${month}/${year}`;
 };
 
 /**
@@ -175,7 +188,7 @@ export const formatDateLabel = (date) => {
 export const formatTime = (value) => {
   if (!value) return "-";
   const d = new Date(value);
-  // Sử dụng toLocaleTimeString với timezone Asia/Ho_Chi_Minh để đảm bảo thời gian chính xác
+  // Sử dụng toLocaleTimeString với configured timezone để đảm bảo thời gian chính xác
   const timeString = d.toLocaleTimeString("vi-VN", {
     timeZone: "Asia/Ho_Chi_Minh",
     hour: "2-digit",
@@ -198,7 +211,7 @@ export const formatWorkHours = (hours) => {
 };
 
 /**
- * Áp dụng thời gian vào một ngày cụ thể
+ * Áp dụng thời gian vào một ngày cụ thể (GMT+7 timezone)
  * @param {Date} baseDate - Ngày cơ sở
  * @param {string} timeString - Chuỗi thời gian (HH:MM)
  * @returns {Date|null}
@@ -209,8 +222,34 @@ export const applyTimeToDate = (baseDate, timeString) => {
   const hour = Number(hourStr);
   const minute = Number(minuteStr);
   if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
-  const result = new Date(baseDate);
-  result.setHours(hour, minute, 0, 0);
+
+  // Validate hour and minute ranges
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  // Get the date in configured timezone
+  const baseDateStr = baseDate.toLocaleString("en-US", {
+    timeZone: APP_CONFIG.TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  // Parse to get year, month, day
+  const [month, day, year] = baseDateStr.split("/");
+
+  // Create date at specified time in GMT+7 (convert to UTC by subtracting 7 hours)
+  const result = new Date(
+    Date.UTC(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      hour - 7, // Convert GMT+7 to UTC
+      minute,
+      0,
+      0
+    )
+  );
+
   return result;
 };
 
@@ -659,9 +698,11 @@ export const validateWorkHours = (hoursWorked, shiftInfo) => {
       (shiftInfo.breakDuration || 0);
     const shiftDurationHours = shiftDurationMinutes / 60;
 
+    // Dùng 50% thay vì 25% để hợp lý hơn
+    // Ca 8h → min 4h, Ca 4h → min 2h
     minWorkHours = Math.max(
       ATTENDANCE_CONFIG.MIN_WORK_HOURS,
-      Math.floor(shiftDurationHours * 0.25)
+      Math.floor(shiftDurationHours * 0.5)
     );
   }
 
@@ -730,14 +771,19 @@ export const processCheckIn = async (
     const now = new Date();
     const dateOnly = getDateOnly(now);
 
-    // Chặn chấm công vào cuối tuần (Thứ Bảy và Chủ Nhật)
+    // Chặn chấm công vào cuối tuần (Thứ Bảy và Chủ Nhật) nếu config không cho phép
     const dayOfWeek = now.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    // Kiểm tra ENABLE_WEEKEND_CHECKIN từ env hoặc mặc định false
+    const enableWeekendCheckin = process.env.ENABLE_WEEKEND_CHECKIN === "true";
+
+    if (isWeekend && !enableWeekendCheckin) {
       const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
       return {
         success: false,
         data: null,
-        error: `Không thể chấm công vào ${dayName}. Vui lòng chấm công vào ngày làm việc (Thứ Hai - Thứ Sáu).`,
+        error: `Không thể chấm công vào ${dayName}. Hệ thống chỉ cho phép chấm công từ Thứ Hai đến Thứ Sáu.`,
         code: "WEEKEND_NOT_ALLOWED",
       };
     }
@@ -793,55 +839,50 @@ export const processCheckIn = async (
       }
     }
 
-    // Find or create attendance record
-    let attendance = await AttendanceModel.findOne({
-      userId,
-      date: dateOnly,
-    });
+    // Use findOneAndUpdate for atomic upsert to prevent race condition
+    // This prevents duplicate records even with concurrent requests
+    const isLate = checkLateStatus(now, shiftInfo);
 
-    if (attendance) {
-      if (attendance.checkIn) {
-        return {
-          success: false,
-          data: null,
-          error: "Bạn đã chấm công vào hôm nay rồi.",
-          code: "ALREADY_CHECKED_IN",
-        };
-      }
-
-      attendance.checkIn = now;
-      attendance.locationId = branchResult.branch._id;
-      const isLate = checkLateStatus(now, shiftInfo);
-      attendance.status = isLate ? "late" : "present";
-    } else {
-      const isLate = checkLateStatus(now, shiftInfo);
-      attendance = new AttendanceModel({
-        userId,
-        date: dateOnly,
-        checkIn: now,
-        locationId: branchResult.branch._id,
-        status: isLate ? "late" : "present",
-        notes: "",
-      });
-    }
-
-    // Upload photo if provided
+    // Upload photo BEFORE database operation
+    let photoNotes = "";
     if (photoFile) {
-      const photoResult = await uploadPhoto(photoFile, "attendance/checkins");
-      if (photoResult.success) {
-        attendance.notes = addPhotoToNotes(
-          attendance.notes,
-          photoResult.url,
-          "checkin"
+      try {
+        const uploadResult = await uploadToCloudinary(
+          photoFile,
+          `attendance/${userId}/${dateOnly.toISOString().split("T")[0]}`
         );
-      } else {
-        attendance.notes = attendance.notes
-          ? `${attendance.notes}\n[Ảnh lưu thất bại]`
-          : "[Ảnh lưu thất bại]";
-      }
+        photoNotes = `[Ảnh: ${uploadResult.secure_url}]`;
+      } catch (uploadError) {}
     }
 
-    await attendance.save();
+    const attendance = await AttendanceModel.findOneAndUpdate(
+      { userId, date: dateOnly },
+      {
+        $setOnInsert: {
+          userId,
+          date: dateOnly,
+          checkIn: now,
+          locationId: branchResult.branch._id,
+          status: isLate ? "late" : "present",
+          notes: photoNotes,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+
+    // If checkIn already exists and is earlier than now, user already checked in
+    if (attendance.checkIn && attendance.checkIn.getTime() < now.getTime()) {
+      return {
+        success: false,
+        data: null,
+        error: "Bạn đã chấm công vào hôm nay rồi.",
+        code: "ALREADY_CHECKED_IN",
+      };
+    }
 
     // Emit real-time update to user and admins
     try {
@@ -941,14 +982,18 @@ export const processCheckOut = async (
     const now = new Date();
     const dateOnly = getDateOnly(now);
 
-    // Chặn check-out vào cuối tuần (Thứ Bảy và Chủ Nhật)
+    // Chặn check-out vào cuối tuần (Thứ Bảy và Chủ Nhật) nếu config không cho phép
     const dayOfWeek = now.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    const enableWeekendCheckin = process.env.ENABLE_WEEKEND_CHECKIN === "true";
+
+    if (isWeekend && !enableWeekendCheckin) {
       const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
       return {
         success: false,
         data: null,
-        error: `Không thể check-out vào ${dayName}. Vui lòng check-out vào ngày làm việc (Thứ Hai - Thứ Sáu).`,
+        error: `Không thể check-out vào ${dayName}. Hệ thống chỉ cho phép chấm công từ Thứ Hai đến Thứ Sáu.`,
         code: "WEEKEND_NOT_ALLOWED",
       };
     }

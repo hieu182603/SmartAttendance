@@ -10,8 +10,15 @@ import {
   getDateRange,
   processCheckIn,
   processCheckOut,
+  getUserSchedule,
+  getShiftInfo,
+  checkLateStatus,
 } from "./attendance.service.js";
-import { emitAttendanceUpdate, emitAttendanceUpdateToAdmins } from "../../config/socket.js";
+import {
+  emitAttendanceUpdate,
+  emitAttendanceUpdateToAdmins,
+} from "../../config/socket.js";
+import { APP_CONFIG } from "../../config/app.config.js";
 
 // ============================================================================
 // USER ATTENDANCE CONTROLLERS
@@ -37,21 +44,24 @@ export const getRecentAttendance = async (req, res) => {
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: APP_CONFIG.TIMEZONE,
       });
 
       return {
         date: dayLabel,
         checkIn: doc.checkIn
           ? new Date(doc.checkIn).toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: APP_CONFIG.TIMEZONE,
+            })
           : null,
         checkOut: doc.checkOut
           ? new Date(doc.checkOut).toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: APP_CONFIG.TIMEZONE,
+            })
           : null,
         status: doc.status || "absent",
         location: doc.locationId?.name || null,
@@ -290,7 +300,8 @@ export const getAttendanceAnalytics = async (req, res) => {
     const departmentMap = new Map();
     const employeeMap = new Map();
 
-    attendances.forEach((att) => {
+    // Dùng for...of thay vì forEach để có thể dùng await
+    for (const att of attendances) {
       const dateKey = formatDateLabel(att.date);
       const user = att.userId;
       const dept =
@@ -336,9 +347,15 @@ export const getAttendanceAnalytics = async (req, res) => {
       daily.total++;
 
       if (att.status === "present" && att.checkIn) {
+        // Sử dụng checkLateStatus từ service thay vì hardcode 8:00
+        const schedule = await getUserSchedule(user._id, new Date(att.date));
+        const shiftInfo = await getShiftInfo(schedule);
+        const isLate = checkLateStatus(new Date(att.checkIn), shiftInfo);
+
         const checkInHour = new Date(att.checkIn).getHours();
         const checkInMin = new Date(att.checkIn).getMinutes();
-        if (checkInHour > 8 || (checkInHour === 8 && checkInMin > 0)) {
+
+        if (isLate) {
           daily.late++;
           deptStat.late++;
           if (userId) {
@@ -373,7 +390,7 @@ export const getAttendanceAnalytics = async (req, res) => {
       }
 
       deptStat.total++;
-    });
+    }
 
     const dailyData = Array.from(dailyMap.values());
     const departmentStats = Array.from(departmentMap.values()).map((dept) => ({
@@ -391,9 +408,9 @@ export const getAttendanceAnalytics = async (req, res) => {
         const avgCheckIn =
           emp.checkInTimes.length > 0
             ? emp.checkInTimes.reduce((sum, time) => {
-              const [h, m] = time.split(":").map(Number);
-              return sum + h * 60 + m;
-            }, 0) / emp.checkInTimes.length
+                const [h, m] = time.split(":").map(Number);
+                return sum + h * 60 + m;
+              }, 0) / emp.checkInTimes.length
             : 0;
         const avgHours = Math.floor(avgCheckIn / 60);
         const avgMins = Math.round(avgCheckIn % 60);
@@ -405,8 +422,8 @@ export const getAttendanceAnalytics = async (req, res) => {
           avgCheckIn:
             avgCheckIn > 0
               ? `${String(avgHours).padStart(2, "0")}:${String(
-                avgMins
-              ).padStart(2, "0")}`
+                  avgMins
+                ).padStart(2, "0")}`
               : "-",
           punctuality,
         };
@@ -425,8 +442,8 @@ export const getAttendanceAnalytics = async (req, res) => {
     const avgPresent =
       totalDays > 0
         ? Math.round(
-          dailyData.reduce((sum, d) => sum + d.present, 0) / totalDays
-        )
+            dailyData.reduce((sum, d) => sum + d.present, 0) / totalDays
+          )
         : 0;
     const avgLate =
       totalDays > 0
@@ -435,8 +452,8 @@ export const getAttendanceAnalytics = async (req, res) => {
     const avgAbsent =
       totalDays > 0
         ? Math.round(
-          dailyData.reduce((sum, d) => sum + d.absent, 0) / totalDays
-        )
+            dailyData.reduce((sum, d) => sum + d.absent, 0) / totalDays
+          )
         : 0;
     const attendanceRate =
       totalEmployees > 0 ? Math.round((avgPresent / totalEmployees) * 100) : 0;
@@ -676,6 +693,14 @@ export const updateAttendanceRecord = async (req, res) => {
         if (!parsedCheckOut) {
           return res.status(400).json({ message: "Giờ ra không hợp lệ" });
         }
+
+        const checkInToCompare = attendance.checkIn;
+        if (checkInToCompare && parsedCheckOut <= checkInToCompare) {
+          return res.status(400).json({
+            message: "Giờ check-out phải sau giờ check-in",
+          });
+        }
+
         attendance.checkOut = parsedCheckOut;
       }
     }
@@ -706,6 +731,11 @@ export const updateAttendanceRecord = async (req, res) => {
       }
     }
 
+    // Recalculate work hours nếu checkIn hoặc checkOut thay đổi
+    if (checkIn !== undefined || checkOut !== undefined) {
+      attendance.calculateWorkHours();
+    }
+
     await attendance.save();
 
     const updated = await AttendanceModel.findById(attendance._id)
@@ -714,26 +744,40 @@ export const updateAttendanceRecord = async (req, res) => {
 
     // Track changes for notification
     const changes = {};
-    if (checkIn !== undefined && oldCheckIn?.toString() !== attendance.checkIn?.toString()) {
+    if (
+      checkIn !== undefined &&
+      oldCheckIn?.toString() !== attendance.checkIn?.toString()
+    ) {
       changes.checkIn = {
         from: oldCheckIn ? new Date(oldCheckIn).toLocaleString("vi-VN") : "N/A",
-        to: attendance.checkIn ? new Date(attendance.checkIn).toLocaleString("vi-VN") : "N/A",
+        to: attendance.checkIn
+          ? new Date(attendance.checkIn).toLocaleString("vi-VN")
+          : "N/A",
       };
     }
-    if (checkOut !== undefined && oldCheckOut?.toString() !== attendance.checkOut?.toString()) {
+    if (
+      checkOut !== undefined &&
+      oldCheckOut?.toString() !== attendance.checkOut?.toString()
+    ) {
       changes.checkOut = {
-        from: oldCheckOut ? new Date(oldCheckOut).toLocaleString("vi-VN") : "N/A",
-        to: attendance.checkOut ? new Date(attendance.checkOut).toLocaleString("vi-VN") : "N/A",
+        from: oldCheckOut
+          ? new Date(oldCheckOut).toLocaleString("vi-VN")
+          : "N/A",
+        to: attendance.checkOut
+          ? new Date(attendance.checkOut).toLocaleString("vi-VN")
+          : "N/A",
       };
     }
-    if (status !== undefined && oldStatus !== status) {
-      changes.status = { from: oldStatus || "N/A", to: status || "N/A" };
-    }
-    if ((locationId !== undefined || locationName !== undefined)) {
+    // Removed status check - status variable is not defined in this scope
+    if (locationId !== undefined || locationName !== undefined) {
       const newLocationId = attendance.locationId?.toString();
       if (oldLocationId !== newLocationId) {
-        const oldBranch = oldLocationId ? await BranchModel.findById(oldLocationId) : null;
-        const newBranch = newLocationId ? await BranchModel.findById(newLocationId) : null;
+        const oldBranch = oldLocationId
+          ? await BranchModel.findById(oldLocationId)
+          : null;
+        const newBranch = newLocationId
+          ? await BranchModel.findById(newLocationId)
+          : null;
         changes.location = {
           from: oldBranch?.name || "N/A",
           to: newBranch?.name || "N/A",
@@ -744,9 +788,13 @@ export const updateAttendanceRecord = async (req, res) => {
     // Send notification to user if there are changes
     if (Object.keys(changes).length > 0) {
       try {
-        const { NotificationService } = await import("../notifications/notification.service.js");
+        const { NotificationService } = await import(
+          "../notifications/notification.service.js"
+        );
         const { UserModel } = await import("../users/user.model.js");
-        const admin = await UserModel.findById(req.user.userId).select("name").lean();
+        const admin = await UserModel.findById(req.user.userId)
+          .select("name")
+          .lean();
         const adminName = admin?.name || "Quản trị viên";
 
         await NotificationService.createAttendanceUpdatedNotification(
@@ -755,7 +803,10 @@ export const updateAttendanceRecord = async (req, res) => {
           changes
         );
       } catch (notificationError) {
-        console.error("[attendance] Failed to send update notification:", notificationError);
+        console.error(
+          "[attendance] Failed to send update notification:",
+          notificationError
+        );
         // Don't fail if notification fails
       }
     }
@@ -770,7 +821,8 @@ export const updateAttendanceRecord = async (req, res) => {
         checkOut: updated.checkOut,
         status: updated.status,
         workHours: updated.workHours,
-        locationId: updated.locationId?._id?.toString() || updated.locationId?.toString(),
+        locationId:
+          updated.locationId?._id?.toString() || updated.locationId?.toString(),
         action: "admin-update",
       };
       if (attendanceData.userId) {
@@ -1027,11 +1079,11 @@ export const exportAttendanceAnalytics = async (req, res) => {
         "Giá trị":
           dailyData.length > 0 && dailyData[0].total > 0
             ? Math.round(
-              (dailyData.reduce((sum, d) => sum + d.present, 0) /
-                dailyData.length /
-                dailyData[0].total) *
-              100
-            )
+                (dailyData.reduce((sum, d) => sum + d.present, 0) /
+                  dailyData.length /
+                  dailyData[0].total) *
+                  100
+              )
             : 0,
       },
       {
@@ -1039,8 +1091,8 @@ export const exportAttendanceAnalytics = async (req, res) => {
         "Giá trị":
           dailyData.length > 0
             ? Math.round(
-              dailyData.reduce((sum, d) => sum + d.late, 0) / dailyData.length
-            )
+                dailyData.reduce((sum, d) => sum + d.late, 0) / dailyData.length
+              )
             : 0,
       },
       {
@@ -1048,9 +1100,9 @@ export const exportAttendanceAnalytics = async (req, res) => {
         "Giá trị":
           dailyData.length > 0
             ? Math.round(
-              dailyData.reduce((sum, d) => sum + d.absent, 0) /
-              dailyData.length
-            )
+                dailyData.reduce((sum, d) => sum + d.absent, 0) /
+                  dailyData.length
+              )
             : 0,
       },
     ];
@@ -1076,8 +1128,9 @@ export const exportAttendanceAnalytics = async (req, res) => {
 
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-    const fileName = `BaoCaoPhanTichChamCong_${new Date().toISOString().split("T")[0]
-      }.xlsx`;
+    const fileName = `BaoCaoPhanTichChamCong_${
+      new Date().toISOString().split("T")[0]
+    }.xlsx`;
 
     res.setHeader(
       "Content-Type",
