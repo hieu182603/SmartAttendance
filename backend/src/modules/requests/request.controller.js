@@ -182,10 +182,61 @@ export const createRequest = async (req, res) => {
       path: 'userId',
       select: 'name department branch',
       populate: [
-        { path: 'department', select: 'name' },
+        { path: 'department', select: 'name managerId', populate: { path: 'managerId', select: 'name email' } },
         { path: 'branch', select: 'name' }
       ]
     })
+
+    // Send notification to manager/admin
+    try {
+      const { NotificationService } = await import('../notifications/notification.service.js');
+      const { UserModel } = await import('../users/user.model.js');
+
+      // Get managers/admins who should be notified
+      const notifiedUserIds = new Set();
+
+      // Add department manager if exists
+      if (doc.userId?.department?.managerId) {
+        const deptManagerId = doc.userId.department.managerId._id?.toString() || doc.userId.department.managerId.toString();
+        notifiedUserIds.add(deptManagerId);
+      }
+
+      // Add all managers in the same department
+      if (doc.userId?.department) {
+        const departmentManagers = await UserModel.find({
+          department: doc.userId.department._id || doc.userId.department,
+          role: { $in: ['MANAGER', 'HR_MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+          isActive: true
+        }).select('_id');
+
+        departmentManagers.forEach(user => {
+          notifiedUserIds.add(user._id.toString());
+        });
+      }
+
+      // Add HR managers and admins (for all requests)
+      const hrManagersAndAdmins = await UserModel.find({
+        role: { $in: ['HR_MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+        isActive: true
+      }).select('_id');
+
+      hrManagersAndAdmins.forEach(user => {
+        notifiedUserIds.add(user._id.toString());
+      });
+
+      // Send notification to each manager/admin
+      for (const managerId of notifiedUserIds) {
+        try {
+          await NotificationService.createRequestCreatedNotification(doc, managerId);
+        } catch (err) {
+          console.error(`[requests] Failed to send notification to manager ${managerId}:`, err);
+          // Continue even if one notification fails
+        }
+      }
+    } catch (notificationError) {
+      console.error('[requests] Failed to send request created notifications:', notificationError);
+      // Don't fail request creation if notification fails
+    }
 
     res.status(201).json({
       id: doc._id.toString(),
@@ -433,7 +484,7 @@ const canApproveRequest = (request, approver) => {
   if (approver.role === 'MANAGER') {
     // Lấy department ID của approver
     const approverDepartmentId = approver.department?._id || approver.department
-    
+
     if (!approverDepartmentId) {
       // Approver không có department → không có quyền
       return false
@@ -451,7 +502,7 @@ const canApproveRequest = (request, approver) => {
 
     // Lấy department ID của request user
     const requestDepartmentId = request.userId.department?._id || request.userId.department
-    
+
     if (!requestDepartmentId) {
       // Request user không có department → không thể approve
       return false
@@ -460,7 +511,7 @@ const canApproveRequest = (request, approver) => {
     // So sánh department ID (hỗ trợ cả ObjectId và string)
     const approverDeptIdStr = approverDepartmentId.toString()
     const requestDeptIdStr = requestDepartmentId.toString()
-    
+
     return approverDeptIdStr === requestDeptIdStr
   }
 

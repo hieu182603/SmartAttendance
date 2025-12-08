@@ -87,6 +87,42 @@ export const assignShiftToEmployee = async (req, res) => {
     if (notes) options.notes = notes;
 
     const result = await shiftAssignmentService.assignShiftToUser(userId, shiftId, options);
+
+    // Send notification to user
+    try {
+      const { NotificationService } = await import("../notifications/notification.service.js");
+      const { ShiftModel } = await import("./shift.model.js");
+      const { UserModel } = await import("../users/user.model.js");
+
+      const shift = await ShiftModel.findById(shiftId);
+      const admin = await UserModel.findById(req.user.userId).select("name").lean();
+      const adminName = admin?.name || "Quản trị viên";
+
+      // Get assignment if created
+      if (result.assignmentId) {
+        const { EmployeeShiftAssignmentModel } = await import("./employeeShiftAssignment.model.js");
+        const assignment = await EmployeeShiftAssignmentModel.findById(result.assignmentId)
+          .populate("userId", "name");
+
+        await NotificationService.createShiftAssignedNotification(
+          assignment,
+          shift,
+          adminName
+        );
+      } else if (result.shift) {
+        // Full-time assignment (defaultShiftId)
+        const user = await UserModel.findById(userId).select("name");
+        await NotificationService.createShiftAssignedNotification(
+          { userId: user, shiftId, effectiveFrom: new Date() },
+          shift,
+          adminName
+        );
+      }
+    } catch (notificationError) {
+      console.error("[shifts] Failed to send assignment notification:", notificationError);
+      // Don't fail if notification fails
+    }
+
     res.json({ success: true, data: result });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -110,6 +146,35 @@ export const bulkAssignShift = async (req, res) => {
     }
 
     const result = await shiftAssignmentService.bulkAssignShift(userIds, shiftId);
+
+    // Send notification to all users
+    try {
+      const { NotificationService } = await import("../notifications/notification.service.js");
+      const { ShiftModel } = await import("./shift.model.js");
+      const { UserModel } = await import("../users/user.model.js");
+
+      const shift = await ShiftModel.findById(shiftId);
+      const admin = await UserModel.findById(req.user.userId).select("name").lean();
+      const adminName = admin?.name || "Quản trị viên";
+
+      // Send notification to each user
+      for (const userId of userIds) {
+        try {
+          await NotificationService.createShiftAssignedNotification(
+            { userId, shiftId, effectiveFrom: new Date() },
+            shift,
+            adminName
+          );
+        } catch (err) {
+          // Continue even if one notification fails
+          console.error(`[shifts] Failed to send notification to user ${userId}:`, err);
+        }
+      }
+    } catch (notificationError) {
+      console.error("[shifts] Failed to send bulk assignment notifications:", notificationError);
+      // Don't fail if notification fails
+    }
+
     res.json({ success: true, ...result });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -143,9 +208,33 @@ export const getEmployeesByShift = async (req, res) => {
  */
 export const removeShiftFromEmployee = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { userId, shiftId } = req.params;
+
+    // Get shift info before removing (for notification)
+    const { ShiftModel } = await import("./shift.model.js");
+    const shift = shiftId ? await ShiftModel.findById(shiftId) : null;
 
     const result = await shiftAssignmentService.removeShiftFromUser(userId);
+
+    // Send notification to user
+    if (shift) {
+      try {
+        const { NotificationService } = await import("../notifications/notification.service.js");
+        const { UserModel } = await import("../users/user.model.js");
+        const admin = await UserModel.findById(req.user.userId).select("name").lean();
+        const adminName = admin?.name || "Quản trị viên";
+
+        await NotificationService.createShiftRemovedNotification(
+          userId,
+          shift,
+          adminName
+        );
+      } catch (notificationError) {
+        console.error("[shifts] Failed to send removal notification:", notificationError);
+        // Don't fail if notification fails
+      }
+    }
+
     res.json({ success: true, ...result });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -197,7 +286,50 @@ export const updateAssignment = async (req, res) => {
     const { assignmentId } = req.params;
     const updateData = req.body;
 
+    // Get old assignment for change tracking
+    const { EmployeeShiftAssignmentModel } = await import("./employeeShiftAssignment.model.js");
+    const oldAssignment = await EmployeeShiftAssignmentModel.findById(assignmentId)
+      .populate("shiftId");
+
     const assignment = await shiftAssignmentService.updateAssignment(assignmentId, updateData);
+
+    // Track changes and send notification
+    const changes = {};
+    if (updateData.effectiveFrom && oldAssignment?.effectiveFrom?.toString() !== assignment.effectiveFrom?.toString()) {
+      changes.effectiveFrom = {
+        from: oldAssignment?.effectiveFrom ? new Date(oldAssignment.effectiveFrom).toLocaleDateString("vi-VN") : "N/A",
+        to: assignment.effectiveFrom ? new Date(assignment.effectiveFrom).toLocaleDateString("vi-VN") : "N/A",
+      };
+    }
+    if (updateData.effectiveTo && oldAssignment?.effectiveTo?.toString() !== assignment.effectiveTo?.toString()) {
+      changes.effectiveTo = {
+        from: oldAssignment?.effectiveTo ? new Date(oldAssignment.effectiveTo).toLocaleDateString("vi-VN") : "N/A",
+        to: assignment.effectiveTo ? new Date(assignment.effectiveTo).toLocaleDateString("vi-VN") : "N/A",
+      };
+    }
+    if (updateData.pattern && oldAssignment?.pattern !== assignment.pattern) {
+      changes.pattern = { from: oldAssignment?.pattern || "N/A", to: assignment.pattern || "N/A" };
+    }
+
+    if (Object.keys(changes).length > 0) {
+      try {
+        const { NotificationService } = await import("../notifications/notification.service.js");
+        const { UserModel } = await import("../users/user.model.js");
+        const admin = await UserModel.findById(req.user.userId).select("name").lean();
+        const adminName = admin?.name || "Quản trị viên";
+
+        await NotificationService.createShiftUpdatedNotification(
+          assignment,
+          assignment.shiftId || oldAssignment?.shiftId,
+          adminName,
+          changes
+        );
+      } catch (notificationError) {
+        console.error("[shifts] Failed to send update notification:", notificationError);
+        // Don't fail if notification fails
+      }
+    }
+
     res.json({ success: true, data: assignment });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });

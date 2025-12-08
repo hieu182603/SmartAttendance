@@ -10,7 +10,20 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["request_approved", "request_rejected", "attendance_reminder", "system", "other"],
+      enum: [
+        "request_approved",
+        "request_rejected",
+        "request_created",
+        "attendance_reminder",
+        "attendance_updated",
+        "performance_review_approved",
+        "performance_review_rejected",
+        "shift_assigned",
+        "shift_removed",
+        "shift_updated",
+        "system",
+        "other"
+      ],
       required: true,
     },
     title: {
@@ -23,7 +36,7 @@ const notificationSchema = new mongoose.Schema(
     },
     relatedEntityType: {
       type: String,
-      enum: ["request", "attendance", "user", "other"],
+      enum: ["request", "attendance", "user", "performance_review", "shift", "other"],
     },
     relatedEntityId: {
       type: mongoose.Schema.Types.ObjectId,
