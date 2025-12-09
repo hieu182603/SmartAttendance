@@ -255,16 +255,12 @@ export const getAttendanceAnalytics = async (req, res) => {
   try {
     const { from, to, department } = req.query;
 
-    console.log("[attendance] analytics request:", { from, to, department });
-
     const dateQuery = buildDateQuery(from, to);
     if (Object.keys(dateQuery).length === 0) {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       dateQuery.date = { $gte: sevenDaysAgo };
     }
-    
-    console.log("[attendance] dateQuery:", dateQuery);
 
     const attendanceQuery = { ...dateQuery };
     const userQuery = {};
@@ -307,13 +303,15 @@ export const getAttendanceAnalytics = async (req, res) => {
       })
       .sort({ date: 1 });
 
-    console.log("[attendance] found", attendances.length, "attendance records");
+    // OPTIMIZATION: Sử dụng status có sẵn thay vì re-calculate
+    // Attendance records đã có status: "present", "late", "absent"
+    // Không cần query schedules nữa!
 
     const dailyMap = new Map();
     const departmentMap = new Map();
     const employeeMap = new Map();
 
-    // Dùng for...of thay vì forEach để có thể dùng await
+    // Xử lý attendance records với cache
     for (const att of attendances) {
       const dateKey = formatDateLabel(att.date);
       const user = att.userId;
@@ -359,46 +357,48 @@ export const getAttendanceAnalytics = async (req, res) => {
       const deptStat = departmentMap.get(dept);
       daily.total++;
 
-      if (att.status === "present" && att.checkIn) {
-        // Sử dụng checkLateStatus từ service thay vì hardcode 8:00
-        const schedule = await getUserSchedule(user._id, new Date(att.date));
-        const shiftInfo = await getShiftInfo(schedule);
-        const isLate = checkLateStatus(new Date(att.checkIn), shiftInfo);
-
-        const checkInHour = new Date(att.checkIn).getHours();
-        const checkInMin = new Date(att.checkIn).getMinutes();
-
-        if (isLate) {
-          daily.late++;
-          deptStat.late++;
-          if (userId) {
-            const emp = employeeMap.get(userId);
+      // SIMPLIFIED LOGIC: Sử dụng status có sẵn từ DB
+      // Status đã được tính đúng khi check-in, không cần re-calculate
+      
+      if (att.status === "late") {
+        // Đi muộn
+        daily.late++;
+        deptStat.late++;
+        if (userId && att.checkIn) {
+          const emp = employeeMap.get(userId);
+          if (emp) {
             emp.late++;
+            const checkInHour = new Date(att.checkIn).getHours();
+            const checkInMin = new Date(att.checkIn).getMinutes();
             emp.checkInTimes.push(
-              `${String(checkInHour).padStart(2, "0")}:${String(
-                checkInMin
-              ).padStart(2, "0")}`
-            );
-          }
-        } else {
-          daily.present++;
-          deptStat.onTime++;
-          if (userId) {
-            const emp = employeeMap.get(userId);
-            emp.onTime++;
-            emp.checkInTimes.push(
-              `${String(checkInHour).padStart(2, "0")}:${String(
-                checkInMin
-              ).padStart(2, "0")}`
+              `${String(checkInHour).padStart(2, "0")}:${String(checkInMin).padStart(2, "0")}`
             );
           }
         }
-      } else if (att.status === "absent" || (!att.checkIn && !att.checkOut)) {
+      } else if (att.status === "present") {
+        // Đúng giờ
+        daily.present++;
+        deptStat.onTime++;
+        if (userId && att.checkIn) {
+          const emp = employeeMap.get(userId);
+          if (emp) {
+            emp.onTime++;
+            const checkInHour = new Date(att.checkIn).getHours();
+            const checkInMin = new Date(att.checkIn).getMinutes();
+            emp.checkInTimes.push(
+              `${String(checkInHour).padStart(2, "0")}:${String(checkInMin).padStart(2, "0")}`
+            );
+          }
+        }
+      } else if (att.status === "absent" || att.status === "on_leave") {
+        // Vắng mặt hoặc nghỉ phép
         daily.absent++;
         deptStat.absent++;
         if (userId) {
           const emp = employeeMap.get(userId);
-          emp.absent++;
+          if (emp) {
+            emp.absent++;
+          }
         }
       }
 
@@ -508,14 +508,6 @@ export const getAttendanceAnalytics = async (req, res) => {
         absent: totalAbsent,
       },
     };
-
-    console.log("[attendance] analytics response summary:", {
-      dailyDataCount: dailyData.length,
-      departmentStatsCount: departmentStats.length,
-      topPerformersCount: topPerformers.length,
-      totalRecords,
-      totalEmployees,
-    });
 
     res.json(response);
   } catch (error) {
