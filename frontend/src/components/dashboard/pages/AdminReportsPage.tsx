@@ -195,7 +195,7 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange, t]);
+  }, [timeRange]); // FIXED: Removed `t` to avoid infinite loop
 
   useEffect(() => {
     fetchAnalytics();
