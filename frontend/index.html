@@ -58,13 +58,52 @@
     />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/ảnh/icon2.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/ảnh/icon2.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/ảnh/icon2.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/ảnh/icon2.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/ảnh/icon2.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/ảnh/icon2.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/ảnh/icon2.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/ảnh/icon2.png" />
+    <link rel="shortcut icon" href="/ảnh/icon2.png" />
 
     <!-- Canonical URL -->
+    <link rel="manifest" href="/manifest.json" />
     <link rel="canonical" href="https://www.smart-attendance.com/" />
   </head>
   <body>
     <div id="root"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/favico.js/0.3.10/favico.min.js"></script>
+    <script>
+      (function () {
+        function init() {
+          if (globalThis.Favico) {
+            // eslint-disable-next-line no-undef
+            globalThis._fav = new globalThis.Favico({ animation: "popFade" });
+            // expose a simple global setter for other scripts/React to call
+            globalThis.setFaviconBadge = function (count) {
+              try {
+                if (typeof count === "number") {
+                  if (count > 0) globalThis._fav.badge(count);
+                  else globalThis._fav.reset();
+                } else if (typeof count === "string") {
+                  globalThis._fav.badge(count);
+                } else {
+                  globalThis._fav.reset();
+                }
+              } catch (e) {
+                // swallow errors to avoid breaking the app load
+                console.warn("setFaviconBadge error", e);
+              }
+            };
+          } else {
+            setTimeout(init, 50);
+          }
+        }
+        init();
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
