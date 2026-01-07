@@ -205,7 +205,7 @@ export default function LandingPage() {
                 { icon: CheckCircle, text: 'Giảm 95% gian lận chấm công' },
                 { icon: Zap, text: 'Tính lương tự động, 0 sai sót' },
                 { icon: Clock, text: 'Setup trong 5 phút' },
-                { icon: Shield, text: 'Dùng thử miễn phí 30 ngày' },
+                { icon: Shield, text: 'Dùng thử miễn phí 7 ngày' },
               ].map((benefit, idx) => (
                 <div key={idx} className="flex items-center space-x-2">
                   <benefit.icon className="h-5 w-5 text-[var(--success)] flex-shrink-0" />
@@ -230,7 +230,7 @@ export default function LandingPage() {
                 <span className="relative z-10 flex flex-col items-center sm:items-start">
                   <span className="flex items-center space-x-2 font-bold">
                     <Sparkles className="h-5 w-5" />
-                    <span>Dùng thử miễn phí 30 ngày</span>
+                    <span>Dùng thử miễn phí 7 ngày</span>
                     <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </span>
                 </span>
@@ -338,7 +338,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <div className="text-[var(--text-main)]">
-                      Quét QR
+                      Quét Face 
                     </div>
                     <div className="text-sm text-[var(--text-sub)]">
                       Điểm danh nhanh chóng
@@ -358,9 +358,12 @@ export default function LandingPage() {
                       repeat: Infinity,
                     }}
                   />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-48 h-48 bg-white rounded-xl" />
-                  </div>
+                <img
+                  src="/ảnh/FACEid1.gif"
+                  alt="Face recognition demo"
+                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  style={{ display: 'block' }}
+                />
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
