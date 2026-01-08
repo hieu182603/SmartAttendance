@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { UserController } from "./user.controller.js";
 import { UpgradeController } from "./upgrade.controller.js";
-import { AnalyticsController } from "./analytics.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireRole, ROLES } from "../../middleware/role.middleware.js";
 import upload from "../../utils/upload.js";
@@ -65,15 +64,4 @@ userRouter.get(
     UpgradeController.getTrialStats
 );
 
-// Analytics routes
-userRouter.get(
-    "/analytics/trial",
-    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
-    AnalyticsController.getTrialAnalytics
-);
-
-userRouter.post(
-    "/analytics/track-activity",
-    AnalyticsController.trackActivity
-);
 
