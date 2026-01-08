@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Sun, Moon, MapPin, BarChart3, ArrowLeft } from 'lucide-react'
+import { Sun, Moon, Camera, MapPin, BarChart3, ArrowLeft } from 'lucide-react'
 import { useTheme } from '@/components/ThemeProvider'
 import { Button } from '@/components/ui/button'
 import { Link } from 'react-router-dom'
@@ -366,7 +366,7 @@ export function AuthLayout({ children, title, subtitle, showBackButton = false, 
             transition={{ delay: 0.7 }}
           >
             {[
-              { icon: QrCode, label: "Quét QR", delay: 0.1, color: "from-cyan-400 via-cyan-500 to-blue-500", bgColor: "bg-cyan-500/20" },
+              { icon: Camera, label: "Quét QR", delay: 0.1, color: "from-cyan-400 via-cyan-500 to-blue-500", bgColor: "bg-cyan-500/20" },
               { icon: MapPin, label: "GPS Check", delay: 0.2, color: "from-emerald-400 via-green-500 to-teal-500", bgColor: "bg-emerald-500/20" },
               { icon: BarChart3, label: "Báo cáo", delay: 0.3, color: "from-purple-400 via-violet-500 to-pink-500", bgColor: "bg-purple-500/20" },
             ].map((item, index) => {
