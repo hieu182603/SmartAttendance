@@ -34,7 +34,7 @@ const logSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["success", "failed"],
+            enum: ["success", "failed", "warning"],
             default: "success",
         },
         errorMessage: {

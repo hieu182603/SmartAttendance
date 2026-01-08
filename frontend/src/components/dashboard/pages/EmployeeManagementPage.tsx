@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from 'sonner'
-import { getAllUsers, getUserById, updateUserByAdmin } from '@/services/userService'
+import { getAllUsers, getUserById, updateUserByAdmin, createUserByAdmin } from '@/services/userService'
 import { getAllDepartments, type Department as DepartmentType } from '@/services/departmentService'
 import shiftService, { type Shift } from '@/services/shiftService'
 import api from '@/services/api'
@@ -73,6 +73,17 @@ interface User {
 interface FormData {
   name: string
   email: string
+  department: string
+  role: string
+  phone: string
+  isActive: boolean
+  defaultShiftId: string
+}
+
+interface CreateFormData {
+  name: string
+  email: string
+  password: string
   department: string
   role: string
   phone: string
@@ -180,6 +191,7 @@ const EmployeeManagementPage: React.FC = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [usersList, setUsersList] = useState<User[]>([])
   const [departments, setDepartments] = useState<DepartmentType[]>([])
@@ -195,6 +207,18 @@ const EmployeeManagementPage: React.FC = () => {
     defaultShiftId: '',
   })
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
+
+  const [createFormData, setCreateFormData] = useState<CreateFormData>({
+    name: '',
+    email: '',
+    password: '',
+    department: '',
+    role: '',
+    phone: '',
+    isActive: true,
+    defaultShiftId: '',
+  })
+  const [createValidationErrors, setCreateValidationErrors] = useState<ValidationErrors>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [pagination, setPagination] = useState<{
@@ -456,6 +480,88 @@ const EmployeeManagementPage: React.FC = () => {
     }
   }
 
+  const handleSubmitCreate = async (): Promise<void> => {
+    const errors: ValidationErrors = {}
+
+    if (!createFormData.name || createFormData.name.trim().length === 0) {
+      errors.name = t('dashboard:employeeManagement.validation.nameRequired')
+    } else if (createFormData.name.trim().length < 2) {
+      errors.name = t('dashboard:employeeManagement.validation.nameMinLength')
+    }
+
+    if (!createFormData.email || createFormData.email.trim().length === 0) {
+      errors.email = t('dashboard:employeeManagement.validation.emailRequired')
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createFormData.email)) {
+      errors.email = t('dashboard:employeeManagement.validation.emailInvalid')
+    }
+
+    if (!createFormData.password || createFormData.password.trim().length === 0) {
+      errors.password = t('dashboard:employeeManagement.createUser.validation.passwordRequired', 'Mật khẩu là bắt buộc')
+    } else if (createFormData.password.length < 6) {
+      errors.password = t('dashboard:employeeManagement.createUser.validation.passwordMinLength', 'Mật khẩu phải có ít nhất 6 ký tự')
+    }
+
+    if (!createFormData.role) {
+      errors.role = t('dashboard:employeeManagement.validation.roleRequired')
+    }
+
+    if (createFormData.phone && createFormData.phone.trim().length > 0) {
+      if (!/^[0-9]{10,11}$/.test(createFormData.phone.replace(/\s/g, ''))) {
+        errors.phone = t('dashboard:employeeManagement.validation.phoneInvalid')
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setCreateValidationErrors(errors)
+      toast.error(t('dashboard:employeeManagement.validation.checkInfo'))
+      return
+    }
+
+    try {
+      await createUserByAdmin(createFormData)
+      toast.success(t('dashboard:employeeManagement.createUser.success', 'Tạo tài khoản thành công'))
+      setIsCreateDialogOpen(false)
+      setCreateFormData({
+        name: '',
+        email: '',
+        password: '',
+        department: '',
+        role: '',
+        phone: '',
+        isActive: true,
+        defaultShiftId: '',
+      })
+      setCreateValidationErrors({})
+      fetchUsers()
+    } catch (error) {
+      console.error('[EmployeeManagement] create user error:', error)
+      const err = error as ErrorWithMessage & { fieldErrors?: FieldErrors }
+
+      if (err.response?.status === 403 || err.message?.includes('Insufficient permissions') || err.message?.includes('403')) {
+        const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.noPermission')
+        toast.error(errorMessage)
+        return
+      }
+
+      if (err.fieldErrors) {
+        const backendErrors: ValidationErrors = {}
+        Object.keys(err.fieldErrors).forEach(field => {
+          if (err.fieldErrors?.[field]?.[0]) {
+            backendErrors[field] = err.fieldErrors[field][0]
+          }
+        })
+        if (Object.keys(backendErrors).length > 0) {
+          setCreateValidationErrors(backendErrors)
+          toast.error(t('dashboard:employeeManagement.validation.checkInfo'))
+          return
+        }
+      }
+
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.createUser.error', 'Tạo tài khoản thất bại')
+      toast.error(errorMessage)
+    }
+  }
+
   const paginatedUsers = usersList
 
   const getAvatarInitials = (name?: string): string => {
@@ -491,6 +597,15 @@ const EmployeeManagementPage: React.FC = () => {
             {t('dashboard:employeeManagement.title')}
           </h1>
         </div>
+        <RoleGuard permission={Permission.USERS_CREATE}>
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:from-[var(--primary)]/90 hover:to-[var(--accent-cyan)]/90 text-white px-4 py-2 h-9"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {t('dashboard:employeeManagement.createUser.button', 'Tạo tài khoản')}
+          </Button>
+        </RoleGuard>
       </div>
       {/* Search & Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
@@ -1143,6 +1258,240 @@ const EmployeeManagementPage: React.FC = () => {
               className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] h-9 px-6"
             >
               💾 {t('dashboard:employeeManagement.editDialog.update')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
+          <DialogHeader>
+            <DialogTitle className="text-lg md:text-xl">{t('dashboard:employeeManagement.createUser.title', 'Tạo tài khoản mới')}</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)] text-sm">
+              {t('dashboard:employeeManagement.createUser.description', 'Nhập thông tin để tạo tài khoản nhân viên mới')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 pt-4">
+            {/* Left Column */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-[var(--border)]">
+                <Users className="h-4 w-4 text-[var(--primary)]" />
+                <h3 className="text-sm font-semibold text-[var(--text-main)]">{t('dashboard:employeeManagement.editDialog.personalInfo')}</h3>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.fullName')} <span className="text-red-500">*</span></Label>
+                <Input
+                  placeholder={t('dashboard:employeeManagement.form.namePlaceholder')}
+                  className={`bg-[var(--shell)] border-[var(--border)] h-9 ${createValidationErrors.name ? 'border-red-500' : ''}`}
+                  value={createFormData.name}
+                  onChange={(e) => {
+                    setCreateFormData({ ...createFormData, name: e.target.value })
+                    if (createValidationErrors.name) {
+                      setCreateValidationErrors({ ...createValidationErrors, name: null })
+                    }
+                  }}
+                />
+                {createValidationErrors.name && (
+                  <p className="text-xs text-red-500">{createValidationErrors.name}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.email')} <span className="text-red-500">*</span></Label>
+                <Input
+                  type="email"
+                  placeholder={t('dashboard:employeeManagement.form.emailPlaceholder')}
+                  className={`bg-[var(--shell)] border-[var(--border)] h-9 ${createValidationErrors.email ? 'border-red-500' : ''}`}
+                  value={createFormData.email}
+                  onChange={(e) => {
+                    setCreateFormData({ ...createFormData, email: e.target.value })
+                    if (createValidationErrors.email) {
+                      setCreateValidationErrors({ ...createValidationErrors, email: null })
+                    }
+                  }}
+                />
+                {createValidationErrors.email && (
+                  <p className="text-xs text-red-500">{createValidationErrors.email}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.createUser.password', 'Mật khẩu')} <span className="text-red-500">*</span></Label>
+                <Input
+                  type="password"
+                  placeholder={t('dashboard:employeeManagement.createUser.passwordPlaceholder', 'Nhập mật khẩu')}
+                  className={`bg-[var(--shell)] border-[var(--border)] h-9 ${createValidationErrors.password ? 'border-red-500' : ''}`}
+                  value={createFormData.password}
+                  onChange={(e) => {
+                    setCreateFormData({ ...createFormData, password: e.target.value })
+                    if (createValidationErrors.password) {
+                      setCreateValidationErrors({ ...createValidationErrors, password: null })
+                    }
+                  }}
+                />
+                {createValidationErrors.password && (
+                  <p className="text-xs text-red-500">{createValidationErrors.password}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.phone')}</Label>
+                <Input
+                  placeholder={t('dashboard:employeeManagement.form.phonePlaceholder')}
+                  className={`bg-[var(--shell)] border-[var(--border)] h-9 ${createValidationErrors.phone ? 'border-red-500' : ''}`}
+                  value={createFormData.phone}
+                  onChange={(e) => {
+                    setCreateFormData({ ...createFormData, phone: e.target.value })
+                    if (createValidationErrors.phone) {
+                      setCreateValidationErrors({ ...createValidationErrors, phone: null })
+                    }
+                  }}
+                />
+                {createValidationErrors.phone && (
+                  <p className="text-xs text-red-500">{createValidationErrors.phone}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-[var(--border)]">
+                <Shield className="h-4 w-4 text-[var(--primary)]" />
+                <h3 className="text-sm font-semibold text-[var(--text-main)]">{t('dashboard:employeeManagement.editDialog.workInfo')}</h3>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.department')}</Label>
+                <Select value={createFormData.department} onValueChange={(v) => setCreateFormData({ ...createFormData, department: v })}>
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
+                    <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectDepartment')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    <SelectItem value="">{t('dashboard:employeeManagement.editDialog.noDepartment')}</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept._id} value={dept._id}>
+                        {dept.name} ({dept.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.shift') || 'Ca làm việc'}</Label>
+                <Select value={createFormData.defaultShiftId} onValueChange={(v) => setCreateFormData({ ...createFormData, defaultShiftId: v })}>
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
+                    <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectShift') || 'Chọn ca làm việc'} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    <SelectItem value="">{t('dashboard:employeeManagement.editDialog.noShift') || 'Không có ca'}</SelectItem>
+                    {shifts.filter(s => s.isActive !== false).map((shift) => (
+                      <SelectItem key={shift._id} value={shift._id}>
+                        {shift.name} ({shift.startTime} - {shift.endTime})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.role')} <span className="text-red-500">*</span></Label>
+                <Select
+                  value={createFormData.role}
+                  onValueChange={(v) => {
+                    setCreateFormData({ ...createFormData, role: v })
+                    if (createValidationErrors.role) {
+                      setCreateValidationErrors({ ...createValidationErrors, role: null })
+                    }
+                  }}
+                >
+                  <SelectTrigger
+                    className={`bg-[var(--shell)] border-[var(--border)] h-9 ${createValidationErrors.role ? 'border-red-500' : ''}`}
+                  >
+                    <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectRole')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    {ROLES.filter(role => canAssignRole(role.value)).map(role => {
+                      const RoleIcon = role.icon
+                      return (
+                        <SelectItem key={role.value} value={role.value}>
+                          <div className="flex items-center gap-2">
+                            <RoleIcon className="h-3.5 w-3.5" />
+                            {role.label}
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+                {createValidationErrors.role && (
+                  <p className="text-xs text-red-500">{createValidationErrors.role}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.accountStatus')}</Label>
+                <Select
+                  value={createFormData.isActive ? 'active' : 'inactive'}
+                  onValueChange={(v) => setCreateFormData({ ...createFormData, isActive: v === 'active' })}
+                >
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
+                    <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectStatus')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    <SelectItem value="active">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                        {t('dashboard:employeeManagement.active')}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="inactive">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                        {t('dashboard:employeeManagement.inactive')}
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {!createFormData.isActive && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {t('dashboard:employeeManagement.editDialog.inactiveWarning')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6 pt-4 border-t border-[var(--border)]">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateDialogOpen(false)
+                setCreateValidationErrors({})
+                setCreateFormData({
+                  name: '',
+                  email: '',
+                  password: '',
+                  department: '',
+                  role: '',
+                  phone: '',
+                  isActive: true,
+                  defaultShiftId: '',
+                })
+              }}
+              className="border-[var(--border)] text-[var(--text-main)] h-9"
+            >
+              {t('dashboard:employeeManagement.editDialog.cancel')}
+            </Button>
+            <Button
+              onClick={handleSubmitCreate}
+              className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] h-9 px-6"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {t('dashboard:employeeManagement.createUser.create', 'Tạo tài khoản')}
             </Button>
           </DialogFooter>
         </DialogContent>

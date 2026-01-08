@@ -1388,6 +1388,20 @@
     "success": {
       "updateSuccess": "Employee information updated successfully!",
       "disableSuccess": "Employee disabled successfully!"
+    },
+    "createUser": {
+      "button": "Create Account",
+      "title": "Create New Account",
+      "description": "Enter information to create a new employee account",
+      "password": "Password",
+      "passwordPlaceholder": "Enter password",
+      "create": "Create Account",
+      "success": "Account created successfully!",
+      "error": "Failed to create account",
+      "validation": {
+        "passwordRequired": "Password is required",
+        "passwordMinLength": "Password must be at least 6 characters long"
+      }
     }
   },
   "auditLogs": {

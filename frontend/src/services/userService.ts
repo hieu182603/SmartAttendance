@@ -21,6 +21,19 @@ interface UpdateUserByAdminData {
   isActive?: boolean
   avatar?: string
   avatarUrl?: string
+  defaultShiftId?: string
+}
+
+interface CreateUserByAdminData {
+  email: string
+  password: string
+  name: string
+  role: string
+  department?: string
+  branch?: string
+  phone?: string
+  defaultShiftId?: string
+  isActive?: boolean
 }
 
 interface UpdateUserResponse {
@@ -80,6 +93,32 @@ export const updateUserByAdmin = async (id: string, userData: UpdateUserByAdminD
     return data
   } catch (error) {
     console.error('[userService] updateUserByAdmin error:', error)
+    // Nếu có validation errors từ backend, throw với message chi tiết
+    const err = error as ValidationError
+    if (err?.response?.data && typeof err.response.data === 'object') {
+      const responseData = err.response.data as { errors?: { fieldErrors?: Record<string, string[]> } }
+      if (responseData.errors) {
+        const errors = responseData.errors
+        const fieldErrors = errors.fieldErrors || {}
+        // Lấy message đầu tiên từ field errors
+        const firstErrorField = Object.keys(fieldErrors)[0]
+        if (firstErrorField && fieldErrors[firstErrorField]?.[0]) {
+          err.message = fieldErrors[firstErrorField][0]
+        }
+        // Lưu field errors để frontend có thể hiển thị
+        err.fieldErrors = fieldErrors
+      }
+    }
+    throw err
+  }
+}
+
+export const createUserByAdmin = async (userData: CreateUserByAdminData): Promise<unknown> => {
+  try {
+    const { data } = await api.post('/users', userData)
+    return data
+  } catch (error) {
+    console.error('[userService] createUserByAdmin error:', error)
     // Nếu có validation errors từ backend, throw với message chi tiết
     const err = error as ValidationError
     if (err?.response?.data && typeof err.response.data === 'object') {

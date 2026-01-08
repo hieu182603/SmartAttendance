@@ -20,16 +20,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { updateUserProfile, changePassword, uploadAvatar, getUserProfile } from "@/services/userService";
+import { getDepartmentById } from '@/services/departmentService'
 import { useAuth } from "@/context/AuthContext";
 import { UserRole, getRolePosition, type UserRoleType } from "@/utils/roles";
 import type { User as UserType } from "@/types";
 import type { ErrorWithMessage } from "@/types";
+import banksLocal from '@/data/banks.json'
+import { useMemo } from 'react'
 
 interface ProfileProps {
   role?: string;
@@ -64,6 +68,7 @@ interface ProfileData {
   employeeId: string;
   bankAccount: string;
   bankName: string;
+  taxId?: string;
 }
 
 interface PasswordData {
@@ -102,7 +107,73 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     employeeId: "",
     bankAccount: "",
     bankName: "",
+    taxId: "",
   });
+  const [banks, setBanks] = useState<{ shortname?: string; name: string }[]>(banksLocal || []);
+
+  // Fetch remote banks.json with fallback to local file and cache in localStorage
+  useEffect(() => {
+    let mounted = true
+    const cacheKey = 'banks_json_cache_v1'
+    const remoteUrl = 'https://raw.githubusercontent.com/huylaguna/danhsachNganHangVietNam/master/banks.json'
+
+    // Try cache first
+      try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            setBanks(parsed)
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    fetch(remoteUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch remote banks')
+        return res.json()
+      })
+      .then((json) => {
+        if (!mounted) return
+        if (!Array.isArray(json)) return
+        const normalized = json.map((entry: any) => ({
+          shortname: entry.shortname || entry.shortName || entry.short || entry.short_code || entry.code || '',
+          name: entry.name || entry.fullname || entry.bankName || entry.full_name || ''
+        })).filter((b: any) => b.shortname || b.name)
+        if (normalized.length > 0) {
+          setBanks(normalized)
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(normalized))
+          } catch (e) {
+            // ignore storage errors
+          }
+        }
+      })
+      .catch(() => {
+        // fallback already set from banksLocal
+      })
+    return () => { mounted = false }
+  }, [])
+
+  const banksOptions = useMemo(() => banks, [banks])
+
+  // After banks loaded, if profile.bankName is full name map to shortname
+  useEffect(() => {
+    if (!banksOptions || banksOptions.length === 0) return
+    if (!profile.bankName) return
+    const found = banksOptions.find(b => b.name === profile.bankName || b.shortname === profile.bankName)
+    if (found && found.shortname && found.shortname !== profile.bankName) {
+      setProfile(p => ({ ...p, bankName: found.shortname }))
+    }
+  }, [banksOptions])
+
+  const getBankFullName = (shortOrName: string | undefined): string => {
+    if (!shortOrName) return ''
+    const found = banksOptions.find(b => b.shortname === shortOrName || b.name === shortOrName)
+    return found ? found.name : shortOrName
+  }
 
   // Use contextUser if available, otherwise use prop user
   const currentUser = contextUser || user;
@@ -123,20 +194,34 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       const userRole = (currentUser.role || UserRole.EMPLOYEE) as UserRoleType;
       const position = getRolePosition(userRole);
 
-      // Extract department name from object or string
-      const getDepartmentName = (dept?: string | { _id: string; name: string }): string => {
+      // Extract department name from object or string; if dept is an id string, fetch name
+      const getDepartmentName = async (dept?: string | { _id: string; name: string }) => {
         if (!dept) return "";
-        if (typeof dept === "string") return dept;
+        if (typeof dept === "string") {
+          // if looks like ObjectId (24 hex chars), try fetch department name
+          if (/^[0-9a-fA-F]{24}$/.test(dept)) {
+            try {
+              const res = await getDepartmentById(dept)
+              return res?.department?.name || dept
+            } catch (e) {
+              return dept
+            }
+          }
+          return dept;
+        }
         return dept.name || "";
       };
 
-      setProfile({
+      (async () => {
+        const departmentName = await getDepartmentName(currentUser.department as any)
+
+        setProfile({
         fullName: currentUser.name || "",
         email: currentUser.email || "",
         phone: currentUser.phone || "",
         address: currentUser.address || "",
         birthday: formattedBirthday,
-        department: getDepartmentName(currentUser.department),
+        department: departmentName,
         position: position,
         joinDate: currentUser.createdAt
           ? new Date(currentUser.createdAt).toISOString().split("T")[0]
@@ -144,7 +229,9 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
         employeeId: currentUser._id ? currentUser._id.slice(-6).toUpperCase() : "",
         bankAccount: currentUser.bankAccount || "",
         bankName: currentUser.bankName || "",
-      });
+        taxId: (currentUser as any).taxId || (currentUser as any).tax_number || "",
+        })
+      })()
     }
   }, [currentUser, role]);
 
@@ -229,6 +316,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
         birthday: profile.birthday,
         bankAccount: profile.bankAccount,
         bankName: profile.bankName,
+        taxId: profile.taxId,
       };
 
       const response = await updateUserProfile(updateData);
@@ -680,11 +768,38 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                         <Building2 className="h-4 w-4 inline mr-2" />
                         {t('dashboard:profile.personalInfo.fields.bankName')}
                       </Label>
+                      <div className="flex items-center gap-2">
+                      {isEditing ? (
+                        <Select className="w-full" value={profile.bankName} onValueChange={(v) => setProfile({ ...profile, bankName: v })} disabled={!isEditing}>
+                          <SelectTrigger className="w-full bg-[var(--input-bg)] border-[var(--border)] h-9 text-[var(--text-main)]">
+                            <SelectValue placeholder={t('dashboard:profile.personalInfo.fields.bankName')} />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-44 overflow-auto">
+                            {banksOptions.map((b) => (
+                              <SelectItem key={b.shortname || b.name} value={b.shortname || b.name}>
+                                {b.shortname ? `${b.shortname} - ${b.name}` : b.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          value={getBankFullName(profile.bankName)}
+                          disabled
+                          className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] opacity-60"
+                        />
+                      )}
+                      </div>
+                      
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[var(--text-main)]">
+                        🧾 {t('dashboard:profile.personalInfo.fields.taxId', 'Mã số thuế')}
+                      </Label>
                       <Input
-                        value={profile.bankName}
-                        onChange={(e) =>
-                          setProfile({ ...profile, bankName: e.target.value })
-                        }
+                        value={profile.taxId}
+                        onChange={(e) => setProfile({ ...profile, taxId: e.target.value })}
                         disabled={!isEditing}
                         className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
                       />

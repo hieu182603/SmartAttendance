@@ -12,6 +12,7 @@ const updateUserSchema = z.object({
   avatarUrl: z.string().url("URL không hợp lệ").optional(),
   bankAccount: z.string().optional(),
   bankName: z.string().optional(),
+  taxId: z.string().optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -45,6 +46,26 @@ const updateUserByAdminSchema = z.object({
       z.literal(""),
     ])
     .optional(),
+  taxId: z.string().optional(),
+});
+
+const createUserByAdminSchema = z.object({
+  email: z.string().email("Email không hợp lệ").min(1, "Email không được để trống"),
+  password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự").max(100, "Mật khẩu không được vượt quá 100 ký tự"),
+  name: z.string().min(2, "Tên phải có ít nhất 2 ký tự").max(100, "Tên không được vượt quá 100 ký tự"),
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"], {
+    errorMap: () => ({ message: "Role không hợp lệ" }),
+  }),
+  department: z.string().optional(),
+  branch: z.string().optional(),
+  phone: z
+    .union([
+      z.string().regex(/^[0-9]{10,11}$/, "Số điện thoại phải có 10-11 chữ số"),
+      z.literal(""),
+    ])
+    .optional(),
+  defaultShiftId: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export class UserController {
@@ -503,6 +524,138 @@ export class UserController {
         return res.status(404).json({ message: "Không tìm thấy user" });
       }
       console.error("Upload avatar error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/users:
+   *   post:
+   *     summary: Tạo user mới (chỉ dành cho ADMIN, SUPER_ADMIN)
+   *     tags: [Users]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [email, password, name, role]
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 format: email
+   *               password:
+   *                 type: string
+   *                 minLength: 6
+   *               name:
+   *                 type: string
+   *                 minLength: 2
+   *               role:
+   *                 type: string
+   *                 enum: [SUPER_ADMIN, ADMIN, HR_MANAGER, MANAGER, EMPLOYEE]
+   *               department:
+   *                 type: string
+   *               branch:
+   *                 type: string
+   *               phone:
+   *                 type: string
+   *               defaultShiftId:
+   *                 type: string
+   *               isActive:
+   *                 type: boolean
+   *     responses:
+   *       201:
+   *         description: Tạo user thành công
+   *       400:
+   *         description: Dữ liệu không hợp lệ
+   *       403:
+   *         description: Không có quyền truy cập
+   *       409:
+   *         description: Email đã tồn tại
+   */
+  static async createUserByAdmin(req, res) {
+    try {
+      // Validate request body
+      const parse = createUserByAdminSchema.safeParse(req.body);
+      if (!parse.success) {
+        const errors = parse.error.flatten();
+        const firstError = Object.values(errors.fieldErrors)[0]?.[0] || "Dữ liệu không hợp lệ";
+        return res.status(400).json({
+          message: firstError,
+          errors: errors,
+        });
+      }
+
+      // Get current user role for permission check
+      const currentUser = await UserService.getUserById(req.user.userId);
+      const currentUserRole = currentUser.role;
+
+      // Only SUPER_ADMIN and ADMIN can create users
+      if (!["SUPER_ADMIN", "ADMIN"].includes(currentUserRole)) {
+        return res.status(403).json({
+          message: "Chỉ SUPER_ADMIN và ADMIN mới có quyền tạo tài khoản",
+        });
+      }
+
+      const newUser = await UserService.createUserByAdmin(parse.data, currentUserRole);
+
+      // Log successful action
+      await logActivity(req, {
+        action: "create_user",
+        entityType: "user",
+        entityId: newUser._id.toString(),
+        details: {
+          description: `Đã tạo tài khoản mới: ${newUser.email}`,
+          newUserEmail: newUser.email,
+          newUserName: newUser.name,
+          newUserRole: newUser.role,
+        },
+        status: "success",
+      });
+
+      return res.status(201).json({
+        message: "Tạo tài khoản thành công",
+        user: {
+          _id: newUser._id,
+          email: newUser.email,
+          name: newUser.name,
+          role: newUser.role,
+          department: newUser.department,
+          branch: newUser.branch,
+          phone: newUser.phone,
+          isActive: newUser.isActive,
+          createdAt: newUser.createdAt,
+        },
+      });
+    } catch (error) {
+      // Log failed action
+      await logActivity(req, {
+        action: "create_user",
+        entityType: "user",
+        details: {
+          description: "Tạo tài khoản thất bại",
+          error: error.message,
+          requestData: req.body,
+        },
+        status: "failed",
+        errorMessage: error.message,
+      });
+
+      if (error.message.includes("không hợp lệ") || error.message.includes("phải có") || error.message.includes("không được để trống")) {
+        return res.status(400).json({ message: error.message });
+      }
+      if (error.message === "Email đã được đăng ký") {
+        return res.status(409).json({ message: error.message });
+      }
+      if (error.message.includes("không có quyền") || error.message.includes("không tồn tại")) {
+        return res.status(400).json({ message: error.message });
+      }
+      console.error("[UserController] Create user by admin error:", error);
       return res.status(500).json({
         message: error.message || "Lỗi server. Vui lòng thử lại sau.",
       });

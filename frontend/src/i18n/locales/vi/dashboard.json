@@ -1035,6 +1035,20 @@
     "success": {
       "updateSuccess": "Cập nhật thông tin nhân viên thành công!",
       "disableSuccess": "Vô hiệu hóa nhân viên thành công!"
+    },
+    "createUser": {
+      "button": "Tạo tài khoản",
+      "title": "Tạo tài khoản mới",
+      "description": "Nhập thông tin để tạo tài khoản nhân viên mới",
+      "password": "Mật khẩu",
+      "passwordPlaceholder": "Nhập mật khẩu",
+      "create": "Tạo tài khoản",
+      "success": "Tạo tài khoản thành công!",
+      "error": "Tạo tài khoản thất bại",
+      "validation": {
+        "passwordRequired": "Vui lòng nhập mật khẩu",
+        "passwordMinLength": "Mật khẩu phải có ít nhất 6 ký tự"
+      }
     }
   },
   "payroll": {

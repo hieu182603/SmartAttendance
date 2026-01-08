@@ -3,6 +3,67 @@ import { UserModel } from "../users/user.model.js";
 
 export class LogService {
   /**
+   * Test function để verify warning detection logic
+   * Chỉ dùng cho testing purposes
+   */
+  static async testWarningScenarios() {
+    const testCases = [
+      // Test login từ IP mới
+      {
+        action: 'login',
+        details: { newLocation: true },
+        expectedStatus: 'warning'
+      },
+      // Test thao tác bulk
+      {
+        action: 'delete_users',
+        details: { count: 10 },
+        expectedStatus: 'warning'
+      },
+      // Test thay đổi role nhạy cảm
+      {
+        action: 'update_user',
+        details: { roleChanged: true, newRole: 'SUPER_ADMIN' },
+        expectedStatus: 'warning'
+      },
+      // Test upload file lớn
+      {
+        action: 'upload_file',
+        details: { fileSize: 100 * 1024 * 1024 }, // 100MB
+        expectedStatus: 'warning'
+      },
+      // Test action bình thường
+      {
+        action: 'get_user',
+        details: {},
+        expectedStatus: 'success'
+      },
+      // Test action failed
+      {
+        action: 'update_user',
+        details: {},
+        errorMessage: 'User not found',
+        expectedStatus: 'failed'
+      }
+    ];
+
+    const results = testCases.map(testCase => {
+      const determinedStatus = this.determineLogStatus(
+        testCase.action,
+        testCase.details,
+        testCase.errorMessage
+      );
+
+      return {
+        ...testCase,
+        determinedStatus,
+        passed: determinedStatus === testCase.expectedStatus
+      };
+    });
+
+    return results;
+  }
+  /**
    * Lấy danh sách audit logs với pagination, search và filters
    */
   static async getAllLogs(options = {}) {
@@ -215,6 +276,82 @@ export class LogService {
   }
 
   /**
+   * Xác định status của log dựa trên action và context
+   * @param {string} action - Tên action
+   * @param {Object} details - Chi tiết của action
+   * @param {string} errorMessage - Error message nếu có
+   * @returns {string} - "success", "failed", hoặc "warning"
+   */
+  static determineLogStatus(action, details = {}, errorMessage = null) {
+    // Nếu có error message, luôn là failed
+    if (errorMessage) {
+      return "failed";
+    }
+
+    // Kiểm tra các hoạt động đáng ngờ
+    if (this.isSuspiciousActivity(action, details)) {
+      return "warning";
+    }
+
+    // Mặc định là success
+    return "success";
+  }
+
+  /**
+   * Kiểm tra xem activity có đáng ngờ không
+   * @param {string} action - Tên action
+   * @param {Object} details - Chi tiết của action
+   * @returns {boolean} - true nếu là hoạt động đáng ngờ
+   */
+  static isSuspiciousActivity(action, details = {}) {
+    // 1. Login từ IP mới hoặc địa điểm mới
+    if (action === 'login' && (details.newLocation || details.suspiciousLogin)) {
+      return true;
+    }
+
+    // 2. Thao tác bulk (xóa/sửa nhiều records cùng lúc)
+    if ((action === 'delete_users' || action === 'update_users' || action === 'bulk_update') &&
+        details.count > 5) {
+      return true;
+    }
+
+    // 3. Thay đổi quyền hạn nhạy cảm
+    if (action === 'update_user' && details.roleChanged) {
+      const sensitiveRoles = ['SUPER_ADMIN', 'ADMIN'];
+      if (sensitiveRoles.includes(details.newRole) || sensitiveRoles.includes(details.oldRole)) {
+        return true;
+      }
+    }
+
+    // 4. Thay đổi cài đặt hệ thống quan trọng
+    if (action === 'update_settings' && details.sensitiveSetting) {
+      return true;
+    }
+
+    // 5. Thao tác trên tài khoản bị vô hiệu hóa
+    if ((action === 'login' || action === 'update_user') && details.accountDisabled) {
+      return true;
+    }
+
+    // 6. Upload file có kích thước bất thường (> 50MB)
+    if (action === 'upload_file' && details.fileSize > 50 * 1024 * 1024) {
+      return true;
+    }
+
+    // 7. API rate limiting violations
+    if (action === 'rate_limit_exceeded') {
+      return true;
+    }
+
+    // 8. Thay đổi mật khẩu nhiều lần trong ngày
+    if (action === 'change_password' && details.multipleChangesInDay) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Lấy thống kê audit logs
    */
   static async getLogStats(options = {}) {
@@ -234,17 +371,18 @@ export class LogService {
       }
     }
 
-    const [total, success, failed] = await Promise.all([
+    const [total, success, failed, warning] = await Promise.all([
       LogModel.countDocuments(query),
       LogModel.countDocuments({ ...query, status: "success" }),
       LogModel.countDocuments({ ...query, status: "failed" }),
+      LogModel.countDocuments({ ...query, status: "warning" }),
     ]);
 
     return {
       total,
       success,
       failed,
-      warning: 0, // Log model doesn't have warning status, but frontend expects it
+      warning,
     };
   }
 }

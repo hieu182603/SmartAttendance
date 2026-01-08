@@ -13,6 +13,12 @@ userRouter.get("/me", UserController.getCurrentUser);
 userRouter.post("/change-password", UserController.changePassword);
 userRouter.post("/me/avatar", upload.single("avatar"), UserController.uploadAvatar);
 
+userRouter.post(
+    "/",
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+    UserController.createUserByAdmin
+);
+
 userRouter.get(
     "/",
     requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),

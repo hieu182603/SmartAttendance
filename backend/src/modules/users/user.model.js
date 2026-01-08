@@ -36,6 +36,7 @@ const userSchema = new mongoose.Schema(
     avatarUrl: { type: String },
     bankAccount: { type: String },
     bankName: { type: String },
+    taxId: { type: String },
     position: { type: String }, 
     isActive: { type: Boolean, default: true },
 

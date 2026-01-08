@@ -19,6 +19,7 @@ export class UserService {
       "avatarUrl",
       "bankAccount",
       "bankName",
+      "taxId",
     ];
 
     const updateFields = {};
@@ -426,10 +427,10 @@ export class UserService {
         // Nếu xóa defaultShiftId (set về null/empty), vô hiệu hóa tất cả assignments
         try {
           const { EmployeeShiftAssignmentModel } = await import('../shifts/employeeShiftAssignment.model.js');
-            await EmployeeShiftAssignmentModel.updateMany(
-              { userId: userId.toString(), isActive: true },
-              { $set: { isActive: false } }
-            );
+          await EmployeeShiftAssignmentModel.updateMany(
+            { userId: userId.toString(), isActive: true },
+            { $set: { isActive: false } }
+          );
         } catch (assignmentError) {
           console.error(`[UserService] Error deactivating assignments for user ${userId}:`, assignmentError);
         }
@@ -465,6 +466,95 @@ export class UserService {
     if (!user) {
       throw new Error("User not found");
     }
+
+    return user;
+  }
+
+  /**
+   * Tạo user mới bởi admin
+   */
+  static async createUserByAdmin(userData, adminRole) {
+    const { email, password, name, role, department, branch, phone, defaultShiftId, isActive = true } = userData;
+
+    // Validate required fields
+    if (!email || !password || !name || !role) {
+      throw new Error("Email, password, name và role là bắt buộc");
+    }
+
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedName = name.trim();
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      throw new Error("Email không hợp lệ");
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      throw new Error("Mật khẩu phải có ít nhất 6 ký tự");
+    }
+
+    // Validate name length
+    if (normalizedName.length < 2) {
+      throw new Error("Tên phải có ít nhất 2 ký tự");
+    }
+
+    // Validate role
+    const validRoles = ["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"];
+    if (!validRoles.includes(role)) {
+      throw new Error("Role không hợp lệ");
+    }
+
+    // Check if admin can assign this role
+    if (!canManageRole(adminRole, role)) {
+      throw new Error("Bạn không có quyền phân quyền này");
+    }
+
+    // Check if email already exists
+    const existed = await UserModel.findOne({ email: normalizedEmail });
+    if (existed) {
+      throw new Error("Email đã được đăng ký");
+    }
+
+    // Validate department if provided
+    if (department) {
+      const deptExists = await DepartmentModel.findById(department);
+      if (!deptExists) {
+        throw new Error("Phòng ban không tồn tại");
+      }
+    }
+
+    // Validate branch if provided
+    if (branch) {
+      const branchExists = await BranchModel.findById(branch);
+      if (!branchExists) {
+        throw new Error("Chi nhánh không tồn tại");
+      }
+    }
+
+    // Validate phone if provided
+    if (phone && phone.trim().length > 0) {
+      const phoneRegex = /^[0-9]{10,11}$/;
+      if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+        throw new Error("Số điện thoại phải có 10-11 chữ số");
+      }
+    }
+
+    // Create user
+    const user = await UserModel.create({
+      email: normalizedEmail,
+      password,
+      name: normalizedName,
+      role,
+      department: department || null,
+      branch: branch || null,
+      phone: phone ? phone.trim() : null,
+      defaultShiftId: defaultShiftId || null,
+      isActive,
+      isVerified: true, // Admin created users are automatically verified
+    });
 
     return user;
   }

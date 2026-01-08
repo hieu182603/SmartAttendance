@@ -86,7 +86,9 @@ app.use((_req, res) => {
 
 // Server start
 const PORT = process.env.PORT || 4000;
-const HOST = process.env.HOST || '0.0.0.0'; // Listen on all interfaces for Fly.io
+// Use localhost as the default host in development so logs show a usable URL
+// Keep allowing override via process.env.HOST for deployments (e.g., Fly.io)
+const HOST = process.env.HOST || "localhost";
 
 async function start() {
   try {
