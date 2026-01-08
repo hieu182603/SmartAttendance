@@ -36,7 +36,7 @@ const PerformanceReviewPage = lazy(() => import("@/components/dashboard/pages/Pe
 const AdminAttendancePage = lazy(() => import("@/components/dashboard/pages/AdminAttendancePage"));
 const AdminReportsPage = lazy(() => import("@/components/dashboard/pages/AdminReportsPage"));
 const UpgradePage = lazy(() => import("@/components/dashboard/pages/UpgradePage"));
-const TrialAnalyticsPage = lazy(() => import("@/components/dashboard/pages/TrialAnalyticsPage"));
+// Trial analytics page removed
 
 // Named Exports - Lazy Load with proper handling
 const BranchesPage = lazy(() =>
@@ -316,12 +316,7 @@ export default function App() {
                 >
                   <Route index element={<AuditLogsPage />} />
                 </Route>
-                <Route
-                  path="trial-analytics"
-                  element={<ProtectedRoute permission={Permission.USERS_VIEW} />}
-                >
-                  <Route index element={<TrialAnalyticsPage />} />
-                </Route>
+                {/* trial-analytics removed */}
                 {/* Catch-all: redirect invalid admin routes to 404 */}
                 <Route path="*" element={<Navigate to="/not-found" replace />} />
               </Route>
