@@ -6,7 +6,7 @@ export class UpgradeService {
    * Upgrade trial user lên role cao hơn
    */
   static async upgradeTrialUser(userId, upgradeData) {
-    const { targetRole, paymentMethod, paymentDetails } = upgradeData;
+    const { targetRole, paymentMethod } = upgradeData;
 
     // Validate input
     if (!targetRole) {
