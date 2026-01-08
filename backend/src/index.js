@@ -86,9 +86,10 @@ app.use((_req, res) => {
 
 // Server start
 const PORT = process.env.PORT || 4000;
-// Use localhost as the default host in development so logs show a usable URL
-// Keep allowing override via process.env.HOST for deployments (e.g., Fly.io)
-const HOST = process.env.HOST || "localhost";
+// Use 0.0.0.0 as default host in production so Fly machines/proxy can reach the app.
+// Keep allowing override via process.env.HOST for deployments (e.g., Fly.io).
+// For local development, default to localhost for cleaner logs.
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost');
 
 async function start() {
   try {
@@ -108,7 +109,9 @@ async function start() {
     console.log("✅ Database connected successfully");
 
     const server = app.listen(PORT, HOST, () => {
-      const serverUrl = `http://${HOST}:${PORT}`;
+      // For logging, show localhost when HOST is 0.0.0.0 (bind address)
+      const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+      const serverUrl = `http://${displayHost}:${PORT}`;
       const docsUrl = `${serverUrl}/api/docs`;
 
       // Server startup info (chỉ trong development)
@@ -136,7 +139,7 @@ async function start() {
     try {
       const { initializeSocket } = await import("./config/socket.js");
       initializeSocket(server);
-      
+
       if (process.env.NODE_ENV !== 'production') {
         console.log('✅ Socket.io server ready');
       } else {
