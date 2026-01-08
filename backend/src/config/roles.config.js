@@ -9,7 +9,8 @@ export const ROLES = {
     ADMIN: "ADMIN",
     HR_MANAGER: "HR_MANAGER",
     MANAGER: "MANAGER",
-    EMPLOYEE: "EMPLOYEE"
+    EMPLOYEE: "EMPLOYEE",
+    TRIAL: "TRIAL"
 };
 
 /**
@@ -17,6 +18,7 @@ export const ROLES = {
  * This must match the frontend role hierarchy in frontend/src/utils/roles.ts
  */
 export const ROLE_HIERARCHY = {
+    [ROLES.TRIAL]: 0,        // Trial users have minimal permissions
     [ROLES.EMPLOYEE]: 1,
     [ROLES.MANAGER]: 2,
     [ROLES.HR_MANAGER]: 3,

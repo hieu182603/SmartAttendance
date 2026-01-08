@@ -15,9 +15,14 @@ const userSchema = new mongoose.Schema(
     // Vai trò người dùng
     role: {
       type: String,
-      enum: ["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"],
+      enum: ["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE", "TRIAL"],
       default: "EMPLOYEE",
     },
+
+    // Trial account management
+    isTrial: { type: Boolean, default: false },
+    trialExpiresAt: { type: Date },
+    trialConvertedAt: { type: Date },
 
     // Liên kết chi nhánh & phòng ban
     branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },

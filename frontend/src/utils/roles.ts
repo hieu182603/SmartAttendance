@@ -6,7 +6,8 @@ export const UserRole = {
     ADMIN: 'ADMIN',
     HR_MANAGER: 'HR_MANAGER',
     MANAGER: 'MANAGER',
-    EMPLOYEE: 'EMPLOYEE'
+    EMPLOYEE: 'EMPLOYEE',
+    TRIAL: 'TRIAL'
 } as const;
 
 export type UserRoleType = typeof UserRole[keyof typeof UserRole];
@@ -20,6 +21,7 @@ export const ROLE_HIERARCHY: Record<UserRoleType, number> = {
     [UserRole.HR_MANAGER]: 3,
     [UserRole.MANAGER]: 2,
     [UserRole.EMPLOYEE]: 1,
+    [UserRole.TRIAL]: 0,      // Trial users have minimal permissions
 };
 
 // Role display names (English)
@@ -29,6 +31,7 @@ export const ROLE_NAMES: Record<UserRoleType, string> = {
     [UserRole.HR_MANAGER]: 'HR Manager',
     [UserRole.MANAGER]: 'Manager',
     [UserRole.EMPLOYEE]: 'Employee',
+    [UserRole.TRIAL]: 'Trial User',
 };
 
 // Role badge colors
@@ -43,6 +46,7 @@ export const ROLE_COLORS: Record<UserRoleType, RoleColor> = {
     [UserRole.HR_MANAGER]: { bg: 'bg-blue-500/20', text: 'text-blue-500' },
     [UserRole.MANAGER]: { bg: 'bg-green-500/20', text: 'text-green-500' },
     [UserRole.EMPLOYEE]: { bg: 'bg-gray-500/20', text: 'text-gray-500' },
+    [UserRole.TRIAL]: { bg: 'bg-orange-500/20', text: 'text-orange-500' },
 };
 
 // Permission types - Fine-grained permissions
@@ -107,6 +111,12 @@ export type PermissionType = typeof Permission[keyof typeof Permission];
 
 // Role to Permissions mapping
 export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
+    [UserRole.TRIAL]: [
+        Permission.ATTENDANCE_VIEW_OWN,
+        Permission.REQUESTS_CREATE,
+        Permission.REQUESTS_VIEW_OWN,
+    ],
+
     [UserRole.EMPLOYEE]: [
         Permission.ATTENDANCE_VIEW_OWN,
         Permission.REQUESTS_CREATE,

@@ -179,6 +179,14 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.AUDIT_LOGS_VIEW,
     section: 'system',
   },
+  {
+    id: 'trial-analytics',
+    label: 'Analytics Trial',
+    icon: TrendingUp,
+    path: '/admin/trial-analytics',
+    permission: Permission.USERS_VIEW,
+    section: 'admin',
+  },
 ];
 
 // Helper function to check if user has permission (including higher level permissions)

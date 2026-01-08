@@ -14,7 +14,7 @@ export const authMiddleware = async (req, res, next) => {
 
         // Kiểm tra xem user có còn active không
         if (decoded.userId) {
-            const user = await UserModel.findById(decoded.userId).select("isActive").lean();
+            const user = await UserModel.findById(decoded.userId).select("isActive isTrial trialExpiresAt").lean();
             if (!user) {
                 return res.status(401).json({ message: "User not found" });
             }
@@ -22,6 +22,18 @@ export const authMiddleware = async (req, res, next) => {
                 return res.status(403).json({
                     message: "Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên."
                 });
+            }
+
+            // Kiểm tra trial expiration cho trial users
+            if (user.isTrial && user.trialExpiresAt) {
+                const now = new Date();
+                if (now > user.trialExpiresAt) {
+                    return res.status(403).json({
+                        message: "Giai đoạn dùng thử 7 ngày đã kết thúc. Vui lòng nâng cấp tài khoản để tiếp tục sử dụng.",
+                        trialExpired: true,
+                        upgradeRequired: true
+                    });
+                }
             }
         }
 
