@@ -14,9 +14,12 @@ import {
   LogOut,
   PartyPopper,
   Timer,
+  Crown,
+  Zap,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useNavigate } from "react-router-dom";
 import { getAttendanceStatusBadgeClass, type AttendanceStatus } from "@/utils/attendanceStatus";
@@ -71,7 +74,7 @@ interface AttendanceRow {
   location: string;
 }
 
-export const EmployeeHome: React.FC = () => {
+export const TrialHome: React.FC = () => {
   const { t, i18n } = useTranslation(["dashboard", "common"]);
   const navigate = useNavigate();
   const { summary, recentAttendance, loading, error } = useDashboardData();
@@ -143,7 +146,8 @@ export const EmployeeHome: React.FC = () => {
     if (!Array.isArray(recentAttendance) || recentAttendance.length === 0) {
       return [];
     }
-    return recentAttendance.map((record) => ({
+    // Limit to last 7 days for trial users
+    return recentAttendance.slice(0, 7).map((record) => ({
       date: record?.date ?? "—",
       checkIn: record?.checkIn ?? "—",
       checkOut: record?.checkOut ?? "—",
@@ -156,9 +160,7 @@ export const EmployeeHome: React.FC = () => {
     if (attendanceRows.length === 0) return null;
 
     const today = new Date();
-    const todayStr = `${today.getDate()}/${
-      today.getMonth() + 1
-    }/${today.getFullYear()}`;
+    const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
 
     const latestRecord = attendanceRows[0];
     const dateMatch = latestRecord.date.match(
@@ -271,7 +273,40 @@ export const EmployeeHome: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Trial watermark removed as requested */}
+
+      {/* Trial Banner */}
+      <motion.div
+        className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-orange-500/10 rounded-full">
+              <Crown className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-orange-900 dark:text-orange-100">
+                🎉 Chào mừng bạn đến với Smart Attendance!
+              </h3>
+              <p className="text-sm text-orange-700 dark:text-orange-300">
+                Bạn đang sử dụng phiên bản dùng thử 7 ngày. Nâng cấp để truy cập đầy đủ tính năng.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => navigate('/upgrade')}
+            className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg"
+          >
+            <Crown className="h-4 w-4 mr-2" />
+            Nâng cấp ngay
+          </Button>
+        </div>
+      </motion.div>
+
       {loadingState}
       {errorState}
 
@@ -321,6 +356,9 @@ export const EmployeeHome: React.FC = () => {
           >
             <h1 className="text-3xl mb-2">{getGreeting()} 👋</h1>
             <p className="opacity-90">{currentDate}</p>
+            <div className="mt-2 px-3 py-1 bg-white/20 rounded-full text-sm inline-block">
+              📅 Ngày dùng thử còn lại: <strong>7 ngày</strong>
+            </div>
           </motion.div>
 
           <motion.div
@@ -343,7 +381,6 @@ export const EmployeeHome: React.FC = () => {
                 ?.timeRange ||
                 (summary.shift as { timeRange?: string; label?: string })
                   ?.label ||
-                (summary.shift as string) ||
                 "08:00 - 17:00"}
             </p>
           </motion.div>
@@ -401,7 +438,7 @@ export const EmployeeHome: React.FC = () => {
                   <div className="bg-[var(--shell)] rounded-xl p-6 space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-[var(--text-sub)]">
-                        {t("dashboard:employeeHome.recentHistory.checkIn")}:
+                        {t("dashboard:employeeHome.recentHistory.checkIn")}:{" "}
                       </span>
                       <span className="text-[var(--text-main)]">
                         {todayAttendance.checkInTime}
@@ -409,7 +446,7 @@ export const EmployeeHome: React.FC = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-[var(--text-sub)]">
-                        {t("dashboard:employeeHome.recentHistory.checkOut")}:
+                        {t("dashboard:employeeHome.recentHistory.checkOut")}:{" "}
                       </span>
                       <span className="text-[var(--text-main)]">
                         {todayAttendance.checkOutTime}
@@ -418,7 +455,7 @@ export const EmployeeHome: React.FC = () => {
                     <div className="border-t border-[var(--border)] pt-3">
                       <div className="flex justify-between items-center">
                         <span className="text-[var(--text-main)]">
-                          {t("dashboard:employeeHome.attendance.totalTime")}:
+                          {t("dashboard:employeeHome.attendance.totalTime")}:{" "}
                         </span>
                         <span className="text-[var(--success)] text-lg">
                           {getTotalWorkingHours()}
@@ -580,7 +617,7 @@ export const EmployeeHome: React.FC = () => {
       </motion.div>
 
       {/* Today's Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {infoCards.map((item) => {
           const summaryValue = summary[item.key];
           const value =
@@ -624,7 +661,7 @@ export const EmployeeHome: React.FC = () => {
         })}
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions - Limited for Trial */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -633,69 +670,88 @@ export const EmployeeHome: React.FC = () => {
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardHeader>
             <CardTitle className="text-[var(--text-main)]">
-              {t("dashboard:employeeHome.quickActions.title")}
+              🚀 Tính năng dùng thử
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               {
-                label: t("dashboard:employeeHome.quickActions.schedule"),
-                icon: Calendar,
-                page: "schedule",
-                color: "accent-cyan",
+                label: "Chấm công",
+                icon: Camera,
+                page: "scan",
+                color: "primary",
+                available: true,
               },
               {
-                label: t("dashboard:employeeHome.quickActions.requests"),
-                icon: FileText,
-                page: "requests",
-                color: "warning",
-              },
-              {
-                label: t("dashboard:employeeHome.quickActions.history"),
+                label: "Lịch sử",
                 icon: History,
                 page: "history",
                 color: "success",
+                available: true,
               },
               {
-                label: t("dashboard:employeeHome.quickActions.leaveBalance"),
-                icon: CheckCircle2,
-                page: "leave-balance",
-                color: "primary",
+                label: "Yêu cầu",
+                icon: FileText,
+                page: "requests",
+                color: "warning",
+                available: true,
+              },
+              {
+                label: "Nâng cấp",
+                icon: Crown,
+                page: "upgrade",
+                color: "accent-cyan",
+                available: true,
+                isUpgrade: true,
               },
             ].map((action) => (
               <motion.button
                 key={action.page}
-                onClick={() => navigate(`/employee/${action.page}`)}
-                className="p-4 rounded-xl bg-[var(--shell)] border border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all text-left"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  if (action.isUpgrade) {
+                    navigate('/upgrade');
+                  } else {
+                    navigate(`/employee/${action.page}`);
+                  }
+                }}
+                className={`p-4 rounded-xl border transition-all text-left ${
+                  action.available
+                    ? "bg-[var(--shell)] border-[var(--border)] hover:border-[var(--accent-cyan)]"
+                    : "bg-gray-100 border-gray-200 cursor-not-allowed opacity-50"
+                }`}
+                whileHover={action.available ? { scale: 1.05, y: -5 } : {}}
+                whileTap={action.available ? { scale: 0.95 } : {}}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
-                  delay:
-                    0.9 +
-                    (action.page === "schedule"
-                      ? 0
-                      : action.page === "requests"
-                      ? 0.1
-                      : action.page === "history"
-                      ? 0.2
-                      : 0.3),
+                  delay: 0.9 + (action.page === "scan" ? 0 : action.page === "history" ? 0.1 : action.page === "requests" ? 0.2 : 0.3),
                 }}
+                disabled={!action.available}
               >
                 <action.icon
-                  className={`h-8 w-8 text-[var(--${action.color})] mb-2`}
+                  className={`h-8 w-8 mb-2 ${
+                    action.available
+                      ? `text-[var(--${action.color})]`
+                      : "text-gray-400"
+                  }`}
                 />
-                <p className="text-sm text-[var(--text-main)]">
+                <p className={`text-sm ${
+                  action.available
+                    ? "text-[var(--text-main)]"
+                    : "text-gray-400"
+                }`}>
                   {action.label}
                 </p>
+                {!action.available && (
+                  <p className="text-xs text-orange-500 mt-1">🔒 Premium</p>
+                )}
               </motion.button>
             ))}
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Recent Attendance */}
+      {/* Recent Attendance - Limited to 7 days */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -705,14 +761,14 @@ export const EmployeeHome: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-[var(--text-main)]">
-                {t("dashboard:employeeHome.recentHistory.title")}
+                📊 Lịch sử chấm công (7 ngày gần nhất)
               </CardTitle>
               <button
                 type="button"
                 onClick={() => navigate("/employee/history")}
                 className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center space-x-1"
               >
-                <span>{t("dashboard:employeeHome.recentHistory.viewAll")}</span>
+                <span>Xem tất cả</span>
                 <History className="h-4 w-4" />
               </button>
             </div>
@@ -783,4 +839,4 @@ export const EmployeeHome: React.FC = () => {
   );
 };
 
-export default EmployeeHome;
+export default TrialHome;

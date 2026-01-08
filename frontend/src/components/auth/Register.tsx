@@ -167,7 +167,7 @@ export default function Register() {
         email: formData.email.trim(),
         password: formData.password,
       })
-      toast.success(t('auth:register.success'))
+      toast.success("🎉 Tài khoản dùng thử đã được tạo! Vui lòng kiểm tra email để xác thực.")
       navigate('/verify-otp', { state: { email: formData.email.trim(), purpose: 'register' } })
     } catch (err) {
       const error = err as ErrorWithMessage
@@ -178,14 +178,14 @@ export default function Register() {
   }
 
   return (
-    <AuthLayout 
-      title={t('auth:register.title')} 
-      subtitle={t('auth:register.subtitle')}
+    <AuthLayout
+      title="Đăng ký dùng thử miễn phí"
+      subtitle="Trải nghiệm Smart Attendance 7 ngày miễn phí. Không cần thẻ tín dụng."
       showBackButton={true}
       backTo="/"
     >
-      <motion.form 
-        onSubmit={handleSubmit} 
+      <motion.form
+        onSubmit={handleSubmit}
         className="space-y-3"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -383,10 +383,10 @@ export default function Register() {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                {t('auth:register.submitting')}
+                Đang tạo tài khoản dùng thử...
               </>
             ) : (
-              t('auth:register.submit')
+              "🚀 Bắt đầu dùng thử miễn phí"
             )}
           </Button>
         </motion.div>
@@ -398,6 +398,25 @@ export default function Register() {
           </Link>
         </p>
       </motion.form>
+
+      {/* Trial Benefits */}
+      <motion.div
+        className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-lg p-4 mt-6 border border-blue-200 dark:border-blue-800"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.8 }}
+      >
+        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+          🎁 Gói dùng thử 7 ngày bao gồm:
+        </h3>
+        <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+          <li>• ✓ Quản lý chấm công cá nhân</li>
+          <li>• ✓ Tạo và theo dõi yêu cầu nghỉ phép</li>
+          <li>• ✓ Xem lịch làm việc và công ty</li>
+          <li>• ✓ Báo cáo chấm công cá nhân</li>
+          <li>• ✓ Thông báo thời gian thực</li>
+        </ul>
+      </motion.div>
     </AuthLayout>
   )
 }

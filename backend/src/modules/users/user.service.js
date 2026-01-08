@@ -501,10 +501,10 @@ export class UserService {
       throw new Error("Tên phải có ít nhất 2 ký tự");
     }
 
-    // Validate role
+    // Validate role - không cho phép tạo user với role TRIAL
     const validRoles = ["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"];
     if (!validRoles.includes(role)) {
-      throw new Error("Role không hợp lệ");
+      throw new Error("Role không hợp lệ. Chỉ được phép tạo user với role: SUPER_ADMIN, ADMIN, HR_MANAGER, MANAGER, EMPLOYEE");
     }
 
     // Check if admin can assign this role

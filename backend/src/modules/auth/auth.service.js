@@ -30,13 +30,19 @@ export class AuthService {
             throw new Error("Email already registered");
         }
 
-        // Tạo tài khoản mới
+        // Tạo tài khoản mới với role TRIAL (7 ngày dùng thử)
         let user;
         try {
+            const trialExpiresAt = new Date();
+            trialExpiresAt.setDate(trialExpiresAt.getDate() + 7); // 7 ngày từ bây giờ
+
             user = await UserModel.create({
                 email: normalizedEmail,
                 password,
                 name: normalizedName,
+                role: "TRIAL", // Đăng ký mặc định là TRIAL
+                isTrial: true,
+                trialExpiresAt: trialExpiresAt,
                 isVerified: false,
             });
         } catch (error) {

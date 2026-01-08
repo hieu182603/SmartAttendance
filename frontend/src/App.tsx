@@ -35,6 +35,8 @@ const PayrollPage = lazy(() => import("@/components/dashboard/pages/PayrollPage"
 const PerformanceReviewPage = lazy(() => import("@/components/dashboard/pages/PerformanceReviewPage"));
 const AdminAttendancePage = lazy(() => import("@/components/dashboard/pages/AdminAttendancePage"));
 const AdminReportsPage = lazy(() => import("@/components/dashboard/pages/AdminReportsPage"));
+const UpgradePage = lazy(() => import("@/components/dashboard/pages/UpgradePage"));
+const TrialAnalyticsPage = lazy(() => import("@/components/dashboard/pages/TrialAnalyticsPage"));
 
 // Named Exports - Lazy Load with proper handling
 const BranchesPage = lazy(() =>
@@ -98,6 +100,7 @@ export default function App() {
               <Route path="camera-checkin" element={<CameraCheckinPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="company-calendar" element={<CompanyCalendarPage />} />
+              <Route path="upgrade" element={<UpgradePage />} />
               {/* Catch-all: redirect invalid employee routes to 404 */}
               <Route path="*" element={<Navigate to="/not-found" replace />} />
             </Route>
@@ -307,11 +310,17 @@ export default function App() {
                 >
                   <Route index element={<AdminReportsPage />} />
                 </Route>
-                <Route 
-                  path="audit-logs" 
+                <Route
+                  path="audit-logs"
                   element={<ProtectedRoute permission={Permission.AUDIT_LOGS_VIEW} />}
                 >
                   <Route index element={<AuditLogsPage />} />
+                </Route>
+                <Route
+                  path="trial-analytics"
+                  element={<ProtectedRoute permission={Permission.USERS_VIEW} />}
+                >
+                  <Route index element={<TrialAnalyticsPage />} />
                 </Route>
                 {/* Catch-all: redirect invalid admin routes to 404 */}
                 <Route path="*" element={<Navigate to="/not-found" replace />} />

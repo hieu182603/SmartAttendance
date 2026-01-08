@@ -6,7 +6,7 @@ import {
   Zap,
   Shield,
   Clock,
-  QrCode,
+  Camera,
   MapPin,
   Users,
   BarChart3,
@@ -333,8 +333,8 @@ export default function LandingPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-[var(--accent-cyan)]/5" />
               <div className="relative">
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)]">
-                    <QrCode className="h-8 w-8 text-white" />
+                <div className="p-3 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)]">
+                    <Camera className="h-8 w-8 text-white" />
                   </div>
                   <div>
                     <div className="text-[var(--text-main)]">
@@ -599,7 +599,7 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
             {
-              icon: QrCode,
+              icon: Camera,
               title: "Quét QR Code",
               description:
                 "Chấm công nhanh chóng, chính xác với mã QR độc quyền",
