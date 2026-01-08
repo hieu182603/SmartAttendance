@@ -18,50 +18,46 @@ class ScheduleGenerationService {
    * @returns {Promise<Array>} Array of schedule objects
    */
   async generateScheduleFromAssignments(userId, startDate, endDate) {
-    try {
-      const assignments = await EmployeeShiftAssignmentModel.find({
-        userId,
-        isActive: true,
-        effectiveFrom: { $lte: endDate },
-        $or: [
-          { effectiveTo: null },
-          { effectiveTo: { $gte: startDate } },
-        ],
-      })
-        .populate('shiftId')
-        .sort({ priority: 1, effectiveFrom: -1 });
+    const assignments = await EmployeeShiftAssignmentModel.find({
+      userId,
+      isActive: true,
+      effectiveFrom: { $lte: endDate },
+      $or: [
+        { effectiveTo: null },
+        { effectiveTo: { $gte: startDate } },
+      ],
+    })
+      .populate('shiftId')
+      .sort({ priority: 1, effectiveFrom: -1 });
 
-      if (assignments.length === 0) {
-        const user = await UserModel.findById(userId).populate('defaultShiftId');
+    if (assignments.length === 0) {
+      const user = await UserModel.findById(userId).populate('defaultShiftId');
 
-        if (user && user.defaultShiftId) {
-          return this._generateFromDefaultShift(user, startDate, endDate);
-        }
-
-        return [];
+      if (user && user.defaultShiftId) {
+        return this._generateFromDefaultShift(user, startDate, endDate);
       }
 
-      const schedules = [];
-      const currentDate = new Date(startDate);
-
-      while (currentDate <= endDate) {
-        const schedule = await this._generateScheduleForDate(
-          userId,
-          currentDate,
-          assignments
-        );
-
-        if (schedule) {
-          schedules.push(schedule);
-        }
-
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-
-      return schedules;
-    } catch (error) {
-      throw error;
+      return [];
     }
+
+    const schedules = [];
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      const schedule = await this._generateScheduleForDate(
+        userId,
+        currentDate,
+        assignments
+      );
+
+      if (schedule) {
+        schedules.push(schedule);
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return schedules;
   }
 
   /**
@@ -179,38 +175,34 @@ class ScheduleGenerationService {
    * @returns {Promise<Array>} Created/updated schedules
    */
   async createOrUpdateSchedule(userId, startDate, endDate) {
-    try {
-      const schedules = await this.generateScheduleFromAssignments(userId, startDate, endDate);
+    const schedules = await this.generateScheduleFromAssignments(userId, startDate, endDate);
 
-      if (schedules.length === 0) {
-        return [];
-      }
-
-      const operations = schedules.map(schedule => ({
-        updateOne: {
-          filter: {
-            userId: schedule.userId,
-            date: schedule.date,
-          },
-          update: {
-            $set: {
-              shiftId: schedule.shiftId,
-              shiftName: schedule.shiftName,
-              startTime: schedule.startTime,
-              endTime: schedule.endTime,
-              status: schedule.status,
-            },
-          },
-          upsert: true,
-        },
-      }));
-
-      await EmployeeScheduleModel.bulkWrite(operations);
-
-      return schedules;
-    } catch (error) {
-      throw error;
+    if (schedules.length === 0) {
+      return [];
     }
+
+    const operations = schedules.map(schedule => ({
+      updateOne: {
+        filter: {
+          userId: schedule.userId,
+          date: schedule.date,
+        },
+        update: {
+          $set: {
+            shiftId: schedule.shiftId,
+            shiftName: schedule.shiftName,
+            startTime: schedule.startTime,
+            endTime: schedule.endTime,
+            status: schedule.status,
+          },
+        },
+        upsert: true,
+      },
+    }));
+
+    await EmployeeScheduleModel.bulkWrite(operations);
+
+    return schedules;
   }
 
   /**
@@ -220,19 +212,15 @@ class ScheduleGenerationService {
    * @param {Date} endDate - End date
    */
   async batchCreateOrUpdateSchedule(userIds, startDate, endDate) {
-    try {
-      const results = await Promise.all(
-        userIds.map(userId => this.createOrUpdateSchedule(userId, startDate, endDate))
-      );
+    const results = await Promise.all(
+      userIds.map(userId => this.createOrUpdateSchedule(userId, startDate, endDate))
+    );
 
-      return {
-        success: true,
-        totalEmployees: userIds.length,
-        schedulesGenerated: results.reduce((sum, arr) => sum + arr.length, 0),
-      };
-    } catch (error) {
-      throw error;
-    }
+    return {
+      success: true,
+      totalEmployees: userIds.length,
+      schedulesGenerated: results.reduce((sum, arr) => sum + arr.length, 0),
+    };
   }
 
   /**
@@ -241,18 +229,14 @@ class ScheduleGenerationService {
    * @param {number} monthsAhead - Số tháng tạo schedule trước
    */
   async regenerateScheduleOnAssignmentChange(userId, monthsAhead = 3) {
-    try {
-      const startDate = new Date();
-      startDate.setHours(0, 0, 0, 0);
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
 
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + monthsAhead);
-      endDate.setHours(23, 59, 59, 999);
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + monthsAhead);
+    endDate.setHours(23, 59, 59, 999);
 
-      return await this.createOrUpdateSchedule(userId, startDate, endDate);
-    } catch (error) {
-      throw error;
-    }
+    return await this.createOrUpdateSchedule(userId, startDate, endDate);
   }
 
   /**
@@ -261,7 +245,7 @@ class ScheduleGenerationService {
    * @param {Object} session - Optional MongoDB session for transaction support
    */
   async applyLeaveToSchedule(leaveRequest, session = null) {
-    try {
+    // No try/catch here - allow errors to bubble to caller for proper handling
       const { userId, startDate, endDate, type, reason, _id } = leaveRequest;
 
       if (!userId || !startDate || !endDate) {
@@ -368,20 +352,15 @@ class ScheduleGenerationService {
         }
         await EmployeeScheduleModel.bulkWrite(operations, bulkWriteOptions);
       }
-
-
-      return {
-        success: true,
-        userId,
-        startDate: start.toISOString().split('T')[0],
-        endDate: end.toISOString().split('T')[0],
-        updatedCount,
-        createdCount,
-        totalDays: updatedCount + createdCount,
-      };
-    } catch (error) {
-      throw error;
-    }
+    return {
+      success: true,
+      userId,
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0],
+      updatedCount,
+      createdCount,
+      totalDays: updatedCount + createdCount,
+    };
   }
 }
 
