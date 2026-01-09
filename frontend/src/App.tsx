@@ -105,8 +105,8 @@ export default function App() {
               <Route path="*" element={<Navigate to="/not-found" replace />} />
             </Route>
 
-            {/* Manager Routes - MANAGER and above */}
-            <Route element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}>
+            {/* Manager Routes - SUPERVISOR and above */}
+            <Route element={<ProtectedRoute minimumRole={UserRole.SUPERVISOR} />}>
               <Route path="/manager" element={<DashboardLayout />}>
                 {/* Common employee routes */}
                 <Route path="scan" element={<ScanPage />} />

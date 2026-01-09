@@ -75,6 +75,15 @@
     "description": "Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên nếu bạn cần quyền truy cập.",
     "goHome": "Về trang chủ"
   },
+  "roles": {
+    "SUPER_ADMIN": "Siêu quản trị viên",
+    "ADMIN": "Quản trị viên",
+    "HR_MANAGER": "Trưởng phòng Nhân sự",
+    "MANAGER": "Quản lý",
+    "SUPERVISOR": "Giám sát viên",
+    "EMPLOYEE": "Nhân viên",
+    "TRIAL": "Người dùng thử nghiệm"
+  },
   "dashboard": {
     "logout": "Đăng xuất",
     "user": "Người dùng",
@@ -82,7 +91,9 @@
       "admin": "Quản trị",
       "employee": "Cá nhân",
       "system": "Hệ thống"
-    }
+    },
+    "expand_sidebar": "Mở rộng thanh bên",
+    "collapse_sidebar": "Thu gọn thanh bên"
   }
 }
 

@@ -897,13 +897,14 @@ export const deleteAttendanceRecord = async (req, res) => {
  */
 export const getDepartmentAttendance = async (req, res) => {
   try {
-    const managerId = req.user.userId;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
     const { date, search, page = 1, limit = 20 } = req.query;
 
     const UserModel = (await import("../users/user.model.js")).UserModel;
 
-    const manager = await UserModel.findById(managerId).select("department");
-    if (!manager || !manager.department) {
+    const user = await UserModel.findById(userId).select("department");
+    if (!user || !user.department) {
       return res.status(403).json({
         message: "Bạn không thuộc phòng ban nào hoặc không có quyền truy cập",
       });
@@ -912,7 +913,13 @@ export const getDepartmentAttendance = async (req, res) => {
     const { start, end } = getDateRange(date);
     const query = { date: { $gte: start, $lt: end } };
 
-    let userQuery = { department: manager.department, isActive: true };
+    // Base query for department
+    let userQuery = { department: user.department, isActive: true };
+
+    // For SUPERVISOR, limit to only EMPLOYEE and SUPERVISOR roles
+    if (userRole === 'SUPERVISOR') {
+      userQuery.role = { $in: ['EMPLOYEE', 'SUPERVISOR'] };
+    }
 
     if (search) {
       userQuery = {

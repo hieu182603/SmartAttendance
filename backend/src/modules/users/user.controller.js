@@ -749,5 +749,52 @@ export class UserController {
       });
     }
   }
+
+  /**
+   * GET /api/users/my-department
+   * Lấy danh sách nhân viên trong phòng ban của Supervisor (chỉ EMPLOYEE và SUPERVISOR)
+   */
+  static async getMyDepartmentMembers(req, res) {
+    try {
+      const supervisorId = req.user.userId;
+
+      // Lấy thông tin supervisor để biết department
+      const supervisor = await UserModel.findById(supervisorId).select("department");
+
+      if (!supervisor || !supervisor.department) {
+        return res.json({ users: [] });
+      }
+
+      // Lấy nhân viên trong cùng phòng ban (trừ supervisor và các role cao hơn như MANAGER, HR_MANAGER, etc.)
+      const departmentMembers = await UserModel.find({
+        department: supervisor.department,
+        _id: { $ne: supervisorId },
+        role: { $in: ["EMPLOYEE", "SUPERVISOR"] }, // Chỉ lấy EMPLOYEE và SUPERVISOR, không lấy MANAGER trở lên
+        isActive: true,
+      })
+        .select("_id name email position role department branch")
+        .populate("department", "name")
+        .populate("branch", "name")
+        .sort({ name: 1 });
+
+      const users = departmentMembers.map((user) => ({
+        _id: user._id.toString(),
+        fullName: user.name,
+        name: user.name,
+        email: user.email,
+        position: user.position || user.role || "Nhân viên",
+        role: user.role,
+        department: user.department?.name || null,
+        branch: user.branch?.name || null,
+      }));
+
+      res.json({ users });
+    } catch (error) {
+      console.error("[UserController] getMyDepartmentMembers error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
 }
 

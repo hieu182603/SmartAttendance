@@ -6,6 +6,7 @@ export const UserRole = {
     ADMIN: 'ADMIN',
     HR_MANAGER: 'HR_MANAGER',
     MANAGER: 'MANAGER',
+    SUPERVISOR: 'SUPERVISOR',
     EMPLOYEE: 'EMPLOYEE',
     TRIAL: 'TRIAL'
 } as const;
@@ -20,6 +21,7 @@ export const ROLE_HIERARCHY: Record<UserRoleType, number> = {
     [UserRole.ADMIN]: 4,
     [UserRole.HR_MANAGER]: 3,
     [UserRole.MANAGER]: 2,
+    [UserRole.SUPERVISOR]: 1.5, // Supervisor: manages team within their department
     [UserRole.EMPLOYEE]: 1,
     [UserRole.TRIAL]: 0,      // Trial users have minimal permissions
 };
@@ -30,6 +32,7 @@ export const ROLE_NAMES: Record<UserRoleType, string> = {
     [UserRole.ADMIN]: 'Admin',
     [UserRole.HR_MANAGER]: 'HR Manager',
     [UserRole.MANAGER]: 'Manager',
+    [UserRole.SUPERVISOR]: 'Supervisor',
     [UserRole.EMPLOYEE]: 'Employee',
     [UserRole.TRIAL]: 'Trial User',
 };
@@ -44,7 +47,8 @@ export const ROLE_COLORS: Record<UserRoleType, RoleColor> = {
     [UserRole.SUPER_ADMIN]: { bg: 'bg-purple-500/20', text: 'text-purple-500' },
     [UserRole.ADMIN]: { bg: 'bg-red-500/20', text: 'text-red-500' },
     [UserRole.HR_MANAGER]: { bg: 'bg-blue-500/20', text: 'text-blue-500' },
-    [UserRole.MANAGER]: { bg: 'bg-green-500/20', text: 'text-green-500' },
+    [UserRole.MANAGER]: { bg: 'bg-green-600/20', text: 'text-green-600' },
+    [UserRole.SUPERVISOR]: { bg: 'bg-green-400/20', text: 'text-green-400' },
     [UserRole.EMPLOYEE]: { bg: 'bg-gray-500/20', text: 'text-gray-500' },
     [UserRole.TRIAL]: { bg: 'bg-orange-500/20', text: 'text-orange-500' },
 };
@@ -71,10 +75,20 @@ export const Permission = {
 
     // User Management - Fine-grained
     USERS_VIEW: 'USERS_VIEW',
+    USERS_VIEW_DEPARTMENT: 'USERS_VIEW_DEPARTMENT', // New: View users in own department only
     USERS_CREATE: 'USERS_CREATE',
     USERS_UPDATE: 'USERS_UPDATE',
+    USERS_UPDATE_DEPARTMENT: 'USERS_UPDATE_DEPARTMENT', // New: Update users in own department only
     USERS_DELETE: 'USERS_DELETE',
     USERS_MANAGE_ROLE: 'USERS_MANAGE_ROLE',
+
+    // Schedule Management
+    SCHEDULE_VIEW_DEPARTMENT: 'SCHEDULE_VIEW_DEPARTMENT', // New: View schedule for department
+    SCHEDULE_MANAGE_DEPARTMENT: 'SCHEDULE_MANAGE_DEPARTMENT', // New: Manage schedule for department
+
+    // Performance
+    PERFORMANCE_VIEW_DEPARTMENT: 'PERFORMANCE_VIEW_DEPARTMENT', // New: View performance in department
+    PERFORMANCE_MANAGE_DEPARTMENT: 'PERFORMANCE_MANAGE_DEPARTMENT', // New: Manage performance in department
 
     // Payroll
     PAYROLL_VIEW: 'PAYROLL_VIEW',
@@ -121,6 +135,24 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.ATTENDANCE_VIEW_OWN,
         Permission.REQUESTS_CREATE,
         Permission.REQUESTS_VIEW_OWN,
+    ],
+
+    [UserRole.SUPERVISOR]: [
+        // Basic employee permissions
+        Permission.ATTENDANCE_VIEW_OWN,
+        Permission.REQUESTS_CREATE,
+        Permission.REQUESTS_VIEW_OWN,
+        // Department management permissions
+        Permission.ATTENDANCE_VIEW_DEPARTMENT,
+        Permission.REQUESTS_APPROVE_DEPARTMENT,
+        Permission.USERS_VIEW_DEPARTMENT,
+        Permission.USERS_UPDATE_DEPARTMENT,
+        Permission.SCHEDULE_VIEW_DEPARTMENT,
+        Permission.SCHEDULE_MANAGE_DEPARTMENT,
+        Permission.PERFORMANCE_VIEW_DEPARTMENT,
+        Permission.PERFORMANCE_MANAGE_DEPARTMENT,
+        Permission.ANALYTICS_VIEW_DEPARTMENT,
+        Permission.VIEW_REPORTS,
     ],
 
     [UserRole.MANAGER]: [
@@ -294,6 +326,7 @@ export function getRoleScope(role: UserRoleType): 'all' | 'department' | 'own' {
         case UserRole.HR_MANAGER:
             return 'all';
         case UserRole.MANAGER:
+        case UserRole.SUPERVISOR:
             return 'department';
         case UserRole.EMPLOYEE:
         default:
@@ -312,7 +345,8 @@ export function getRoleBasePath(role: UserRoleType): string {
         case UserRole.HR_MANAGER:
             return '/hr';
         case UserRole.MANAGER:
-            return '/manager';
+        case UserRole.SUPERVISOR:
+            return '/manager'; // Supervisor uses same base path as Manager but with department restrictions
         case UserRole.EMPLOYEE:
         default:
             return '/employee';
@@ -324,8 +358,8 @@ export function getRoleBasePath(role: UserRoleType): string {
  */
 export function getAccessibleBasePaths(role: UserRoleType): string[] {
     const paths: string[] = ['/employee']; // All roles can access employee routes
-    
-    if (hasMinimumLevel(role, UserRole.MANAGER)) {
+
+    if (hasMinimumLevel(role, UserRole.SUPERVISOR)) {
         paths.push('/manager');
     }
     if (hasMinimumLevel(role, UserRole.HR_MANAGER)) {
@@ -334,7 +368,7 @@ export function getAccessibleBasePaths(role: UserRoleType): string[] {
     if (hasMinimumLevel(role, UserRole.ADMIN)) {
         paths.push('/admin');
     }
-    
+
     return paths;
 }
 
@@ -351,6 +385,8 @@ export function getRolePosition(role: UserRoleType): string {
             return 'HR Manager';
         case UserRole.MANAGER:
             return 'Manager';
+        case UserRole.SUPERVISOR:
+            return 'Supervisor';
         case UserRole.EMPLOYEE:
         default:
             return 'Employee';

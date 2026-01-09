@@ -29,15 +29,22 @@ userRouter.get(
 // Route /managers phải đặt TRƯỚC route /:id để tránh conflict
 userRouter.get(
     "/managers",
-    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER, ROLES.MANAGER]),
     UserController.getManagers
 );
 
 // Route /my-team cho Manager lấy danh sách nhân viên trong team
 userRouter.get(
     "/my-team",
-    requireRole([ROLES.MANAGER]),
+    requireRole([ROLES.MANAGER, ROLES.SUPERVISOR]),
     UserController.getMyTeamMembers
+);
+
+// Route /my-department cho Supervisor lấy danh sách nhân viên trong department
+userRouter.get(
+    "/my-department",
+    requireRole([ROLES.SUPERVISOR]),
+    UserController.getMyDepartmentMembers
 );
 
 userRouter.get(

@@ -67,11 +67,26 @@ export class DashboardService {
    */
   static async getPendingActions(userId) {
     try {
+      const user = await UserModel.findById(userId).select('role department');
+
+      let pendingRequestsQuery = { status: "pending" };
+
+      // For SUPERVISOR, get pending requests from their department employees that they can approve
+      if (user.role === 'SUPERVISOR' && user.department) {
+        const departmentUsers = await UserModel.find({
+          department: user.department,
+          role: { $in: ['EMPLOYEE', 'SUPERVISOR'] },
+          isActive: true
+        }).select('_id');
+        const departmentUserIds = departmentUsers.map(u => u._id);
+        pendingRequestsQuery.userId = { $in: departmentUserIds };
+      } else {
+        // For other roles, get their own pending requests
+        pendingRequestsQuery.userId = userId;
+      }
+
       // Đếm pending requests
-      const pendingRequests = await RequestModel.countDocuments({
-        userId,
-        status: "pending",
-      });
+      const pendingRequests = await RequestModel.countDocuments(pendingRequestsQuery);
 
       // Đếm unread notifications
       const unreadNotifications = await NotificationModel.countDocuments({
@@ -95,7 +110,7 @@ export class DashboardService {
   /**
    * Lấy thống kê tổng quan cho dashboard
    */
-  static async getDashboardStats() {
+  static async getDashboardStats(departmentFilter = null) {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -103,15 +118,29 @@ export class DashboardService {
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       // Tổng số nhân viên (chỉ tính active)
-      const totalEmployees = await UserModel.countDocuments({ isActive: true });
+      const employeeQuery = { isActive: true };
+      if (departmentFilter) {
+        employeeQuery.department = departmentFilter;
+      }
+      const totalEmployees = await UserModel.countDocuments(employeeQuery);
 
       // Lấy attendance hôm nay
-      const todayAttendance = await AttendanceModel.find({
+      const todayAttendanceQuery = {
         date: {
           $gte: today,
           $lt: tomorrow,
         },
-      });
+      };
+
+      let todayAttendance = [];
+      if (departmentFilter) {
+        // Get users in the department first, then filter attendance
+        const departmentUsers = await UserModel.find({ department: departmentFilter, isActive: true }).select('_id');
+        const userIds = departmentUsers.map(u => u._id);
+        todayAttendanceQuery.userId = { $in: userIds };
+      }
+
+      todayAttendance = await AttendanceModel.find(todayAttendanceQuery);
 
       // Tính toán stats hôm nay
       const presentToday = todayAttendance.filter(
@@ -126,12 +155,20 @@ export class DashboardService {
       const weekStart = new Date(today);
       weekStart.setDate(weekStart.getDate() - 6); // 7 ngày bao gồm hôm nay
 
-      const weekAttendance = await AttendanceModel.find({
+      const weekAttendanceQuery = {
         date: {
           $gte: weekStart,
           $lt: tomorrow,
         },
-      });
+      };
+
+      if (departmentFilter) {
+        const departmentUsers = await UserModel.find({ department: departmentFilter, isActive: true }).select('_id');
+        const userIds = departmentUsers.map(u => u._id);
+        weekAttendanceQuery.userId = { $in: userIds };
+      }
+
+      const weekAttendance = await AttendanceModel.find(weekAttendanceQuery);
 
       // Nhóm theo ngày trong tuần
       const attendanceByDay = {};

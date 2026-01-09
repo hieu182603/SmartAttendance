@@ -80,7 +80,7 @@ interface AnalyticsParams {
 const AttendanceAnalyticsPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common']);
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('7days')
-  const [selectedDepartment, _setSelectedDepartment] = useState<string>('all')
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<AnalyticsData>({
     dailyData: [],
@@ -255,8 +255,8 @@ const AttendanceAnalyticsPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6 mt-4 text-center min-h-[140px]">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-6 mt-4 text-center ">
+              <div className="flex items-center justify-between mt-4">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.attendanceRate')}</p>
                   <p className="text-3xl text-[var(--success)] mt-2">
@@ -279,8 +279,8 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6 mt-4 text-center min-h-[140px]">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-6 mt-4 text-center">
+              <div className="flex items-center justify-between mt-4">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.avgLate')}</p>
                   <p className="text-3xl text-[var(--warning)] mt-2">
@@ -300,8 +300,8 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6 mt-4 text-center min-h-[140px]">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-6 mt-4 text-center">
+              <div className="flex items-center justify-between mt-4">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.stats.avgAbsent')}</p>
                   <p className="text-3xl text-[var(--error)] mt-2">
@@ -321,8 +321,8 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardContent className="p-6 mt-4 text-center min-h-[140px]">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-6 mt-4 text-center">
+              <div className="flex items-center justify-between mt-4">
                 <div>
                   <p className="text-sm text-[var(--text-sub)]">{t('dashboard:attendanceAnalytics.trend')}</p>
                   <div className="flex items-center gap-2 mt-2">
