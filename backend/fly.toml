@@ -16,7 +16,7 @@ primary_region = "sin"  # Singapore (gần Việt Nam)
 
   # Keep the app always on (good for production)
   auto_stop_machines = false
-  auto_start_machines = true
+  auto_start_machines = false
   min_machines_running = 1
 
   # Concurrency limits
