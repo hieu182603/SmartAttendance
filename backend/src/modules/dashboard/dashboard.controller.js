@@ -50,7 +50,21 @@ export class DashboardController {
    */
   static async getDashboardStats(req, res) {
     try {
-      const stats = await DashboardService.getDashboardStats();
+      const userId = req.user.userId;
+      const userRole = req.user.role;
+
+      let departmentFilter = null;
+
+      // For SUPERVISOR, get stats only for their department
+      if (userRole === 'SUPERVISOR') {
+        const UserModel = (await import("../users/user.model.js")).UserModel;
+        const user = await UserModel.findById(userId).select('department');
+        if (user && user.department) {
+          departmentFilter = user.department;
+        }
+      }
+
+      const stats = await DashboardService.getDashboardStats(departmentFilter);
       return res.status(200).json(stats);
     } catch (error) {
       console.error("[DashboardController] getDashboardStats error:", error);

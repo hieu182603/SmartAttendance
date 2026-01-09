@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { getAllRequests, approveRequest, rejectRequest, bulkApproveRequests, bulkRejectRequests } from '@/services/requestService'
+import { useAuth } from '@/context/AuthContext'
 import type { ErrorWithMessage } from '@/types'
 
 type RequestStatus = 'pending' | 'approved' | 'rejected'
@@ -69,6 +70,7 @@ interface Stats {
 
 const ApproveRequestsPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common']);
+  const { user } = useAuth();
   const [allRequests, setAllRequests] = useState<Request[]>([]) // Lưu tất cả requests để tính stats
   const [requests, setRequests] = useState<Request[]>([]) // Requests đã filter theo tab
   const [selectedTab, setSelectedTab] = useState<string>('pending')
@@ -173,6 +175,11 @@ const ApproveRequestsPage: React.FC = () => {
       if (debouncedSearchQuery) params.search = debouncedSearchQuery
       // Không filter theo status để lấy tất cả
 
+      // For SUPERVISOR, only show requests from their department
+      if (user?.role === 'SUPERVISOR' && user?.department) {
+        params.department = user.department
+      }
+
       const result = await getAllRequests(params) as GetAllRequestsResponse
       setAllRequests(result.requests || [])
     } catch (error) {
@@ -180,7 +187,7 @@ const ApproveRequestsPage: React.FC = () => {
       toast.error(t('dashboard:approveRequests.actions.error'))
       setAllRequests([])
     }
-  }, [filterType, filterDepartment, debouncedSearchQuery, t])
+  }, [filterType, filterDepartment, debouncedSearchQuery, t, user])
 
   // Filter requests theo selectedTab từ allRequests
   useEffect(() => {

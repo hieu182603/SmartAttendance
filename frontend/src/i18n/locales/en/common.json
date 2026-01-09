@@ -82,7 +82,9 @@
       "admin": "Administration",
       "employee": "Personal",
       "system": "System"
-    }
+    },
+    "expand_sidebar": "Expand Sidebar",
+    "collapse_sidebar": "Collapse Sidebar"
   }
 }
 

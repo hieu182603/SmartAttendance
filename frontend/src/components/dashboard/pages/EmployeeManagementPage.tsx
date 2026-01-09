@@ -240,17 +240,22 @@ const EmployeeManagementPage: React.FC = () => {
         page: currentPage,
         limit: itemsPerPage
       }
-      
+
       if (searchTerm) params.search = searchTerm
-      
+
       if (roleFilter !== 'all') params.role = roleFilter
-      
+
       if (statusFilter !== 'all') {
         params.isActive = statusFilter === 'active' ? 'true' : 'false'
       }
 
       if (shiftFilter !== 'all') {
         params.shift = shiftFilter
+      }
+
+      // For SUPERVISOR, only show users in their department
+      if (user?.role === 'SUPERVISOR' && user?.department) {
+        params.department = user.department
       }
 
       const result = await getAllUsers(params) as GetAllUsersResponse
@@ -269,7 +274,7 @@ const EmployeeManagementPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, itemsPerPage, searchTerm, roleFilter, statusFilter, shiftFilter])
+  }, [currentPage, itemsPerPage, searchTerm, roleFilter, statusFilter, shiftFilter, user])
 
   useEffect(() => {
     fetchUsers()

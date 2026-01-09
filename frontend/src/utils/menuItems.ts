@@ -229,7 +229,7 @@ export function getMenuByPermissionsWithTranslations(
   const menu = getMenuByPermissions(userRole, basePath);
   
   // Move "Trang chủ" (home) from employee section to admin section for admin roles
-  const adminRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER];
+  const adminRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.SUPERVISOR];
   const isAdminRole = adminRoles.includes(userRole);
   
   return menu.map(item => {

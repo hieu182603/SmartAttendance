@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { UserModel } from '../src/modules/users/user.model.js';
 import { ShiftModel } from '../src/modules/shifts/shift.model.js';
-import { LocationModel } from '../src/modules/locations/location.model.js';
+// import { LocationModel } from '../src/modules/locations/location.model.js'; // Commented out - locations module not found
 import { BranchModel } from '../src/modules/branches/branch.model.js';
 import { DepartmentModel } from '../src/modules/departments/department.model.js';
 import { AttendanceModel } from '../src/modules/attendance/attendance.model.js';
@@ -37,7 +37,7 @@ async function seed() {
         console.log('🗑️  Clearing old data...');
         await UserModel.deleteMany({});
         await ShiftModel.deleteMany({});
-        await LocationModel.deleteMany({});
+        // await LocationModel.deleteMany({}); // Commented out - locations module not found
         await BranchModel.deleteMany({});
         await DepartmentModel.deleteMany({});
         await AttendanceModel.deleteMany({});
@@ -102,55 +102,9 @@ async function seed() {
         console.log(`✅ Created ${createdRequestTypes.length} request types\n`);
 
         // ========== 2. TẠO LOCATIONS (Địa điểm) ==========
-        console.log('📍 Creating locations...');
-        const locations = await LocationModel.insertMany([
-            {
-                name: 'Trụ sở chính Hà Nội',
-                address: '123 Đường Láng, Đống Đa, Hà Nội',
-                latitude: 21.0285,
-                longitude: 105.8542,
-                radius: 100,
-                isActive: true,
-                description: 'Văn phòng chính tại Hà Nội',
-            },
-            {
-                name: 'Chi nhánh TP.HCM',
-                address: '456 Nguyễn Huệ, Quận 1, TP.HCM',
-                latitude: 10.7769,
-                longitude: 106.7009,
-                radius: 150,
-                isActive: true,
-                description: 'Chi nhánh tại Thành phố Hồ Chí Minh',
-            },
-            {
-                name: 'Văn phòng Đà Nẵng',
-                address: '789 Đường Bạch Đằng, Hải Châu, Đà Nẵng',
-                latitude: 16.0544,
-                longitude: 108.2022,
-                radius: 80,
-                isActive: true,
-                description: 'Văn phòng tại Đà Nẵng',
-            },
-            {
-                name: 'Văn phòng Cần Thơ',
-                address: '321 Đường Nguyễn Văn Cừ, Ninh Kiều, Cần Thơ',
-                latitude: 10.0452,
-                longitude: 105.7469,
-                radius: 100,
-                isActive: true,
-                description: 'Văn phòng tại Cần Thơ',
-            },
-            {
-                name: 'Văn phòng Hải Phòng',
-                address: '654 Đường Lạch Tray, Ngô Quyền, Hải Phòng',
-                latitude: 20.8449,
-                longitude: 106.6881,
-                radius: 90,
-                isActive: true,
-                description: 'Văn phòng tại Hải Phòng',
-            },
-        ]);
-        console.log(`✅ Created ${locations.length} locations\n`);
+        console.log('📍 Skipping locations creation (locations module not found)...');
+        const locations = []; // Empty array as locations are not used
+        console.log(`✅ Skipped locations creation\n`);
 
         // ========== 2.5. TẠO BRANCHES (Chi nhánh) ==========
         console.log('🏢 Creating branches...');
@@ -329,7 +283,7 @@ async function seed() {
         ]);
         console.log(`✅ Created ${departments.length} departments\n`);
 
-        // ========== 3. TẠO USERS (Người dùng) - 150 users ==========
+        // ========== 3. TẠO USERS (Người dùng) - 191 users ==========
         console.log('👥 Creating users...');
         const hashedPassword = await hashPassword('password123');
 
@@ -388,7 +342,35 @@ async function seed() {
             isActive: true,
         });
 
-        // Tạo 146 employees (tổng 150 users: 4 admins/managers + 146 employees)
+        // SUPERVISOR cho từng phòng ban
+        const supervisorData = [
+            { name: 'Supervisor Phát triển', email: 'supervisor.dev@smartattendance.com', deptCode: 'DEV', phone: '0902000001' },
+            { name: 'Supervisor Thiết kế', email: 'supervisor.design@smartattendance.com', deptCode: 'DESIGN', phone: '0902000002' },
+            { name: 'Supervisor Marketing', email: 'supervisor.mkt@smartattendance.com', deptCode: 'MKT', phone: '0902000003' },
+            { name: 'Supervisor Kinh doanh', email: 'supervisor.sales@smartattendance.com', deptCode: 'SALES', phone: '0902000004' },
+            { name: 'Supervisor Tài chính', email: 'supervisor.finance@smartattendance.com', deptCode: 'FINANCE', phone: '0902000005' },
+            { name: 'Supervisor Vận hành', email: 'supervisor.ops@smartattendance.com', deptCode: 'OPS', phone: '0902000006' },
+            { name: 'Supervisor QA', email: 'supervisor.qa@smartattendance.com', deptCode: 'QA', phone: '0902000007' },
+        ];
+
+        supervisorData.forEach((supervisor, index) => {
+            const department = departments.find(d => d.code === supervisor.deptCode);
+            if (department) {
+                users.push({
+                    email: supervisor.email,
+                    password: hashedPassword,
+                    name: supervisor.name,
+                    role: 'SUPERVISOR',
+                    phone: supervisor.phone,
+                    department: department._id,
+                    branch: department.branchId,
+                    isVerified: true,
+                    isActive: true,
+                });
+            }
+        });
+
+        // Tạo 180 employees (tổng 191 users: 4 admins/managers + 7 supervisors + 180 employees)
         // Map để track số lần xuất hiện của mỗi lastName (để thêm số thứ tự nếu trùng)
         const lastNameCountMap = new Map();
         // Set để track các tên đầy đủ đã tạo (để hạn chế trùng tên)
@@ -457,19 +439,33 @@ async function seed() {
         await BranchModel.findByIdAndUpdate(branches[0]._id, { managerId: adminUser._id }); // HQ
         await BranchModel.findByIdAndUpdate(branches[1]._id, { managerId: managerUser._id }); // HCM
 
-        // Gán trưởng phòng
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DEV')._id, { managerId: adminUser._id });
+        // Gán trưởng phòng và supervisor
+        const devSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.dev@smartattendance.com');
+        const designSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.design@smartattendance.com');
+        const mktSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.mkt@smartattendance.com');
+        const salesSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.sales@smartattendance.com');
+        const financeSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.finance@smartattendance.com');
+        const opsSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.ops@smartattendance.com');
+        const qaSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.qa@smartattendance.com');
+
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DEV')._id, { managerId: devSupervisor?._id || adminUser._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DESIGN')._id, { managerId: designSupervisor?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'MKT')._id, { managerId: mktSupervisor?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'SALES')._id, { managerId: salesSupervisor?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'FINANCE')._id, { managerId: financeSupervisor?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'OPS')._id, { managerId: opsSupervisor?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'QA')._id, { managerId: qaSupervisor?._id });
         await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'HR')._id, { managerId: hrUser._id });
         await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'PRODUCT')._id, { managerId: managerUser._id });
-        console.log('✅ Assigned managers to branches and departments\n');
+        console.log('✅ Assigned managers and supervisors to departments\n');
 
         // ========== 3.5. GÁN DEFAULT SHIFT VÀ TẠO EMPLOYEE SHIFT ASSIGNMENTS ==========
         console.log('📋 Assigning default shifts and creating shift assignments...');
         const defaultShift = shifts[0]; // Full time shift
 
-        // Gán defaultShiftId cho tất cả employees
+        // Gán defaultShiftId cho tất cả employees và supervisors
         await UserModel.updateMany(
-            { role: 'EMPLOYEE', isActive: true },
+            { role: { $in: ['EMPLOYEE', 'SUPERVISOR'] }, isActive: true },
             { defaultShiftId: defaultShift._id }
         );
         console.log(`✅ Assigned default shift "${defaultShift.name}" to all employees\n`);
@@ -1157,7 +1153,7 @@ async function seed() {
                         startTime: shifts[0].startTime,
                         endTime: shifts[0].endTime,
                         status: 'off',
-                        location: locations[0].name,
+                        location: locations[0]?.name || 'Default Location',
                     });
                 }
                 continue;
@@ -1178,7 +1174,7 @@ async function seed() {
                     startTime: shift.startTime,
                     endTime: shift.endTime,
                     status: status,
-                    location: locations.find(loc => employee.branch?.toString() === loc._id.toString())?.name || locations[0].name,
+                    location: (locations.find(loc => employee.branch?.toString() === loc._id.toString()) || locations[0])?.name || 'Default Location',
                 };
 
                 // Liên kết với attendance nếu đã completed

@@ -30,6 +30,7 @@ attendanceRouter.get(
     ROLES.ADMIN,
     ROLES.HR_MANAGER,
     ROLES.MANAGER,
+    ROLES.SUPERVISOR,
     ROLES.SUPER_ADMIN,
   ]),
   getAttendanceAnalytics
@@ -40,6 +41,7 @@ attendanceRouter.get(
     ROLES.ADMIN,
     ROLES.HR_MANAGER,
     ROLES.MANAGER,
+    ROLES.SUPERVISOR,
     ROLES.SUPER_ADMIN,
   ]),
   exportAttendanceAnalytics
@@ -61,6 +63,6 @@ attendanceRouter.delete(
 );
 attendanceRouter.get(
   "/department",
-  requireRole([ROLES.MANAGER]),
+  requireRole([ROLES.MANAGER, ROLES.SUPERVISOR]),
   getDepartmentAttendance
 );

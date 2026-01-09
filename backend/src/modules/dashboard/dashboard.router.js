@@ -9,7 +9,7 @@ dashboardRouter.use(authMiddleware);
 
 dashboardRouter.get(
   "/stats",
-  requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.MANAGER, ROLES.SUPER_ADMIN]),
+  requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.MANAGER, ROLES.SUPERVISOR, ROLES.SUPER_ADMIN]),
   DashboardController.getDashboardStats
 );
 

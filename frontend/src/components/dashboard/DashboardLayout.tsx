@@ -80,6 +80,7 @@ const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { toggleTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const location = useLocation();
 
@@ -97,12 +98,12 @@ const DashboardLayout: React.FC = () => {
   const filteredMenu = useMemo(() => {
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
       const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
-      const employeeItems = menu.filter(item => 
+      const employeeItems = menu.filter(item =>
         item.section === 'employee' && (item.id === 'company-calendar' || item.id === 'profile')
       );
       return [...adminItems, ...employeeItems];
     }
-    if (userRole === UserRole.HR_MANAGER || userRole === UserRole.MANAGER) {
+    if (userRole === UserRole.HR_MANAGER || userRole === UserRole.MANAGER || userRole === UserRole.SUPERVISOR) {
       return menu;
     }
     return menu.filter(item => item.section === 'employee');
@@ -123,13 +124,26 @@ const DashboardLayout: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="lg:hidden text-[var(--text-main)] hover:bg-[var(--surface)] p-2 rounded-lg"
+              className="lg:hidden text-[var(--text-main)] hover:bg-[var(--surface)] p-2 rounded-lg -ml-1"
             >
               {isSidebarOpen ? (
                 <X className="h-5 w-5" />
               ) : (
                 <Menu className="h-5 w-5" />
               )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="hidden lg:flex text-[var(--text-main)] hover:bg-[var(--surface)] p-2 rounded-lg transition-all duration-200"
+              title={isSidebarCollapsed ? t('common:dashboard.expand_sidebar') : t('common:dashboard.collapse_sidebar')}
+            >
+              <motion.div
+                animate={{ rotate: isSidebarCollapsed ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Menu className="h-5 w-5" />
+              </motion.div>
             </button>
             <div className="flex items-center space-x-2">
               <div className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
@@ -187,16 +201,19 @@ const DashboardLayout: React.FC = () => {
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* Sidebar */}
         <aside
-          className={`fixed top-16 left-0 w-64 h-[calc(100vh-4rem)]
+          className={`fixed top-16 left-0 h-[calc(100vh-4rem)]
               bg-[var(--surface)] border-r border-[var(--border)]
               overflow-y-auto z-40
-              transform transition-transform duration-200 ease-in-out
+              transform transition-all duration-200 ease-in-out
+              ${isSidebarCollapsed ? "w-16" : "w-64"}
               ${isSidebarOpen
               ? "translate-x-0"
-              : "-translate-x-full lg:translate-x-0"
+              : isSidebarCollapsed
+                ? "translate-x-0"
+                : "-translate-x-full lg:translate-x-0"
             }`}
         >
-          <nav className="p-4 space-y-1 overflow-y-auto">
+          <nav className={`space-y-1 overflow-y-auto ${isSidebarCollapsed ? "p-2" : "p-4"}`}>
             {/* Group menu items by section */}
             {(() => {
               const sections: { admin: MenuItem[]; employee: MenuItem[]; system: MenuItem[] } = {
@@ -210,9 +227,11 @@ const DashboardLayout: React.FC = () => {
                   {/* Admin Section */}
                   {sections.admin.length > 0 && (
                     <div className="mb-4">
-                      <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                        {t('common:dashboard.sections.admin')}
-                      </div>
+                      {!isSidebarCollapsed && (
+                        <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
+                          {t('common:dashboard.sections.admin')}
+                        </div>
+                      )}
                       {sections.admin.map((item) => {
                         const Icon = item.icon;
                         const isActive = currentPage === item.id;
@@ -223,8 +242,9 @@ const DashboardLayout: React.FC = () => {
                             onClick={() => {
                               setIsSidebarOpen(false);
                             }}
+                            title={isSidebarCollapsed ? item.label : undefined}
                             className={`
-                              w-full flex items-center space-x-3 px-4 py-3 rounded-xl
+                              w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
                               transition-all duration-200
                               ${isActive
                                 ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
@@ -233,7 +253,9 @@ const DashboardLayout: React.FC = () => {
                             `}
                           >
                             <Icon className="h-5 w-5" />
-                            <span className="text-sm">{item.label}</span>
+                            {!isSidebarCollapsed && (
+                              <span className="text-sm">{item.label}</span>
+                            )}
                           </NavLink>
                         );
                       })}
@@ -243,7 +265,7 @@ const DashboardLayout: React.FC = () => {
                   {/* Employee Section */}
                   {sections.employee.length > 0 && (
                     <div className="mb-4">
-                      {sections.admin.length > 0 && (
+                      {sections.admin.length > 0 && !isSidebarCollapsed && (
                         <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
                           {t('common:dashboard.sections.employee')}
                         </div>
@@ -262,8 +284,9 @@ const DashboardLayout: React.FC = () => {
                             onClick={() => {
                               setIsSidebarOpen(false);
                             }}
+                            title={isSidebarCollapsed ? item.label : undefined}
                             className={`
-                              w-full flex items-center space-x-3 px-4 py-3 rounded-xl
+                              w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
                               transition-all duration-200
                               ${isActive
                                 ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
@@ -272,7 +295,9 @@ const DashboardLayout: React.FC = () => {
                             `}
                           >
                             <Icon className="h-5 w-5" />
-                            <span className="text-sm">{item.label}</span>
+                            {!isSidebarCollapsed && (
+                              <span className="text-sm">{item.label}</span>
+                            )}
                           </NavLink>
                         );
                       })}
@@ -282,9 +307,11 @@ const DashboardLayout: React.FC = () => {
                   {/* System Section */}
                   {sections.system.length > 0 && (
                     <div className="mb-4">
-                      <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
-                        {t('common:dashboard.sections.system')}
-                      </div>
+                      {!isSidebarCollapsed && (
+                        <div className="px-3 mb-2 text-xs text-[var(--text-sub)] uppercase tracking-wider">
+                          {t('common:dashboard.sections.system')}
+                        </div>
+                      )}
                       {sections.system.map((item) => {
                         const Icon = item.icon;
                         const isActive = currentPage === item.id;
@@ -295,8 +322,9 @@ const DashboardLayout: React.FC = () => {
                             onClick={() => {
                               setIsSidebarOpen(false);
                             }}
+                            title={isSidebarCollapsed ? item.label : undefined}
                             className={`
-                              w-full flex items-center space-x-3 px-4 py-3 rounded-xl
+                              w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
                               transition-all duration-200
                               ${isActive
                                 ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
@@ -305,7 +333,9 @@ const DashboardLayout: React.FC = () => {
                             `}
                           >
                             <Icon className="h-5 w-5" />
-                            <span className="text-sm">{item.label}</span>
+                            {!isSidebarCollapsed && (
+                              <span className="text-sm">{item.label}</span>
+                            )}
                           </NavLink>
                         );
                       })}
@@ -334,7 +364,9 @@ const DashboardLayout: React.FC = () => {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 ml-0 lg:ml-64 h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-6 lg:p-8">
+        <main className={`flex-1 h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-6 lg:p-8 transition-all duration-200 ease-in-out ${
+          isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
+        }`}>
           <Outlet />
         </main>
       </div>

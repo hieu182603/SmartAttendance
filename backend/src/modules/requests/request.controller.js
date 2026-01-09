@@ -263,6 +263,8 @@ export const createRequest = async (req, res) => {
 
 export const getAllRequests = async (req, res) => {
   try {
+    const userId = req.user.userId
+    const userRole = req.user.role
     const { status, type, department, search, page = 1, limit = 20 } = req.query
 
     const query = {}
@@ -279,6 +281,9 @@ export const getAllRequests = async (req, res) => {
 
     const UserModel = (await import('../users/user.model.js')).UserModel
 
+    // Get current user to determine department restrictions
+    const currentUser = await UserModel.findById(userId).select('department')
+
     let userQuery = {}
     if (search) {
       userQuery.$or = [
@@ -288,6 +293,25 @@ export const getAllRequests = async (req, res) => {
     }
     if (department && department !== 'all') {
       userQuery.department = department
+    }
+
+    // For SUPERVISOR, restrict to their department and only EMPLOYEE/SUPERVISOR roles
+    if (userRole === 'SUPERVISOR') {
+      if (currentUser && currentUser.department) {
+        userQuery.department = currentUser.department
+        userQuery.role = { $in: ['EMPLOYEE', 'SUPERVISOR'] }
+      } else {
+        // If supervisor has no department, return empty
+        return res.json({
+          requests: [],
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: 0,
+            totalPages: 0
+          }
+        })
+      }
     }
 
     let userIds = []
@@ -374,17 +398,29 @@ export const approveRequest = async (req, res) => {
     const { id } = req.params
     const { comments } = req.body
     const approverId = req.user.userId
+    const approverRole = req.user.role
 
     const UserModel = (await import('../users/user.model.js')).UserModel
-    const approver = await UserModel.findById(approverId).select('name email')
+    const approver = await UserModel.findById(approverId).select('name email department')
 
-    const request = await RequestModel.findById(id).populate('userId', 'name email')
+    const request = await RequestModel.findById(id).populate('userId', 'name email department role')
     if (!request) {
       return res.status(404).json({ message: 'Không tìm thấy yêu cầu' })
     }
 
     if (request.status !== 'pending') {
       return res.status(400).json({ message: 'Yêu cầu đã được xử lý' })
+    }
+
+    // For SUPERVISOR, check if the request is from someone in their department and appropriate role
+    if (approverRole === 'SUPERVISOR') {
+      if (!approver.department || !request.userId.department ||
+          approver.department.toString() !== request.userId.department.toString()) {
+        return res.status(403).json({ message: 'Bạn chỉ có thể phê duyệt yêu cầu từ nhân viên trong phòng ban của mình' })
+      }
+      if (!['EMPLOYEE', 'SUPERVISOR'].includes(request.userId.role)) {
+        return res.status(403).json({ message: 'Bạn không có quyền phê duyệt yêu cầu từ vai trò này' })
+      }
     }
 
     request.approve(approverId, comments)

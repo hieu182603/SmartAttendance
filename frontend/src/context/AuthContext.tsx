@@ -38,6 +38,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const me = await getMe()
         setUser(me)
         // Update role in localStorage when user data is refreshed
+        // Update role in localStorage when user data is refreshed
         if (me?.role) {
           localStorage.setItem('sa_user_role', me.role)
         }
