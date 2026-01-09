@@ -13,6 +13,7 @@ import {
   getUserSchedule,
   getShiftInfo,
   checkLateStatus,
+  calculateWorkCredit,
 } from "./attendance.service.js";
 import {
   emitAttendanceUpdate,
@@ -203,19 +204,30 @@ export const checkIn = async (req, res) => {
 export const checkOut = async (req, res) => {
   try {
     const userId = req.user.userId;
-    let { latitude, longitude, accuracy } = req.body;
+    let { latitude, longitude, accuracy, earlyCheckoutReason } = req.body;
     const photoFile = req.file || null;
 
     latitude = parseFloat(latitude);
     longitude = parseFloat(longitude);
     accuracy = accuracy ? parseFloat(accuracy) : null;
 
+    // Validate earlyCheckoutReason nếu có
+    const validReasons = ["machine_issue", "personal_emergency", "manager_request"];
+    if (earlyCheckoutReason && !validReasons.includes(earlyCheckoutReason)) {
+      return res.status(400).json({
+        success: false,
+        message: "Lý do check-out sớm không hợp lệ",
+        code: "INVALID_REASON",
+      });
+    }
+
     const result = await processCheckOut(
       userId,
       latitude,
       longitude,
       accuracy,
-      photoFile?.buffer || null
+      photoFile?.buffer || null,
+      earlyCheckoutReason || null
     );
 
     if (!result.success) {
@@ -888,6 +900,250 @@ export const deleteAttendanceRecord = async (req, res) => {
   } catch (error) {
     console.error("[attendance] delete error", error);
     res.status(500).json({ message: "Không thể xóa bản ghi chấm công" });
+  }
+};
+
+/**
+ * PATCH /attendance/:id/approve
+ * Duyệt early checkout (HR/Leader)
+ */
+export const approveEarlyCheckout = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approvalStatus, workCredit, notes } = req.body;
+    const approverId = req.user.userId;
+
+    // Validate approvalStatus
+    if (!approvalStatus || !["APPROVED", "REJECTED"].includes(approvalStatus)) {
+      return res.status(400).json({
+        message: "approvalStatus phải là 'APPROVED' hoặc 'REJECTED'",
+      });
+    }
+
+    const attendance = await AttendanceModel.findById(id);
+    if (!attendance) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy bản ghi chấm công" });
+    }
+
+    // Chỉ duyệt được các bản ghi đang PENDING
+    if (attendance.approvalStatus !== "PENDING") {
+      return res.status(400).json({
+        message: "Bản ghi này không cần duyệt hoặc đã được duyệt rồi",
+      });
+    }
+
+    // Cập nhật approval status
+    attendance.approvalStatus = approvalStatus;
+    attendance.approvedBy = approverId;
+    attendance.approvedAt = new Date();
+
+    // Nếu APPROVED, tính lại workCredit
+    if (approvalStatus === "APPROVED") {
+      if (workCredit !== undefined) {
+        // Override workCredit nếu được chỉ định
+        attendance.workCredit = workCredit;
+      } else {
+        // Tự động tính workCredit dựa trên workHours
+        const schedule = await getUserSchedule(
+          attendance.userId,
+          attendance.date
+        );
+        const shiftInfo = await getShiftInfo(schedule);
+        const hoursWorked = attendance.workHours || 0;
+        const workCreditResult = calculateWorkCredit(hoursWorked, shiftInfo);
+        attendance.workCredit = workCreditResult.credit || 0;
+      }
+    } else {
+      // REJECTED → workCredit = 0
+      attendance.workCredit = 0;
+    }
+
+    // Thêm notes nếu có
+    if (notes) {
+      const approvalNote = `\n[Duyệt bởi ${approvalStatus === "APPROVED" ? "chấp nhận" : "từ chối"}: ${notes}]`;
+      attendance.notes = attendance.notes
+        ? `${attendance.notes}${approvalNote}`
+        : approvalNote.trim();
+    }
+
+    await attendance.save();
+
+    // Emit real-time update
+    try {
+      const attendanceData = {
+        _id: attendance._id.toString(),
+        userId: attendance.userId.toString(),
+        date: attendance.date,
+        checkIn: attendance.checkIn,
+        checkOut: attendance.checkOut,
+        status: attendance.status,
+        workHours: attendance.workHours,
+        workCredit: attendance.workCredit,
+        approvalStatus: attendance.approvalStatus,
+        locationId: attendance.locationId?.toString(),
+        action: "approval-update",
+      };
+      emitAttendanceUpdate(attendance.userId.toString(), attendanceData);
+      emitAttendanceUpdateToAdmins(attendanceData);
+    } catch (socketError) {
+      console.error("[attendance] Error emitting approval update:", socketError);
+    }
+
+    const updated = await AttendanceModel.findById(id)
+      .populate("userId", "name email department role")
+      .populate("locationId", "name")
+      .populate("approvedBy", "name");
+
+    res.json({
+      message: `Đã ${approvalStatus === "APPROVED" ? "chấp nhận" : "từ chối"} yêu cầu check-out sớm`,
+      record: buildAttendanceRecordResponse(updated),
+    });
+  } catch (error) {
+    console.error("[attendance] approve error", error);
+    res.status(500).json({
+      message: "Không thể duyệt yêu cầu check-out sớm",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * GET /attendance/pending-early-checkouts
+ * Lấy danh sách early checkout requests cần duyệt (HR/Leader)
+ */
+export const getPendingEarlyCheckouts = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    const { page = 1, limit = 20, search } = req.query;
+
+    const UserModel = (await import("../users/user.model.js")).UserModel;
+
+    // Build user query based on role
+    let userQuery = {};
+    if (userRole === "SUPERVISOR") {
+      const user = await UserModel.findById(userId).select("department");
+      if (user?.department) {
+        userQuery.department = user.department;
+        userQuery.role = { $in: ["EMPLOYEE", "SUPERVISOR"] };
+      } else {
+        return res.json({
+          records: [],
+          pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+        });
+      }
+    }
+
+    if (search) {
+      userQuery.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    let userIds = [];
+    if (Object.keys(userQuery).length > 0) {
+      const users = await UserModel.find(userQuery).select("_id");
+      userIds = users.map((u) => u._id);
+      if (userIds.length === 0) {
+        return res.json({
+          records: [],
+          pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+        });
+      }
+    }
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const query = {
+      approvalStatus: "PENDING",
+      earlyCheckoutReason: { $ne: null },
+    };
+
+    if (userIds.length > 0) {
+      query.userId = { $in: userIds };
+    }
+
+    const [docs, total] = await Promise.all([
+      AttendanceModel.find(query)
+        .populate("userId", "name email department branch role")
+        .populate("locationId", "name")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      AttendanceModel.countDocuments(query),
+    ]);
+
+    const records = docs.map((doc) => {
+      const populatedUser =
+        doc.userId && typeof doc.userId === "object" ? doc.userId : null;
+      const departmentValue =
+        populatedUser?.department && typeof populatedUser.department === "object"
+          ? populatedUser.department.name || "N/A"
+          : populatedUser?.department || "N/A";
+
+      // Tính thời gian làm việc
+      let hoursWorked = 0;
+      let minutesWorked = 0;
+      if (doc.checkIn && doc.checkOut) {
+        hoursWorked = (doc.checkOut - doc.checkIn) / (1000 * 60 * 60);
+        minutesWorked = hoursWorked * 60;
+      } else if (doc.checkIn) {
+        const now = new Date();
+        hoursWorked = (now - doc.checkIn) / (1000 * 60 * 60);
+        minutesWorked = hoursWorked * 60;
+      }
+
+      // Map earlyCheckoutReason to readable text
+      const reasonMap = {
+        machine_issue: "Sự cố máy",
+        personal_emergency: "Việc cá nhân khẩn cấp",
+        manager_request: "Theo yêu cầu quản lý",
+      };
+
+      return {
+        id: doc._id.toString(),
+        attendanceId: doc._id.toString(), // For approval API
+        userId: populatedUser?._id?.toString() || doc.userId?.toString(),
+        employeeName: populatedUser?.name || "N/A",
+        email: populatedUser?.email || "N/A",
+        department: departmentValue,
+        branch: doc.locationId?.name || populatedUser?.branch?.name || "N/A",
+        date: formatDateLabel(doc.date),
+        checkIn: formatTime(doc.checkIn),
+        checkOut: formatTime(doc.checkOut),
+        hoursWorked: Math.round(hoursWorked * 100) / 100,
+        minutesWorked: Math.round(minutesWorked),
+        workCredit: doc.workCredit || 0,
+        earlyCheckoutReason: doc.earlyCheckoutReason,
+        reasonText: reasonMap[doc.earlyCheckoutReason] || doc.earlyCheckoutReason,
+        notes: doc.notes || "",
+        submittedAt: doc.createdAt
+          ? new Date(doc.createdAt).toLocaleString("vi-VN")
+          : "N/A",
+      };
+    });
+
+    res.json({
+      records,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error("[attendance] getPendingEarlyCheckouts error", error);
+    res.status(500).json({
+      message: "Không lấy được danh sách yêu cầu check-out sớm",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 

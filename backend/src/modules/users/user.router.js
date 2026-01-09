@@ -47,6 +47,19 @@ userRouter.get(
     UserController.getMyDepartmentMembers
 );
 
+// Upgrade routes - PHẢI đặt TRƯỚC route /:id để tránh conflict
+userRouter.post("/upgrade-trial", UpgradeController.upgradeTrialUser);
+userRouter.get("/upgrade-options", UpgradeController.getUpgradeOptions);
+userRouter.get("/upgrade-eligibility", UpgradeController.checkUpgradeEligibility);
+
+// Admin trial stats - PHẢI đặt TRƯỚC route /:id để tránh conflict
+userRouter.get(
+    "/admin/trial-stats",
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
+    UpgradeController.getTrialStats
+);
+
+// Route /:id phải đặt SAU các route cụ thể để tránh match nhầm
 userRouter.get(
     "/:id",
     requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
@@ -57,18 +70,6 @@ userRouter.put(
     "/:id",
     requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
     UserController.updateUserByAdmin
-);
-
-// Upgrade routes
-userRouter.post("/upgrade-trial", UpgradeController.upgradeTrialUser);
-userRouter.get("/upgrade-options", UpgradeController.getUpgradeOptions);
-userRouter.get("/upgrade-eligibility", UpgradeController.checkUpgradeEligibility);
-
-// Admin trial stats
-userRouter.get(
-    "/admin/trial-stats",
-    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
-    UpgradeController.getTrialStats
 );
 
 

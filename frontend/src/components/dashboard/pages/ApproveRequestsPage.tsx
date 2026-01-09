@@ -29,16 +29,18 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { getAllRequests, approveRequest, rejectRequest, bulkApproveRequests, bulkRejectRequests } from '@/services/requestService'
+import { getPendingEarlyCheckouts, approveEarlyCheckout } from '@/services/attendanceService'
 import { useAuth } from '@/context/AuthContext'
 import type { ErrorWithMessage } from '@/types'
 
 type RequestStatus = 'pending' | 'approved' | 'rejected'
-type RequestType = 'leave' | 'overtime' | 'late' | 'remote'
+type RequestType = 'leave' | 'overtime' | 'late' | 'remote' | 'early_checkout' // ⚠️ MỚI
 type ActionType = 'approve' | 'reject' | null
 type Urgency = 'high' | 'medium' | 'low'
 
 interface Request {
   id: string
+  attendanceId?: string // ⚠️ MỚI: ID của attendance record (cho early checkout)
   status: RequestStatus
   type: RequestType
   employeeName?: string
@@ -55,6 +57,15 @@ interface Request {
   approver?: string
   approvedAt?: string
   comments?: string
+  // ⚠️ MỚI: Early checkout specific fields
+  checkIn?: string
+  checkOut?: string
+  hoursWorked?: number
+  minutesWorked?: number
+  workCredit?: number
+  earlyCheckoutReason?: 'machine_issue' | 'personal_emergency' | 'manager_request'
+  reasonText?: string
+  date?: string
 }
 
 interface GetAllRequestsResponse {
@@ -96,6 +107,7 @@ const ApproveRequestsPage: React.FC = () => {
       overtime: t('dashboard:approveRequests.types.overtime'),
       late: t('dashboard:approveRequests.types.late'),
       remote: t('dashboard:approveRequests.types.remote'),
+      early_checkout: 'Check-out sớm', // ⚠️ MỚI
     }),
     [t]
   )
@@ -107,6 +119,7 @@ const ApproveRequestsPage: React.FC = () => {
       { value: 'overtime', label: typeLabelMap.overtime },
       { value: 'late', label: typeLabelMap.late },
       { value: 'remote', label: typeLabelMap.remote },
+      { value: 'early_checkout', label: typeLabelMap.early_checkout }, // ⚠️ MỚI
     ],
     [t, typeLabelMap]
   )
@@ -170,18 +183,74 @@ const ApproveRequestsPage: React.FC = () => {
   const fetchAllRequests = useCallback(async () => {
     try {
       const params: Record<string, string> = {}
-      if (filterType !== 'all') params.type = filterType
+      if (filterType !== 'all' && filterType !== 'early_checkout') params.type = filterType
       if (filterDepartment !== 'all') params.department = filterDepartment
       if (debouncedSearchQuery) params.search = debouncedSearchQuery
       // Không filter theo status để lấy tất cả
 
       // For SUPERVISOR, only show requests from their department
-      if (user?.role === 'SUPERVISOR' && user?.department) {
-        params.department = user.department
+      // Note: User type may not include department, but API will handle filtering
+      if (user?.role === 'SUPERVISOR') {
+        // Backend will automatically filter by supervisor's department
+        // No need to pass department param here
       }
 
-      const result = await getAllRequests(params) as GetAllRequestsResponse
-      setAllRequests(result.requests || [])
+      // Fetch regular requests
+      const [requestsResult, earlyCheckoutsResult] = await Promise.all([
+        filterType === 'all' || filterType !== 'early_checkout'
+          ? getAllRequests(params).catch(() => ({ requests: [] }))
+          : Promise.resolve({ requests: [] }),
+        filterType === 'all' || filterType === 'early_checkout'
+          ? getPendingEarlyCheckouts({
+              search: debouncedSearchQuery || undefined,
+              page: 1,
+              limit: 1000, // Get all for stats
+            }).catch(() => ({ records: [] }))
+          : Promise.resolve({ records: [] }),
+      ])
+
+      // Convert early checkouts to request format
+      const earlyCheckoutRequests: Request[] = (earlyCheckoutsResult.records || []).map((record: any) => {
+        const hoursWorked = record.hoursWorked ?? 0;
+        const minutesWorked = record.minutesWorked ?? 0;
+        const reasonText = record.reasonText || 'Không có lý do';
+        
+        return {
+          id: record.attendanceId || record.id,
+          attendanceId: record.attendanceId || record.id,
+          status: 'pending' as RequestStatus,
+          type: 'early_checkout' as RequestType,
+          employeeName: record.employeeName,
+          title: `Check-out sớm - ${reasonText}`,
+          description: `Đã làm việc ${minutesWorked} phút (${hoursWorked.toFixed(2)} giờ). Lý do: ${reasonText}`,
+          reason: reasonText,
+          department: record.department,
+          branch: record.branch,
+          startDate: record.date,
+          endDate: record.date,
+          duration: `${minutesWorked} phút`,
+          urgency: 'high' as Urgency,
+          submittedAt: record.submittedAt,
+          // Early checkout specific
+          checkIn: record.checkIn,
+          checkOut: record.checkOut,
+          hoursWorked,
+          minutesWorked,
+          workCredit: record.workCredit ?? 0,
+          earlyCheckoutReason: record.earlyCheckoutReason,
+          reasonText,
+          date: record.date,
+        };
+      })
+
+      // Merge requests - ensure type compatibility
+      const regularRequests: Request[] = (requestsResult.requests || []) as Request[]
+      const allRequestsList: Request[] = [
+        ...regularRequests,
+        ...earlyCheckoutRequests,
+      ]
+
+      setAllRequests(allRequestsList)
     } catch (error) {
       console.error('[ApproveRequests] fetch all error:', error)
       toast.error(t('dashboard:approveRequests.actions.error'))
@@ -244,12 +313,27 @@ const ApproveRequestsPage: React.FC = () => {
     if (!selectedRequest || !actionType) return
 
     try {
-      if (actionType === 'approve') {
-        await approveRequest(selectedRequest.id, comments)
-        toast.success(t('dashboard:approveRequests.actions.approveSuccess'))
+      // ⚠️ MỚI: Early checkout sử dụng API khác
+      if (selectedRequest.type === 'early_checkout' && selectedRequest.attendanceId) {
+        const approvalStatus = actionType === 'approve' ? 'APPROVED' : 'REJECTED'
+        await approveEarlyCheckout(selectedRequest.attendanceId, approvalStatus, {
+          notes: comments || undefined,
+          // workCredit có thể được thêm vào đây nếu cần override giá trị tính toán
+        })
+        toast.success(
+          actionType === 'approve'
+            ? 'Đã phê duyệt yêu cầu check-out sớm'
+            : 'Đã từ chối yêu cầu check-out sớm'
+        )
       } else {
-        await rejectRequest(selectedRequest.id, comments)
-        toast.success(t('dashboard:approveRequests.actions.rejectSuccess'))
+        // Regular requests
+        if (actionType === 'approve') {
+          await approveRequest(selectedRequest.id, comments)
+          toast.success(t('dashboard:approveRequests.actions.approveSuccess'))
+        } else {
+          await rejectRequest(selectedRequest.id, comments)
+          toast.success(t('dashboard:approveRequests.actions.rejectSuccess'))
+        }
       }
       setIsDialogOpen(false)
       setSelectedRequest(null)
@@ -353,6 +437,7 @@ const ApproveRequestsPage: React.FC = () => {
       case 'overtime': return <Sunset className="h-4 w-4" />
       case 'late': return <Clock className="h-4 w-4" />
       case 'remote': return <Briefcase className="h-4 w-4" />
+      case 'early_checkout': return <Clock className="h-4 w-4" /> // ⚠️ MỚI
       default: return <FileText className="h-4 w-4" />
     }
   }
@@ -363,6 +448,7 @@ const ApproveRequestsPage: React.FC = () => {
       case 'overtime': return 'bg-orange-500/20 text-orange-500'
       case 'late': return 'bg-yellow-500/20 text-yellow-500'
       case 'remote': return 'bg-purple-500/20 text-purple-500'
+      case 'early_checkout': return 'bg-red-500/20 text-red-500' // ⚠️ MỚI
       default: return 'bg-gray-500/20 text-gray-500'
     }
   }
@@ -638,8 +724,42 @@ const ApproveRequestsPage: React.FC = () => {
                             <h4 className="text-[var(--text-main)] mb-2">{request.title}</h4>
                             <p className="text-sm text-[var(--text-sub)] mb-3">{request.description || request.reason}</p>
 
+                            {/* ⚠️ MỚI: Early checkout specific info */}
+                            {request.type === 'early_checkout' && (
+                              <div className="mt-3 p-3 rounded-lg bg-[var(--background)]/50 border border-[var(--border)]">
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-[var(--text-sub)]">Ngày:</span>
+                                    <span className="text-[var(--text-main)] ml-2 font-medium">{request.date}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[var(--text-sub)]">Thời gian làm:</span>
+                                    <span className="text-[var(--text-main)] ml-2 font-medium">
+                                      {request.minutesWorked ?? 0} phút ({request.hoursWorked?.toFixed(2) ?? '0.00'} giờ)
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[var(--text-sub)]">Check-in:</span>
+                                    <span className="text-[var(--text-main)] ml-2 font-medium">{request.checkIn || '-'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[var(--text-sub)]">Check-out:</span>
+                                    <span className="text-[var(--text-main)] ml-2 font-medium">{request.checkOut || '-'}</span>
+                                  </div>
+                                  {request.workCredit !== undefined && (
+                                    <div className="col-span-2">
+                                      <span className="text-[var(--text-sub)]">Số công:</span>
+                                      <span className="text-[var(--text-main)] ml-2 font-medium">
+                                        {request.workCredit === 0 ? '0' : request.workCredit === 0.5 ? '0.5' : request.workCredit === 1.0 ? '1.0' : request.workCredit.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
                             {request.submittedAt && (
-                              <div className="text-xs text-[var(--text-sub)]">
+                              <div className="text-xs text-[var(--text-sub)] mt-2">
                                 {t('dashboard:approveRequests.request.sentAt', {
                                   time: request.submittedAt,
                                 })}

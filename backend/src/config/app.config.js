@@ -45,8 +45,11 @@ export const SHIFT_CONFIG = {
 };
 
 export const ATTENDANCE_CONFIG = {
-  // Minimum work hours required for checkout
+  // Minimum work hours required for checkout (legacy, giữ để backward compatibility)
   MIN_WORK_HOURS: parseFloat(process.env.MIN_WORK_HOURS || "4.0"),
+
+  // ⚠️ MỚI: Minimum work minutes required for checkout
+  MIN_WORK_MINUTES: parseInt(process.env.MIN_WORK_MINUTES || "30", 10),
 
   // Break duration in hours (lunch break)
   BREAK_DURATION_HOURS: parseFloat(process.env.BREAK_DURATION_HOURS || "1.0"),
