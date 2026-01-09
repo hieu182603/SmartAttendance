@@ -30,6 +30,20 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     return notifications.filter(n => !n.isRead).length
   }, [notifications])
 
+  // ⚠️ Update favicon badge when unreadCount changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const setFaviconBadge = (window as any).setFaviconBadge
+      if (typeof setFaviconBadge === 'function') {
+        if (unreadCount > 0) {
+          setFaviconBadge(unreadCount)
+        } else {
+          setFaviconBadge(null)
+        }
+      }
+    }
+  }, [unreadCount])
+
   const loadNotifications = useCallback(async () => {
     // Check if user is authenticated before making API call
     const token = localStorage.getItem('sa_token')
