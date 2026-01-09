@@ -429,7 +429,6 @@ export default function LandingPage() {
           className="text-center mb-12"
         >
           <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-gradient-to-r from-[var(--primary)]/20 to-[var(--accent-cyan)]/20 border border-[var(--accent-cyan)]/30 mb-4">
-            <BarChart3 className="h-4 w-4 text-[var(--accent-cyan)]" />
             <span className="text-sm font-medium text-[var(--text-main)]">
               ▶️ Xem Demo
             </span>
