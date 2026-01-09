@@ -28,6 +28,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DepartmentPayrollDetailDialog } from "./DepartmentPayrollDetailDialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,6 +63,7 @@ const PayrollReportsPage: React.FC = () => {
   const [departmentData, setDepartmentData] = useState<DepartmentPayroll[]>([]);
   const [trendData, setTrendData] = useState<MonthlyTrendPoint[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedDeptDetail, setSelectedDeptDetail] = useState<{ name: string; stats: { employees: number; totalSalary: number; avgSalary: number; percentage: number } } | null>(null);
 
   const fetchReports = useCallback(
     async (monthFilter?: string, shouldInitializeMonth = false) => {
@@ -410,7 +412,18 @@ const PayrollReportsPage: React.FC = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]"
+                    className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] hover:shadow-md transition-all"
+                    onClick={() => {
+                      setSelectedDeptDetail({
+                        name: dept.department,
+                        stats: {
+                          employees: dept.employees,
+                          totalSalary: dept.totalSalary,
+                          avgSalary: dept.avgSalary,
+                          percentage: dept.percentage,
+                        },
+                      });
+                    }}
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div>
@@ -533,6 +546,17 @@ const PayrollReportsPage: React.FC = () => {
         <div className="text-center text-sm text-[var(--text-sub)]">
           {t('common:loading')}
         </div>
+      )}
+
+      {/* Department Payroll Detail Dialog */}
+      {selectedDeptDetail && (
+        <DepartmentPayrollDetailDialog
+          isOpen={!!selectedDeptDetail}
+          onClose={() => setSelectedDeptDetail(null)}
+          departmentName={selectedDeptDetail.name}
+          stats={selectedDeptDetail.stats}
+          selectedMonth={selectedMonth}
+        />
       )}
     </div>
   );

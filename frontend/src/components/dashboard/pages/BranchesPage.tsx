@@ -19,7 +19,13 @@ import {
   ChevronsRight,
   Globe,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  MoreVertical,
+  Archive,
+  Merge,
+  ArrowRightLeft,
+  PowerOff,
+  RotateCcw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   getAllBranches,
@@ -36,8 +43,14 @@ import {
   createBranch,
   updateBranch,
   deleteBranch,
+  transferResources,
+  mergeBranches,
+  reactivateBranch,
+  getBranchResources,
+  getBranchesList,
   type Branch as BranchType,
 } from '@/services/branchService';
+import { TransferResourcesWizard } from './TransferResourcesWizard';
 import api from '@/services/api';
 
 interface Branch {
@@ -79,6 +92,14 @@ export function BranchesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteBranchDetails, setDeleteBranchDetails] = useState<Branch | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [isTransferWizardOpen, setIsTransferWizardOpen] = useState(false);
+  const [transferSourceBranch, setTransferSourceBranch] = useState<Branch | null>(null);
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+  const [mergeSourceBranch, setMergeSourceBranch] = useState<Branch | null>(null);
+  const [mergeTargetBranchId, setMergeTargetBranchId] = useState('');
+  const [mergeLoading, setMergeLoading] = useState(false);
+  const [availableBranches, setAvailableBranches] = useState<Array<{ _id: string; name: string; code: string }>>([]);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -116,6 +137,7 @@ export function BranchesPage() {
   useEffect(() => {
     loadManagers();
     loadStats();
+    loadAvailableBranches();
   }, []);
 
   useEffect(() => {
@@ -329,6 +351,99 @@ export function BranchesPage() {
     }
   };
 
+  const handleDeactivate = async (branch: Branch) => {
+    try {
+      await updateBranch(branch._id || branch.id, { status: 'inactive' });
+      toast.success(`Đã vô hiệu hóa chi nhánh ${branch.name}`);
+      await loadBranches();
+      await loadStats();
+      setOpenMenuId(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Không thể vô hiệu hóa chi nhánh');
+    }
+  };
+
+  const handleOpenTransferWizard = async (branch: Branch) => {
+    try {
+      const details = await getBranchById(branch._id || branch.id);
+      setTransferSourceBranch({
+        ...branch,
+        employeeCount: details.branch.employeeCount || 0,
+        departmentCount: details.branch.departmentCount || 0,
+      });
+      setIsTransferWizardOpen(true);
+      setOpenMenuId(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Không thể tải thông tin chi nhánh');
+    }
+  };
+
+  const handleTransfer = async (targetBranchId: string) => {
+    if (!transferSourceBranch) return;
+    await transferResources(transferSourceBranch._id || transferSourceBranch.id, targetBranchId);
+    await loadBranches();
+    await loadStats();
+    setIsTransferWizardOpen(false);
+    setTransferSourceBranch(null);
+  };
+
+  const handleOpenMergeDialog = async (branch: Branch) => {
+    try {
+      const details = await getBranchById(branch._id || branch.id);
+      setMergeSourceBranch({
+        ...branch,
+        employeeCount: details.branch.employeeCount || 0,
+        departmentCount: details.branch.departmentCount || 0,
+      });
+      setMergeTargetBranchId('');
+      setIsMergeDialogOpen(true);
+      setOpenMenuId(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Không thể tải thông tin chi nhánh');
+    }
+  };
+
+  const handleMerge = async () => {
+    if (!mergeSourceBranch || !mergeTargetBranchId) return;
+
+    setMergeLoading(true);
+    try {
+      await mergeBranches(mergeSourceBranch._id || mergeSourceBranch.id, mergeTargetBranchId);
+      toast.success(`Đã sáp nhập ${mergeSourceBranch.name} thành công`);
+      setIsMergeDialogOpen(false);
+      setMergeSourceBranch(null);
+      setMergeTargetBranchId('');
+      await loadBranches();
+      await loadStats();
+      await loadAvailableBranches();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || error.message || 'Không thể sáp nhập chi nhánh');
+    } finally {
+      setMergeLoading(false);
+    }
+  };
+
+  const loadAvailableBranches = async () => {
+    try {
+      const response = await getBranchesList();
+      setAvailableBranches(response.branches);
+    } catch (error) {
+      console.error('Error loading available branches:', error);
+    }
+  };
+
+  const handleReactivate = async (branch: Branch) => {
+    try {
+      await reactivateBranch(branch._id || branch.id);
+      toast.success(`Đã kích hoạt lại chi nhánh ${branch.name}`);
+      await loadBranches();
+      await loadStats();
+      setOpenMenuId(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || error.message || 'Không thể kích hoạt lại chi nhánh');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -497,16 +612,92 @@ export function BranchesPage() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        {branch.id !== 'HQ' && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(branch)}
-                            className="h-8 w-8 text-[var(--error)] hover:bg-[var(--error)]/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        {branch.code !== 'HQ' && (
+                          <div className="relative">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setOpenMenuId(openMenuId === (branch._id || branch.id) ? null : (branch._id || branch.id))}
+                              className="h-8 w-8 text-[var(--text-sub)] hover:bg-[var(--shell)]"
+                              title="Thêm tùy chọn"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                            {openMenuId === (branch._id || branch.id) && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setOpenMenuId(null)}
+                                />
+                                <div className="absolute right-0 top-10 z-20 w-56 rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-lg py-1">
+                                  {branch.status === 'active' ? (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          handleOpenTransferWizard(branch);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                                      >
+                                        <ArrowRightLeft className="h-4 w-4 text-[var(--primary)]" />
+                                        Chuyển tài nguyên
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          handleOpenMergeDialog(branch);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                                      >
+                                        <Merge className="h-4 w-4 text-[var(--accent-cyan)]" />
+                                        Sáp nhập chi nhánh
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          handleDeactivate(branch);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                                      >
+                                        <PowerOff className="h-4 w-4 text-[var(--warning)]" />
+                                        Vô hiệu hóa
+                                      </button>
+                                      <div className="border-t border-[var(--border)] my-1" />
+                                      <button
+                                        onClick={() => {
+                                          handleDelete(branch);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        Xóa chi nhánh
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          handleReactivate(branch);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--success)] hover:bg-[var(--success)]/10 transition-colors"
+                                      >
+                                        <RotateCcw className="h-4 w-4" />
+                                        Kích hoạt lại
+                                      </button>
+                                      <div className="border-t border-[var(--border)] my-1" />
+                                      <button
+                                        onClick={() => {
+                                          handleDelete(branch);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        Xóa chi nhánh
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1122,24 +1313,164 @@ export function BranchesPage() {
             </div>
           )}
 
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {(deleteBranchDetails?.employeeCount || 0) > 0 || (deleteBranchDetails?.departmentCount || 0) > 0 ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsDeleteDialogOpen(false);
+                    setDeleteBranchDetails(null);
+                  }}
+                  disabled={deleteLoading}
+                  className="border-[var(--border)] text-[var(--text-main)] flex-1"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (deleteBranchDetails) {
+                      setIsDeleteDialogOpen(false);
+                      handleOpenTransferWizard(deleteBranchDetails);
+                      setDeleteBranchDetails(null);
+                    }
+                  }}
+                  disabled={deleteLoading}
+                  className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white flex-1"
+                >
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  Chuyển tài nguyên
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsDeleteDialogOpen(false);
+                    setDeleteBranchDetails(null);
+                  }}
+                  disabled={deleteLoading}
+                  className="border-[var(--border)] text-[var(--text-main)]"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={confirmDelete}
+                  disabled={deleteLoading}
+                  className="bg-[var(--error)] hover:bg-[var(--error)]/80 text-white"
+                >
+                  {deleteLoading ? 'Đang xóa...' : 'Xác nhận xóa'}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Resources Wizard */}
+      {transferSourceBranch && (
+        <TransferResourcesWizard
+          isOpen={isTransferWizardOpen}
+          onClose={() => {
+            setIsTransferWizardOpen(false);
+            setTransferSourceBranch(null);
+          }}
+          sourceBranchId={transferSourceBranch._id || transferSourceBranch.id}
+          sourceBranchName={transferSourceBranch.name}
+          onTransfer={handleTransfer}
+        />
+      )}
+
+      {/* Merge Branches Dialog */}
+      <Dialog open={isMergeDialogOpen} onOpenChange={setIsMergeDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[var(--text-main)] flex items-center gap-2">
+              <Merge className="h-5 w-5 text-[var(--accent-cyan)]" />
+              Sáp nhập chi nhánh
+            </DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Sáp nhập <strong>{mergeSourceBranch?.name}</strong> vào chi nhánh khác. Tất cả tài nguyên sẽ được chuyển và chi nhánh này sẽ bị vô hiệu hóa.
+            </DialogDescription>
+          </DialogHeader>
+
+          {mergeSourceBranch && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
+                <p className="font-semibold text-[var(--text-main)] mb-2">
+                  {mergeSourceBranch.name}
+                </p>
+                <p className="text-sm text-[var(--text-sub)]">
+                  Mã: {mergeSourceBranch.code} • {mergeSourceBranch.city}
+                </p>
+                {(mergeSourceBranch.employeeCount || 0) > 0 && (
+                  <p className="text-sm text-[var(--text-sub)] mt-2">
+                    • {mergeSourceBranch.employeeCount} nhân viên
+                  </p>
+                )}
+                {(mergeSourceBranch.departmentCount || 0) > 0 && (
+                  <p className="text-sm text-[var(--text-sub)]">
+                    • {mergeSourceBranch.departmentCount} phòng ban
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-[var(--text-main)] mb-2 block">
+                  Chọn chi nhánh đích để sáp nhập
+                </Label>
+                <Select value={mergeTargetBranchId} onValueChange={setMergeTargetBranchId}>
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                    <SelectValue placeholder="Chọn chi nhánh đích..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableBranches
+                      .filter((b) => b._id !== (mergeSourceBranch._id || mergeSourceBranch.id))
+                      .map((branch) => (
+                        <SelectItem key={branch._id} value={branch._id}>
+                          {branch.name} ({branch.code})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="p-4 rounded-lg bg-[var(--warning)]/10 border border-[var(--warning)]/30">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-[var(--warning)] mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium text-[var(--warning)] mb-1">
+                      Lưu ý quan trọng
+                    </p>
+                    <p className="text-sm text-[var(--text-sub)]">
+                      Sau khi sáp nhập, chi nhánh <strong>{mergeSourceBranch.name}</strong> sẽ bị vô hiệu hóa và không thể hoạt động trở lại.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
-                setIsDeleteDialogOpen(false);
-                setDeleteBranchDetails(null);
+                setIsMergeDialogOpen(false);
+                setMergeSourceBranch(null);
+                setMergeTargetBranchId('');
               }}
-              disabled={deleteLoading}
+              disabled={mergeLoading}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
               Hủy
             </Button>
             <Button
-              onClick={confirmDelete}
-              disabled={deleteLoading || (deleteBranchDetails?.employeeCount || 0) > 0 || (deleteBranchDetails?.departmentCount || 0) > 0}
-              className="bg-[var(--error)] hover:bg-[var(--error)]/80 text-white"
+              onClick={handleMerge}
+              disabled={mergeLoading || !mergeTargetBranchId}
+              className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
             >
-              {deleteLoading ? 'Đang xóa...' : 'Xác nhận xóa'}
+              {mergeLoading ? 'Đang sáp nhập...' : 'Xác nhận sáp nhập'}
             </Button>
           </DialogFooter>
         </DialogContent>

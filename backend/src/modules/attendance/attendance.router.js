@@ -53,16 +53,8 @@ attendanceRouter.get(
   requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
   getAllAttendance
 );
-attendanceRouter.patch(
-  "/:id",
-  requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
-  updateAttendanceRecord
-);
-attendanceRouter.delete(
-  "/:id",
-  requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
-  deleteAttendanceRecord
-);
+// ⚠️ Specific routes MUST be defined BEFORE generic parameterized routes
+// to prevent Express from matching them incorrectly
 attendanceRouter.get(
   "/department",
   requireRole([ROLES.MANAGER, ROLES.SUPERVISOR]),
@@ -89,4 +81,15 @@ attendanceRouter.patch(
     ROLES.SUPER_ADMIN,
   ]),
   approveEarlyCheckout
+);
+// Generic parameterized routes should be defined LAST
+attendanceRouter.patch(
+  "/:id",
+  requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
+  updateAttendanceRecord
+);
+attendanceRouter.delete(
+  "/:id",
+  requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]),
+  deleteAttendanceRecord
 );

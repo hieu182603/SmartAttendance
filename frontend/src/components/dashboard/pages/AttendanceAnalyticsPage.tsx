@@ -28,6 +28,7 @@ import {
   ResponsiveContainer
 } from 'recharts'
 import { getAttendanceAnalytics, exportAttendanceAnalytics } from '@/services/attendanceService'
+import { DepartmentAttendanceDetailDialog } from './DepartmentAttendanceDetailDialog'
 
 type Period = '7days' | '30days' | '90days'
 
@@ -82,6 +83,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('7days')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [loading, setLoading] = useState(false)
+  const [selectedDeptDetail, setSelectedDeptDetail] = useState<{ name: string; stats: { onTime: number; late: number; absent: number } } | null>(null)
   const [data, setData] = useState<AnalyticsData>({
     dailyData: [],
     departmentStats: [],
@@ -425,7 +427,17 @@ const AttendanceAnalyticsPage: React.FC = () => {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]"
+                  className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] hover:shadow-md transition-all"
+                  onClick={() => {
+                    setSelectedDeptDetail({
+                      name: dept.department,
+                      stats: {
+                        onTime: dept.onTime,
+                        late: dept.late,
+                        absent: dept.absent,
+                      },
+                    });
+                  }}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-[var(--text-main)]">{dept.department}</h3>
@@ -540,6 +552,16 @@ const AttendanceAnalyticsPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Department Attendance Detail Dialog */}
+      {selectedDeptDetail && (
+        <DepartmentAttendanceDetailDialog
+          isOpen={!!selectedDeptDetail}
+          onClose={() => setSelectedDeptDetail(null)}
+          departmentName={selectedDeptDetail.name}
+          stats={selectedDeptDetail.stats}
+        />
+      )}
     </div>
   )
 }

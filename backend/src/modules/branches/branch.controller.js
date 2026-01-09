@@ -187,5 +187,100 @@ export class BranchController {
       res.status(500).json({ message: error.message || "Không xóa được chi nhánh" });
     }
   }
+
+  /**
+   * POST /api/branches/:id/transfer
+   * Chuyển tài nguyên từ chi nhánh này sang chi nhánh khác
+   */
+  static async transferResources(req, res) {
+    try {
+      const { id } = req.params;
+      const { targetBranchId } = req.body;
+
+      if (!targetBranchId) {
+        return res.status(400).json({ message: "Vui lòng chọn chi nhánh đích" });
+      }
+
+      const result = await BranchService.transferResources(id, targetBranchId);
+      res.json(result);
+    } catch (error) {
+      console.error("[branches] transferResources error:", error);
+      if (
+        error.message.includes("Không tìm thấy") ||
+        error.message.includes("Không thể chuyển") ||
+        error.message.includes("trụ sở chính")
+      ) {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: error.message || "Không chuyển được tài nguyên" });
+    }
+  }
+
+  /**
+   * POST /api/branches/:id/merge
+   * Sáp nhập chi nhánh: Chuyển tài nguyên và vô hiệu hóa chi nhánh nguồn
+   */
+  static async mergeBranches(req, res) {
+    try {
+      const { id } = req.params;
+      const { targetBranchId } = req.body;
+
+      if (!targetBranchId) {
+        return res.status(400).json({ message: "Vui lòng chọn chi nhánh đích để sáp nhập" });
+      }
+
+      const result = await BranchService.mergeBranches(id, targetBranchId);
+      res.json(result);
+    } catch (error) {
+      console.error("[branches] mergeBranches error:", error);
+      if (
+        error.message.includes("Không tìm thấy") ||
+        error.message.includes("Không thể") ||
+        error.message.includes("trụ sở chính")
+      ) {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: error.message || "Không sáp nhập được chi nhánh" });
+    }
+  }
+
+  /**
+   * GET /api/branches/:id/resources
+   * Lấy danh sách nhân viên và phòng ban của chi nhánh (cho preview)
+   */
+  static async getBranchResources(req, res) {
+    try {
+      const { id } = req.params;
+      const resources = await BranchService.getBranchResources(id);
+      res.json(resources);
+    } catch (error) {
+      console.error("[branches] getBranchResources error:", error);
+      if (error.message === "Không tìm thấy chi nhánh") {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: error.message || "Không lấy được thông tin tài nguyên" });
+    }
+  }
+
+  /**
+   * POST /api/branches/:id/reactivate
+   * Kích hoạt lại chi nhánh
+   */
+  static async reactivateBranch(req, res) {
+    try {
+      const { id } = req.params;
+      const result = await BranchService.reactivateBranch(id);
+      res.json(result);
+    } catch (error) {
+      console.error("[branches] reactivateBranch error:", error);
+      if (
+        error.message.includes("Không tìm thấy") ||
+        error.message.includes("đang hoạt động")
+      ) {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: error.message || "Không thể kích hoạt lại chi nhánh" });
+    }
+  }
 }
 
