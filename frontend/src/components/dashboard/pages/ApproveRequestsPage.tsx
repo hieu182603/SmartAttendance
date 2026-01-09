@@ -610,16 +610,16 @@ const ApproveRequestsPage: React.FC = () => {
         <CardContent>
           {/* Bulk Actions Bar */}
           {selectedTab === 'pending' && filteredRequests.filter(req => req.status === 'pending').length > 0 && (
-            <div className="mb-4 flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--shell)] p-4">
+            <div className="mb-4 flex items-center justify-between rounded-lg border border-[var(--border)] bg-gradient-to-r from-[var(--shell)] to-[var(--surface)] p-4 shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)]">
                   <Checkbox
                     checked={isAllSelected}
                     onCheckedChange={handleSelectAll}
-                    className="border-[var(--border)]"
+                    className={`border-[var(--primary)] ${isAllSelected ? 'bg-[var(--primary)]' : ''}`}
                   />
-                  <Label className="text-sm text-[var(--text-main)] cursor-pointer">
-                    Chọn tất cả ({selectedIds.size} đã chọn)
+                  <Label className="text-sm font-medium text-[var(--text-main)] cursor-pointer">
+                    Chọn tất cả <span className="text-[var(--primary)]">({selectedIds.size} đã chọn)</span>
                   </Label>
                 </div>
               </div>

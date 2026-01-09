@@ -813,7 +813,18 @@ export default function PayrollPage() {
                         </TableCell>
                       </TableRow>
                     ))
-                  ) : null}
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-4">
+                          <Users className="h-12 w-12 text-[var(--text-sub)] opacity-50" />
+                          <p className="text-[var(--text-sub)]">
+                            {t("payroll.noData")}
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -921,10 +932,19 @@ export default function PayrollPage() {
                     </CardContent>
                   </Card>
                 ))
-              ) : null}
+              ) : (
+                <div className="text-center py-12">
+                  <div className="flex flex-col items-center gap-4">
+                    <Users className="h-12 w-12 text-[var(--text-sub)] opacity-50" />
+                    <p className="text-[var(--text-sub)]">
+                      {t("payroll.noData")}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {!loading && payrollData.length === 0 && (
+            {!loading && filteredData.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}

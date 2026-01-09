@@ -193,7 +193,7 @@ async function seed() {
             {
                 name: 'Phòng Phát triển',
                 code: 'DEV',
-                description: 'Phòng ban phát triển phần mềm và công nghệ',
+                description: 'Phòng ban phát triển phần mềm',
                 branchId: branches[0]._id, // HQ
                 managerId: null, // Sẽ gán sau
                 budget: 5000000000,

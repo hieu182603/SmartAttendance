@@ -197,6 +197,27 @@ export class BranchService {
   }
 
   /**
+   * Kích hoạt lại chi nhánh (Reactivate)
+   */
+  static async reactivateBranch(id) {
+    const branch = await BranchModel.findById(id);
+    if (!branch) {
+      throw new Error("Không tìm thấy chi nhánh");
+    }
+
+    if (branch.status === "active") {
+      throw new Error("Chi nhánh này đang hoạt động");
+    }
+
+    // Kích hoạt lại: Chuyển status sang "active" và xóa deletedAt
+    branch.status = "active";
+    branch.deletedAt = null;
+    await branch.save();
+
+    return { message: "Đã kích hoạt lại chi nhánh thành công", branch };
+  }
+
+  /**
    * Xóa chi nhánh (Soft Delete)
    */
   static async deleteBranch(id) {
@@ -279,6 +300,138 @@ export class BranchService {
       .sort({ name: 1 });
 
     return branches;
+  }
+
+  /**
+   * Chuyển tài nguyên từ chi nhánh này sang chi nhánh khác
+   * @param {string} sourceBranchId - ID chi nhánh nguồn
+   * @param {string} targetBranchId - ID chi nhánh đích
+   * @returns {Promise<Object>} Kết quả chuyển tài nguyên
+   */
+  static async transferResources(sourceBranchId, targetBranchId) {
+    const sourceBranch = await BranchModel.findById(sourceBranchId);
+    if (!sourceBranch) {
+      throw new Error("Không tìm thấy chi nhánh nguồn");
+    }
+
+    const targetBranch = await BranchModel.findById(targetBranchId);
+    if (!targetBranch) {
+      throw new Error("Không tìm thấy chi nhánh đích");
+    }
+
+    if (sourceBranchId === targetBranchId) {
+      throw new Error("Không thể chuyển tài nguyên vào chính chi nhánh đó");
+    }
+
+    if (sourceBranch.code === "HQ") {
+      throw new Error("Không thể chuyển tài nguyên từ trụ sở chính");
+    }
+
+    // Đếm tài nguyên hiện tại
+    const employeeCount = await UserModel.countDocuments({ branch: sourceBranchId });
+    const departmentCount = await DepartmentModel.countDocuments({ branchId: sourceBranchId });
+
+    // Chuyển nhân viên
+    const employeeResult = await UserModel.updateMany(
+      { branch: sourceBranchId },
+      { $set: { branch: targetBranchId } }
+    );
+
+    // Chuyển phòng ban
+    const departmentResult = await DepartmentModel.updateMany(
+      { branchId: sourceBranchId },
+      { $set: { branchId: targetBranchId } }
+    );
+
+    return {
+      message: "Đã chuyển tài nguyên thành công",
+      transferred: {
+        employees: employeeResult.modifiedCount,
+        departments: departmentResult.modifiedCount,
+      },
+      source: {
+        branchId: sourceBranchId,
+        branchName: sourceBranch.name,
+        branchCode: sourceBranch.code,
+      },
+      target: {
+        branchId: targetBranchId,
+        branchName: targetBranch.name,
+        branchCode: targetBranch.code,
+      },
+    };
+  }
+
+  /**
+   * Sáp nhập chi nhánh: Chuyển tài nguyên và vô hiệu hóa chi nhánh nguồn
+   * @param {string} sourceBranchId - ID chi nhánh nguồn (sẽ bị vô hiệu hóa)
+   * @param {string} targetBranchId - ID chi nhánh đích (sẽ nhận tài nguyên)
+   * @returns {Promise<Object>} Kết quả sáp nhập
+   */
+  static async mergeBranches(sourceBranchId, targetBranchId) {
+    // Chuyển tài nguyên trước
+    const transferResult = await this.transferResources(sourceBranchId, targetBranchId);
+
+    // Vô hiệu hóa chi nhánh nguồn
+    const sourceBranch = await BranchModel.findById(sourceBranchId);
+    if (!sourceBranch) {
+      throw new Error("Không tìm thấy chi nhánh nguồn để vô hiệu hóa");
+    }
+    sourceBranch.status = "inactive";
+    sourceBranch.deletedAt = new Date();
+    await sourceBranch.save();
+
+    return {
+      message: "Đã sáp nhập chi nhánh thành công",
+      ...transferResult,
+    };
+  }
+
+  /**
+   * Lấy danh sách nhân viên và phòng ban của chi nhánh (cho preview)
+   * @param {string} branchId - ID chi nhánh
+   * @returns {Promise<Object>} Danh sách nhân viên và phòng ban
+   */
+  static async getBranchResources(branchId) {
+    const branch = await BranchModel.findById(branchId);
+    if (!branch) {
+      throw new Error("Không tìm thấy chi nhánh");
+    }
+
+    const employees = await UserModel.find({ branch: branchId })
+      .select("_id name email role isActive")
+      .sort({ name: 1 });
+
+    const departments = await DepartmentModel.find({ branchId: branchId })
+      .select("_id name code status")
+      .sort({ name: 1 });
+
+    return {
+      branch: {
+        _id: branch._id,
+        name: branch.name,
+        code: branch.code,
+      },
+      employees: employees.map((emp) => ({
+        _id: emp._id,
+        name: emp.name,
+        email: emp.email,
+        role: emp.role,
+        isActive: emp.isActive,
+      })),
+      departments: departments.map((dept) => ({
+        _id: dept._id,
+        name: dept.name,
+        code: dept.code,
+        status: dept.status,
+      })),
+      counts: {
+        totalEmployees: employees.length,
+        activeEmployees: employees.filter((e) => e.isActive).length,
+        totalDepartments: departments.length,
+        activeDepartments: departments.filter((d) => d.status === "active").length,
+      },
+    };
   }
 }
 

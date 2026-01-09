@@ -17,7 +17,11 @@ branchRouter.use(requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]));
 branchRouter.get("/", BranchController.getAllBranches);
 branchRouter.get("/stats", BranchController.getStats);
 branchRouter.get("/:id", BranchController.getBranchById);
+branchRouter.get("/:id/resources", BranchController.getBranchResources);
 branchRouter.post("/", BranchController.createBranch);
+branchRouter.post("/:id/transfer", BranchController.transferResources);
+branchRouter.post("/:id/merge", BranchController.mergeBranches);
+branchRouter.post("/:id/reactivate", BranchController.reactivateBranch);
 branchRouter.put("/:id", BranchController.updateBranch);
 branchRouter.delete("/:id", BranchController.deleteBranch);
 

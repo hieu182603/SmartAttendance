@@ -16,7 +16,13 @@ import {
     ChevronRight,
     ChevronLeft,
     ChevronsLeft,
-    ChevronsRight
+    ChevronsRight,
+    MoreVertical,
+    Merge,
+    ArrowRightLeft,
+    PowerOff,
+    CheckCircle2,
+    RotateCcw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,8 +41,15 @@ import {
     createDepartment,
     updateDepartment,
     deleteDepartment,
+    transferEmployees,
+    transferSelectedEmployees,
+    mergeDepartments,
+    reactivateDepartment,
+    getDepartmentsList,
     type Department as DepartmentType,
 } from '@/services/departmentService';
+import { TransferEmployeesWizard } from './TransferEmployeesWizard';
+import { SelectiveTransferEmployeesWizard } from './SelectiveTransferEmployeesWizard';
 import { getBranchesList } from '@/services/branchService';
 import api from '@/services/api';
 
@@ -85,6 +98,16 @@ export function DepartmentsPage() {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [deleteDepartmentDetails, setDeleteDepartmentDetails] = useState<Department | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [isTransferWizardOpen, setIsTransferWizardOpen] = useState(false);
+    const [transferSourceDepartment, setTransferSourceDepartment] = useState<Department | null>(null);
+    const [isSelectiveTransferWizardOpen, setIsSelectiveTransferWizardOpen] = useState(false);
+    const [selectiveTransferSourceDepartment, setSelectiveTransferSourceDepartment] = useState<Department | null>(null);
+    const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+    const [mergeSourceDepartment, setMergeSourceDepartment] = useState<Department | null>(null);
+    const [mergeTargetDepartmentId, setMergeTargetDepartmentId] = useState('');
+    const [mergeLoading, setMergeLoading] = useState(false);
+    const [availableDepartments, setAvailableDepartments] = useState<Array<{ _id: string; name: string; code: string }>>([]);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -316,6 +339,151 @@ export function DepartmentsPage() {
         }
     };
 
+    const handleDeactivate = async (department: Department) => {
+        try {
+            await updateDepartment(department._id || department.id, { status: 'inactive' });
+            toast.success(`Đã vô hiệu hóa phòng ban ${department.name}`);
+            await loadDepartments();
+            await loadStats();
+            setOpenMenuId(null);
+        } catch (error: any) {
+            toast.error(error.message || 'Không thể vô hiệu hóa phòng ban');
+        }
+    };
+
+    const handleOpenTransferWizard = async (department: Department) => {
+        try {
+            const details = await getDepartmentById(department._id || department.id);
+            // Đảm bảo branchId được lấy đúng từ details
+            const branchId = typeof details.department.branchId === 'string' 
+                ? details.department.branchId 
+                : (details.department.branchId as any)?._id || 
+                  (typeof department.branchId === 'string' 
+                    ? department.branchId 
+                    : (department.branchId as any)?._id || '');
+            setTransferSourceDepartment({
+                ...department,
+                branchId: branchId, // Đảm bảo branchId là string
+                employeeCount: details.department.employeeCount || 0,
+                activeEmployees: details.department.activeEmployees || 0,
+            });
+            setIsTransferWizardOpen(true);
+            setOpenMenuId(null);
+        } catch (error: any) {
+            toast.error(error.message || 'Không thể tải thông tin phòng ban');
+        }
+    };
+
+    const handleTransfer = async (targetDepartmentId: string) => {
+        if (!transferSourceDepartment) return;
+        await transferEmployees(transferSourceDepartment._id || transferSourceDepartment.id, targetDepartmentId);
+        await loadDepartments();
+        await loadStats();
+        setIsTransferWizardOpen(false);
+        setTransferSourceDepartment(null);
+    };
+
+    const handleOpenMergeDialog = async (department: Department) => {
+        try {
+            const details = await getDepartmentById(department._id || department.id);
+            // Lấy branchId từ details để đảm bảo chính xác
+            const branchId = typeof details.department.branchId === 'string' 
+                ? details.department.branchId 
+                : (details.department.branchId as any)?._id || 
+                  (typeof department.branchId === 'string' 
+                    ? department.branchId 
+                    : (department.branchId as any)?._id || '');
+            setMergeSourceDepartment({
+                ...department,
+                employeeCount: details.department.employeeCount || 0,
+                activeEmployees: details.department.activeEmployees || 0,
+            });
+            setMergeTargetDepartmentId('');
+            setIsMergeDialogOpen(true);
+            setOpenMenuId(null);
+            // Load available departments for merge
+            if (branchId) {
+                try {
+                    const depts = await getDepartmentsList(branchId);
+                    setAvailableDepartments(depts.departments.filter(d => d._id !== (department._id || department.id)));
+                } catch (error: any) {
+                    console.error('Error loading departments for merge:', error);
+                    setAvailableDepartments([]);
+                }
+            } else {
+                setAvailableDepartments([]);
+            }
+        } catch (error: any) {
+            toast.error(error.message || 'Không thể tải thông tin phòng ban');
+        }
+    };
+
+    const handleMerge = async () => {
+        if (!mergeSourceDepartment || !mergeTargetDepartmentId) return;
+
+        setMergeLoading(true);
+        try {
+            await mergeDepartments(mergeSourceDepartment._id || mergeSourceDepartment.id, mergeTargetDepartmentId);
+            toast.success(`Đã sáp nhập ${mergeSourceDepartment.name} thành công`);
+            setIsMergeDialogOpen(false);
+            setMergeSourceDepartment(null);
+            setMergeTargetDepartmentId('');
+            await loadDepartments();
+            await loadStats();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || error.message || 'Không thể sáp nhập phòng ban');
+        } finally {
+            setMergeLoading(false);
+        }
+    };
+
+    const handleReactivate = async (department: Department) => {
+        try {
+            await reactivateDepartment(department._id || department.id);
+            toast.success(`Đã kích hoạt lại phòng ban ${department.name}`);
+            await loadDepartments();
+            await loadStats();
+            setOpenMenuId(null);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || error.message || 'Không thể kích hoạt lại phòng ban');
+        }
+    };
+
+    const handleOpenSelectiveTransferWizard = async (department: Department) => {
+        try {
+            const details = await getDepartmentById(department._id || department.id);
+            const branchId = typeof details.department.branchId === 'string' 
+                ? details.department.branchId 
+                : (details.department.branchId as any)?._id || 
+                  (typeof department.branchId === 'string' 
+                    ? department.branchId 
+                    : (department.branchId as any)?._id || '');
+            setSelectiveTransferSourceDepartment({
+                ...department,
+                branchId: branchId,
+                employeeCount: details.department.employeeCount || 0,
+                activeEmployees: details.department.activeEmployees || 0,
+            });
+            setIsSelectiveTransferWizardOpen(true);
+            setOpenMenuId(null);
+        } catch (error: any) {
+            toast.error(error.message || 'Không thể tải thông tin phòng ban');
+        }
+    };
+
+    const handleSelectiveTransfer = async (targetDepartmentId: string, employeeIds: string[]) => {
+        if (!selectiveTransferSourceDepartment) return;
+        await transferSelectedEmployees(
+            selectiveTransferSourceDepartment._id || selectiveTransferSourceDepartment.id,
+            targetDepartmentId,
+            employeeIds
+        );
+        await loadDepartments();
+        await loadStats();
+        setIsSelectiveTransferWizardOpen(false);
+        setSelectiveTransferSourceDepartment(null);
+    };
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
     };
@@ -499,14 +667,98 @@ export function DepartmentsPage() {
                                         >
                                             <Edit className="h-4 w-4" />
                                         </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleDelete(department)}
-                                            className="h-8 w-8 text-[var(--error)] hover:bg-[var(--error)]/10"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        <div className="relative">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => setOpenMenuId(openMenuId === (department._id || department.id) ? null : (department._id || department.id))}
+                                                className="h-8 w-8 text-[var(--text-sub)] hover:bg-[var(--shell)]"
+                                            >
+                                                <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                            {openMenuId === (department._id || department.id) && (
+                                                <>
+                                                    <div
+                                                        className="fixed inset-0 z-10"
+                                                        onClick={() => setOpenMenuId(null)}
+                                                    />
+                                                    <div className="absolute right-0 top-10 z-20 w-56 rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-lg py-1">
+                                                        {department.status === 'active' ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleOpenTransferWizard(department);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                                                                >
+                                                                    <ArrowRightLeft className="h-4 w-4 text-[var(--primary)]" />
+                                                                    Chuyển tất cả nhân viên
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleOpenSelectiveTransferWizard(department);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                                                                >
+                                                                    <Users className="h-4 w-4 text-[var(--accent-cyan)]" />
+                                                                    Chuyển nhân viên
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleOpenMergeDialog(department);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                                                                >
+                                                                    <Merge className="h-4 w-4 text-[var(--accent-cyan)]" />
+                                                                    Sáp nhập phòng ban
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleDeactivate(department);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                                                                >
+                                                                    <PowerOff className="h-4 w-4 text-[var(--warning)]" />
+                                                                    Vô hiệu hóa
+                                                                </button>
+                                                                <div className="border-t border-[var(--border)] my-1" />
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleDelete(department);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                    Xóa phòng ban
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleReactivate(department);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--success)] hover:bg-[var(--success)]/10 transition-colors"
+                                                                >
+                                                                    <RotateCcw className="h-4 w-4" />
+                                                                    Kích hoạt lại
+                                                                </button>
+                                                                <div className="border-t border-[var(--border)] my-1" />
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleDelete(department);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-[var(--error)] hover:bg-[var(--error)]/10 transition-colors"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                    Xóa phòng ban
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -551,7 +803,7 @@ export function DepartmentsPage() {
 
                                 <Button
                                     variant="outline"
-                                    className="w-full border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
+                                    className="w-full border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)] h-9 flex items-center justify-center"
                                     size="sm"
                                     onClick={() => {
                                         setSelectedDepartment(department);
@@ -819,7 +1071,15 @@ export function DepartmentsPage() {
                                 <div className="flex flex-col items-center text-center p-3 rounded-lg bg-[var(--shell)] mt-4">
                                     <BarChart3 className="h-8 w-8 text-[var(--success)] mb-2" />
                                     <p className="text-sm text-[var(--text-sub)]">Ngày thành lập</p>
-                                    <p className="text-[var(--text-main)] font-medium mt-1">{selectedDepartment.createdAt}</p>
+                                    <p className="text-[var(--text-main)] font-medium mt-1">
+                                        {selectedDepartment.createdAt 
+                                            ? new Date(selectedDepartment.createdAt).toLocaleDateString('vi-VN', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric'
+                                            })
+                                            : 'N/A'}
+                                    </p>
                                 </div>
                             </div>
 
@@ -929,28 +1189,183 @@ export function DepartmentsPage() {
                         </div>
                     )}
 
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        {(deleteDepartmentDetails?.employeeCount || 0) > 0 ? (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsDeleteDialogOpen(false);
+                                        setDeleteDepartmentDetails(null);
+                                    }}
+                                    disabled={deleteLoading}
+                                    className="border-[var(--border)] text-[var(--text-main)] flex-1"
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    onClick={() => {
+                                        if (deleteDepartmentDetails) {
+                                            setIsDeleteDialogOpen(false);
+                                            handleOpenTransferWizard(deleteDepartmentDetails);
+                                            setDeleteDepartmentDetails(null);
+                                        }
+                                    }}
+                                    disabled={deleteLoading}
+                                    className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white flex-1"
+                                >
+                                    <ArrowRightLeft className="h-4 w-4 mr-2" />
+                                    Chuyển nhân viên
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsDeleteDialogOpen(false);
+                                        setDeleteDepartmentDetails(null);
+                                    }}
+                                    disabled={deleteLoading}
+                                    className="border-[var(--border)] text-[var(--text-main)]"
+                                >
+                                    Hủy
+                                </Button>
+                                <Button
+                                    onClick={confirmDelete}
+                                    disabled={deleteLoading}
+                                    className="bg-[var(--error)] hover:bg-[var(--error)]/80 text-white"
+                                >
+                                    {deleteLoading ? 'Đang xóa...' : 'Xác nhận xóa'}
+                                </Button>
+                            </>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Transfer Employees Wizard */}
+            {transferSourceDepartment && (
+                <TransferEmployeesWizard
+                    isOpen={isTransferWizardOpen}
+                    onClose={() => {
+                        setIsTransferWizardOpen(false);
+                        setTransferSourceDepartment(null);
+                    }}
+                    sourceDepartmentId={transferSourceDepartment._id || transferSourceDepartment.id}
+                    sourceDepartmentName={transferSourceDepartment.name}
+                    sourceBranchId={transferSourceDepartment.branchId as string}
+                    onTransfer={handleTransfer}
+                />
+            )}
+
+            {/* Merge Departments Dialog */}
+            <Dialog open={isMergeDialogOpen} onOpenChange={setIsMergeDialogOpen}>
+                <DialogContent className="bg-[var(--surface)] border-[var(--border)] max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-[var(--text-main)] flex items-center gap-2">
+                            <Merge className="h-5 w-5 text-[var(--accent-cyan)]" />
+                            Sáp nhập phòng ban
+                        </DialogTitle>
+                        <DialogDescription className="text-[var(--text-sub)]">
+                            Sáp nhập <strong>{mergeSourceDepartment?.name}</strong> vào phòng ban khác. Tất cả nhân viên sẽ được chuyển và phòng ban này sẽ bị vô hiệu hóa.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {mergeSourceDepartment && (
+                        <div className="space-y-4 py-4">
+                            <div className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
+                                <p className="font-semibold text-[var(--text-main)] mb-2">
+                                    {mergeSourceDepartment.name}
+                                </p>
+                                <p className="text-sm text-[var(--text-sub)]">
+                                    Mã: {mergeSourceDepartment.code}
+                                </p>
+                                {(mergeSourceDepartment.employeeCount || 0) > 0 && (
+                                    <p className="text-sm text-[var(--text-sub)] mt-2">
+                                        • {mergeSourceDepartment.employeeCount} nhân viên
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label className="text-[var(--text-main)] mb-2 block">
+                                    Chọn phòng ban đích để sáp nhập
+                                </Label>
+                                <Select value={mergeTargetDepartmentId} onValueChange={setMergeTargetDepartmentId}>
+                                    <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                                        <SelectValue placeholder="Chọn phòng ban đích..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableDepartments.length === 0 ? (
+                                            <div className="px-3 py-2 text-sm text-[var(--text-sub)]">
+                                                Không có phòng ban nào trong cùng chi nhánh
+                                            </div>
+                                        ) : (
+                                            availableDepartments.map((dept) => (
+                                                <SelectItem key={dept._id} value={dept._id}>
+                                                    {dept.name} ({dept.code})
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="p-4 rounded-lg bg-[var(--warning)]/10 border border-[var(--warning)]/30">
+                                <div className="flex items-start gap-3">
+                                    <CheckCircle2 className="h-5 w-5 text-[var(--warning)] mt-0.5" />
+                                    <div className="flex-1">
+                                        <p className="font-medium text-[var(--warning)] mb-1">
+                                            Lưu ý quan trọng
+                                        </p>
+                                        <p className="text-sm text-[var(--text-sub)]">
+                                            Sau khi sáp nhập, phòng ban <strong>{mergeSourceDepartment.name}</strong> sẽ bị vô hiệu hóa và không thể hoạt động trở lại.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <DialogFooter>
                         <Button
                             variant="outline"
                             onClick={() => {
-                                setIsDeleteDialogOpen(false);
-                                setDeleteDepartmentDetails(null);
+                                setIsMergeDialogOpen(false);
+                                setMergeSourceDepartment(null);
+                                setMergeTargetDepartmentId('');
                             }}
-                            disabled={deleteLoading}
+                            disabled={mergeLoading}
                             className="border-[var(--border)] text-[var(--text-main)]"
                         >
                             Hủy
                         </Button>
                         <Button
-                            onClick={confirmDelete}
-                            disabled={deleteLoading || (deleteDepartmentDetails?.employeeCount || 0) > 0}
-                            className="bg-[var(--error)] hover:bg-[var(--error)]/80 text-white"
+                            onClick={handleMerge}
+                            disabled={mergeLoading || !mergeTargetDepartmentId}
+                            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
                         >
-                            {deleteLoading ? 'Đang xóa...' : 'Xác nhận xóa'}
+                            {mergeLoading ? 'Đang sáp nhập...' : 'Xác nhận sáp nhập'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Selective Transfer Employees Wizard */}
+            {selectiveTransferSourceDepartment && (
+                <SelectiveTransferEmployeesWizard
+                    isOpen={isSelectiveTransferWizardOpen}
+                    onClose={() => {
+                        setIsSelectiveTransferWizardOpen(false);
+                        setSelectiveTransferSourceDepartment(null);
+                    }}
+                    sourceDepartmentId={selectiveTransferSourceDepartment._id || selectiveTransferSourceDepartment.id}
+                    sourceDepartmentName={selectiveTransferSourceDepartment.name}
+                    sourceBranchId={selectiveTransferSourceDepartment.branchId as string}
+                    onTransfer={handleSelectiveTransfer}
+                />
+            )}
         </div>
     );
 }

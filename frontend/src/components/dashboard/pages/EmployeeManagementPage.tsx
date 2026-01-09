@@ -750,17 +750,16 @@ const EmployeeManagementPage: React.FC = () => {
                   <tr className="bg-[var(--shell)]">
                     <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[18%]">{t('dashboard:employeeManagement.table.employee')}</th>
                     <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[20%]">{t('dashboard:employeeManagement.table.email')}</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[12%]">{t('dashboard:employeeManagement.table.department')}</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[12%]">{t('dashboard:employeeManagement.table.shift') || 'Ca làm việc'}</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[12%]">{t('dashboard:employeeManagement.table.role')}</th>
-                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[11%]">{t('dashboard:employeeManagement.table.status')}</th>
-                    <th className="text-center py-2 px-3 text-xs text-[var(--text-sub)] w-[15%]">{t('dashboard:employeeManagement.table.actions')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[15%]">{t('dashboard:employeeManagement.table.department')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[15%]">{t('dashboard:employeeManagement.table.role')}</th>
+                    <th className="text-left py-2 px-3 text-xs text-[var(--text-sub)] w-[12%]">{t('dashboard:employeeManagement.table.status')}</th>
+                    <th className="text-center py-2 px-3 text-xs text-[var(--text-sub)] w-[20%]">{t('dashboard:employeeManagement.table.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12">
+                      <td colSpan={6} className="text-center py-12">
                         <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.noEmployees')}</p>
                       </td>
                     </tr>
@@ -785,7 +784,6 @@ const EmployeeManagementPage: React.FC = () => {
                         </td>
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{user.email || t('dashboard:employeeManagement.viewDialog.notAvailable')}</td>
                         <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getDepartmentName(user.department, t)}</td>
-                        <td className="py-2 px-3 text-sm text-[var(--text-main)] truncate">{getShiftName(user.defaultShiftId, t)}</td>
                         <td className="py-2 px-3">{getRoleBadge(user.role)}</td>
                         <td className="py-2 px-3">{getStatusBadge(user.isActive, t)}</td>
                         <td className="py-2 px-3">
@@ -887,10 +885,6 @@ const EmployeeManagementPage: React.FC = () => {
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.department')}</span>
                             <span className="text-[var(--text-main)]">{getDepartmentName(user.department, t)}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.shift') || 'Ca làm việc'}</span>
-                            <span className="text-[var(--text-main)]">{getShiftName(user.defaultShiftId, t)}</span>
                           </div>
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.role')}</span>

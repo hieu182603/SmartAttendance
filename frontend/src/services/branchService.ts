@@ -146,3 +146,102 @@ export const deleteBranch = async (id: string): Promise<{ message: string }> => 
   }
 }
 
+export interface BranchResources {
+  branch: {
+    _id: string
+    name: string
+    code: string
+  }
+  employees: Array<{
+    _id: string
+    name: string
+    email: string
+    role: string
+    isActive: boolean
+  }>
+  departments: Array<{
+    _id: string
+    name: string
+    code: string
+    status: string
+  }>
+  counts: {
+    totalEmployees: number
+    activeEmployees: number
+    totalDepartments: number
+    activeDepartments: number
+  }
+}
+
+export const getBranchResources = async (id: string): Promise<BranchResources> => {
+  try {
+    const { data } = await api.get(`/branches/${id}/resources`)
+    return data
+  } catch (error) {
+    console.error('[branchService] getBranchResources error:', error)
+    throw error
+  }
+}
+
+export interface TransferResourcesResponse {
+  message: string
+  transferred: {
+    employees: number
+    departments: number
+  }
+  source: {
+    branchId: string
+    branchName: string
+    branchCode: string
+  }
+  target: {
+    branchId: string
+    branchName: string
+    branchCode: string
+  }
+}
+
+export const transferResources = async (
+  sourceBranchId: string,
+  targetBranchId: string
+): Promise<TransferResourcesResponse> => {
+  try {
+    const { data } = await api.post(`/branches/${sourceBranchId}/transfer`, {
+      targetBranchId,
+    })
+    return data
+  } catch (error) {
+    console.error('[branchService] transferResources error:', error)
+    throw error
+  }
+}
+
+export interface MergeBranchesResponse extends TransferResourcesResponse {
+  message: string
+}
+
+export const mergeBranches = async (
+  sourceBranchId: string,
+  targetBranchId: string
+): Promise<MergeBranchesResponse> => {
+  try {
+    const { data } = await api.post(`/branches/${sourceBranchId}/merge`, {
+      targetBranchId,
+    })
+    return data
+  } catch (error) {
+    console.error('[branchService] mergeBranches error:', error)
+    throw error
+  }
+}
+
+export const reactivateBranch = async (id: string): Promise<{ message: string; branch: Branch }> => {
+  try {
+    const { data } = await api.post(`/branches/${id}/reactivate`)
+    return data
+  } catch (error) {
+    console.error('[branchService] reactivateBranch error:', error)
+    throw error
+  }
+}
+
