@@ -254,8 +254,8 @@ const EmployeeManagementPage: React.FC = () => {
       }
 
       // For SUPERVISOR, only show users in their department
-      if (user?.role === 'SUPERVISOR' && user?.department) {
-        params.department = user.department
+      if (currentUser?.role === 'SUPERVISOR' && currentUser?.department) {
+        params.department = currentUser.department
       }
 
       const result = await getAllUsers(params) as GetAllUsersResponse
@@ -274,7 +274,7 @@ const EmployeeManagementPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, itemsPerPage, searchTerm, roleFilter, statusFilter, shiftFilter, user])
+  }, [currentPage, itemsPerPage, searchTerm, roleFilter, statusFilter, shiftFilter, currentUser])
 
   useEffect(() => {
     fetchUsers()
