@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Loader2,
   RotateCcw,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -16,7 +17,8 @@ import api from "@/services/api";
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const MIN_WORK_HOURS = 4;
+const MIN_WORK_MINUTES = 30; // Thời gian tối thiểu để check-out (30 phút)
+const MIN_WORK_HOURS = MIN_WORK_MINUTES / 60; // Convert sang giờ để tính toán
 const STANDARD_WORK_HOURS = 8;
 const EARTH_RADIUS_M = 6371e3;
 const PHOTO_MAX_WIDTH = 800;
@@ -70,9 +72,12 @@ interface CheckInResponse {
     checkOutTime?: string;
     checkOutDate?: string;
     workHours?: string;
+    workCredit?: number;
     location?: string;
     validationMethod?: string;
     distance?: string;
+    approvalStatus?: "PENDING" | "APPROVED" | "REJECTED";
+    requiresApproval?: boolean;
   };
 }
 
@@ -81,11 +86,21 @@ interface CheckInError {
     data?: {
       message?: string;
       code?: string;
+      data?: {
+        hoursWorked?: number;
+        minutesWorked?: number;
+        minRequiredMinutes?: number;
+        remainingMinutes?: number;
+        shiftName?: string;
+        requiresReason?: boolean;
+      };
     };
   };
   message?: string;
   code?: string;
 }
+
+type EarlyCheckoutReason = "machine_issue" | "personal_emergency" | "manager_request" | null;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -174,6 +189,11 @@ const ScanPage: React.FC = () => {
   const [facingMode, setFacingMode] = useState<"user" | "environment">(
     "environment"
   );
+  
+  // ⚠️ MỚI: Early checkout state
+  const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
+  const [earlyCheckoutReason, setEarlyCheckoutReason] = useState<EarlyCheckoutReason>(null);
+  const [earlyCheckoutError, setEarlyCheckoutError] = useState<CheckInError | null>(null);
 
   // ==========================================================================
   // REFS
@@ -358,7 +378,8 @@ const ScanPage: React.FC = () => {
     (
       photoData: string,
       location: LocationData,
-      type: "checkin" | "checkout"
+      type: "checkin" | "checkout",
+      earlyCheckoutReason?: EarlyCheckoutReason
     ): FormData => {
       const formData = new FormData();
       formData.append("latitude", location.latitude.toString());
@@ -366,6 +387,12 @@ const ScanPage: React.FC = () => {
       formData.append("accuracy", location.accuracy.toString());
       const blob = dataURLtoBlob(photoData);
       formData.append("photo", blob, `${type}-${Date.now()}.jpg`);
+      
+      // ⚠️ MỚI: Thêm earlyCheckoutReason nếu có
+      if (type === "checkout" && earlyCheckoutReason) {
+        formData.append("earlyCheckoutReason", earlyCheckoutReason);
+      }
+      
       return formData;
     },
     []
@@ -442,7 +469,7 @@ const ScanPage: React.FC = () => {
     }
   }, [locationData, capturePhoto, createFormData, t]);
 
-  const handleCheckOut = useCallback(async () => {
+  const handleCheckOut = useCallback(async (reason?: EarlyCheckoutReason) => {
     if (!locationData) return;
 
     setState((prev) => ({ ...prev, isProcessing: true }));
@@ -453,7 +480,7 @@ const ScanPage: React.FC = () => {
         throw new Error(t("dashboard:scan.errors.captureFailed"));
       }
 
-      const formData = createFormData(photoData, locationData, "checkout");
+      const formData = createFormData(photoData, locationData, "checkout", reason || undefined);
       const response = await api.post<CheckInResponse>(
         "/attendance/checkout",
         formData,
@@ -464,9 +491,11 @@ const ScanPage: React.FC = () => {
 
       if (response.data.success) {
         setState((prev) => ({ ...prev, hasCheckedOut: true }));
+        setShowEarlyCheckoutModal(false);
+        setEarlyCheckoutReason(null);
 
         if (response.data.data) {
-          const { distance, location } = response.data.data;
+          const { distance, location, approvalStatus, requiresApproval } = response.data.data;
           setLocationData((prev) =>
             prev
               ? {
@@ -476,6 +505,14 @@ const ScanPage: React.FC = () => {
                 }
               : null
           );
+
+          // Hiển thị thông báo đặc biệt nếu cần duyệt
+          if (requiresApproval || approvalStatus === "PENDING") {
+            toast.info(
+              "Yêu cầu check-out sớm của bạn đang chờ duyệt. Bạn sẽ nhận được thông báo khi có kết quả.",
+              { duration: 6000 }
+            );
+          }
         }
 
         toast.success(
@@ -496,7 +533,15 @@ const ScanPage: React.FC = () => {
         toast.info(errorMessage);
         setState((prev) => ({ ...prev, hasCheckedOut: true }));
       } else if (err.response?.data?.code === "INSUFFICIENT_WORK_HOURS") {
-        toast.warning(errorMessage);
+        // ⚠️ MỚI: Kiểm tra nếu cần lý do
+        const errorData = err.response?.data?.data;
+        if (errorData?.requiresReason) {
+          // Hiển thị modal để chọn lý do
+          setEarlyCheckoutError(err);
+          setShowEarlyCheckoutModal(true);
+        } else {
+          toast.warning(errorMessage);
+        }
       } else if (err.response?.data?.code === "ON_LEAVE") {
         toast.error(errorMessage, {
           duration: 5000,
@@ -624,7 +669,9 @@ const ScanPage: React.FC = () => {
       const hoursWorked =
         (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
-      if (hoursWorked >= MIN_WORK_HOURS && !canCheckOut) {
+      // ⚠️ MỚI: Cho phép check-out sau 30 phút (không phải 4 giờ)
+      const minutesWorked = hoursWorked * 60;
+      if (minutesWorked >= MIN_WORK_MINUTES && !canCheckOut) {
         setState((prev) => ({ ...prev, canCheckOut: true }));
         toast.success(t("dashboard:scan.toasts.canCheckOut"), {
           duration: 5000,
@@ -889,20 +936,19 @@ const ScanPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={handleCheckOut}
+              onClick={() => handleCheckOut()}
               disabled={
                 isProcessing ||
                 !permissions.camera ||
                 !permissions.location ||
                 !locationData ||
                 !hasCheckedIn ||
-                hasCheckedOut ||
-                !canCheckOut
+                hasCheckedOut
               }
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               title={
-                !canCheckOut && hasCheckedIn && !hasCheckedOut
-                  ? t("dashboard:scan.tooltips.waitOneHour")
+                !canCheckOut && hasCheckedIn && !hasCheckedOut && checkInTime
+                  ? `Cần làm việc ít nhất ${MIN_WORK_MINUTES} phút`
                   : ""
               }
             >
@@ -926,6 +972,127 @@ const ScanPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* ⚠️ MỚI: Early Checkout Modal */}
+      {showEarlyCheckoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-md border-[var(--border)] bg-[var(--surface)] shadow-xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-lg font-semibold text-[var(--text-main)]">
+                Check-out sớm
+              </CardTitle>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEarlyCheckoutModal(false);
+                  setEarlyCheckoutReason(null);
+                  setEarlyCheckoutError(null);
+                }}
+                className="rounded-lg p-1 text-[var(--text-sub)] hover:bg-[var(--shell)] transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {earlyCheckoutError?.response?.data?.data && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800 dark:border-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium mb-1">
+                        {earlyCheckoutError.response.data.message}
+                      </p>
+                      {earlyCheckoutError.response.data.data.minutesWorked !== undefined && (
+                        <p className="text-xs">
+                          Bạn đã làm việc: {Math.round(earlyCheckoutError.response.data.data.minutesWorked)} phút
+                        </p>
+                      )}
+                      {earlyCheckoutError.response.data.data.remainingMinutes !== undefined && (
+                        <p className="text-xs">
+                          Còn thiếu: {earlyCheckoutError.response.data.data.remainingMinutes} phút
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--text-main)] mb-2">
+                  Vui lòng chọn lý do check-out sớm:
+                </label>
+                <div className="space-y-2">
+                  {[
+                    { value: "machine_issue", label: "Sự cố máy" },
+                    { value: "personal_emergency", label: "Việc cá nhân khẩn cấp" },
+                    { value: "manager_request", label: "Theo yêu cầu quản lý" },
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--shell)] p-3 cursor-pointer hover:bg-[var(--surface)] transition-colors"
+                    >
+                      <input
+                        type="radio"
+                        name="earlyCheckoutReason"
+                        value={option.value}
+                        checked={earlyCheckoutReason === option.value}
+                        onChange={(e) =>
+                          setEarlyCheckoutReason(
+                            e.target.value as EarlyCheckoutReason
+                          )
+                        }
+                        className="h-4 w-4 text-[var(--primary)] focus:ring-[var(--primary)]"
+                      />
+                      <span className="text-sm text-[var(--text-main)]">
+                        {option.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEarlyCheckoutModal(false);
+                    setEarlyCheckoutReason(null);
+                    setEarlyCheckoutError(null);
+                  }}
+                  className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--shell)] px-4 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface)] transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (earlyCheckoutReason) {
+                      handleCheckOut(earlyCheckoutReason);
+                    } else {
+                      toast.warning("Vui lòng chọn lý do check-out sớm");
+                    }
+                  }}
+                  disabled={!earlyCheckoutReason || isProcessing}
+                  className="flex-1 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    "Xác nhận"
+                  )}
+                </button>
+              </div>
+
+              <p className="text-xs text-[var(--text-sub)] text-center pt-2">
+                Yêu cầu của bạn sẽ được gửi để HR/Leader duyệt
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

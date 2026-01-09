@@ -13,6 +13,8 @@ import {
   getDepartmentAttendance,
   updateAttendanceRecord,
   deleteAttendanceRecord,
+  approveEarlyCheckout,
+  getPendingEarlyCheckouts,
 } from "./attendance.controller.js";
 
 export const attendanceRouter = Router();
@@ -65,4 +67,26 @@ attendanceRouter.get(
   "/department",
   requireRole([ROLES.MANAGER, ROLES.SUPERVISOR]),
   getDepartmentAttendance
+);
+attendanceRouter.get(
+  "/pending-early-checkouts",
+  requireRole([
+    ROLES.ADMIN,
+    ROLES.HR_MANAGER,
+    ROLES.MANAGER,
+    ROLES.SUPERVISOR,
+    ROLES.SUPER_ADMIN,
+  ]),
+  getPendingEarlyCheckouts
+);
+attendanceRouter.patch(
+  "/:id/approve",
+  requireRole([
+    ROLES.ADMIN,
+    ROLES.HR_MANAGER,
+    ROLES.MANAGER,
+    ROLES.SUPERVISOR,
+    ROLES.SUPER_ADMIN,
+  ]),
+  approveEarlyCheckout
 );

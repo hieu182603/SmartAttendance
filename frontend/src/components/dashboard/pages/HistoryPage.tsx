@@ -31,11 +31,14 @@ interface AttendanceRecord {
   checkIn: string;
   checkOut: string;
   hours: string;
+  workCredit?: number; // ⚠️ MỚI
   location: string;
   status: AttendanceStatus;
   notes: string;
   checkInPhoto?: string;
   checkOutPhoto?: string;
+  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null; // ⚠️ MỚI
+  earlyCheckoutReason?: "machine_issue" | "personal_emergency" | "manager_request" | null; // ⚠️ MỚI
 }
 
 interface Pagination {
@@ -303,7 +306,7 @@ const HistoryPage: React.FC = () => {
     if (loading) {
       return (
         <tr>
-          <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
+          <td colSpan={9} className="py-6 text-center text-[var(--text-sub)]">
             {t("dashboard:history.details.loading")}
           </td>
         </tr>
@@ -313,7 +316,7 @@ const HistoryPage: React.FC = () => {
     if (error) {
       return (
         <tr>
-          <td colSpan={8} className="py-6 text-center text-[var(--error)]">
+          <td colSpan={9} className="py-6 text-center text-[var(--error)]">
             {error}
           </td>
         </tr>
@@ -323,7 +326,7 @@ const HistoryPage: React.FC = () => {
     if (records.length === 0) {
       return (
         <tr>
-          <td colSpan={8} className="py-6 text-center text-[var(--text-sub)]">
+          <td colSpan={9} className="py-6 text-center text-[var(--text-sub)]">
             {t("dashboard:history.details.noData")}
           </td>
         </tr>
@@ -349,10 +352,44 @@ const HistoryPage: React.FC = () => {
             {record.checkOut}
           </td>
           <td className="py-3 px-4 text-[var(--text-main)]">{record.hours}</td>
+          <td className="py-3 px-4 text-[var(--text-main)]">
+            {record.workCredit !== undefined ? (
+              <span className="font-medium">
+                {record.workCredit === 0
+                  ? "0"
+                  : record.workCredit === 0.5
+                  ? "0.5"
+                  : record.workCredit === 1.0
+                  ? "1.0"
+                  : record.workCredit.toFixed(2)}
+              </span>
+            ) : (
+              <span className="text-[var(--text-sub)]">-</span>
+            )}
+          </td>
           <td className="py-3 px-4 text-[var(--text-sub)]">
             {formatLocation(record.location, t)}
           </td>
-          <td className="py-3 px-4">{getStatusBadge(record.status, t)}</td>
+          <td className="py-3 px-4">
+            <div className="flex flex-col gap-1">
+              {getStatusBadge(record.status, t)}
+              {record.approvalStatus === "PENDING" && (
+                <Badge variant="warning" className="text-xs">
+                  Chờ duyệt
+                </Badge>
+              )}
+              {record.approvalStatus === "APPROVED" && (
+                <Badge variant="success" className="text-xs">
+                  Đã duyệt
+                </Badge>
+              )}
+              {record.approvalStatus === "REJECTED" && (
+                <Badge variant="error" className="text-xs">
+                  Từ chối
+                </Badge>
+              )}
+            </div>
+          </td>
           <td className="py-3 px-4 text-center">
             {hasPhoto ? (
               <button
@@ -696,6 +733,9 @@ const HistoryPage: React.FC = () => {
                     {t("dashboard:history.totalHours")}
                   </th>
                   <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
+                    Số công
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
                     {t("dashboard:history.location")}
                   </th>
                   <th className="text-left py-3 px-4 text-sm text-[var(--text-sub)]">
@@ -787,6 +827,44 @@ const HistoryPage: React.FC = () => {
                             {record.hours}
                           </span>
                         </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[var(--text-sub)]">Số công</span>
+                          <span className="text-[var(--text-main)] font-medium">
+                            {record.workCredit !== undefined
+                              ? record.workCredit === 0
+                                ? "0"
+                                : record.workCredit === 0.5
+                                ? "0.5"
+                                : record.workCredit === 1.0
+                                ? "1.0"
+                                : record.workCredit.toFixed(2)
+                              : "-"}
+                          </span>
+                        </div>
+                        {record.approvalStatus && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[var(--text-sub)]">
+                              Trạng thái
+                            </span>
+                            <span>
+                              {record.approvalStatus === "PENDING" && (
+                                <Badge variant="warning" className="text-xs">
+                                  Chờ duyệt
+                                </Badge>
+                              )}
+                              {record.approvalStatus === "APPROVED" && (
+                                <Badge variant="success" className="text-xs">
+                                  Đã duyệt
+                                </Badge>
+                              )}
+                              {record.approvalStatus === "REJECTED" && (
+                                <Badge variant="error" className="text-xs">
+                                  Từ chối
+                                </Badge>
+                              )}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-[var(--text-sub)]">
                             {t("dashboard:history.location")}

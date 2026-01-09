@@ -26,9 +26,14 @@ export interface AttendanceRecord {
   checkIn: string;
   checkOut: string;
   hours: string;
+  workCredit?: number; // ⚠️ MỚI: Số công (0/0.5/1.0 hoặc giờ thực tế)
   status: "ontime" | "late" | "absent" | "overtime" | "weekend";
   location: string;
   notes?: string;
+  earlyCheckoutReason?: "machine_issue" | "personal_emergency" | "manager_request" | null; // ⚠️ MỚI
+  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null; // ⚠️ MỚI
+  approvedBy?: string | null; // ⚠️ MỚI
+  approvedAt?: string | null; // ⚠️ MỚI
 }
 
 interface UpdateAttendancePayload {
@@ -226,4 +231,54 @@ export const updateAttendanceRecord = async (
 export const deleteAttendanceRecord = async (id: string) => {
   const { data } = await api.delete(`/attendance/${id}`);
   return data as { message: string };
+};
+
+/**
+ * Approve or reject early checkout request
+ */
+export const approveEarlyCheckout = async (
+  id: string,
+  approvalStatus: "APPROVED" | "REJECTED",
+  options?: {
+    workCredit?: number;
+    notes?: string;
+  }
+) => {
+  const { data } = await api.patch(`/attendance/${id}/approve`, {
+    approvalStatus,
+    workCredit: options?.workCredit,
+    notes: options?.notes,
+  });
+  return data as { message: string; record: AttendanceRecord };
+};
+
+/**
+ * Get pending early checkout requests
+ */
+export const getPendingEarlyCheckouts = async (
+  params: AttendanceParams = {}
+): Promise<AllAttendanceResponse> => {
+  try {
+    const { data } = await api.get("/attendance/pending-early-checkouts", {
+      params,
+    });
+    // Backend trả về { records: [...], pagination: {...} }
+    return {
+      records: data.records || [],
+      summary: { total: 0, present: 0, late: 0, absent: 0 },
+      pagination: data.pagination || {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+      },
+    } as AllAttendanceResponse;
+  } catch (error) {
+    console.error("[attendance] getPendingEarlyCheckouts failed:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Không thể tải danh sách yêu cầu check-out sớm. Vui lòng thử lại."
+    );
+  }
 };

@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { ATTENDANCE_CONFIG } from "../../config/app.config.js";
 
 /**
  * Chấm công - Mỗi nhân viên 1 bản ghi / ngày
@@ -35,6 +34,48 @@ const attendanceSchema = new mongoose.Schema(
       ref: "Branch", // Đã chuyển từ Location sang Branch
     },
     notes: { type: String, trim: true },
+
+    // ⚠️ MỚI: Work credit (tính công)
+    workCredit: {
+      type: Number,
+      default: 0,
+      min: 0,
+      // 0 = không tính công
+      // 0.5 = nửa công
+      // 1.0 = đủ công
+      // > 1.0 = part-time (tính theo giờ thực tế)
+    },
+
+    // ⚠️ MỚI: Early checkout reason
+    // Note: Field is optional (not required), so null/undefined is allowed
+    // Enum validation only applies when a value is provided
+    earlyCheckoutReason: {
+      type: String,
+      enum: ["machine_issue", "personal_emergency", "manager_request"],
+      default: null,
+    },
+
+    // ⚠️ MỚI: Approval status
+    // Note: Field is optional (not required), so null/undefined is allowed
+    // Enum validation only applies when a value is provided
+    approvalStatus: {
+      type: String,
+      enum: ["PENDING", "APPROVED", "REJECTED"],
+      default: null,
+    },
+
+    // ⚠️ MỚI: Approved by (HR/Leader)
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    // ⚠️ MỚI: Approved at
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

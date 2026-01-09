@@ -617,9 +617,14 @@ export const buildAttendanceRecordResponse = (doc) => {
     checkIn: formatTime(doc.checkIn),
     checkOut: formatTime(doc.checkOut),
     hours: formatWorkHours(doc.workHours),
+    workCredit: doc.workCredit !== undefined ? doc.workCredit : 0,
     status: deriveStatus(doc),
     location: doc.locationId?.name || "-",
     notes: doc.notes || "",
+    earlyCheckoutReason: doc.earlyCheckoutReason || null,
+    approvalStatus: doc.approvalStatus || null,
+    approvedBy: doc.approvedBy?.name || doc.approvedBy || null,
+    approvedAt: doc.approvedAt ? formatTime(doc.approvedAt) : null,
   };
 };
 
@@ -682,53 +687,69 @@ export const validateGPSAccuracy = (accuracy) => {
 };
 
 /**
- * Validate minimum work hours for checkout
+ * Validate minimum work time for checkout (theo phút)
  * @param {number} hoursWorked - Số giờ đã làm việc
  * @param {Object} shiftInfo - Thông tin shift
- * @returns {Object} { valid, minRequired, remainingMinutes, message }
+ * @returns {Object} { valid, minRequiredMinutes, remainingMinutes, message, requiresReason }
  */
 export const validateWorkHours = (hoursWorked, shiftInfo) => {
-  let minWorkHours = ATTENDANCE_CONFIG.MIN_WORK_HOURS;
+  const MIN_WORK_MINUTES = ATTENDANCE_CONFIG.MIN_WORK_MINUTES; // 30 phút
+  const minutesWorked = hoursWorked * 60;
 
-  if (!shiftInfo.isFlexible && shiftInfo.startTime && shiftInfo.endTime) {
-    const [startH, startM] = shiftInfo.startTime.split(":").map(Number);
-    const [endH, endM] = shiftInfo.endTime.split(":").map(Number);
-    const shiftDurationMinutes =
-      endH * 60 +
-      endM -
-      (startH * 60 + startM) -
-      (shiftInfo.breakDuration || 0);
-    const shiftDurationHours = shiftDurationMinutes / 60;
-
-    // Dùng 50% thay vì 25% để hợp lý hơn
-    // Ca 8h → min 4h, Ca 4h → min 2h
-    minWorkHours = Math.max(
-      ATTENDANCE_CONFIG.MIN_WORK_HOURS,
-      Math.floor(shiftDurationHours * 0.5)
-    );
-  }
-
-  if (hoursWorked < minWorkHours) {
-    const remainingMinutes = Math.ceil((minWorkHours - hoursWorked) * 60);
-    const hours = Math.floor(remainingMinutes / 60);
-    const minutes = remainingMinutes % 60;
+  if (minutesWorked < MIN_WORK_MINUTES) {
+    const remainingMinutes = MIN_WORK_MINUTES - minutesWorked;
     const timeStr =
-      hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
+      remainingMinutes >= 60
+        ? `${Math.floor(remainingMinutes / 60)} giờ ${remainingMinutes % 60} phút`
+        : `${remainingMinutes} phút`;
 
     return {
       valid: false,
-      minRequired: minWorkHours,
-      remainingMinutes,
-      message: `Bạn cần làm việc ít nhất ${minWorkHours} giờ (${shiftInfo.shiftName}). Vui lòng chờ thêm ${timeStr} nữa.`,
+      minRequiredMinutes: MIN_WORK_MINUTES,
+      remainingMinutes: Math.ceil(remainingMinutes),
+      message: `Bạn cần làm việc ít nhất ${MIN_WORK_MINUTES} phút (${shiftInfo.shiftName}). Vui lòng chờ thêm ${timeStr} nữa.`,
+      requiresReason: true, // Yêu cầu lý do nếu muốn check-out sớm
     };
   }
 
   return {
     valid: true,
-    minRequired: minWorkHours,
+    minRequiredMinutes: MIN_WORK_MINUTES,
     remainingMinutes: 0,
     message: null,
+    requiresReason: false,
   };
+};
+
+/**
+ * Calculate work credit (tính công) theo bậc
+ * @param {number} hoursWorked - Số giờ đã làm việc
+ * @param {Object} shiftInfo - Thông tin shift
+ * @returns {Object} { credit, error }
+ */
+export const calculateWorkCredit = (hoursWorked, shiftInfo) => {
+  const minutesWorked = hoursWorked * 60;
+
+  // Ca part-time / flexible
+  if (shiftInfo.isFlexible) {
+    if (minutesWorked < ATTENDANCE_CONFIG.MIN_WORK_MINUTES) {
+      return {
+        credit: 0,
+        error: `Cần làm ít nhất ${ATTENDANCE_CONFIG.MIN_WORK_MINUTES} phút để check-out.`,
+      };
+    }
+    // Tính theo giờ thực tế (có thể > 1.0)
+    return { credit: Math.round(hoursWorked * 100) / 100 };
+  }
+
+  // Ca hành chính (8h-17h)
+  if (hoursWorked < 4) {
+    return { credit: 0 }; // Không tính công
+  } else if (hoursWorked < 8) {
+    return { credit: 0.5 }; // Nửa công
+  } else {
+    return { credit: 1.0 }; // Đủ công
+  }
 };
 
 // ============================================================================
@@ -955,6 +976,7 @@ export const processCheckIn = async (
  * @param {number} longitude - Kinh độ
  * @param {number} accuracy - Độ chính xác GPS
  * @param {Buffer|null} photoFile - Photo buffer
+ * @param {string|null} earlyCheckoutReason - Lý do check-out sớm (nếu < 30 phút)
  * @returns {Promise<Object>} { success, data, error }
  */
 export const processCheckOut = async (
@@ -962,7 +984,8 @@ export const processCheckOut = async (
   latitude,
   longitude,
   accuracy,
-  photoFile
+  photoFile,
+  earlyCheckoutReason = null
 ) => {
   try {
     // Validate location
@@ -1035,27 +1058,57 @@ export const processCheckOut = async (
     const schedule = await getUserSchedule(userId, dateOnly);
     const shiftInfo = await getShiftInfo(schedule);
 
-    // Validate work hours
+    // Calculate work time
     const checkInTime = new Date(attendance.checkIn);
     const hoursWorked = (now - checkInTime) / (1000 * 60 * 60);
+    const minutesWorked = hoursWorked * 60;
+
+    // Validate minimum work time (30 phút)
     const workHoursValidation = validateWorkHours(hoursWorked, shiftInfo);
 
+    // Xử lý early checkout (< 30 phút)
     if (!workHoursValidation.valid) {
-      return {
-        success: false,
-        data: {
-          hoursWorked: Math.floor(hoursWorked * 100) / 100,
-          minRequired: workHoursValidation.minRequired,
-          remainingMinutes: workHoursValidation.remainingMinutes,
-          shiftName: shiftInfo.shiftName,
-        },
-        error: workHoursValidation.message,
-        code: "INSUFFICIENT_WORK_HOURS",
-      };
+      // Nếu không có lý do → từ chối
+      if (!earlyCheckoutReason) {
+        return {
+          success: false,
+          data: {
+            hoursWorked: Math.round(hoursWorked * 100) / 100,
+            minutesWorked: Math.round(minutesWorked),
+            minRequiredMinutes: workHoursValidation.minRequiredMinutes,
+            remainingMinutes: workHoursValidation.remainingMinutes,
+            shiftName: shiftInfo.shiftName,
+            requiresReason: true,
+          },
+          error: workHoursValidation.message,
+          code: "INSUFFICIENT_WORK_HOURS",
+        };
+      }
+
+      // Có lý do → cho phép nhưng cần duyệt
+      attendance.checkOut = now;
+      attendance.earlyCheckoutReason = earlyCheckoutReason;
+      attendance.approvalStatus = "PENDING";
+      attendance.workCredit = 0; // Tạm thời = 0, chờ duyệt
+    } else {
+      // Check-out bình thường (>= 30 phút)
+      attendance.checkOut = now;
     }
 
-    // Process check-out
-    attendance.checkOut = now;
+    // Tính work credit (nếu không phải early checkout cần duyệt)
+    if (attendance.approvalStatus !== "PENDING") {
+      const workCreditResult = calculateWorkCredit(hoursWorked, shiftInfo);
+      if (workCreditResult.error) {
+        return {
+          success: false,
+          data: null,
+          error: workCreditResult.error,
+          code: "INSUFFICIENT_WORK_HOURS",
+        };
+      }
+      attendance.workCredit = workCreditResult.credit;
+    }
+
     const checkOutInfo = checkEarlyLeaveOrOvertime(now, shiftInfo);
 
     let additionalNote = "";
@@ -1123,12 +1176,18 @@ export const processCheckOut = async (
       message = `Check-out thành công! Tăng ca ${checkOutInfo.minutesOvertime} phút (${shiftInfo.shiftName})`;
     }
 
+    // Create message
+    if (attendance.approvalStatus === "PENDING") {
+      message = `Check-out thành công! Yêu cầu của bạn đang chờ duyệt (${shiftInfo.shiftName})`;
+    }
+
     return {
       success: true,
       data: {
         checkOutTime: formatTime(attendance.checkOut),
         checkOutDate: formatDateLabel(attendance.date),
         workHours,
+        workCredit: attendance.workCredit,
         location: branchResult.branch.name,
         distance: `${branchResult.distance}m`,
         shiftName: shiftInfo.shiftName,
@@ -1137,6 +1196,8 @@ export const processCheckOut = async (
         isOvertime: checkOutInfo.isOvertime,
         minutesEarly: checkOutInfo.minutesEarly,
         minutesOvertime: checkOutInfo.minutesOvertime,
+        approvalStatus: attendance.approvalStatus,
+        requiresApproval: attendance.approvalStatus === "PENDING",
       },
       error: null,
       message,
