@@ -195,15 +195,21 @@ export const MENU_ITEMS: MenuItem[] = [
 function hasPermission(userPermissions: PermissionType[], requiredPermission: PermissionType): boolean {
   if (userPermissions.includes(requiredPermission)) return true;
   
-  // Check for higher level permissions
+  // Check for higher level permissions (đồng bộ với roles.ts)
   const permissionHierarchy: Record<string, string[]> = {
     [Permission.REQUESTS_APPROVE_DEPARTMENT]: [Permission.REQUESTS_APPROVE_ALL],
     [Permission.ATTENDANCE_VIEW_DEPARTMENT]: [Permission.ATTENDANCE_VIEW_ALL],
+    [Permission.ATTENDANCE_VIEW_OWN]: [Permission.ATTENDANCE_VIEW_DEPARTMENT, Permission.ATTENDANCE_VIEW_ALL],
     [Permission.ANALYTICS_VIEW_DEPARTMENT]: [Permission.ANALYTICS_VIEW_ALL],
+    [Permission.REQUESTS_VIEW_OWN]: [Permission.REQUESTS_APPROVE_DEPARTMENT, Permission.REQUESTS_APPROVE_ALL],
+    [Permission.USERS_VIEW_DEPARTMENT]: [Permission.USERS_VIEW],
+    [Permission.USERS_UPDATE_DEPARTMENT]: [Permission.USERS_UPDATE],
+    [Permission.SCHEDULE_VIEW_DEPARTMENT]: [Permission.SCHEDULE_MANAGE_DEPARTMENT],
+    [Permission.PERFORMANCE_VIEW_DEPARTMENT]: [Permission.PERFORMANCE_MANAGE_DEPARTMENT],
   };
   
   const higherPermissions = permissionHierarchy[requiredPermission] || [];
-  return higherPermissions.some(perm => userPermissions.includes(perm));
+  return higherPermissions.some(perm => userPermissions.includes(perm as PermissionType));
 }
 
 export function getMenuByPermissions(

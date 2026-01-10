@@ -20,6 +20,10 @@ const attendanceSchema = new mongoose.Schema(
     },
     checkIn: { type: Date },
     checkOut: { type: Date },
+    checkInLatitude: { type: Number }, // Vĩ độ khi check-in
+    checkInLongitude: { type: Number }, // Kinh độ khi check-in
+    checkOutLatitude: { type: Number }, // Vĩ độ khi check-out
+    checkOutLongitude: { type: Number }, // Kinh độ khi check-out
     status: {
       type: String,
       enum: ["present", "absent", "late", "on_leave", "weekend", "overtime"],

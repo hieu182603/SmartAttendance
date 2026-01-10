@@ -130,6 +130,10 @@ export const getAttendanceHistory = async (req, res) => {
         status: deriveStatus(doc),
         location: doc.locationId?.name || "Văn phòng",
         notes: doc.notes || "",
+        checkInLatitude: doc.checkInLatitude || null,
+        checkInLongitude: doc.checkInLongitude || null,
+        checkOutLatitude: doc.checkOutLatitude || null,
+        checkOutLongitude: doc.checkOutLongitude || null,
       };
     });
 

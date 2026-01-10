@@ -625,6 +625,10 @@ export const buildAttendanceRecordResponse = (doc) => {
     approvalStatus: doc.approvalStatus || null,
     approvedBy: doc.approvedBy?.name || doc.approvedBy || null,
     approvedAt: doc.approvedAt ? formatTime(doc.approvedAt) : null,
+    checkInLatitude: doc.checkInLatitude || null,
+    checkInLongitude: doc.checkInLongitude || null,
+    checkOutLatitude: doc.checkOutLatitude || null,
+    checkOutLongitude: doc.checkOutLongitude || null,
   };
 };
 
@@ -891,6 +895,8 @@ export const processCheckIn = async (
           userId,
           date: dateOnly,
           checkIn: now,
+          checkInLatitude: latitude,
+          checkInLongitude: longitude,
           locationId: branchResult.branch._id,
           status: isLate ? "late" : "present",
           notes: photoNotes,
@@ -1087,12 +1093,16 @@ export const processCheckOut = async (
 
       // Có lý do → cho phép nhưng cần duyệt
       attendance.checkOut = now;
+      attendance.checkOutLatitude = latitude;
+      attendance.checkOutLongitude = longitude;
       attendance.earlyCheckoutReason = earlyCheckoutReason;
       attendance.approvalStatus = "PENDING";
       attendance.workCredit = 0; // Tạm thời = 0, chờ duyệt
     } else {
       // Check-out bình thường (>= 30 phút)
       attendance.checkOut = now;
+      attendance.checkOutLatitude = latitude;
+      attendance.checkOutLongitude = longitude;
     }
 
     // Tính work credit (nếu không phải early checkout cần duyệt)

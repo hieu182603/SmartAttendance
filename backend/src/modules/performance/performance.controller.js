@@ -15,9 +15,45 @@ export const getReviews = async (req, res) => {
     if (status && status !== "all") filter.status = status;
 
     // Role-based filtering
-    // Manager chỉ thấy đánh giá mà họ tạo
-    if (userRole === "MANAGER") {
-      filter.reviewerId = userId;
+    const UserModel = (await import("../users/user.model.js")).UserModel;
+    const currentUser = await UserModel.findById(userId).select("department");
+    
+    // SUPERVISOR và MANAGER chỉ thấy reviews trong department của họ
+    if (userRole === "SUPERVISOR" || userRole === "MANAGER") {
+      if (currentUser && currentUser.department) {
+        // Lấy danh sách employees trong cùng department
+        const departmentEmployees = await UserModel.find({
+          department: currentUser.department,
+          isActive: true,
+        }).select("_id");
+        
+        const employeeIds = departmentEmployees.map((u) => u._id);
+        if (employeeIds.length > 0) {
+          filter.employeeId = { $in: employeeIds };
+        } else {
+          // Không có employees trong department, trả về empty
+          return res.json({
+            reviews: [],
+            pagination: {
+              total: 0,
+              page: parseInt(page),
+              limit: parseInt(limit),
+              totalPages: 0,
+            },
+          });
+        }
+      } else {
+        // Không có department, trả về empty
+        return res.json({
+          reviews: [],
+          pagination: {
+            total: 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: 0,
+          },
+        });
+      }
     }
     // HR_MANAGER, ADMIN, SUPER_ADMIN thấy tất cả
 
@@ -30,11 +66,15 @@ export const getReviews = async (req, res) => {
     if (search) {
       const searchRegex = new RegExp(search, "i");
 
-      // Tìm users matching search
-      const { UserModel } = await import("../users/user.model.js");
-      const matchingUsers = await UserModel.find({
-        name: searchRegex,
-      }).select("_id");
+      // Tìm users matching search (đã import ở trên)
+      let searchUserQuery = { name: searchRegex };
+      
+      // Nếu đã filter theo department (SUPERVISOR/MANAGER), chỉ search trong department đó
+      if (filter.employeeId && filter.employeeId.$in) {
+        searchUserQuery._id = { $in: filter.employeeId.$in };
+      }
+      
+      const matchingUsers = await UserModel.find(searchUserQuery).select("_id");
 
       const userIds = matchingUsers.map((u) => u._id);
       if (userIds.length > 0) {
@@ -89,8 +129,39 @@ export const getStats = async (req, res) => {
 
     // Role-based filter
     const filter = {};
-    if (userRole === "MANAGER") {
-      filter.reviewerId = userId;
+    const UserModel = (await import("../users/user.model.js")).UserModel;
+    const currentUser = await UserModel.findById(userId).select("department");
+    
+    // SUPERVISOR và MANAGER chỉ thấy stats trong department của họ
+    if (userRole === "SUPERVISOR" || userRole === "MANAGER") {
+      if (currentUser && currentUser.department) {
+        // Lấy danh sách employees trong cùng department
+        const departmentEmployees = await UserModel.find({
+          department: currentUser.department,
+          isActive: true,
+        }).select("_id");
+        
+        const employeeIds = departmentEmployees.map((u) => u._id);
+        if (employeeIds.length > 0) {
+          filter.employeeId = { $in: employeeIds };
+        } else {
+          // Không có employees trong department, trả về empty stats
+          return res.json({
+            total: 0,
+            completed: 0,
+            pending: 0,
+            avgScore: 0,
+          });
+        }
+      } else {
+        // Không có department, trả về empty stats
+        return res.json({
+          total: 0,
+          completed: 0,
+          pending: 0,
+          avgScore: 0,
+        });
+      }
     }
 
     // Dùng aggregation để tối ưu performance
