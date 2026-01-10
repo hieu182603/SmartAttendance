@@ -269,11 +269,13 @@ export class UserService {
       "phone",
       "role",
       "department",
+      "position",
       "branch",
       "defaultShiftId",
       "isActive",
       "avatar",
-      "avatarUrl"
+      "avatarUrl",
+      "taxId"
     ];
 
     const updateFields = {};
@@ -474,7 +476,7 @@ export class UserService {
    * Tạo user mới bởi admin
    */
   static async createUserByAdmin(userData, adminRole) {
-    const { email, password, name, role, department, branch, phone, defaultShiftId, isActive = true } = userData;
+    const { email, password, name, role, department, position, branch, phone, taxId, defaultShiftId, isActive = true } = userData;
 
     // Validate required fields
     if (!email || !password || !name || !role) {
@@ -549,8 +551,10 @@ export class UserService {
       name: normalizedName,
       role,
       department: department || null,
+      position: position ? position.trim() : null,
       branch: branch || null,
       phone: phone ? phone.trim() : null,
+      taxId: taxId ? taxId.trim() : null,
       defaultShiftId: defaultShiftId || null,
       isActive,
       isVerified: true, // Admin created users are automatically verified

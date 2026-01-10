@@ -932,28 +932,8 @@ export default function PayrollPage() {
                     </CardContent>
                   </Card>
                 ))
-              ) : (
-                <div className="text-center py-12">
-                  <div className="flex flex-col items-center gap-4">
-                    <Users className="h-12 w-12 text-[var(--text-sub)] opacity-50" />
-                    <p className="text-[var(--text-sub)]">
-                      {t("payroll.noData")}
-                    </p>
-                  </div>
-                </div>
-              )}
+              ) : null}
             </div>
-
-            {!loading && filteredData.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-12"
-              >
-                <div className="text-6xl mb-4">💼</div>
-                <p className="text-[var(--text-sub)]">{t("payroll.noData")}</p>
-              </motion.div>
-            )}
 
             {/* Pagination Controls */}
             {!loading && pagination.totalPages > 1 && (
