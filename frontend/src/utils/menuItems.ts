@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Home, Camera, History, FileText, Clock, CalendarDays, Calendar,
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
-  DollarSign, TrendingUp, Award, FileBarChart
+  DollarSign, TrendingUp, Award, FileBarChart, Table2
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { Permission, type PermissionType, UserRole, ROLE_PERMISSIONS, type UserRoleType } from '@/utils/roles';
@@ -99,6 +99,15 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: TrendingUp,
     path: '/admin/payroll-reports',
     permission: Permission.PAYROLL_VIEW,
+    section: 'admin',
+  },
+  // Quản lý thang lương
+  {
+    id: 'salary-matrix',
+    label: 'Thang lương',
+    icon: Table2,
+    path: '/admin/salary-matrix',
+    permission: Permission.PAYROLL_MANAGE,
     section: 'admin',
   },
   // Phê duyệt yêu cầu - có thể ở manager, hr, hoặc admin

@@ -42,7 +42,13 @@ const userSchema = new mongoose.Schema(
     bankAccount: { type: String },
     bankName: { type: String },
     taxId: { type: String },
-    position: { type: String }, 
+    position: { type: String },
+    // Lương cơ bản (optional - nếu có sẽ ưu tiên dùng, nếu không sẽ lookup từ config)
+    baseSalary: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
     isActive: { type: Boolean, default: true },
 
     // Số ngày phép

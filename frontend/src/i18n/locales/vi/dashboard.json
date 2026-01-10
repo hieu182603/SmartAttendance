@@ -1609,5 +1609,26 @@
       "created": "Tạo sự kiện thành công!",
       "updated": "Cập nhật sự kiện thành công!"
     }
+  },
+  "salaryMatrix": {
+    "title": "Quản lý thang lương",
+    "description": "Quản lý lương cơ bản theo phòng ban và chức vụ",
+    "add": "Thêm thang lương",
+    "department": "Phòng ban",
+    "position": "Chức vụ",
+    "baseSalary": "Lương cơ bản",
+    "notes": "Ghi chú",
+    "status": "Trạng thái",
+    "active": "Hoạt động",
+    "inactive": "Vô hiệu",
+    "editSalary": "Chỉnh sửa lương",
+    "editUserBaseSalary": "Chỉnh sửa lương cơ bản",
+    "currentSalary": "Lương hiện tại",
+    "salarySource": "Nguồn lương",
+    "salaryFromMatrix": "Lương từ thang lương",
+    "useMatrix": "Dùng lương từ thang lương",
+    "useCustom": "Set lương riêng",
+    "customSalaryNote": "Lương này sẽ ưu tiên cao nhất, bỏ qua lương từ thang lương",
+    "matrixSalaryNote": "Lương sẽ được tính từ thang lương (Department + Position). Nếu không có trong thang lương, sẽ dùng lương mặc định từ config."
   }
 }

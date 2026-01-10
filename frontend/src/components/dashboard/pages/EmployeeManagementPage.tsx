@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  DollarSign
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +34,7 @@ import { toast } from 'sonner'
 import { getAllUsers, getUserById, updateUserByAdmin, createUserByAdmin } from '@/services/userService'
 import { getAllDepartments, type Department as DepartmentType } from '@/services/departmentService'
 import shiftService, { type Shift } from '@/services/shiftService'
+import { getPositions } from '@/services/payrollService'
 import api from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 import { UserRole, ROLE_NAMES, canManageRole, type UserRoleType } from '@/utils/roles'
@@ -41,6 +43,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import RoleGuard from '@/components/RoleGuard'
 import UnauthorizedPage from '@/components/UnauthorizedPage'
 import type { ErrorWithMessage } from '@/types'
+import EditUserBaseSalaryDialog from './EditUserBaseSalaryDialog'
 
 interface RoleConfig {
   value: UserRoleType
@@ -65,6 +68,7 @@ interface User {
   department?: string | { _id: string; name: string; code?: string }
   role?: UserRoleType
   phone?: string
+  taxId?: string
   isActive?: boolean
   createdAt?: string
   defaultShiftId?: string | { _id: string; name: string; startTime?: string; endTime?: string }
@@ -74,8 +78,10 @@ interface FormData {
   name: string
   email: string
   department: string
+  position: string
   role: string
   phone: string
+  taxId: string
   isActive: boolean
   defaultShiftId: string
 }
@@ -85,8 +91,10 @@ interface CreateFormData {
   email: string
   password: string
   department: string
+  position: string
   role: string
   phone: string
+  taxId: string
   isActive: boolean
   defaultShiftId: string
 }
@@ -192,17 +200,21 @@ const EmployeeManagementPage: React.FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditSalaryDialogOpen, setIsEditSalaryDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [usersList, setUsersList] = useState<User[]>([])
   const [departments, setDepartments] = useState<DepartmentType[]>([])
   const [shifts, setShifts] = useState<Shift[]>([])
+  const [positions, setPositions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     department: '',
+    position: '',
     role: '',
     phone: '',
+    taxId: '',
     isActive: true,
     defaultShiftId: '',
   })
@@ -213,8 +225,10 @@ const EmployeeManagementPage: React.FC = () => {
     email: '',
     password: '',
     department: '',
+    position: '',
     role: '',
     phone: '',
+    taxId: '',
     isActive: true,
     defaultShiftId: '',
   })
@@ -323,6 +337,18 @@ const EmployeeManagementPage: React.FC = () => {
     fetchShifts()
   }, [])
 
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const positionsData = await getPositions()
+        setPositions(positionsData || [])
+      } catch (error) {
+        console.error('[EmployeeManagement] fetch positions error:', error)
+      }
+    }
+    fetchPositions()
+  }, [])
+
   // Reset to page 1 when search or filters change
   useEffect(() => {
     setCurrentPage(1)
@@ -385,8 +411,10 @@ const EmployeeManagementPage: React.FC = () => {
       name: user.name || '',
       email: user.email || '',
       department: getDepartmentId(user.department),
+      position: user.position || '',
       role: user.role || '',
       phone: user.phone || '',
+      taxId: user.taxId || '',
       isActive: user.isActive !== undefined ? user.isActive : true,
       defaultShiftId: shiftId,
     })
@@ -397,6 +425,11 @@ const EmployeeManagementPage: React.FC = () => {
   const handleDeleteUser = (user: User): void => {
     setSelectedUser(user)
     setIsDeleteDialogOpen(true)
+  }
+
+  const handleEditSalary = (user: User): void => {
+    setSelectedUser(user)
+    setIsEditSalaryDialogOpen(true)
   }
 
   const confirmDelete = async (): Promise<void> => {
@@ -531,8 +564,10 @@ const EmployeeManagementPage: React.FC = () => {
         email: '',
         password: '',
         department: '',
+        position: '',
         role: '',
         phone: '',
+        taxId: '',
         isActive: true,
         defaultShiftId: '',
       })
@@ -796,6 +831,16 @@ const EmployeeManagementPage: React.FC = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
+                            <RoleGuard permission={Permission.PAYROLL_MANAGE} showDisabled>
+                              <button
+                                type="button"
+                                onClick={() => handleEditSalary(user)}
+                                className="p-1 hover:bg-[var(--shell)] rounded text-[var(--success)]"
+                                title="Chỉnh sửa lương"
+                              >
+                                <DollarSign className="h-4 w-4" />
+                              </button>
+                            </RoleGuard>
                             <RoleGuard permission={Permission.USERS_UPDATE} showDisabled>
                               <button
                                 type="button"
@@ -859,6 +904,16 @@ const EmployeeManagementPage: React.FC = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
+                            <RoleGuard permission={Permission.PAYROLL_MANAGE} showDisabled>
+                              <button
+                                type="button"
+                                onClick={() => handleEditSalary(user)}
+                                className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--success)]"
+                                title="Chỉnh sửa lương"
+                              >
+                                <DollarSign className="h-4 w-4" />
+                              </button>
+                            </RoleGuard>
                             <RoleGuard permission={Permission.USERS_UPDATE} showDisabled>
                               <button
                                 type="button"
@@ -1121,6 +1176,24 @@ const EmployeeManagementPage: React.FC = () => {
                   <p className="text-xs text-red-500">{validationErrors.phone}</p>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Mã số thuế</Label>
+                <Input
+                  placeholder="Nhập mã số thuế"
+                  className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.taxId ? 'border-red-500' : ''}`}
+                  value={formData.taxId}
+                  onChange={(e) => {
+                    setFormData({ ...formData, taxId: e.target.value })
+                    if (validationErrors.taxId) {
+                      setValidationErrors({ ...validationErrors, taxId: null })
+                    }
+                  }}
+                />
+                {validationErrors.taxId && (
+                  <p className="text-xs text-red-500">{validationErrors.taxId}</p>
+                )}
+              </div>
             </div>
 
             {/* Right Column */}
@@ -1141,6 +1214,23 @@ const EmployeeManagementPage: React.FC = () => {
                     {departments.map((dept) => (
                       <SelectItem key={dept._id} value={dept._id}>
                         {dept.name} ({dept.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Chức vụ</Label>
+                <Select value={formData.position} onValueChange={(v) => setFormData({ ...formData, position: v })}>
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
+                    <SelectValue placeholder="Chọn chức vụ" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    <SelectItem value="">N/A</SelectItem>
+                    {positions.map((pos) => (
+                      <SelectItem key={pos} value={pos}>
+                        {pos}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1353,6 +1443,24 @@ const EmployeeManagementPage: React.FC = () => {
                   <p className="text-xs text-red-500">{createValidationErrors.phone}</p>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Mã số thuế</Label>
+                <Input
+                  placeholder="Nhập mã số thuế"
+                  className={`bg-[var(--shell)] border-[var(--border)] h-9 ${createValidationErrors.taxId ? 'border-red-500' : ''}`}
+                  value={createFormData.taxId}
+                  onChange={(e) => {
+                    setCreateFormData({ ...createFormData, taxId: e.target.value })
+                    if (createValidationErrors.taxId) {
+                      setCreateValidationErrors({ ...createValidationErrors, taxId: null })
+                    }
+                  }}
+                />
+                {createValidationErrors.taxId && (
+                  <p className="text-xs text-red-500">{createValidationErrors.taxId}</p>
+                )}
+              </div>
             </div>
 
             {/* Right Column */}
@@ -1373,6 +1481,23 @@ const EmployeeManagementPage: React.FC = () => {
                     {departments.map((dept) => (
                       <SelectItem key={dept._id} value={dept._id}>
                         {dept.name} ({dept.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Chức vụ</Label>
+                <Select value={createFormData.position} onValueChange={(v) => setCreateFormData({ ...createFormData, position: v })}>
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
+                    <SelectValue placeholder="Chọn chức vụ" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    <SelectItem value="">N/A</SelectItem>
+                    {positions.map((pos) => (
+                      <SelectItem key={pos} value={pos}>
+                        {pos}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1475,8 +1600,10 @@ const EmployeeManagementPage: React.FC = () => {
                   email: '',
                   password: '',
                   department: '',
+                  position: '',
                   role: '',
                   phone: '',
+                  taxId: '',
                   isActive: true,
                   defaultShiftId: '',
                 })
@@ -1541,6 +1668,19 @@ const EmployeeManagementPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit User Base Salary Dialog */}
+      {selectedUser && (
+        <EditUserBaseSalaryDialog
+          userId={selectedUser._id || selectedUser.id || ''}
+          userName={selectedUser.name || 'Unknown'}
+          open={isEditSalaryDialogOpen}
+          onOpenChange={setIsEditSalaryDialogOpen}
+          onSuccess={() => {
+            fetchUsers();
+          }}
+        />
+      )}
     </div >
   )
 }

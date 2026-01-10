@@ -304,3 +304,28 @@ export const getDepartments = async (req, res) => {
     res.status(500).json({ message: "Không lấy được danh sách phòng ban" });
   }
 };
+
+/**
+ * Get unique positions from users
+ */
+export const getPositions = async (req, res) => {
+  try {
+    const { UserModel } = await import("../users/user.model.js");
+    
+    // Get unique positions from active users
+    const positions = await UserModel.distinct("position", {
+      position: { $exists: true, $ne: null, $ne: "" },
+      isActive: true,
+    });
+    
+    // Filter out null/empty values and sort
+    const validPositions = positions
+      .filter((pos) => pos && pos.trim() !== "")
+      .sort();
+
+    res.json({ positions: validPositions });
+  } catch (error) {
+    console.error("[payroll] get positions error", error);
+    res.status(500).json({ message: "Không lấy được danh sách chức vụ" });
+  }
+};

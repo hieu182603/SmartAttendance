@@ -31,6 +31,7 @@ const updateUserByAdminSchema = z.object({
     .optional(),
   role: z.enum(["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"]).optional(),
   department: z.string().optional(),
+  position: z.string().optional(),
   branch: z.string().optional(),
   defaultShiftId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
@@ -57,6 +58,7 @@ const createUserByAdminSchema = z.object({
     errorMap: () => ({ message: "Role không hợp lệ" }),
   }),
   department: z.string().optional(),
+  position: z.string().optional(),
   branch: z.string().optional(),
   phone: z
     .union([
@@ -64,6 +66,7 @@ const createUserByAdminSchema = z.object({
       z.literal(""),
     ])
     .optional(),
+  taxId: z.string().optional(),
   defaultShiftId: z.string().optional(),
   isActive: z.boolean().optional(),
 });

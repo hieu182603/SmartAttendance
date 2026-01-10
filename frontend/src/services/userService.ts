@@ -17,10 +17,12 @@ interface UpdateUserByAdminData {
   phone?: string
   role?: string
   department?: string // ObjectId or empty string for null
+  position?: string
   branch?: string // ObjectId or empty string for null
   isActive?: boolean
   avatar?: string
   avatarUrl?: string
+  taxId?: string
   defaultShiftId?: string
 }
 
@@ -30,8 +32,10 @@ interface CreateUserByAdminData {
   name: string
   role: string
   department?: string
+  position?: string
   branch?: string
   phone?: string
+  taxId?: string
   defaultShiftId?: string
   isActive?: boolean
 }

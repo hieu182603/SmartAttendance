@@ -1601,5 +1601,26 @@
       "created": "Event created successfully!",
       "updated": "Event updated successfully!"
     }
+  },
+  "salaryMatrix": {
+    "title": "Salary Scale Management",
+    "description": "Manage base salaries by department and position",
+    "add": "Add Salary Scale",
+    "department": "Department",
+    "position": "Position",
+    "baseSalary": "Base Salary",
+    "notes": "Notes",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "editSalary": "Edit Salary",
+    "editUserBaseSalary": "Edit Base Salary",
+    "currentSalary": "Current Salary",
+    "salarySource": "Salary Source",
+    "salaryFromMatrix": "Salary from Scale",
+    "useMatrix": "Use Salary from Scale",
+    "useCustom": "Set Custom Salary",
+    "customSalaryNote": "This salary will have highest priority, overriding scale salary",
+    "matrixSalaryNote": "Salary will be calculated from salary scale (Department + Position). If not found in scale, default salary from config will be used."
   }
 }

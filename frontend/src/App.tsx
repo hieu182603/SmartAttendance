@@ -54,6 +54,9 @@ const ShiftsPage = lazy(() =>
     default: module.ShiftsPage,
   }))
 );
+const SalaryMatrixManagementPage = lazy(() =>
+  import("@/components/dashboard/pages/SalaryMatrixManagementPage")
+);
 
 // Layout & Common Components - Lazy Load
 const DashboardLayout = lazy(() => import("@/components/dashboard/DashboardLayout"));
@@ -207,6 +210,12 @@ export default function App() {
                 >
                   <Route index element={<PayrollPage />} />
                 </Route>
+                <Route
+                  path="salary-matrix"
+                  element={<ProtectedRoute permission={Permission.PAYROLL_MANAGE} />}
+                >
+                  <Route index element={<SalaryMatrixManagementPage />} />
+                </Route>
                 <Route 
                   path="performance-review" 
                   element={<ProtectedRoute permission={Permission.USERS_VIEW} />}
@@ -280,11 +289,17 @@ export default function App() {
                 >
                   <Route index element={<PayrollReportsPage />} />
                 </Route>
-                <Route 
-                  path="payroll" 
+                <Route
+                  path="payroll"
                   element={<ProtectedRoute permission={Permission.PAYROLL_MANAGE} />}
                 >
                   <Route index element={<PayrollPage />} />
+                </Route>
+                <Route
+                  path="salary-matrix"
+                  element={<ProtectedRoute permission={Permission.PAYROLL_MANAGE} />}
+                >
+                  <Route index element={<SalaryMatrixManagementPage />} />
                 </Route>
                 <Route 
                   path="performance-review" 
