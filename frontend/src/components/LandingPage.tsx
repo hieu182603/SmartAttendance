@@ -338,10 +338,10 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <div className="text-[var(--text-main)]">
-                      Quét Face 
+                      Quét ảnh và nhận diện khuôn mặt
                     </div>
                     <div className="text-sm text-[var(--text-sub)]">
-                      Điểm danh nhanh chóng
+                      Chấm công nhanh chóng
                     </div>
                   </div>
                 </div>
@@ -547,7 +547,7 @@ export default function LandingPage() {
                 <CheckCircle className="h-5 w-5 text-[var(--success)]" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-[var(--text-main)]">Check-in QR Code</div>
+                <div className="text-sm font-semibold text-[var(--text-main)]">Check-in</div>
                 <div className="text-xs text-[var(--text-sub)]">3 giây hoàn thành</div>
               </div>
             </div>
@@ -599,9 +599,9 @@ export default function LandingPage() {
           {[
             {
               icon: Camera,
-              title: "Quét QR Code",
+              title: "Check-in",
               description:
-                "Chấm công nhanh chóng, chính xác với mã QR độc quyền",
+                "Chấm công nhanh chóng, chính xác với ảnh, GPS và nhận diện khuôn mặt độc quyền",
               color:
                 "from-[var(--primary)] to-[var(--accent-cyan)]",
               delay: 0.1,
