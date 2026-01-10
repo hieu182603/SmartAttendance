@@ -142,25 +142,29 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.ATTENDANCE_VIEW_OWN,
         Permission.REQUESTS_CREATE,
         Permission.REQUESTS_VIEW_OWN,
-        // Department management permissions
+        // Department view permissions (read-only, hỗ trợ MANAGER)
         Permission.ATTENDANCE_VIEW_DEPARTMENT,
         Permission.REQUESTS_APPROVE_DEPARTMENT,
-        Permission.USERS_VIEW_DEPARTMENT,
-        Permission.USERS_UPDATE_DEPARTMENT,
-        Permission.SCHEDULE_VIEW_DEPARTMENT,
-        Permission.SCHEDULE_MANAGE_DEPARTMENT,
-        Permission.PERFORMANCE_VIEW_DEPARTMENT,
-        Permission.PERFORMANCE_MANAGE_DEPARTMENT,
+        Permission.USERS_VIEW_DEPARTMENT, // Chỉ xem, không update
+        Permission.SCHEDULE_VIEW_DEPARTMENT, // Chỉ xem, không manage
+        Permission.PERFORMANCE_VIEW_DEPARTMENT, // Chỉ xem, không manage
         Permission.ANALYTICS_VIEW_DEPARTMENT,
         Permission.VIEW_REPORTS,
     ],
 
     [UserRole.MANAGER]: [
+        // Tất cả permissions của SUPERVISOR
         Permission.ATTENDANCE_VIEW_OWN,
         Permission.ATTENDANCE_VIEW_DEPARTMENT,
         Permission.REQUESTS_CREATE,
         Permission.REQUESTS_VIEW_OWN,
         Permission.REQUESTS_APPROVE_DEPARTMENT,
+        Permission.USERS_VIEW_DEPARTMENT,
+        Permission.USERS_UPDATE_DEPARTMENT, // MANAGER có quyền update
+        Permission.SCHEDULE_VIEW_DEPARTMENT,
+        Permission.SCHEDULE_MANAGE_DEPARTMENT, // MANAGER có quyền manage schedule
+        Permission.PERFORMANCE_VIEW_DEPARTMENT,
+        Permission.PERFORMANCE_MANAGE_DEPARTMENT, // MANAGER có quyền manage performance
         Permission.ANALYTICS_VIEW_DEPARTMENT,
         Permission.VIEW_REPORTS,
     ],
@@ -178,9 +182,15 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.USERS_CREATE,
         Permission.USERS_UPDATE,
         Permission.PAYROLL_VIEW,
+        Permission.PAYROLL_MANAGE, // HR_MANAGER có quyền quản lý thang lương
     ],
 
     [UserRole.ADMIN]: [
+        // Basic permissions (ADMIN vẫn là nhân viên nên cần các quyền cơ bản)
+        Permission.ATTENDANCE_VIEW_OWN,
+        Permission.REQUESTS_CREATE,
+        Permission.REQUESTS_VIEW_OWN,
+        // Admin permissions
         Permission.ATTENDANCE_VIEW_ALL,
         Permission.ATTENDANCE_MANUAL_CHECKIN,
         Permission.ATTENDANCE_APPROVE,
@@ -260,9 +270,13 @@ export function hasPermission(role: UserRoleType, permission: PermissionType): b
     const permissionHierarchy: Record<string, string[]> = {
         [Permission.REQUESTS_APPROVE_DEPARTMENT]: [Permission.REQUESTS_APPROVE_ALL],
         [Permission.ATTENDANCE_VIEW_DEPARTMENT]: [Permission.ATTENDANCE_VIEW_ALL],
-        [Permission.ANALYTICS_VIEW_DEPARTMENT]: [Permission.ANALYTICS_VIEW_ALL],
         [Permission.ATTENDANCE_VIEW_OWN]: [Permission.ATTENDANCE_VIEW_DEPARTMENT, Permission.ATTENDANCE_VIEW_ALL],
+        [Permission.ANALYTICS_VIEW_DEPARTMENT]: [Permission.ANALYTICS_VIEW_ALL],
         [Permission.REQUESTS_VIEW_OWN]: [Permission.REQUESTS_APPROVE_DEPARTMENT, Permission.REQUESTS_APPROVE_ALL],
+        [Permission.USERS_VIEW_DEPARTMENT]: [Permission.USERS_VIEW],
+        [Permission.USERS_UPDATE_DEPARTMENT]: [Permission.USERS_UPDATE],
+        [Permission.SCHEDULE_VIEW_DEPARTMENT]: [Permission.SCHEDULE_MANAGE_DEPARTMENT],
+        [Permission.PERFORMANCE_VIEW_DEPARTMENT]: [Permission.PERFORMANCE_MANAGE_DEPARTMENT],
     };
     
     const higherPermissions = permissionHierarchy[permission] || [];

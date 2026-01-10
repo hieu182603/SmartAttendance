@@ -16,7 +16,7 @@ userRouter.post("/me/avatar", upload.single("avatar"), UserController.uploadAvat
 
 userRouter.post(
     "/",
-    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]), // HR_MANAGER có quyền tạo nhân viên
     UserController.createUserByAdmin
 );
 

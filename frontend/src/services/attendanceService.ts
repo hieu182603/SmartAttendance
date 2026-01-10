@@ -34,6 +34,10 @@ export interface AttendanceRecord {
   approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null; // ⚠️ MỚI
   approvedBy?: string | null; // ⚠️ MỚI
   approvedAt?: string | null; // ⚠️ MỚI
+  checkInLatitude?: number | null; // Vĩ độ khi check-in
+  checkInLongitude?: number | null; // Kinh độ khi check-in
+  checkOutLatitude?: number | null; // Vĩ độ khi check-out
+  checkOutLongitude?: number | null; // Kinh độ khi check-out
 }
 
 interface UpdateAttendancePayload {

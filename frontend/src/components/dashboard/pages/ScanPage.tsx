@@ -872,22 +872,22 @@ const ScanPage: React.FC = () => {
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">
-                      {t("dashboard:scan.locationInfo.latitude")}
-                    </span>
-                    <span className="font-mono text-xs text-[var(--text-sub)]">
-                      {locationData.latitude?.toFixed(6)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-sub)]">
-                      {t("dashboard:scan.locationInfo.longitude")}
-                    </span>
-                    <span className="font-mono text-xs text-[var(--text-sub)]">
-                      {locationData.longitude?.toFixed(6)}
-                    </span>
-                  </div>
+                  {locationData.latitude != null && locationData.longitude != null && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-[var(--text-sub)]">
+                        Vị trí:
+                      </span>
+                      <a
+                        href={`https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--accent-cyan)] hover:underline text-xs flex items-center gap-1 font-mono"
+                      >
+                        <MapPin className="h-3 w-3" />
+                        {locationData.latitude.toFixed(6)}, {locationData.longitude.toFixed(6)}
+                      </a>
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"

@@ -104,7 +104,6 @@ const CompanyCalendarPage: React.FC = () => {
   const { t } = useTranslation(["dashboard", "common"]);
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [filterType, setFilterType] = useState<EventType | "all">("all");
   const [events, setEvents] = useState<ReturnType<typeof mapEvent>[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<
     ReturnType<typeof mapEvent>[]
@@ -167,13 +166,6 @@ const CompanyCalendarPage: React.FC = () => {
     fetchData();
   }, [selectedDate]);
 
-  // Filter events based on selected type
-  const filteredEvents = React.useMemo(() => {
-    return events.filter((event) => {
-      if (filterType === "all") return true;
-      return event.type === filterType;
-    });
-  }, [events, filterType]);
 
   // Get events for selected date
   const selectedDateEvents = selectedDate
@@ -331,49 +323,6 @@ const CompanyCalendarPage: React.FC = () => {
         )}
       </div>
 
-      {/* Filter Tabs */}
-      <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-[var(--text-main)]">
-              Lọc theo loại sự kiện
-            </h3>
-            {filterType !== "all" && (
-              <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)]">
-                {filteredEvents.length} kết quả
-              </Badge>
-            )}
-          </div>
-          <Tabs 
-            value={filterType} 
-            onValueChange={(v) => {
-              setFilterType(v as EventType | "all");
-              toast.info(`Đang lọc: ${v === "all" ? "Tất cả" : getTypeLabel(v as EventType)}`);
-            }}
-          >
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="all" className="data-[state=active]:bg-[var(--primary)] data-[state=active]:text-white">
-                {t("dashboard:companyCalendar.tabs.all")}
-              </TabsTrigger>
-              <TabsTrigger value="holiday" className="data-[state=active]:bg-red-500 data-[state=active]:text-white">
-                {t("dashboard:companyCalendar.tabs.holiday")}
-              </TabsTrigger>
-              <TabsTrigger value="meeting" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-                {t("dashboard:companyCalendar.eventTypes.meeting")}
-              </TabsTrigger>
-              <TabsTrigger value="event" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
-                {t("dashboard:companyCalendar.tabs.event")}
-              </TabsTrigger>
-              <TabsTrigger value="deadline" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-                {t("dashboard:companyCalendar.eventTypes.deadline")}
-              </TabsTrigger>
-              <TabsTrigger value="training" className="data-[state=active]:bg-purple-500 data-[state=active]:text-white">
-                {t("dashboard:companyCalendar.tabs.training")}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardContent>
-      </Card>
 
       {/* Summary Stats - 4 KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -699,10 +648,7 @@ const CompanyCalendarPage: React.FC = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-[var(--text-main)]">
-              {filterType === "all" 
-                ? t("dashboard:companyCalendar.allEvents")
-                : getTypeLabel(filterType as EventType)
-              } ({filteredEvents.length})
+              {t("dashboard:companyCalendar.allEvents")} ({events.length})
               {" - "}
               {t("dashboard:companyCalendar.month")}{" "}
               {selectedDate.toLocaleDateString("vi-VN", {
@@ -710,16 +656,6 @@ const CompanyCalendarPage: React.FC = () => {
                 year: "numeric",
               })}
             </CardTitle>
-            {filterType !== "all" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilterType("all")}
-                className="text-[var(--accent-cyan)] hover:text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
-              >
-                Xóa bộ lọc
-              </Button>
-            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -731,15 +667,15 @@ const CompanyCalendarPage: React.FC = () => {
                   {t("dashboard:companyCalendar.loading")}
                 </p>
               </div>
-            ) : filteredEvents.length > 0 ? (
-              filteredEvents
+            ) : events.length > 0 ? (
+              events
                 .sort(
                   (a, b) =>
                     new Date(a.date).getTime() - new Date(b.date).getTime()
                 )
                 .map((event, index) => (
                   <motion.div
-                    key={`${event.id}-${filterType}`}
+                    key={`${event.id}-${index}`}
                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -20, scale: 0.95 }}
@@ -850,30 +786,10 @@ const CompanyCalendarPage: React.FC = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center py-12"
               >
-                <div className="text-6xl mb-4">
-                  {filterType === "all" ? "📅" : 
-                   filterType === "holiday" ? "🎉" :
-                   filterType === "meeting" ? "👥" :
-                   filterType === "event" ? "🎪" :
-                   filterType === "deadline" ? "⏰" :
-                   "📚"}
-                </div>
+                <div className="text-6xl mb-4">📅</div>
                 <p className="text-[var(--text-main)] font-medium mb-2">
-                  {filterType === "all" 
-                    ? t("dashboard:companyCalendar.noEventsThisMonth")
-                    : `Không có ${getTypeLabel(filterType as EventType).toLowerCase()} nào trong tháng này`
-                  }
+                  {t("dashboard:companyCalendar.noEventsThisMonth")}
                 </p>
-                {filterType !== "all" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilterType("all")}
-                    className="mt-4"
-                  >
-                    Xem tất cả sự kiện
-                  </Button>
-                )}
               </motion.div>
             )}
           </div>

@@ -62,6 +62,10 @@ interface AttendanceRecordItem {
   hours: string;
   status: AttendanceStatus;
   location: string;
+  checkInLatitude?: number | null;
+  checkInLongitude?: number | null;
+  checkOutLatitude?: number | null;
+  checkOutLongitude?: number | null;
 }
 
 interface AttendanceSummary {
@@ -343,6 +347,10 @@ export default function AdminAttendancePage() {
             hours: formatHoursValue(item.hours, checkInValue, checkOutValue),
             status: statusValue,
             location: pickString(item.location) ?? "-",
+            checkInLatitude: typeof item.checkInLatitude === 'number' ? item.checkInLatitude : null,
+            checkInLongitude: typeof item.checkInLongitude === 'number' ? item.checkInLongitude : null,
+            checkOutLatitude: typeof item.checkOutLatitude === 'number' ? item.checkOutLatitude : null,
+            checkOutLongitude: typeof item.checkOutLongitude === 'number' ? item.checkOutLongitude : null,
           };
         }
       );
@@ -994,6 +1002,35 @@ export default function AdminAttendancePage() {
                     <p className="text-[var(--text-main)] font-medium">
                       {selectedRecord.location}
                     </p>
+                    {/* Hiển thị tọa độ check-in và check-out như link Google Maps */}
+                    {selectedRecord.checkInLatitude != null && selectedRecord.checkInLongitude != null && (
+                      <div className="mt-2">
+                        <Label className="text-xs text-[var(--text-sub)]">Vị trí check-in:</Label>
+                        <a
+                          href={`https://www.google.com/maps?q=${selectedRecord.checkInLatitude},${selectedRecord.checkInLongitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[var(--accent-cyan)] hover:underline text-sm flex items-center gap-1 mt-1"
+                        >
+                          <MapPin className="h-3 w-3" />
+                          {selectedRecord.checkInLatitude.toFixed(6)}, {selectedRecord.checkInLongitude.toFixed(6)}
+                        </a>
+                      </div>
+                    )}
+                    {selectedRecord.checkOutLatitude != null && selectedRecord.checkOutLongitude != null && (
+                      <div className="mt-2">
+                        <Label className="text-xs text-[var(--text-sub)]">Vị trí check-out:</Label>
+                        <a
+                          href={`https://www.google.com/maps?q=${selectedRecord.checkOutLatitude},${selectedRecord.checkOutLongitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[var(--accent-cyan)] hover:underline text-sm flex items-center gap-1 mt-1"
+                        >
+                          <MapPin className="h-3 w-3" />
+                          {selectedRecord.checkOutLatitude.toFixed(6)}, {selectedRecord.checkOutLongitude.toFixed(6)}
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

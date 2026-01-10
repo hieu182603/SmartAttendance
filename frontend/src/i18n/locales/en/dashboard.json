@@ -155,6 +155,8 @@
       "completed": "You have completed your check-in",
       "notCheckedOut": "Not checked out yet. Remember to check out when your shift ends.",
       "notCheckedIn": "Not checked in today",
+      "scanQR": "Scan QR code at the office to check in",
+      "scanQRButton": "Check In",
       "scanPhoto": "Scan photo at the office to check in",
       "scanPhotoButton": "Scan photo to Check In",
       "working": "Currently Working",
