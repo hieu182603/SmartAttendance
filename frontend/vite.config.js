@@ -15,7 +15,7 @@ export default defineConfig({
     },
     optimizeDeps: {
         include: [
-            '@tensorflow-models/face-landmarks-detection',
+            '@tensorflow-models/blazeface',
             '@tensorflow/tfjs',
         ],
     },
@@ -27,7 +27,7 @@ export default defineConfig({
                     'react-vendor': ['react', 'react-dom', 'react-router-dom'],
                     'ui-vendor': ['sonner', 'framer-motion'],
                     'tensorflow-vendor': [
-                        '@tensorflow-models/face-landmarks-detection',
+                        '@tensorflow-models/blazeface',
                         '@tensorflow/tfjs',
                     ],
                 },
