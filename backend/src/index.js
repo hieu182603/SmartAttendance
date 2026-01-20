@@ -19,6 +19,7 @@ import { payrollRouter } from "./modules/payroll/payroll.router.js";
 import { eventRouter } from "./modules/events/event.router.js";
 import { performanceRouter } from "./modules/performance/performance.router.js";
 import { notificationRouter } from "./modules/notifications/notification.router.js";
+import { faceRouter } from "./modules/face/face.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
 
 
@@ -70,6 +71,7 @@ app.use("/api/payroll", payrollRouter);
 app.use("/api/events", eventRouter);
 app.use("/api/performance", performanceRouter);
 app.use("/api/notifications", notificationRouter);
+app.use("/api/face", faceRouter);
 app.use("/api/logs", logRouter);
 
 // Error handler

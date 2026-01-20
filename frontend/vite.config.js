@@ -10,6 +10,12 @@ export default defineConfig({
             '@': path.resolve(__dirname, 'src'),
         },
     },
+    optimizeDeps: {
+        include: [
+            '@tensorflow-models/face-landmarks-detection',
+            '@tensorflow/tfjs',
+        ],
+    },
     build: {
         rollupOptions: {
             output: {
@@ -17,8 +23,15 @@ export default defineConfig({
                     // Tách vendor chunks cho dependencies lớn
                     'react-vendor': ['react', 'react-dom', 'react-router-dom'],
                     'ui-vendor': ['sonner', 'framer-motion'],
+                    'tensorflow-vendor': [
+                        '@tensorflow-models/face-landmarks-detection',
+                        '@tensorflow/tfjs',
+                    ],
                 },
             },
+        },
+        commonjsOptions: {
+            include: [/node_modules/],
         },
         // Cảnh báo khi chunk vượt quá 1MB
         chunkSizeWarningLimit: 1000,

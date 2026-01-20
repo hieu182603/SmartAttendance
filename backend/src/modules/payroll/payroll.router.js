@@ -21,6 +21,7 @@ import {
   deleteSalaryMatrix,
   updateUserBaseSalary,
   getUserSalaryInfo,
+  getUserSalaryHistory,
 } from "./payroll-salary.controller.js";
 
 export const payrollRouter = Router();
@@ -95,6 +96,12 @@ payrollRouter.get(
   "/users/:id/salary-info",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   getUserSalaryInfo
+);
+
+payrollRouter.get(
+  "/users/:userId/salary-history",
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  getUserSalaryHistory
 );
 
 payrollRouter.put(

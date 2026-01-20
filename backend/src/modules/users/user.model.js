@@ -43,6 +43,8 @@ const userSchema = new mongoose.Schema(
     bankName: { type: String },
     taxId: { type: String },
     position: { type: String },
+    // Normalized position key for case-insensitive matching
+    positionKey: { type: String, trim: true, lowercase: true, index: true },
     // Lương cơ bản (optional - nếu có sẽ ưu tiên dùng, nếu không sẽ lookup từ config)
     baseSalary: {
       type: Number,
@@ -89,6 +91,31 @@ const userSchema = new mongoose.Schema(
         pending: { type: Number, default: 0 },
       },
     },
+
+    // Face recognition data
+    faceData: {
+      isRegistered: { type: Boolean, default: false },
+      embeddings: {
+        type: [[Number]], // Array of 512-dim embedding vectors
+        default: [],
+        validate: {
+          validator: function(v) {
+            // Validate that embeddings array contains valid numeric arrays
+            if (!Array.isArray(v)) return false;
+            return v.every(emb => 
+              Array.isArray(emb) && 
+              emb.length === 512 && 
+              emb.every(val => typeof val === 'number' && !isNaN(val))
+            );
+          },
+          message: 'Embeddings must be an array of 512-dimensional numeric arrays'
+        }
+      },
+      registeredAt: { type: Date, default: null },
+      faceImages: { type: [String], default: [] }, // Cloudinary URLs
+      faceImagePublicIds: { type: [String], default: [] }, // Cloudinary public IDs for deletion
+      lastVerifiedAt: { type: Date, default: null },
+    },
   },
   { 
     timestamps: true,
@@ -97,13 +124,22 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// Index for efficient querying of users with registered faces
+userSchema.index({ "faceData.isRegistered": 1 });
+
 // Virtual field: fullName (alias cho name)
 userSchema.virtual('fullName').get(function() {
   return this.name;
 });
 
-// Hash password trước khi lưu
+// Normalize positionKey before saving
 userSchema.pre("save", async function (next) {
+  // Normalize positionKey when position is set or modified
+  if (this.isModified("position")) {
+    this.positionKey = this.position ? this.position.trim().toLowerCase() : null;
+  }
+
+  // Hash password trước khi lưu
   if (!this.isModified("password")) return next();
 
   try {
@@ -144,6 +180,16 @@ userSchema.methods.initializeLeaveBalance = function () {
       maternity: { total: 180, used: 0, remaining: 180, pending: 0 },
     };
   }
+};
+
+/**
+ * Method kiểm tra xem user đã đăng ký face chưa
+ * @returns {Boolean}
+ */
+userSchema.methods.hasFaceRegistered = function () {
+  return this.faceData?.isRegistered === true && 
+         Array.isArray(this.faceData?.embeddings) && 
+         this.faceData.embeddings.length > 0;
 };
 
 export const UserModel = mongoose.model("User", userSchema);

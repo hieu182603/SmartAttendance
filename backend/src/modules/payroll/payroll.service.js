@@ -1,6 +1,9 @@
 import {
   getBaseSalaryFromConfig,
   PAYROLL_RULES,
+  SALARY_MATRIX,
+  POSITION_DEFAULT_SALARY,
+  DEPARTMENT_DEFAULT_SALARY,
 } from "../../config/payroll.config.js";
 import { AttendanceModel } from "../attendance/attendance.model.js";
 import { UserModel } from "../users/user.model.js";
@@ -27,11 +30,16 @@ import { SalaryMatrixModel } from "./salary-matrix.model.js";
  * 
  * @param {Object} user - User object (có thể là lean hoặc document)
  * @param {Object} department - Department object (optional, để tối ưu query)
- * @returns {Promise<number>} Base salary
+ * @returns {Promise<Object>} { baseSalary, source } - Base salary và nguồn của nó
  */
 export async function calculateBaseSalary(user, department = null) {
-  if (user.baseSalary && user.baseSalary > 0) {
-    return user.baseSalary;
+  // ✅ FIX: Chỉ fallback khi baseSalary === null hoặc undefined
+  // Nếu baseSalary === 0, vẫn return 0 (để phân biệt với "chưa set lương")
+  if (user.baseSalary !== null && user.baseSalary !== undefined) {
+    return {
+      baseSalary: user.baseSalary,
+      source: "USER_OVERRIDE",
+    };
   }
 
   let departmentCode = null;
@@ -50,21 +58,80 @@ export async function calculateBaseSalary(user, department = null) {
 
   if (departmentCode && position) {
     try {
+      // Normalize position for case-insensitive matching
+      const normalizedPosition = position.trim().toLowerCase();
       const matrixRecord = await SalaryMatrixModel.findOne({
         departmentCode: departmentCode.toUpperCase(),
-        position: position.trim(),
+        positionKey: normalizedPosition,
         isActive: true,
       }).lean();
 
       if (matrixRecord && matrixRecord.baseSalary > 0) {
-        return matrixRecord.baseSalary;
+        return {
+          baseSalary: matrixRecord.baseSalary,
+          source: "SALARY_MATRIX",
+        };
       }
     } catch (error) {
       console.error("[payroll] Error querying salary matrix:", error);
     }
   }
 
-  return getBaseSalaryFromConfig(departmentCode, position);
+  // getBaseSalaryFromConfig trả về salary, cần xác định source
+  const deptCode = departmentCode?.toUpperCase() || "OTHER";
+  const pos = position?.trim() || "";
+  
+  let source = "GLOBAL_DEFAULT";
+  let configSalary = 0;
+  
+  // Helper function to find matching key in object (case-insensitive)
+  const findMatchingKey = (obj, searchKey) => {
+    if (!obj || !searchKey) return null;
+    const normalizedSearch = searchKey.toLowerCase();
+    return Object.keys(obj).find(key => key.toLowerCase() === normalizedSearch);
+  };
+  
+  // Xác định source theo logic giống getBaseSalaryFromConfig (case-insensitive)
+  // 1. SALARY_MATRIX[departmentCode][position] - normalized matching
+  if (pos && SALARY_MATRIX[deptCode]) {
+    const matchingPosition = findMatchingKey(SALARY_MATRIX[deptCode], pos);
+    if (matchingPosition && SALARY_MATRIX[deptCode][matchingPosition]) {
+      configSalary = SALARY_MATRIX[deptCode][matchingPosition];
+      source = "SALARY_MATRIX"; // Từ config, nhưng logic giống SALARY_MATRIX
+    }
+  }
+  
+  // 2. SALARY_MATRIX[departmentCode].DEFAULT (if no position match found)
+  if (source === "GLOBAL_DEFAULT" && SALARY_MATRIX[deptCode] && SALARY_MATRIX[deptCode].DEFAULT) {
+    configSalary = SALARY_MATRIX[deptCode].DEFAULT;
+    source = "DEPT_DEFAULT";
+  }
+  
+  // 3. POSITION_DEFAULT_SALARY - normalized matching (if no department match)
+  if (source === "GLOBAL_DEFAULT" && pos) {
+    const matchingPosKey = findMatchingKey(POSITION_DEFAULT_SALARY, pos);
+    if (matchingPosKey && POSITION_DEFAULT_SALARY[matchingPosKey]) {
+      configSalary = POSITION_DEFAULT_SALARY[matchingPosKey];
+      source = "POS_DEFAULT";
+    }
+  }
+  
+  // 4. DEPARTMENT_DEFAULT_SALARY (if no position match found)
+  if (source === "GLOBAL_DEFAULT" && DEPARTMENT_DEFAULT_SALARY[deptCode]) {
+    configSalary = DEPARTMENT_DEFAULT_SALARY[deptCode];
+    source = "DEPT_DEFAULT";
+  }
+  
+  // 5. GLOBAL_DEFAULT_SALARY (fallback)
+  if (source === "GLOBAL_DEFAULT") {
+    configSalary = getBaseSalaryFromConfig(departmentCode, position);
+    source = "GLOBAL_DEFAULT";
+  }
+
+  return {
+    baseSalary: configSalary,
+    source,
+  };
 }
 
 // ============================================================================
@@ -88,6 +155,14 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
     },
   }).lean();
 
+  // ✅ FIX: Warning khi không có attendance data
+  const hasAttendanceData = attendances.length > 0;
+  if (!hasAttendanceData) {
+    console.warn(
+      `[payroll] No attendance data found for user ${userId} in period ${periodStart.toISOString()} - ${periodEnd.toISOString()}`
+    );
+  }
+
   const workDays = attendances.filter(
     (a) => a.status === "present" || a.status === "late"
   ).length;
@@ -110,7 +185,25 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
     overtimeHours: Math.round(overtimeHours * 10) / 10,
     lateDays,
     leaveDays,
+    hasAttendanceData, // ✅ Flag để frontend có thể hiển thị warning
   };
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Làm tròn lương đến hàng nghìn VNĐ (precision = 1000)
+ * VD: 13,636,364 → 13,636,000
+ * 
+ * @param {number} amount - Số tiền cần làm tròn
+ * @param {number} precision - Độ chính xác (mặc định 1000)
+ * @returns {number} Số tiền đã làm tròn
+ */
+export function roundSalary(amount, precision = 1000) {
+  if (!amount && amount !== 0) return 0;
+  return Math.round(amount / precision) * precision;
 }
 
 // ============================================================================
@@ -131,7 +224,7 @@ export function calculateActualBaseSalary(baseSalary, workDays) {
 
   const actualSalary =
     baseSalary * (workDays / PAYROLL_RULES.STANDARD_WORK_DAYS);
-  return Math.round(actualSalary);
+  return roundSalary(actualSalary);
 }
 
 /**
@@ -148,7 +241,7 @@ export function calculateOvertimePay(overtimeHours, baseSalary) {
       PAYROLL_RULES.STANDARD_WORK_HOURS_PER_DAY);
   const overtimePay =
     overtimeHours * hourlyRate * PAYROLL_RULES.OVERTIME.MULTIPLIER;
-  return Math.round(overtimePay);
+  return roundSalary(overtimePay);
 }
 
 /**
@@ -175,7 +268,7 @@ export function calculateDeductions(lateDays, leaveDays, baseSalary) {
     deductions += leaveDays * perDayDeduction;
   }
 
-  return Math.round(deductions);
+  return roundSalary(deductions);
 }
 
 /**
@@ -210,7 +303,7 @@ export function calculateBonus(attendanceData, baseSalary) {
     }
   }
 
-  return Math.round(bonus);
+  return roundSalary(bonus);
 }
 
 // ============================================================================
@@ -229,7 +322,12 @@ export async function generatePayrollRecord(userId, month) {
     throw new Error("Month format must be YYYY-MM");
   }
 
+  // ✅ FIX: Validate monthNum (1-12)
   const [year, monthNum] = month.split("-").map(Number);
+  if (monthNum < 1 || monthNum > 12) {
+    throw new Error("Invalid month number. Must be between 1-12");
+  }
+  
   const periodStart = new Date(Date.UTC(year, monthNum - 1, 1));
   const periodEnd = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59));
 
@@ -241,7 +339,7 @@ export async function generatePayrollRecord(userId, month) {
     throw new Error("User not found");
   }
 
-  const baseSalary = await calculateBaseSalary(user, user.department);
+  const { baseSalary, source: salarySource } = await calculateBaseSalary(user, user.department);
   const attendanceData = await calculateAttendanceData(
     userId,
     periodStart,
@@ -279,12 +377,15 @@ export async function generatePayrollRecord(userId, month) {
     overtimeHours: attendanceData.overtimeHours,
     leaveDays: attendanceData.leaveDays,
     lateDays: attendanceData.lateDays,
-    baseSalary,
+    baseSalary, // Lương tháng đầy đủ
+    actualBaseSalary, // Lương cơ bản thực tế (theo số ngày làm việc)
+    salarySource, // ✅ Nguồn của baseSalary
     overtimePay,
     bonus,
     deductions,
     totalSalary,
     department: user.department?.name || "N/A",
+    departmentId: user.department?._id || user.department || null, // Store departmentId for filtering
     position: user.position || "N/A",
     employeeId: user.employeeId || `EMP${userId.toString().slice(-6)}`,
     status: payrollRecord?.status || "pending",
@@ -295,10 +396,38 @@ export async function generatePayrollRecord(userId, month) {
       Object.assign(payrollRecord, recordData);
       await payrollRecord.save();
     } else {
+      // ✅ FIX: Update attendance và tính lại actualBaseSalary, overtimePay, etc.
       payrollRecord.workDays = recordData.workDays;
       payrollRecord.overtimeHours = recordData.overtimeHours;
       payrollRecord.leaveDays = recordData.leaveDays;
       payrollRecord.lateDays = recordData.lateDays;
+      
+      // Tính lại actualBaseSalary dựa trên workDays mới
+      payrollRecord.actualBaseSalary = calculateActualBaseSalary(
+        payrollRecord.baseSalary,
+        recordData.workDays
+      );
+      
+      // Recalculate các components
+      payrollRecord.overtimePay = calculateOvertimePay(
+        recordData.overtimeHours,
+        payrollRecord.baseSalary
+      );
+      payrollRecord.deductions = calculateDeductions(
+        recordData.lateDays,
+        recordData.leaveDays,
+        payrollRecord.baseSalary
+      );
+      payrollRecord.bonus = calculateBonus(
+        {
+          workDays: recordData.workDays,
+          lateDays: recordData.lateDays,
+          leaveDays: recordData.leaveDays,
+        },
+        payrollRecord.baseSalary
+      );
+      
+      // Pre-save hook sẽ tự động tính lại totalSalary từ actualBaseSalary
       await payrollRecord.save();
     }
   } else {
@@ -365,7 +494,12 @@ export async function previewPayrollRecord(userId, month) {
     throw new Error("Month format must be YYYY-MM");
   }
 
+  // ✅ FIX: Validate monthNum (1-12)
   const [year, monthNum] = month.split("-").map(Number);
+  if (monthNum < 1 || monthNum > 12) {
+    throw new Error("Invalid month number. Must be between 1-12");
+  }
+  
   const periodStart = new Date(Date.UTC(year, monthNum - 1, 1));
   const periodEnd = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59));
 
@@ -377,7 +511,7 @@ export async function previewPayrollRecord(userId, month) {
     throw new Error("User not found");
   }
 
-  const baseSalary = await calculateBaseSalary(user, user.department);
+  const { baseSalary, source: salarySource } = await calculateBaseSalary(user, user.department);
   const attendanceData = await calculateAttendanceData(
     userId,
     periodStart,
@@ -413,6 +547,7 @@ export async function previewPayrollRecord(userId, month) {
     salary: {
       baseSalary,
       actualBaseSalary,
+      salarySource, // ✅ Thêm source vào preview
       overtimePay,
       bonus,
       deductions,

@@ -246,13 +246,9 @@ export default function SalaryMatrixManagementPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const filteredData = salaryMatrix.filter((record) => {
-    const matchesSearch =
-      !searchTerm ||
-      record.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.departmentCode.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  // Server now handles position filtering with partial matching via regex
+  // No need for additional client-side filtering
+  const filteredData = salaryMatrix;
 
   return (
     <div className="space-y-6 p-6">

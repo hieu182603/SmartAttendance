@@ -219,7 +219,7 @@ export interface UserSalaryInfo {
   baseSalary: number | null;
   matrixSalary: number | null;
   calculatedSalary: number;
-  source: "USER_BASE_SALARY" | "SALARY_MATRIX" | "DEFAULT_CONFIG";
+  source: "USER_OVERRIDE" | "SALARY_MATRIX" | "DEPT_DEFAULT" | "POS_DEFAULT" | "GLOBAL_DEFAULT";
 }
 
 export interface UpdateUserBaseSalaryPayload {

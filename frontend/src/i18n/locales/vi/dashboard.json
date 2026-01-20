@@ -800,9 +800,9 @@
           "Đăng ký chấm công hộ cho nhân viên",
           "Xuất Excel tổng hợp"
         ],
-      "limitations": [
-        "Không xóa bản ghi đã khóa bởi Admin"
-      ]
+        "limitations": [
+          "Không xóa bản ghi đã khóa bởi Admin"
+        ]
       },
       "admin": {
         "scope": "Toàn bộ tổ chức",
@@ -824,9 +824,9 @@
           "Quản lý phân quyền truy cập",
           "Đồng bộ dữ liệu đa chi nhánh"
         ],
-      "limitations": [
-        "Cần ghi nhật ký hoạt động khi thao tác đặc biệt"
-      ]
+        "limitations": [
+          "Cần ghi nhật ký hoạt động khi thao tác đặc biệt"
+        ]
       }
     },
     "details": {
@@ -1632,5 +1632,191 @@
     "useCustom": "Set lương riêng",
     "customSalaryNote": "Lương này sẽ ưu tiên cao nhất, bỏ qua lương từ thang lương",
     "matrixSalaryNote": "Lương sẽ được tính từ thang lương (Department + Position). Nếu không có trong thang lương, sẽ dùng lương mặc định từ config."
+  },
+  "faceRegistration": {
+    "title": "Đăng ký khuôn mặt",
+    "description": "Chụp {{min}}-{{max}} ảnh khuôn mặt từ các góc độ khác nhau để đăng ký",
+    "steps": {
+      "step1": "Bước 1: Cho phép truy cập camera",
+      "step2": "Bước 2: Đặt khuôn mặt trong khung hình",
+      "step3": "Bước 3: Chụp ảnh với chất lượng tốt",
+      "step4": "Bước 4: Xác nhận và lưu",
+      "step1Description": "Nhấn cho phép để bật camera của thiết bị",
+      "step2Description": "Giữ khuôn mặt trong vùng được đánh dấu, đảm bảo khuôn mặt rõ ràng và đầy đủ",
+      "step3Description": "Chờ camera tự động chụp hoặc nhấn nút chụp khi đã sẵn sàng",
+      "step4Description": "Xem lại ảnh và xác nhận để hoàn tất đăng ký"
+    },
+    "instructions": {
+      "title": "Hướng dẫn",
+      "subtitle": "Làm theo các bước sau để đăng ký khuôn mặt thành công"
+    },
+    "tips": {
+      "title": "Mẹo chụp ảnh tốt",
+      "lighting": {
+        "title": "Ánh sáng",
+        "description": "Chụp ở nơi có ánh sáng đủ, tránh ánh sáng quá mạnh từ phía sau hoặc bóng tối"
+      },
+      "angle": {
+        "title": "Góc độ",
+        "description": "Nhìn thẳng vào camera, tránh nghiêng đầu hoặc góc chụp quá cao/thấp"
+      },
+      "distance": {
+        "title": "Khoảng cách",
+        "description": "Giữ khoảng cách phù hợp (khoảng 50-80cm), đảm bảo khuôn mặt vừa khung hình"
+      },
+      "expression": {
+        "title": "Biểu cảm",
+        "description": "Giữ biểu cảm tự nhiên, mắt mở, không đeo kính râm hoặc che khuất khuôn mặt"
+      }
+    },
+    "buttons": {
+      "start": "Bắt đầu đăng ký",
+      "allowCamera": "Cho phép camera",
+      "capture": "Chụp ảnh ({{current}}/{{max}})",
+      "retake": "Chụp lại",
+      "confirm": "Xác nhận",
+      "cancel": "Hủy",
+      "next": "Tiếp theo",
+      "finish": "Hoàn tất",
+      "processing": "Đang xử lý...",
+      "saving": "Đang lưu...",
+      "retry": "Thử lại",
+      "toggleVoiceOn": "Bật hướng dẫn bằng giọng nói",
+      "toggleVoiceOff": "Tắt hướng dẫn bằng giọng nói",
+      "removeImage": "Xóa ảnh này",
+      "register": "Đăng ký ({{current}}/{{min}})"
+    },
+    "quality": {
+      "eyes": "Mắt",
+      "nose": "Mũi",
+      "mouth": "Miệng",
+      "position": "Vị trí",
+      "size": "Kích thước",
+      "quality": "Chất lượng",
+      "good": "✓ Tốt",
+      "fair": "⚠ Khá",
+      "low": "✗ Thấp"
+    },
+    "capturedImages": {
+      "title": "Ảnh đã chụp ({{current}}/{{max}})",
+      "imageNumber": "Ảnh {{number}}"
+    },
+    "status": {
+      "preparing": "Đang chuẩn bị camera...",
+      "ready": "Sẵn sàng chụp ảnh",
+      "capturing": "Đang chụp ảnh...",
+      "processing": "Đang xử lý ảnh...",
+      "analyzing": "Đang phân tích khuôn mặt...",
+      "saving": "Đang lưu dữ liệu...",
+      "completed": "Hoàn tất",
+      "loading": "Đang tải mô hình nhận diện...",
+      "loadingModel": "Đang tải mô hình nhận diện khuôn mặt...",
+      "positionFace": "Đưa khuôn mặt vào khung hình",
+      "startingCamera": "Đang khởi động camera...",
+      "noFaceDetected": "Không phát hiện khuôn mặt. Vui lòng đưa khuôn mặt vào khung hình.",
+      "multipleFaces": "Phát hiện nhiều khuôn mặt. Vui lòng chỉ để một khuôn mặt trong khung hình.",
+      "faceInGoodPosition": "Khuôn mặt ở vị trí tốt. Bạn có thể chụp ảnh.",
+      "showFullFace": "Vui lòng để lộ toàn bộ khuôn mặt (mắt, mũi, miệng).",
+      "faceCovered": "Khuôn mặt bị che. Vui lòng để lộ toàn bộ khuôn mặt.",
+      "lookStraight": "Quay mặt thẳng vào camera",
+      "moveCloser": "Di chuyển gần hơn",
+      "moveAway": "Lùi ra xa hơn",
+      "holdPosition": "Giữ nguyên tư thế"
+    },
+    "voice": {
+      "loadingSystem": "Đang tải hệ thống, xin đợi một lát",
+      "positionFace": "Xin chào! Hãy đưa khuôn mặt của bạn vào khung hình",
+      "voiceEnabled": "Đã bật hướng dẫn bằng giọng nói",
+      "aligning": "Đang căn chỉnh vị trí khuôn mặt",
+      "capturing": "Sắp xong rồi, cố gắng giữ nguyên tư thế",
+      "completed": "Tuyệt quá! Hoàn thành",
+      "multipleFaces": "Phát hiện nhiều khuôn mặt. Vui lòng chỉ để một khuôn mặt trong khung hình",
+      "showFullFace": "Vui lòng để lộ toàn bộ khuôn mặt bao gồm mắt, mũi và miệng",
+      "faceCovered": "Khuôn mặt bị che. Vui lòng để lộ toàn bộ khuôn mặt",
+      "centerFace": "Hãy di chuyển khuôn mặt vào giữa khung hình",
+      "moveCloser": "Hãy tiến lại gần hơn một chút",
+      "moveAway": "Hãy lùi ra xa hơn một chút",
+      "holdPosition": "Giữ nguyên tư thế",
+      "holdPositionGood": "Tốt lắm! Giữ nguyên tư thế",
+      "autoCapturing": "Đang chụp ảnh tự động",
+      "captureSuccess": "Đã chụp ảnh {{count}} thành công",
+      "waitForGoodPosition": "Vui lòng đợi khuôn mặt ở vị trí tốt trước khi chụp",
+      "faceNotReady": "Khuôn mặt chưa đạt yêu cầu. Vui lòng đợi hệ thống xác nhận",
+      "lowQuality": "Chất lượng ảnh quá thấp. Vui lòng cải thiện ánh sáng và vị trí",
+      "lowQualityRemoved": "Đã loại bỏ {{count}} ảnh chất lượng thấp. Vui lòng chụp lại"
+    },
+    "errors": {
+      "cameraAccess": "Không thể truy cập camera",
+      "modelLoadFailed": "Không thể tải mô hình nhận diện. Vui lòng tải lại trang.",
+      "detectionFailed": "Lỗi phát hiện khuôn mặt. Vui lòng tải lại trang.",
+      "maxImagesReached": "Tối đa {{max}} ảnh được phép.",
+      "waitForGoodPosition": "Vui lòng đợi khuôn mặt ở vị trí tốt trước khi chụp.",
+      "faceNotReady": "Khuôn mặt chưa đạt yêu cầu. Vui lòng đợi hệ thống xác nhận.",
+      "lowQuality": "Chất lượng ảnh quá thấp ({{quality}}%). Vui lòng cải thiện ánh sáng và vị trí.",
+      "captureFailed": "Không thể chụp ảnh. Vui lòng kiểm tra lại điều kiện.",
+      "autoCaptureFailed": "Không thể tự động chụp. Vui lòng kiểm tra lại điều kiện.",
+      "minImagesRequired": "Vui lòng chụp ít nhất {{min}} ảnh.",
+      "insufficientQualityImages": "Chỉ có {{current}} ảnh đạt chất lượng. Vui lòng chụp thêm ít nhất {{needed}} ảnh.",
+      "registrationFailed": "Đăng ký thất bại. Vui lòng thử lại.",
+      "cameraPermissionDenied": "Quyền truy cập camera bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt",
+      "cameraNotAvailable": "Camera không khả dụng. Vui lòng kiểm tra thiết bị của bạn",
+      "cameraError": "Lỗi camera. Vui lòng thử lại",
+      "imageQuality": "Chất lượng ảnh không đạt yêu cầu",
+      "imageQualityLow": "Ảnh quá mờ hoặc không rõ nét. Vui lòng chụp lại với ánh sáng tốt hơn",
+      "noFaceDetected": "Không phát hiện khuôn mặt",
+      "noFaceDetectedDescription": "Không tìm thấy khuôn mặt trong ảnh. Vui lòng đảm bảo khuôn mặt nằm trong khung hình và rõ ràng",
+      "multipleFaces": "Phát hiện nhiều khuôn mặt",
+      "multipleFacesDescription": "Hệ thống phát hiện nhiều hơn một khuôn mặt. Vui lòng chụp ảnh chỉ có khuôn mặt của bạn",
+      "poorLighting": "Ánh sáng kém",
+      "poorLightingDescription": "Ảnh quá tối hoặc quá sáng. Vui lòng chụp ở nơi có ánh sáng đều và đủ",
+      "badAngle": "Góc chụp không phù hợp",
+      "badAngleDescription": "Góc chụp quá nghiêng hoặc không thẳng. Vui lòng nhìn thẳng vào camera và chụp lại",
+      "faceTooClose": "Khuôn mặt quá gần camera",
+      "faceTooFar": "Khuôn mặt quá xa camera",
+      "faceOffCenter": "Khuôn mặt không nằm giữa khung hình",
+      "networkError": "Lỗi mạng",
+      "networkErrorDescription": "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet và thử lại",
+      "aiServiceError": "Lỗi dịch vụ AI",
+      "aiServiceErrorDescription": "Không thể xử lý ảnh bằng dịch vụ AI. Vui lòng thử lại sau",
+      "registrationFailed": "Đăng ký thất bại",
+      "registrationFailedDescription": "Có lỗi xảy ra khi đăng ký khuôn mặt. Vui lòng thử lại",
+      "unknownError": "Lỗi không xác định",
+      "unknownErrorDescription": "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại sau"
+    },
+    "success": {
+      "title": "Đăng ký thành công!",
+      "message": "Khuôn mặt của bạn đã được đăng ký thành công",
+      "description": "Bạn có thể sử dụng tính năng nhận diện khuôn mặt để chấm công từ bây giờ",
+      "nextSteps": "Các bước tiếp theo",
+      "nextStep1": "Bạn có thể sử dụng tính năng chấm công bằng khuôn mặt",
+      "nextStep2": "Đảm bảo ánh sáng đủ và khuôn mặt rõ ràng khi chấm công",
+      "nextStep3": "Nếu gặp vấn đề, bạn có thể cập nhật lại ảnh đăng ký",
+      "continue": "Tiếp tục",
+      "goToCheckIn": "Đi đến chấm công",
+      "registrationSuccess": "Đăng ký khuôn mặt thành công!"
+    },
+    "toasts": {
+      "autoCaptureSuccess": "Đã tự động chụp ảnh {{current}}/{{max}} (Chất lượng: {{quality}}%)",
+      "captureSuccess": "Đã chụp ảnh {{current}}/{{max}} (Chất lượng: {{quality}}%)",
+      "lowQualityRemoved": "Đã tự động loại bỏ {{count}} ảnh chất lượng thấp. Vui lòng chụp lại."
+    },
+    "preview": {
+      "title": "Xem trước ảnh",
+      "confirm": "Ảnh này có ổn không?",
+      "instructions": "Xem lại ảnh trước khi xác nhận đăng ký"
+    },
+    "progress": {
+      "step": "Bước {{current}}/{{total}}",
+      "completed": "Hoàn thành",
+      "detecting": "Đang phát hiện",
+      "aligning": "Căn chỉnh vị trí",
+      "capturing": "Đang chụp"
+    },
+    "alreadyRegistered": {
+      "title": "Đã đăng ký khuôn mặt",
+      "message": "Bạn đã đăng ký khuôn mặt trước đó",
+      "update": "Cập nhật ảnh đăng ký",
+      "view": "Xem ảnh hiện tại"
+    }
   }
 }
