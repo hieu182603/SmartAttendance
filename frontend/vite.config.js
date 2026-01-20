@@ -21,10 +21,6 @@ export default defineConfig({
     },
     build: {
         rollupOptions: {
-            external: [
-                '@mediapipe/face_mesh',
-                '@mediapipe/face_detection',
-            ],
             output: {
                 manualChunks: {
                     // Tách vendor chunks cho dependencies lớn
