@@ -10,7 +10,6 @@ import faceDetectionService, {
   type FaceQuality,
   type FacePosition,
 } from "@/services/faceDetectionService";
-import * as faceLandmarksDetection from "@tensorflow-models/face-landmarks-detection";
 
 // Face registration image limits - must match backend config (FACE_RECOGNITION_CONFIG.MIN/MAX_REGISTRATION_IMAGES)
 // These values should be kept in sync with backend/src/config/app.config.js
@@ -432,27 +431,13 @@ const FaceRegistrationPage: React.FC = () => {
           setFaceQuality(quality);
           setFacePosition(position);
 
-          // Determine status and message
+          // Determine status and message (simplified for blazeface)
           let status: FaceDetectionStatus = "good";
           let message = t("dashboard:faceRegistration.status.faceInGoodPosition");
           let voiceMessage = "";
           let maskStatus: "good" | "warning" | "error" = "good";
 
-          if (!quality.isFullFace) {
-            status = "error";
-            maskStatus = "error";
-            message = t("dashboard:faceRegistration.status.showFullFace");
-            voiceMessage = t("dashboard:faceRegistration.voice.showFullFace");
-            resetProgress();
-            stopProgressTracking();
-          } else if (!quality.isNotCovered) {
-            status = "error";
-            maskStatus = "error";
-            message = t("dashboard:faceRegistration.status.faceCovered");
-            voiceMessage = t("dashboard:faceRegistration.voice.faceCovered");
-            resetProgress();
-            stopProgressTracking();
-          } else if (!quality.isCentered) {
+          if (!quality.isCentered) {
             status = "warning";
             maskStatus = "warning";
             message = t("dashboard:faceRegistration.status.lookStraight");
@@ -559,7 +544,7 @@ const FaceRegistrationPage: React.FC = () => {
 
   const drawBoundingBox = (
     ctx: CanvasRenderingContext2D,
-    face: faceLandmarksDetection.Face,
+    face: any, // Simplified for blazeface
     width: number,
     height: number,
     status: "good" | "warning" | "error"
@@ -684,38 +669,13 @@ const FaceRegistrationPage: React.FC = () => {
 
     ctx.restore();
 
-    // Draw landmark points around face
-    if (status === "good" && face.keypoints && face.keypoints.length > 0) {
-      ctx.save();
-      ctx.fillStyle = secondaryColor;
-      const landmarkSize = 2;
-
-      // Draw key landmarks (eyes, nose, mouth corners)
-      const keyIndices = [33, 133, 362, 263, 1, 2, 98, 327, 13, 14, 78, 308]; // eyes, nose, mouth
-
-      keyIndices.forEach((idx) => {
-        const landmark = face.keypoints[idx];
-        if (landmark) {
-          // Handle both v1 and v2 API formats
-          const landmarkX = (landmark as any).x ?? (landmark as any)[0];
-          const landmarkY = (landmark as any).y ?? (landmark as any)[1];
-
-          if (landmarkX !== undefined && landmarkY !== undefined) {
-            ctx.globalAlpha = 0.8;
-            ctx.beginPath();
-            ctx.arc(landmarkX, landmarkY, landmarkSize, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      });
-
-      ctx.restore();
-    }
+    // Note: Landmark drawing removed for blazeface compatibility
+    // Blazeface doesn't provide facial keypoints/landmarks
   };
 
   const drawFaceOverlay = (
     ctx: CanvasRenderingContext2D,
-    face: faceLandmarksDetection.Face,
+    face: any, // Simplified for blazeface
     quality: FaceQuality,
     width: number,
     height: number,
@@ -779,7 +739,7 @@ const FaceRegistrationPage: React.FC = () => {
     ctx.restore();
 
     // Draw enhanced center guide (crosshair) when good
-    if (maskStatus === "good" && quality.isCentered && quality.isValidSize && quality.isFullFace) {
+    if (maskStatus === "good" && quality.isCentered && quality.isValidSize) {
       ctx.save();
 
       // Outer glow for crosshair
@@ -867,8 +827,8 @@ const FaceRegistrationPage: React.FC = () => {
       return null;
     }
 
-    // Check all quality requirements
-    if (!faceQuality.isFullFace || !faceQuality.isNotCovered || !faceQuality.isCentered || !faceQuality.isValidSize) {
+    // Check all quality requirements (simplified for blazeface)
+    if (!faceQuality.isCentered || !faceQuality.isValidSize) {
       return null;
     }
 
@@ -943,7 +903,7 @@ const FaceRegistrationPage: React.FC = () => {
       return;
     }
 
-    if (!faceQuality.isFullFace || !faceQuality.isNotCovered || !faceQuality.isCentered || !faceQuality.isValidSize) {
+    if (!faceQuality.isCentered || !faceQuality.isValidSize) {
       toast.error(t("dashboard:faceRegistration.errors.faceNotReady"));
       speakMessage(t("dashboard:faceRegistration.voice.faceNotReady"));
       return;
@@ -988,8 +948,6 @@ const FaceRegistrationPage: React.FC = () => {
       faceQuality?.isGoodQuality &&
       !multipleFaces &&
       capturedImages.length < MAX_IMAGES &&
-      faceQuality.isFullFace &&
-      faceQuality.isNotCovered &&
       faceQuality.isCentered &&
       faceQuality.isValidSize &&
       faceQuality.score >= MIN_QUALITY_SCORE
@@ -1275,15 +1233,11 @@ const FaceRegistrationPage: React.FC = () => {
 
                 {faceQuality && (
                   <div className="text-xs text-gray-400 space-y-1 mt-4 pt-4 border-t border-gray-800">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       <span>
-                        {t("dashboard:faceRegistration.quality.eyes")}: {faceQuality.hasBothEyes ? "✓" : "✗"} | {t("dashboard:faceRegistration.quality.nose")}:{" "}
-                        {faceQuality.hasNose ? "✓" : "✗"} | {t("dashboard:faceRegistration.quality.mouth")}: {faceQuality.hasMouth ? "✓" : "✗"}
-                      </span>
-                      <span>
-                        {t("dashboard:faceRegistration.quality.position")}: {faceQuality.isCentered ? "✓" : "✗"} | {t("dashboard:faceRegistration.quality.size")}:{" "}
-                        {faceQuality.isValidSize ? "✓" : "✗"} | {t("dashboard:faceRegistration.quality.quality")}:{" "}
-                        {Math.round(faceQuality.score * 100)}%
+                        {t("dashboard:faceRegistration.quality.position")}: {faceQuality.isCentered ? "✓" : "✗"} |
+                        {t("dashboard:faceRegistration.quality.size")}: {faceQuality.isValidSize ? "✓" : "✗"} |
+                        {t("dashboard:faceRegistration.quality.quality")}: {Math.round(faceQuality.score * 100)}%
                       </span>
                     </div>
                   </div>
