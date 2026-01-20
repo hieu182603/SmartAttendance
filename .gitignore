@@ -28,4 +28,13 @@ coverage/
 .idea/
 Thumbs.db
 
+# Agent configuration
+.agent/
+
+# Cursor IDE
+.cursor/commands/
+
+# Shared UI/UX
+.shared/ui-ux-pro-max/
+
 

@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, DollarSign, Users, AlertCircle } from 'lucide-react';
 import { getPayrollRecords } from '@/services/payrollService';
-import { getAllDepartments } from '@/services/departmentService';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
@@ -42,41 +41,21 @@ export function DepartmentPayrollDetailDialog({
 }: DepartmentPayrollDetailDialogProps) {
   const { t } = useTranslation(['dashboard', 'common']);
   const [loading, setLoading] = useState(false);
-  const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [payrollRecords, setPayrollRecords] = useState<EmployeePayroll[]>([]);
 
   useEffect(() => {
-    if (isOpen) {
-      loadDepartmentId();
-    }
-  }, [isOpen, departmentName]);
-
-  useEffect(() => {
-    if (isOpen && departmentId) {
+    if (isOpen && departmentName) {
       loadPayrollRecords();
     }
-  }, [isOpen, departmentId, selectedMonth]);
-
-  const loadDepartmentId = async () => {
-    try {
-      const response = await getAllDepartments({ page: 1, limit: 1000 });
-      const dept = response.departments.find((d) => d.name === departmentName);
-      if (dept) {
-        setDepartmentId(dept._id || dept.id);
-      } else {
-        toast.error('Không tìm thấy phòng ban');
-      }
-    } catch (error: any) {
-      toast.error('Không thể tải thông tin phòng ban');
-    }
-  };
+  }, [isOpen, departmentName, selectedMonth]);
 
   const loadPayrollRecords = async () => {
-    if (!departmentId) return;
+    if (!departmentName) return;
     setLoading(true);
     try {
+      // Use departmentName instead of departmentId since payroll records store department name
       const response = await getPayrollRecords({
-        department: departmentId,
+        department: departmentName,
         month: selectedMonth,
         page: 1,
         limit: 100,

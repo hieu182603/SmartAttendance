@@ -1624,5 +1624,191 @@
     "useCustom": "Set Custom Salary",
     "customSalaryNote": "This salary will have highest priority, overriding scale salary",
     "matrixSalaryNote": "Salary will be calculated from salary scale (Department + Position). If not found in scale, default salary from config will be used."
+  },
+  "faceRegistration": {
+    "title": "Face Registration",
+    "description": "Capture {{min}}-{{max}} face photos from different angles to register",
+    "steps": {
+      "step1": "Step 1: Allow camera access",
+      "step2": "Step 2: Position your face in frame",
+      "step3": "Step 3: Capture a quality photo",
+      "step4": "Step 4: Confirm and save",
+      "step1Description": "Click allow to enable your device camera",
+      "step2Description": "Keep your face within the marked area, ensure your face is clear and complete",
+      "step3Description": "Wait for auto-capture or press capture button when ready",
+      "step4Description": "Review the photo and confirm to complete registration"
+    },
+    "instructions": {
+      "title": "Instructions",
+      "subtitle": "Follow these steps to successfully register your face"
+    },
+    "tips": {
+      "title": "Photo Tips",
+      "lighting": {
+        "title": "Lighting",
+        "description": "Capture in well-lit area, avoid strong backlight or shadows"
+      },
+      "angle": {
+        "title": "Angle",
+        "description": "Look directly at camera, avoid tilting head or extreme angles"
+      },
+      "distance": {
+        "title": "Distance",
+        "description": "Maintain appropriate distance (about 50-80cm), ensure face fits in frame"
+      },
+      "expression": {
+        "title": "Expression",
+        "description": "Keep natural expression, eyes open, no sunglasses or face coverings"
+      }
+    },
+    "buttons": {
+      "start": "Start Registration",
+      "allowCamera": "Allow Camera",
+      "capture": "Capture Photo ({{current}}/{{max}})",
+      "retake": "Retake",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "next": "Next",
+      "finish": "Finish",
+      "processing": "Processing...",
+      "saving": "Saving...",
+      "retry": "Retry",
+      "toggleVoiceOn": "Enable voice guidance",
+      "toggleVoiceOff": "Disable voice guidance",
+      "removeImage": "Remove this image",
+      "register": "Register ({{current}}/{{min}})"
+    },
+    "quality": {
+      "eyes": "Eyes",
+      "nose": "Nose",
+      "mouth": "Mouth",
+      "position": "Position",
+      "size": "Size",
+      "quality": "Quality",
+      "good": "✓ Good",
+      "fair": "⚠ Fair",
+      "low": "✗ Low"
+    },
+    "capturedImages": {
+      "title": "Captured Images ({{current}}/{{max}})",
+      "imageNumber": "Image {{number}}"
+    },
+    "status": {
+      "preparing": "Preparing camera...",
+      "ready": "Ready to capture",
+      "capturing": "Capturing photo...",
+      "processing": "Processing image...",
+      "analyzing": "Analyzing face...",
+      "saving": "Saving data...",
+      "completed": "Completed",
+      "loading": "Loading face recognition model...",
+      "loadingModel": "Loading face recognition model...",
+      "positionFace": "Position your face in the frame",
+      "startingCamera": "Starting camera...",
+      "noFaceDetected": "No face detected. Please position your face in the frame.",
+      "multipleFaces": "Multiple faces detected. Please keep only one face in the frame.",
+      "faceInGoodPosition": "Face is in good position. You can capture photo.",
+      "showFullFace": "Please show your full face (eyes, nose, mouth).",
+      "faceCovered": "Face is covered. Please show your full face.",
+      "lookStraight": "Look straight at camera",
+      "moveCloser": "Move closer",
+      "moveAway": "Move away",
+      "holdPosition": "Hold position"
+    },
+    "voice": {
+      "loadingSystem": "Loading system, please wait",
+      "positionFace": "Hello! Please position your face in the frame",
+      "voiceEnabled": "Voice guidance enabled",
+      "aligning": "Aligning face position",
+      "capturing": "Almost done, keep holding position",
+      "completed": "Excellent! Completed",
+      "multipleFaces": "Multiple faces detected. Please keep only one face in the frame",
+      "showFullFace": "Please show your full face including eyes, nose and mouth",
+      "faceCovered": "Face is covered. Please show your full face",
+      "centerFace": "Please move your face to the center of the frame",
+      "moveCloser": "Please move a bit closer",
+      "moveAway": "Please move a bit further away",
+      "holdPosition": "Hold position",
+      "holdPositionGood": "Great! Hold position",
+      "autoCapturing": "Auto capturing photo",
+      "captureSuccess": "Successfully captured photo {{count}}",
+      "waitForGoodPosition": "Please wait for face to be in good position before capturing",
+      "faceNotReady": "Face does not meet requirements. Please wait for system confirmation",
+      "lowQuality": "Image quality too low. Please improve lighting and position",
+      "lowQualityRemoved": "Removed {{count}} low quality images. Please capture again"
+    },
+    "errors": {
+      "cameraAccess": "Cannot access camera",
+      "modelLoadFailed": "Failed to load recognition model. Please reload the page.",
+      "detectionFailed": "Face detection error. Please reload the page.",
+      "maxImagesReached": "Maximum {{max}} images allowed.",
+      "waitForGoodPosition": "Please wait for face to be in good position before capturing.",
+      "faceNotReady": "Face does not meet requirements. Please wait for system confirmation.",
+      "lowQuality": "Image quality too low ({{quality}}%). Please improve lighting and position.",
+      "captureFailed": "Failed to capture photo. Please check conditions again.",
+      "autoCaptureFailed": "Auto capture failed. Please check conditions again.",
+      "minImagesRequired": "Please capture at least {{min}} images.",
+      "insufficientQualityImages": "Only {{current}} images meet quality requirements. Please capture at least {{needed}} more images.",
+      "registrationFailed": "Registration failed. Please try again.",
+      "cameraPermissionDenied": "Camera permission denied. Please grant permission in browser settings",
+      "cameraNotAvailable": "Camera not available. Please check your device",
+      "cameraError": "Camera error. Please try again",
+      "imageQuality": "Image quality not met",
+      "imageQualityLow": "Photo is too blurry or unclear. Please retake with better lighting",
+      "noFaceDetected": "No face detected",
+      "noFaceDetectedDescription": "No face found in image. Please ensure your face is within frame and clear",
+      "multipleFaces": "Multiple faces detected",
+      "multipleFacesDescription": "System detected more than one face. Please capture photo with only your face",
+      "poorLighting": "Poor lighting",
+      "poorLightingDescription": "Photo is too dark or too bright. Please capture in evenly lit area",
+      "badAngle": "Bad angle",
+      "badAngleDescription": "Angle is too tilted or not straight. Please look directly at camera and retake",
+      "faceTooClose": "Face too close to camera",
+      "faceTooFar": "Face too far from camera",
+      "faceOffCenter": "Face not centered in frame",
+      "networkError": "Network error",
+      "networkErrorDescription": "Cannot connect to server. Please check internet connection and try again",
+      "aiServiceError": "AI service error",
+      "aiServiceErrorDescription": "Cannot process image with AI service. Please try again later",
+      "registrationFailed": "Registration failed",
+      "registrationFailedDescription": "An error occurred during face registration. Please try again",
+      "unknownError": "Unknown error",
+      "unknownErrorDescription": "An unexpected error occurred. Please try again later"
+    },
+    "success": {
+      "title": "Registration Successful!",
+      "message": "Your face has been registered successfully",
+      "description": "You can now use facial recognition for attendance",
+      "nextSteps": "Next Steps",
+      "nextStep1": "You can now use face recognition for check-in",
+      "nextStep2": "Ensure adequate lighting and clear face when checking in",
+      "nextStep3": "If you encounter issues, you can update your registration photo",
+      "continue": "Continue",
+      "goToCheckIn": "Go to Check-in",
+      "registrationSuccess": "Face registration successful!"
+    },
+    "toasts": {
+      "autoCaptureSuccess": "Auto captured photo {{current}}/{{max}} (Quality: {{quality}}%)",
+      "captureSuccess": "Captured photo {{current}}/{{max}} (Quality: {{quality}}%)",
+      "lowQualityRemoved": "Automatically removed {{count}} low quality images. Please capture again."
+    },
+    "preview": {
+      "title": "Photo Preview",
+      "confirm": "Does this photo look good?",
+      "instructions": "Review the photo before confirming registration"
+    },
+    "progress": {
+      "step": "Step {{current}}/{{total}}",
+      "completed": "Completed",
+      "detecting": "Detecting",
+      "aligning": "Aligning position",
+      "capturing": "Capturing"
+    },
+    "alreadyRegistered": {
+      "title": "Face Already Registered",
+      "message": "You have already registered your face",
+      "update": "Update Registration Photo",
+      "view": "View Current Photo"
+    }
   }
 }

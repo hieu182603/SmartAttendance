@@ -107,6 +107,19 @@ const payrollRecordSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Lương cơ bản thực tế (theo số ngày làm việc)
+    // Nếu null thì tính từ baseSalary, workDays, totalDays (backward compatibility)
+    actualBaseSalary: {
+      type: Number,
+      required: false, // Optional để backward compatible với records cũ
+      min: 0,
+    },
+    // Nguồn của baseSalary (để audit và debug)
+    salarySource: {
+      type: String,
+      enum: ["USER_OVERRIDE", "SALARY_MATRIX", "DEPT_DEFAULT", "POS_DEFAULT", "GLOBAL_DEFAULT"],
+      default: null, // Optional để backward compatible
+    },
     overtimePay: {
       type: Number,
       default: 0,
@@ -150,6 +163,12 @@ const payrollRecordSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Department ID for filtering (added for Comment 4 fix)
+    departmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      index: true,
+    },
     position: {
       type: String,
       trim: true,
@@ -171,11 +190,20 @@ payrollRecordSchema.index({ userId: 1, month: -1 }, { unique: true });
 payrollRecordSchema.index({ month: -1, status: 1 });
 payrollRecordSchema.index({ department: 1, month: -1 });
 payrollRecordSchema.index({ status: 1, createdAt: -1 });
+// ✅ FIX: Thêm compound indexes cho performance
+payrollRecordSchema.index({ department: 1, status: 1, month: -1 });
+payrollRecordSchema.index({ departmentId: 1, month: -1 }); // Index for departmentId filtering
+payrollRecordSchema.index({ departmentId: 1, status: 1, month: -1 }); // Compound index for departmentId queries
+payrollRecordSchema.index({ position: 1, month: -1 });
 
 // Tính tổng lương tự động
+// Ưu tiên dùng actualBaseSalary nếu có, nếu không thì dùng baseSalary (backward compatibility)
 payrollRecordSchema.pre("save", function (next) {
+  // ✅ FIX: Dùng nullish coalescing operator (??) để code ngắn gọn hơn
+  const baseSalaryForCalculation = this.actualBaseSalary ?? this.baseSalary;
+
   this.totalSalary =
-    this.baseSalary + this.overtimePay + this.bonus - this.deductions;
+    baseSalaryForCalculation + this.overtimePay + this.bonus - this.deductions;
   next();
 });
 

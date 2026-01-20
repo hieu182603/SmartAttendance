@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { PayrollReportModel } from "./payroll.model.js";
 import { emitPayrollUpdate } from "../../config/socket.js";
 
@@ -82,7 +83,16 @@ export const getPayrollRecords = async (req, res) => {
     const query = {};
     if (month) query.month = month;
     if (status) query.status = status;
-    if (department) query.department = department;
+    // Support both departmentId (ObjectId) and department name filtering
+    if (department) {
+      // Try to match as departmentId first (if it's a valid ObjectId)
+      if (mongoose.Types.ObjectId.isValid(department)) {
+        query.departmentId = department;
+      } else {
+        // Otherwise filter by department name
+        query.department = department;
+      }
+    }
 
     // Pagination
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);

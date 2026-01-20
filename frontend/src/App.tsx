@@ -25,6 +25,7 @@ const LeaveBalancePage = lazy(() => import("@/components/dashboard/pages/LeaveBa
 const NotificationsPage = lazy(() => import("@/components/dashboard/pages/NotificationsPage"));
 const CameraCheckinPage = lazy(() => import("@/components/dashboard/pages/CameraCheckinPage"));
 const ProfilePage = lazy(() => import("@/components/dashboard/pages/ProfilePage"));
+const FaceRegistrationPage = lazy(() => import("@/components/dashboard/pages/FaceRegistrationPage"));
 const CompanyCalendarPage = lazy(() => import("@/components/dashboard/pages/CompanyCalendarPage"));
 const ApproveRequestsPage = lazy(() => import("@/components/dashboard/pages/ApproveRequestsPage"));
 const AttendanceAnalyticsPage = lazy(() => import("@/components/dashboard/pages/AttendanceAnalyticsPage"));
@@ -101,6 +102,7 @@ export default function App() {
               <Route path="leave-balance" element={<LeaveBalancePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="camera-checkin" element={<CameraCheckinPage />} />
+              <Route path="face-registration" element={<FaceRegistrationPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="company-calendar" element={<CompanyCalendarPage />} />
               <Route path="upgrade" element={<UpgradePage />} />
@@ -119,6 +121,7 @@ export default function App() {
                 <Route path="leave-balance" element={<LeaveBalancePage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="camera-checkin" element={<CameraCheckinPage />} />
+                <Route path="face-registration" element={<FaceRegistrationPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="company-calendar" element={<CompanyCalendarPage />} />
                 {/* Manager specific routes with permission checks */}
@@ -176,6 +179,7 @@ export default function App() {
                 <Route path="leave-balance" element={<LeaveBalancePage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="camera-checkin" element={<CameraCheckinPage />} />
+                <Route path="face-registration" element={<FaceRegistrationPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="company-calendar" element={<CompanyCalendarPage />} />
                 {/* HR specific routes with permission checks */}

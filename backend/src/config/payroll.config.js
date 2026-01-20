@@ -252,12 +252,23 @@ export function getBaseSalaryFromConfig(departmentCode, position) {
     // Normalize department code to uppercase
     const deptCode = departmentCode?.toUpperCase() || "OTHER";
 
-    // Normalize position (trim whitespace)
+    // Normalize position (trim whitespace and lowercase for case-insensitive matching)
     const pos = position?.trim() || "";
+    const normalizedPos = pos.toLowerCase();
 
-    // 1. Ưu tiên: SALARY_MATRIX[departmentCode][position]
-    if (SALARY_MATRIX[deptCode] && SALARY_MATRIX[deptCode][pos]) {
-        return SALARY_MATRIX[deptCode][pos];
+    // Helper function to find matching key in object (case-insensitive)
+    const findMatchingKey = (obj, searchKey) => {
+        if (!obj) return null;
+        const normalizedSearch = searchKey.toLowerCase();
+        return Object.keys(obj).find(key => key.toLowerCase() === normalizedSearch);
+    };
+
+    // 1. Ưu tiên: SALARY_MATRIX[departmentCode][position] - case-insensitive
+    if (pos) {
+        const matchingPosition = findMatchingKey(SALARY_MATRIX[deptCode], pos);
+        if (matchingPosition && SALARY_MATRIX[deptCode][matchingPosition]) {
+            return SALARY_MATRIX[deptCode][matchingPosition];
+        }
     }
 
     // 2. Nếu không có position cụ thể, dùng DEFAULT của department
@@ -265,9 +276,12 @@ export function getBaseSalaryFromConfig(departmentCode, position) {
         return SALARY_MATRIX[deptCode].DEFAULT;
     }
 
-    // 3. Nếu không có department trong matrix, thử POSITION_DEFAULT_SALARY
-    if (pos && POSITION_DEFAULT_SALARY[pos]) {
-        return POSITION_DEFAULT_SALARY[pos];
+    // 3. Nếu không có department trong matrix, thử POSITION_DEFAULT_SALARY - case-insensitive
+    if (pos) {
+        const matchingPosKey = findMatchingKey(POSITION_DEFAULT_SALARY, pos);
+        if (matchingPosKey && POSITION_DEFAULT_SALARY[matchingPosKey]) {
+            return POSITION_DEFAULT_SALARY[matchingPosKey];
+        }
     }
 
     // 4. Dùng DEPARTMENT_DEFAULT_SALARY

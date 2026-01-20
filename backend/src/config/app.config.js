@@ -69,10 +69,28 @@ export const ATTENDANCE_CONFIG = {
     process.env.DEFAULT_CHECKOUT_MINUTE || "0",
     10
   ),
+
+  // Face verification requirement (default: false for backward compatibility)
+  REQUIRE_FACE_VERIFICATION: process.env.REQUIRE_FACE_VERIFICATION === 'true',
 };
 
 export const PAGINATION_CONFIG = {
   DEFAULT_PAGE: 1,
   DEFAULT_LIMIT: 20,
   MAX_LIMIT: 100, // Maximum records per page
+};
+
+export const FACE_RECOGNITION_CONFIG = {
+  ENABLED: process.env.ENABLE_FACE_RECOGNITION === 'true',
+  AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+  API_KEY: process.env.AI_SERVICE_API_KEY || '',
+  VERIFICATION_THRESHOLD: parseFloat(process.env.FACE_VERIFICATION_THRESHOLD) || 0.6,
+  TIMEOUT: parseInt(process.env.AI_SERVICE_TIMEOUT) || 5000,
+  // Image registration limits (centralized configuration)
+  MIN_REGISTRATION_IMAGES: parseInt(process.env.MIN_REGISTRATION_IMAGES || "5", 10),
+  MAX_REGISTRATION_IMAGES: parseInt(process.env.MAX_REGISTRATION_IMAGES || "10", 10),
+  // Threshold presets
+  THRESHOLD_STRICT: 0.75,  // High security
+  THRESHOLD_BALANCED: 0.6, // Default
+  THRESHOLD_LENIENT: 0.5,  // User-friendly
 };

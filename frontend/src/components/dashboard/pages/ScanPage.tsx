@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import type { AxiosError } from "axios";
 import {
   Camera,
@@ -9,10 +10,13 @@ import {
   Loader2,
   RotateCcw,
   X,
+  User,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import api from "@/services/api";
+import { faceService, type FaceStatus } from "@/services/faceService";
 
 // ============================================================================
 // CONSTANTS
@@ -193,6 +197,11 @@ const ScanPage: React.FC = () => {
   // ⚠️ MỚI: Early checkout state
   const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
   const [earlyCheckoutReason, setEarlyCheckoutReason] = useState<EarlyCheckoutReason>(null);
+  
+  // Face registration status
+  const [faceStatus, setFaceStatus] = useState<FaceStatus | null>(null);
+  const [showFaceRegistrationPrompt, setShowFaceRegistrationPrompt] = useState(false);
+  const navigate = useNavigate();
   const [earlyCheckoutError, setEarlyCheckoutError] = useState<CheckInError | null>(null);
 
   // ==========================================================================
@@ -452,6 +461,31 @@ const ScanPage: React.FC = () => {
         err.message ||
         t("dashboard:scan.errors.checkInError");
 
+      // Handle face verification errors
+      if (err.response?.data?.code === "FACE_VERIFICATION_FAILED") {
+        const similarity = err.response.data.data?.similarity;
+        toast.error(errorMessage, {
+          description: similarity 
+            ? `Độ tương đồng: ${(similarity * 100).toFixed(1)}%` 
+            : "Vui lòng thử lại hoặc đăng ký lại khuôn mặt",
+          action: {
+            label: "Đăng ký lại",
+            onClick: () => {
+              const userRole = localStorage.getItem("sa_user_role") || "employee";
+              navigate(`/${userRole === "EMPLOYEE" ? "employee" : userRole.toLowerCase()}/face-registration`);
+            },
+          },
+        });
+        return;
+      }
+      
+      if (err.response?.data?.code === "FACE_VERIFICATION_ERROR") {
+        toast.error("Lỗi xác thực khuôn mặt", {
+          description: "Hệ thống không thể xác thực khuôn mặt. Vui lòng thử lại.",
+        });
+        return;
+      }
+      
       if (err.response?.data?.code === "ALREADY_CHECKED_IN") {
         toast.info(errorMessage);
         setState((prev) => ({ ...prev, hasCheckedIn: true }));
@@ -631,6 +665,21 @@ const ScanPage: React.FC = () => {
 
     loadOffices();
     checkTodayAttendance();
+    
+    // Check face registration status
+    const checkFaceStatus = async () => {
+      try {
+        const status = await faceService.getFaceStatus();
+        setFaceStatus(status);
+        if (!status.isRegistered) {
+          setShowFaceRegistrationPrompt(true);
+        }
+      } catch (error) {
+        console.error("Failed to check face status:", error);
+        // Silent fail - don't block user
+      }
+    };
+    checkFaceStatus();
   }, []);
 
   useEffect(() => {
@@ -705,6 +754,44 @@ const ScanPage: React.FC = () => {
   // ==========================================================================
   return (
     <div className="space-y-6">
+      {/* Face Registration Prompt */}
+      {showFaceRegistrationPrompt && !faceStatus?.isRegistered && (
+        <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-900/20">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <User className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                  Đăng ký khuôn mặt để bảo mật tốt hơn
+                </h3>
+                <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                  Đăng ký khuôn mặt để tăng tính bảo mật khi chấm công. Bạn có thể đăng ký ngay bây giờ hoặc bỏ qua.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const userRole = localStorage.getItem("sa_user_role") || "employee";
+                      navigate(`/${userRole === "EMPLOYEE" ? "employee" : userRole.toLowerCase()}/face-registration`);
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    Đăng ký ngay
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowFaceRegistrationPrompt(false)}
+                  >
+                    Bỏ qua
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">

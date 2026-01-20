@@ -795,6 +795,50 @@ export const processCheckIn = async (
       return { success: false, data: null, error: branchResult.message };
     }
 
+    // Face verification (if enabled and user has registered face)
+    let faceVerified = false;
+    if (photoFile) {
+      try {
+        const { FaceService } = await import("../face/face.service.js");
+        const { FACE_RECOGNITION_CONFIG, ATTENDANCE_CONFIG } = await import("../../config/app.config.js");
+        const { UserModel } = await import("../users/user.model.js");
+        
+        const user = await UserModel.findById(userId).select("faceData");
+        
+        if (user?.faceData?.isRegistered && FACE_RECOGNITION_CONFIG.ENABLED) {
+          const faceService = new FaceService();
+          const result = await faceService.verifyUserFace(userId, photoFile.buffer);
+          faceVerified = result.match;
+          
+          if (!faceVerified && ATTENDANCE_CONFIG.REQUIRE_FACE_VERIFICATION) {
+            return {
+              success: false,
+              data: null,
+              error: `Xác thực khuôn mặt thất bại (Độ tương đồng: ${(result.similarity * 100).toFixed(1)}%). Vui lòng thử lại hoặc liên hệ quản trị viên.`,
+              code: "FACE_VERIFICATION_FAILED",
+              similarity: result.similarity,
+            };
+          }
+          
+          // Log face verification attempt
+          if (!faceVerified) {
+            console.warn(`[attendance] Face verification failed for user ${userId}, similarity: ${result.similarity}, proceeding with GPS-only`);
+          }
+        }
+      } catch (error) {
+        if (ATTENDANCE_CONFIG.REQUIRE_FACE_VERIFICATION) {
+          return {
+            success: false,
+            data: null,
+            error: `Không thể xác thực khuôn mặt: ${error.message}. Vui lòng thử lại.`,
+            code: "FACE_VERIFICATION_ERROR",
+          };
+        }
+        // Log warning and proceed with GPS-only (graceful degradation)
+        console.warn(`[attendance] Face verification failed, proceeding with GPS-only: ${error.message}`);
+      }
+    }
+
     const now = new Date();
     const dateOnly = getDateOnly(now);
 

@@ -121,12 +121,16 @@ export default function EditUserBaseSalaryDialog({
 
   const getSourceLabel = (source: string) => {
     switch (source) {
-      case "USER_BASE_SALARY":
+      case "USER_OVERRIDE":
         return "Lương riêng (Override)";
       case "SALARY_MATRIX":
         return "Thang lương";
-      case "DEFAULT_CONFIG":
-        return "Lương mặc định";
+      case "DEPT_DEFAULT":
+        return "Lương mặc định phòng ban";
+      case "POS_DEFAULT":
+        return "Lương mặc định chức vụ";
+      case "GLOBAL_DEFAULT":
+        return "Lương mặc định hệ thống";
       default:
         return "N/A";
     }

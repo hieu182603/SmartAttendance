@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -10,15 +13,32 @@ export default defineConfig({
             '@': path.resolve(__dirname, 'src'),
         },
     },
+    optimizeDeps: {
+        include: [
+            '@tensorflow-models/face-landmarks-detection',
+            '@tensorflow/tfjs',
+        ],
+    },
     build: {
         rollupOptions: {
+            external: [
+                '@mediapipe/face_mesh',
+                '@mediapipe/face_detection',
+            ],
             output: {
                 manualChunks: {
                     // Tách vendor chunks cho dependencies lớn
                     'react-vendor': ['react', 'react-dom', 'react-router-dom'],
                     'ui-vendor': ['sonner', 'framer-motion'],
+                    'tensorflow-vendor': [
+                        '@tensorflow-models/face-landmarks-detection',
+                        '@tensorflow/tfjs',
+                    ],
                 },
             },
+        },
+        commonjsOptions: {
+            include: [/node_modules/],
         },
         // Cảnh báo khi chunk vượt quá 1MB
         chunkSizeWarningLimit: 1000,

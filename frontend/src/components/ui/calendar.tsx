@@ -2,7 +2,7 @@ import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker, DayPickerProps } from "react-day-picker";
 import { cn } from "@/components/ui/utils";
-import "react-day-picker/dist/style.css";
+import "react-day-picker/style.css";
 
 export type CalendarProps = DayPickerProps & {
   className?: string;
