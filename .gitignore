@@ -37,4 +37,36 @@ Thumbs.db
 # Shared UI/UX
 .shared/ui-ux-pro-max/
 
+# Python (AI Service)
+**/venv/
+**/env/
+**/ENV/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/pip-log.txt
+**/pip-delete-this-directory.txt
+
+# AI Service specific
+ai-service/models/*.onnx
+ai-service/models/*.bin
+ai-service/venv/
+ai-service/__pycache__/
+
+# Database
+**/*.sqlite
+**/*.db
+**/*.sqlite3
+
+# Temp files
+**/*.tmp
+**/.cache/
+**/tmp/
+
+# OS additional
+**/*.swp
+**/*.swo
+**/*~
 
