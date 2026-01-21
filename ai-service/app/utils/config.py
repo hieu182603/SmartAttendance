@@ -1,10 +1,17 @@
 """Configuration settings for AI Service"""
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Base paths
 BASE_DIR = Path(__file__).parent.parent.parent
 MODELS_DIR = BASE_DIR / "models"
+
+# Model root directory (for InsightFace)
+MODEL_ROOT = os.getenv("INSIGHTFACE_HOME", str(MODELS_DIR))
 
 # Model config
 MODEL_NAME = os.getenv("MODEL_NAME", "buffalo_l")

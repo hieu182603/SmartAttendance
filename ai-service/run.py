@@ -3,19 +3,19 @@
 Entry point to run Face Recognition API server
 """
 import uvicorn
-from dotenv import load_dotenv
-from app.utils.config import HOST, PORT
-
-# Load environment variables from .env file
-load_dotenv()
+import os
+from app.utils.config import HOST, PORT, LOG_LEVEL
 
 if __name__ == "__main__":
+    # Enable reload only in development mode
+    reload_enabled = os.getenv("DEV_MODE", "false").lower() == "true"
+
     uvicorn.run(
         "app.main:app",
         host=HOST,
         port=PORT,
-        reload=True,  # Auto-reload on code changes (dev mode)
-        log_level="info"
+        reload=reload_enabled,
+        log_level=LOG_LEVEL.lower()
     )
 
 

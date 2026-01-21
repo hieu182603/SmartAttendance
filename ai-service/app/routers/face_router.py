@@ -20,14 +20,31 @@ MIN_IMAGES = int(os.getenv("MIN_REGISTRATION_IMAGES", "5"))
 MAX_IMAGES = int(os.getenv("MAX_REGISTRATION_IMAGES", "10"))
 
 
-async def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")):
+async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
     """Verify API key for authentication"""
     expected_key = os.getenv("API_KEY")
+
+    # Check for explicit development override
+    allow_insecure_auth = os.getenv("ALLOW_INSECURE_AUTH", "false").lower() == "true"
+
     if not expected_key:
-        # If no API key is set, allow all requests (for development)
-        logger.warning("API_KEY not set in environment - allowing all requests")
-        return True
-    
+        if allow_insecure_auth:
+            logger.warning("API_KEY not set but ALLOW_INSECURE_AUTH=true - allowing all requests")
+            return True
+        else:
+            logger.error("API_KEY not set and ALLOW_INSECURE_AUTH not enabled - denying all requests")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API key required"
+            )
+
+    if not x_api_key:
+        logger.warning("API key missing from request")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API key required"
+        )
+
     if x_api_key != expected_key:
         logger.warning(f"Invalid API key attempt from {x_api_key[:10]}...")
         raise HTTPException(
