@@ -1,0 +1,28 @@
+app = "smartattendance-ai"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  HOST = "0.0.0.0"
+  MODEL_NAME = "buffalo_l"
+  DETECTION_THRESHOLD = "0.5"
+  VERIFICATION_THRESHOLD = "0.6"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  memory = "2048"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[mounts]]
+  source = "ai_models"
+  destination = "/app/models"
