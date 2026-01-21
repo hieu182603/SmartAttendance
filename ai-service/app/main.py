@@ -46,21 +46,32 @@ async def root():
         "status": "running"
     }
 
+# Health endpoint
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+# Background model loading
+async def load_model_background():
+    """Load InsightFace model in background"""
+    try:
+        logger.info("Loading InsightFace model in background...")
+        model_loader = ModelLoader()
+        model_loader.load_model()
+        logger.info("Model loaded successfully. Service is ready.")
+    except Exception as e:
+        logger.error(f"Failed to load model: {str(e)}")
+        logger.warning("Model loading failed - service may not function properly")
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():
     logger.info("Face Recognition API starting up...")
     logger.info(f"Server will run on {HOST}:{PORT}")
-    
-    # Eagerly load model during startup
-    try:
-        logger.info("Loading InsightFace model...")
-        model_loader = ModelLoader()
-        model_loader.load_model()
-        logger.info("Model loaded successfully. Service is ready.")
-    except Exception as e:
-        logger.error(f"Failed to load model during startup: {str(e)}")
-        logger.warning("Service will attempt to load model on first request")
+
+    # Load model in background task
+    import asyncio
+    asyncio.create_task(load_model_background())
 
 # Shutdown event
 @app.on_event("shutdown")

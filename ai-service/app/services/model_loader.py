@@ -1,9 +1,15 @@
 """Model loader for InsightFace models"""
-import insightface
-from app.utils.config import MODEL_NAME, LOG_LEVEL
+import os
+from app.utils.config import MODEL_NAME, LOG_LEVEL, MODEL_ROOT
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Set InsightFace model root directory
+os.environ.setdefault("INSIGHTFACE_HOME", MODEL_ROOT)
+
+# Import insightface only when needed to avoid startup issues
+insightface = None
 
 class ModelLoader:
     """Singleton class to load and manage InsightFace models"""
@@ -18,12 +24,18 @@ class ModelLoader:
     
     def load_model(self):
         """Load InsightFace model (will download if not exists)"""
+        global insightface
         if self._app is None:
             try:
                 logger.info(f"Loading InsightFace model: {MODEL_NAME}")
+
+                # Import insightface only when needed
+                if insightface is None:
+                    import insightface
+
                 self._app = insightface.app.FaceAnalysis(
                     name=MODEL_NAME,
-                    providers=['CPUExecutionProvider', 'CUDAExecutionProvider']
+                    providers=['CPUExecutionProvider']
                 )
                 self._app.prepare(ctx_id=0, det_size=(640, 640))
                 logger.info("Model loaded successfully")

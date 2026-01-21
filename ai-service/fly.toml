@@ -10,10 +10,16 @@ primary_region = 'sin'
   dockerfile = 'Dockerfile'
 
 [env]
+  ALLOW_INSECURE_AUTH = 'true'
+  API_KEY = 'dev-api-key-change-in-production'
   DETECTION_THRESHOLD = '0.5'
+  DISPLAY = ''
   HOST = '0.0.0.0'
+  INSIGHTFACE_HOME = '/app/models'
+  LOG_LEVEL = 'INFO'
   MODEL_NAME = 'buffalo_l'
   PORT = '8080'
+  QT_QPA_PLATFORM = 'offscreen'
   VERIFICATION_THRESHOLD = '0.6'
 
 [[mounts]]
