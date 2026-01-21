@@ -1,0 +1,34 @@
+# Virtual environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Models (will be downloaded at runtime)
+models/*.onnx
+models/*.bin
+
+# Temporary files
+*.tmp
+.cache/
+
+# Fly.io files
+fly.toml
+
+# Git
+.git/
+.gitignore
