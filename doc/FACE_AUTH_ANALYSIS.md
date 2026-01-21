@@ -916,6 +916,7 @@ export const FaceCaptureProgress: React.FC<FaceCaptureProgressProps> = ({
   }, [isFaceCentered, onComplete]);
 
   return (
+{% raw %}
     <div className="space-y-2">
       <div className="w-full bg-gray-700 rounded-full h-2">
         <div
@@ -925,6 +926,7 @@ export const FaceCaptureProgress: React.FC<FaceCaptureProgressProps> = ({
       </div>
       <p className="text-sm text-center text-gray-400">{progress}%</p>
     </div>
+{% endraw %}
   );
 };
 ```
