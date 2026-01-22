@@ -1,19 +1,39 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosError, type AxiosResponse } from 'axios'
 
-// Get base URL from environment variable or use default
+// Get base URLs from environment variables or use defaults
 const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000'
-// Ensure baseURL always ends with /api for backend routes
-const baseURL = envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl}/api`
+const ragServiceUrl = import.meta.env.VITE_RAG_SERVICE_URL || 'http://localhost:8001'
+
+// Ensure backend baseURL always ends with /api for backend routes
+const backendBaseURL = envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl}/api`
 
 export interface ValidationError extends Error {
     fieldErrors?: Record<string, string[]>
     response?: AxiosResponse
 }
 
+// Helper function to determine base URL based on endpoint
+const getBaseURL = (url: string) => {
+    // If URL starts with /rag/, use RAG service URL
+    if (url.startsWith('/rag/')) {
+        return ragServiceUrl;
+    }
+    // Otherwise use backend API URL
+    return backendBaseURL;
+};
+
 export const api = axios.create({
-    baseURL,
+    baseURL: backendBaseURL, // Default to backend
     withCredentials: false,
 })
+
+// Override baseURL dynamically based on request URL
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    if (config.url) {
+        config.baseURL = getBaseURL(config.url);
+    }
+    return config;
+});
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('sa_token')
@@ -31,9 +51,21 @@ api.interceptors.response.use(
 
         // Handle 401 Unauthorized - Token expired or invalid
         if (status === 401) {
-            // Clear auth state
+            // Check if this is a RAG service error (API key issue) rather than user auth
+            const isRAGError = error.config?.url?.includes('/rag/') ||
+                              error.config?.url?.includes('rag/health');
+
+            if (isRAGError) {
+                // For RAG service API key errors, don't log user out - surface the server message
+                const message = responseData?.message || 'RAG AI service authentication failed. Please contact support.'
+                const apiError = new Error(message) as ValidationError
+                apiError.response = error.response
+                return Promise.reject(apiError)
+            }
+
+            // Clear auth state for user authentication errors
             localStorage.removeItem('sa_token')
-            
+
             // Only redirect if we're not already on login page
             if (window.location.pathname !== '/login') {
                 // Use setTimeout to avoid navigation during render
@@ -41,7 +73,7 @@ api.interceptors.response.use(
                     window.location.href = '/login'
                 }, 0)
             }
-            
+
             const message = responseData?.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
             const apiError = new Error(message) as ValidationError
             apiError.response = error.response

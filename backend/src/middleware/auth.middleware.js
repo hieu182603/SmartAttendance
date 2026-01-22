@@ -14,7 +14,11 @@ export const authMiddleware = async (req, res, next) => {
 
         // Kiểm tra xem user có còn active không
         if (decoded.userId) {
-            const user = await UserModel.findById(decoded.userId).select("isActive isTrial trialExpiresAt").lean();
+            const user = await UserModel.findById(decoded.userId)
+                .select("isActive isTrial trialExpiresAt role department branch")
+                .populate('department', '_id')
+                .populate('branch', '_id')
+                .lean();
             if (!user) {
                 return res.status(401).json({ message: "User not found" });
             }
@@ -35,6 +39,14 @@ export const authMiddleware = async (req, res, next) => {
                     });
                 }
             }
+
+            // Attach full user context to avoid additional queries in chatbot
+            decoded.userContext = {
+                role: user.role,
+                department: user.department?._id,
+                branch: user.branch?._id,
+                userId: user._id
+            };
         }
 
         req.user = decoded;

@@ -271,7 +271,7 @@ class FaceDetectionService {
   /**
    * Check if multiple faces are detected (foreign object detection)
    */
-  checkMultipleFaces(faces: faceLandmarksDetection.Face[]): boolean {
+  checkMultipleFaces(faces: blazeface.NormalizedFace[]): boolean {
     return faces.length > 1;
   }
 
@@ -291,6 +291,213 @@ class FaceDetectionService {
       this.model = null;
       this.isModelLoaded = false;
     }
+  }
+
+  /**
+   * Calculate image sharpness using Laplacian variance
+   */
+  calculateImageSharpness(imageData: ImageData): number {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+
+    // Convert to grayscale and calculate Laplacian
+    const laplacian = new Float32Array((width - 2) * (height - 2));
+
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = (y * width + x) * 4;
+        const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+
+        // Laplacian kernel: [[0, 1, 0], [1, -4, 1], [0, 1, 0]]
+        const laplacianIdx = ((y - 1) * (width - 2)) + (x - 1);
+        laplacian[laplacianIdx] =
+          -4 * gray +
+          (data[((y - 1) * width + x) * 4] + data[((y - 1) * width + x) * 4 + 1] + data[((y - 1) * width + x) * 4 + 2]) / 3 +
+          (data[((y + 1) * width + x) * 4] + data[((y + 1) * width + x) * 4 + 1] + data[((y + 1) * width + x) * 4 + 2]) / 3 +
+          (data[(y * width + (x - 1)) * 4] + data[(y * width + (x - 1)) * 4 + 1] + data[(y * width + (x - 1)) * 4 + 2]) / 3 +
+          (data[(y * width + (x + 1)) * 4] + data[(y * width + (x + 1)) * 4 + 1] + data[(y * width + (x + 1)) * 4 + 2]) / 3;
+      }
+    }
+
+    // Calculate variance
+    const mean = laplacian.reduce((sum, val) => sum + val, 0) / laplacian.length;
+    const variance = laplacian.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / laplacian.length;
+
+    return variance;
+  }
+
+  /**
+   * Analyze image brightness and contrast
+   */
+  analyzeBrightness(imageData: ImageData): { mean: number, histogram: number[], contrast: number } {
+    const data = imageData.data;
+    const histogram = new Array(256).fill(0);
+    let sum = 0;
+
+    // Calculate histogram and mean brightness
+    for (let i = 0; i < data.length; i += 4) {
+      const brightness = Math.round((data[i] + data[i + 1] + data[i + 2]) / 3);
+      histogram[brightness]++;
+      sum += brightness;
+    }
+
+    const mean = sum / (data.length / 4);
+
+    // Calculate contrast (standard deviation)
+    let contrastSum = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      contrastSum += Math.pow(brightness - mean, 2);
+    }
+    const contrast = Math.sqrt(contrastSum / (data.length / 4));
+
+    return { mean, histogram, contrast };
+  }
+
+  /**
+   * Detect blur using FFT-based approach (simplified)
+   */
+  detectBlur(canvas: HTMLCanvasElement): number {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 1;
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Use Laplacian variance as blur metric (higher = sharper)
+    const sharpness = this.calculateImageSharpness(imageData);
+
+    // Normalize to 0-1 scale (lower values = more blur)
+    // Typical range: 0-1000, good images usually > 100
+    const blurScore = Math.min(sharpness / 200, 1);
+
+    return blurScore;
+  }
+
+  /**
+   * Check similarity between two images using simple histogram comparison
+   */
+  checkImageSimilarity(img1: string, img2: string): Promise<number> {
+    return new Promise((resolve) => {
+      const canvas1 = document.createElement('canvas');
+      const canvas2 = document.createElement('canvas');
+      const ctx1 = canvas1.getContext('2d');
+      const ctx2 = canvas2.getContext('2d');
+
+      if (!ctx1 || !ctx2) {
+        resolve(0);
+        return;
+      }
+
+      const img1El = new Image();
+      const img2El = new Image();
+
+      let loadedCount = 0;
+      const onLoad = () => {
+        loadedCount++;
+        if (loadedCount === 2) {
+          // Resize to smaller size for faster comparison
+          const size = 64;
+          canvas1.width = canvas1.height = size;
+          canvas2.width = canvas2.height = size;
+
+          ctx1.drawImage(img1El, 0, 0, size, size);
+          ctx2.drawImage(img2El, 0, 0, size, size);
+
+          const data1 = ctx1.getImageData(0, 0, size, size);
+          const data2 = ctx2.getImageData(0, 0, size, size);
+
+          const hist1 = this.analyzeBrightness(data1);
+          const hist2 = this.analyzeBrightness(data2);
+
+          // Calculate histogram intersection
+          let intersection = 0;
+          const total = data1.data.length / 4; // Total pixels
+
+          for (let i = 0; i < 256; i++) {
+            intersection += Math.min(hist1.histogram[i], hist2.histogram[i]);
+          }
+
+          const similarity = intersection / total;
+          resolve(similarity);
+        }
+      };
+
+      img1El.onload = onLoad;
+      img2El.onload = onLoad;
+      img1El.src = img1;
+      img2El.src = img2;
+    });
+  }
+
+  /**
+   * Validate captured image comprehensively
+   */
+  validateCapturedImage(
+    imageData: string,
+    faceQuality: FaceQuality,
+    canvas: HTMLCanvasElement
+  ): Promise<{ isValid: boolean, score: number, issues: string[] }> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const tempCanvas = document.createElement('canvas');
+        const ctx = tempCanvas.getContext('2d');
+        if (!ctx) {
+          resolve({ isValid: false, score: 0, issues: ['Canvas not supported'] });
+          return;
+        }
+
+        tempCanvas.width = img.width;
+        tempCanvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const brightness = this.analyzeBrightness(imageData);
+        const blurScore = this.detectBlur(tempCanvas);
+
+        const issues: string[] = [];
+        let score = faceQuality.score;
+
+        // Brightness check (should be between 0.2 and 0.8)
+        if (brightness.mean < 80) {
+          issues.push('too_dark');
+          score *= 0.8;
+        } else if (brightness.mean > 200) {
+          issues.push('too_bright');
+          score *= 0.8;
+        }
+
+        // Contrast check
+        if (brightness.contrast < 30) {
+          issues.push('low_contrast');
+          score *= 0.9;
+        }
+
+        // Blur check
+        if (blurScore < 0.3) {
+          issues.push('blurry');
+          score *= 0.7;
+        }
+
+        // Face quality check
+        if (!faceQuality.isCentered) {
+          issues.push('face_not_centered');
+          score *= 0.8;
+        }
+
+        if (!faceQuality.isValidSize) {
+          issues.push('face_wrong_size');
+          score *= 0.8;
+        }
+
+        const isValid = score >= 0.6 && issues.length === 0;
+
+        resolve({ isValid, score, issues });
+      };
+
+      img.src = imageData;
+    });
   }
 
   /**

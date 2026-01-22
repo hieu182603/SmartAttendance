@@ -82,7 +82,7 @@ export const PAGINATION_CONFIG = {
 
 export const FACE_RECOGNITION_CONFIG = {
   ENABLED: process.env.ENABLE_FACE_RECOGNITION === 'true',
-  AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+  AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8001',
   API_KEY: process.env.AI_SERVICE_API_KEY || '',
   VERIFICATION_THRESHOLD: parseFloat(process.env.FACE_VERIFICATION_THRESHOLD) || 0.6,
   TIMEOUT: parseInt(process.env.AI_SERVICE_TIMEOUT) || 5000,

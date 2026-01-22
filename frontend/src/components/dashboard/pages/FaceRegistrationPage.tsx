@@ -1,8 +1,7 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Camera, CheckCircle2, X, RotateCcw, Loader2, AlertCircle, Volume2, VolumeX } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle2, Loader2, AlertCircle, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { faceService } from "@/services/faceService";
@@ -10,19 +9,20 @@ import faceDetectionService, {
   type FaceQuality,
   type FacePosition,
 } from "@/services/faceDetectionService";
+import { useFaceValidation } from "@/hooks/useFaceValidation";
+import { CameraPreview, CaptureControls, CapturedGallery, InstructionSidebar } from "../faceRegistration";
 
 // Face registration image limits - must match backend config (FACE_RECOGNITION_CONFIG.MIN/MAX_REGISTRATION_IMAGES)
 // These values should be kept in sync with backend/src/config/app.config.js
-const MIN_IMAGES = parseInt(import.meta.env.VITE_MIN_REGISTRATION_IMAGES || "5", 10);
-const MAX_IMAGES = parseInt(import.meta.env.VITE_MAX_REGISTRATION_IMAGES || "10", 10);
+const MIN_IMAGES = Number(import.meta.env.VITE_MIN_REGISTRATION_IMAGES) || 5;
+const MAX_IMAGES = Number(import.meta.env.VITE_MAX_REGISTRATION_IMAGES) || 10;
 const MIN_QUALITY_SCORE = 0.7; // Minimum quality score threshold
-const AUTO_CAPTURE_DELAY = 500; // Delay before auto-capture (ms)
 
 type FaceDetectionStatus = "loading" | "detecting" | "good" | "warning" | "error" | "none";
 type ProgressStep = "detecting" | "aligning" | "capturing" | "completed";
 
 // Captured image with metadata
-interface CapturedImage {
+export interface CapturedImage {
   dataURL: string;
   qualityScore: number;
   detectionConfidence: number;
@@ -32,6 +32,9 @@ interface CapturedImage {
 const FaceRegistrationPage: React.FC = () => {
   const { t } = useTranslation(["dashboard", "common"]);
   const navigate = useNavigate();
+
+  // Validation hook
+  const { validateCapturedImage, validateImageSet, getValidationErrors } = useFaceValidation();
 
   // Progress milestones
   const PROGRESS_STEPS: { key: ProgressStep; label: string; threshold: number }[] = [
@@ -49,6 +52,7 @@ const FaceRegistrationPage: React.FC = () => {
   const lastVoiceMessageRef = useRef<string>("");
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentStepRef = useRef<ProgressStep>("detecting");
+  const cameraRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -59,6 +63,8 @@ const FaceRegistrationPage: React.FC = () => {
   const [modelLoading, setModelLoading] = useState(true);
   const [modelReady, setModelReady] = useState(false);
   const [modelError, setModelError] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [faceQuality, setFaceQuality] = useState<FaceQuality | null>(null);
   const [facePosition, setFacePosition] = useState<FacePosition | null>(null);
   const [faceDetectionConfidence, setFaceDetectionConfidence] = useState<number>(0);
@@ -70,6 +76,33 @@ const FaceRegistrationPage: React.FC = () => {
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [maskColor, setMaskColor] = useState<"good" | "warning" | "error">("error");
+
+  // Auto-capture states
+  const [autoCaptureCooldown, setAutoCaptureCooldown] = useState<number>(0);
+  const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number>(0);
+  const [isAutoCapturing, setIsAutoCapturing] = useState<boolean>(false);
+  const [consecutiveGoodFrames, setConsecutiveGoodFrames] = useState<number>(0);
+  const previousImageCountRef = useRef<number>(0); // Track previous image count to detect increases
+
+  // Gallery interaction states
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Animation states
+  const [showFlash, setShowFlash] = useState<boolean>(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState<boolean>(false);
+  const [isEntering, setIsEntering] = useState<boolean>(true);
+  const [showMilestoneCelebration, setShowMilestoneCelebration] = useState<boolean>(false);
+
+  // Performance optimization states
+  const [devicePerformance, setDevicePerformance] = useState<'high' | 'medium' | 'low'>('high');
+  const [adaptiveThrottleMs, setAdaptiveThrottleMs] = useState<number>(100);
+
+  // Accessibility and keyboard shortcut states
+  const [announcement, setAnnouncement] = useState<string>('');
+
+  // Mobile instructions panel state
+  const [showInstructions, setShowInstructions] = useState<boolean>(false);
 
   // Initialize Web Speech API
   useEffect(() => {
@@ -122,6 +155,7 @@ const FaceRegistrationPage: React.FC = () => {
         }
       } catch (error) {
         console.error("Failed to load face detection model:", error);
+
         if (isMounted) {
           setModelLoading(false);
           setModelReady(false);
@@ -130,6 +164,9 @@ const FaceRegistrationPage: React.FC = () => {
           setStatusMessage(t("dashboard:faceRegistration.errors.modelLoadFailed"));
           toast.error(t("dashboard:faceRegistration.errors.modelLoadFailed"));
           stopFaceDetection();
+
+          // Could implement fallback to basic validation without ML model
+          // For now, show error with recovery options
         }
       }
     };
@@ -143,6 +180,26 @@ const FaceRegistrationPage: React.FC = () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
+
+      // Additional cleanup for performance
+      if (speechSynthesisRef.current) {
+        speechSynthesisRef.current.cancel();
+      }
+
+      // Clear any pending timeouts
+      if (autoCaptureTimeoutRef.current) {
+        clearTimeout(autoCaptureTimeoutRef.current);
+      }
+      if (cameraRetryTimeoutRef.current) {
+        clearTimeout(cameraRetryTimeoutRef.current);
+      }
+
+      // Clean up object URLs from captured images
+      capturedImages.forEach(img => {
+        if (img.dataURL.startsWith('blob:')) {
+          URL.revokeObjectURL(img.dataURL);
+        }
+      });
     };
   }, []);
 
@@ -160,6 +217,48 @@ const FaceRegistrationPage: React.FC = () => {
     currentStepRef.current = currentStep;
   }, [currentStep]);
 
+  // Entry animation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Device performance detection and adaptive throttling
+  useEffect(() => {
+    const detectPerformance = () => {
+      // Simple performance detection based on hardware concurrency and memory
+      const cores = navigator.hardwareConcurrency || 2;
+      const memory = (navigator as any).deviceMemory || 4;
+
+      let performance: 'high' | 'medium' | 'low' = 'high';
+      let throttleMs = 100; // Default high performance
+
+      if (cores <= 2 || memory <= 2) {
+        performance = 'low';
+        throttleMs = 300; // Slower for low-end devices
+      } else if (cores <= 4 || memory <= 4) {
+        performance = 'medium';
+        throttleMs = 200; // Medium throttling
+      }
+
+      // Adjust for battery level if available
+      if ('getBattery' in navigator) {
+        (navigator as any).getBattery().then((battery: any) => {
+          if (battery.level < 0.2) {
+            throttleMs = Math.max(throttleMs, 300); // Conservative throttling on low battery
+          }
+        });
+      }
+
+      setDevicePerformance(performance);
+      setAdaptiveThrottleMs(throttleMs);
+    };
+
+    detectPerformance();
+  }, []);
+
   // Start face detection when camera and model are ready
   useEffect(() => {
     if (cameraReady && modelReady && !modelError && videoRef.current) {
@@ -175,6 +274,7 @@ const FaceRegistrationPage: React.FC = () => {
 
   const startCamera = async () => {
     try {
+      setCameraError(null);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
       });
@@ -182,10 +282,39 @@ const FaceRegistrationPage: React.FC = () => {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setCameraReady(true);
+        setRetryCount(0); // Reset retry count on success
       }
-    } catch (error) {
-      toast.error(t("dashboard:faceRegistration.errors.cameraAccess"));
+    } catch (error: any) {
+      console.error('Camera access error:', error);
       setCameraReady(false);
+
+      // Determine error type and provide specific guidance
+      let errorMessage = t("dashboard:faceRegistration.errors.cameraAccess");
+      let errorType = "generic";
+
+      if (error.name === 'NotAllowedError') {
+        errorMessage = t("dashboard:faceRegistration.errors.cameraPermissionDenied");
+        errorType = "permission";
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = t("dashboard:faceRegistration.errors.cameraNotAvailable");
+        errorType = "not_found";
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = t("dashboard:faceRegistration.errors.cameraError");
+        errorType = "busy";
+      }
+
+      setCameraError(errorType);
+      toast.error(errorMessage);
+
+      // Auto-retry for certain errors (up to 3 times)
+      if (errorType === "busy" && retryCount < 3) {
+        const nextRetry = retryCount + 1;
+        setRetryCount(nextRetry);
+        cameraRetryTimeoutRef.current = setTimeout(() => {
+          toast.info(`Retrying camera access... (${nextRetry}/3)`);
+          startCamera();
+        }, 2000);
+      }
     }
   };
 
@@ -268,6 +397,22 @@ const FaceRegistrationPage: React.FC = () => {
     }
   }, []);
 
+  const startAutoCaptureCooldown = useCallback(() => {
+    setAutoCaptureCooldown(3); // 3 second cooldown
+
+    const cooldownInterval = setInterval(() => {
+      setAutoCaptureCooldown(prev => {
+        if (prev <= 1) {
+          clearInterval(cooldownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(cooldownInterval);
+  }, []);
+
   const increaseProgress = useCallback(() => {
     setProgress((prev) => {
       const newProgress = Math.min(prev + 1, 100);
@@ -288,6 +433,12 @@ const FaceRegistrationPage: React.FC = () => {
       // Use ref to avoid stale closure issue
       if (step && step.key !== currentStepRef.current) {
         setCurrentStep(step.key);
+
+        // Milestone celebration
+        if (step.key !== "detecting") {
+          setShowMilestoneCelebration(true);
+          setTimeout(() => setShowMilestoneCelebration(false), 1500);
+        }
 
         // Voice feedback for milestones
         if (step.key === "aligning") {
@@ -328,7 +479,6 @@ const FaceRegistrationPage: React.FC = () => {
     let errorCount = 0;
     const MAX_CONSECUTIVE_ERRORS = 10;
     let lastDetectionTime = 0;
-    const DETECTION_THROTTLE_MS = 100; // Throttle to every 100ms
 
     const detectFaces = async () => {
       // Stop detection if model error occurred
@@ -352,9 +502,9 @@ const FaceRegistrationPage: React.FC = () => {
         return;
       }
 
-      // Throttle detection to every 100ms
+      // Adaptive throttling based on device performance
       const now = Date.now();
-      if (now - lastDetectionTime < DETECTION_THROTTLE_MS) {
+      if (now - lastDetectionTime < adaptiveThrottleMs) {
         animationFrameRef.current = requestAnimationFrame(detectFaces);
         return;
       }
@@ -430,6 +580,51 @@ const FaceRegistrationPage: React.FC = () => {
 
           setFaceQuality(quality);
           setFacePosition(position);
+
+          // Real-time frame analysis (brightness / contrast / blur) to improve validation
+          try {
+            // Compute blur score (0-1, higher = sharper)
+            const blurScore = faceDetectionService.detectBlur(canvas);
+
+            // Analyze brightness/contrast on the current frame
+            const frameImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const brightnessInfo = faceDetectionService.analyzeBrightness(frameImageData);
+
+            // Attach diagnostic info to state for debugging / UI (keep minimal)
+            // If any of these checks are poor, treat as warnings and give actionable messages
+            if (brightnessInfo.mean < 80) {
+              setDetectionStatus("warning");
+              setMaskColor("warning");
+              setStatusMessage("Ảnh quá tối. Tăng sáng môi trường.");
+              resetProgress();
+              stopProgressTracking();
+              if (lastVoiceMessageRef.current !== "increase_light") {
+                speakMessage("Vui lòng bật đèn hoặc di chuyển đến khu vực sáng hơn.");
+              }
+            } else if (brightnessInfo.mean > 200) {
+              setDetectionStatus("warning");
+              setMaskColor("warning");
+              setStatusMessage("Ảnh quá sáng. Tránh ánh sáng trực tiếp.");
+              resetProgress();
+              stopProgressTracking();
+              if (lastVoiceMessageRef.current !== "reduce_glare") {
+                speakMessage("Tránh ánh sáng trực tiếp vào khuôn mặt.");
+              }
+            } else if (blurScore < 0.35) {
+              setDetectionStatus("warning");
+              setMaskColor("warning");
+              setStatusMessage("Ảnh có vẻ mờ. Giữ camera ổn định hoặc di chuyển chậm hơn.");
+              resetProgress();
+              stopProgressTracking();
+              if (lastVoiceMessageRef.current !== "stabilize_camera") {
+                speakMessage("Giữ camera ổn định để có ảnh rõ nét.");
+              }
+            }
+          } catch (e) {
+            // Don't block detection for analysis failures - log occasionally
+            // (faceDetectionService already rate-limits heavy logs)
+            console.debug("Frame analysis skipped or failed:", e);
+          }
 
           // Determine status and message (simplified for blazeface)
           let status: FaceDetectionStatus = "good";
@@ -529,7 +724,7 @@ const FaceRegistrationPage: React.FC = () => {
     animationFrameRef.current = requestAnimationFrame(detectFaces);
   };
 
-  const stopFaceDetection = () => {
+  const stopFaceDetection = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -537,10 +732,14 @@ const FaceRegistrationPage: React.FC = () => {
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext("2d");
       if (ctx) {
+        // Clear canvas and reset context state
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        ctx.save(); // Reset transformation matrix
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.restore();
       }
     }
-  };
+  }, []);
 
   const drawBoundingBox = (
     ctx: CanvasRenderingContext2D,
@@ -857,40 +1056,84 @@ const FaceRegistrationPage: React.FC = () => {
     };
   }, [cameraReady, faceQuality, faceDetectionConfidence, multipleFaces]);
 
-  const handleAutoCapture = useCallback(() => {
+  const handleAutoCapture = useCallback(async () => {
+    console.log('Auto-capture triggered!');
+
     if (isCapturing) {
+      console.log('Already capturing, skipping auto-capture');
       return;
     }
 
-    // Use current state values via refs or direct access
-    // We'll check conditions in the effect that triggers auto-capture
     setIsCapturing(true);
     resetProgress();
     stopProgressTracking();
     speakMessage(t("dashboard:faceRegistration.voice.autoCapturing"));
 
+    // Flash effect
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 200);
+
     const photo = capturePhoto();
-    if (photo) {
-      setCapturedImages((prev) => {
-        if (prev.length >= MAX_IMAGES) {
-          return prev;
+    console.log('Photo captured:', photo ? 'success' : 'failed', {
+      hasPhoto: !!photo,
+      faceQuality: faceQuality,
+      canvasReady: !!canvasRef.current
+    });
+
+    if (photo && canvasRef.current && faceQuality) {
+      try {
+        // Post-capture validation
+        const validation = await validateCapturedImage(
+          photo.dataURL,
+          faceQuality,
+          canvasRef.current
+        );
+
+        console.log('Validation result:', validation);
+
+        if (validation.isValid) {
+          setCapturedImages((prev) => {
+            if (prev.length >= MAX_IMAGES) {
+              console.log('Max images reached, not adding more');
+              return prev;
+            }
+            const newImages = [...prev, photo];
+            setShowSuccessAnimation(true);
+            setTimeout(() => setShowSuccessAnimation(false), 1000);
+
+            // Start cooldown only when image count increases
+            if (newImages.length > previousImageCountRef.current) {
+              startAutoCaptureCooldown();
+              previousImageCountRef.current = newImages.length;
+            }
+
+            toast.success(t("dashboard:faceRegistration.toasts.autoCaptureSuccess", {
+              current: newImages.length,
+              max: MAX_IMAGES,
+              quality: Math.round(validation.score * 100)
+            }));
+            speakMessage(t("dashboard:faceRegistration.voice.captureSuccess", { count: newImages.length }));
+            return newImages;
+          });
+        } else {
+          // Validation failed, show specific error
+          const errorMessages = getValidationErrors(validation.issues);
+          console.log('Validation failed:', errorMessages);
+          toast.warning(errorMessages[0] || t("dashboard:faceRegistration.errors.autoCaptureFailed"));
+          speakMessage(t("dashboard:faceRegistration.voice.lowQuality"));
         }
-        const newImages = [...prev, photo];
-        toast.success(t("dashboard:faceRegistration.toasts.autoCaptureSuccess", {
-          current: newImages.length,
-          max: MAX_IMAGES,
-          quality: Math.round(photo.qualityScore * 100)
-        }));
-        speakMessage(t("dashboard:faceRegistration.voice.captureSuccess", { count: newImages.length }));
-        return newImages;
-      });
+      } catch (error) {
+        console.error('Auto-capture validation error:', error);
+        toast.warning(t("dashboard:faceRegistration.errors.autoCaptureFailed"));
+      }
     } else {
+      console.log('Auto-capture failed: missing requirements');
       toast.warning(t("dashboard:faceRegistration.errors.autoCaptureFailed"));
     }
     setIsCapturing(false);
-  }, [isCapturing, capturePhoto, resetProgress, stopProgressTracking, speakMessage]);
+  }, [isCapturing, capturePhoto, resetProgress, stopProgressTracking, speakMessage, validateCapturedImage, getValidationErrors, faceQuality]);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     if (capturedImages.length >= MAX_IMAGES) {
       toast.warning(t("dashboard:faceRegistration.errors.maxImagesReached", { max: MAX_IMAGES }));
       return;
@@ -920,86 +1163,286 @@ const FaceRegistrationPage: React.FC = () => {
     stopProgressTracking();
     speakMessage(t("dashboard:faceRegistration.voice.capturing"));
 
+    // Flash effect
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 200);
+
     const photo = capturePhoto();
-    if (photo) {
-      setCapturedImages((prev) => [...prev, photo]);
-      toast.success(t("dashboard:faceRegistration.toasts.captureSuccess", {
-        current: capturedImages.length + 1,
-        max: MAX_IMAGES,
-        quality: Math.round(photo.qualityScore * 100)
-      }));
-      speakMessage(t("dashboard:faceRegistration.voice.captureSuccess", { count: capturedImages.length + 1 }));
+    if (photo && canvasRef.current) {
+      try {
+        // Post-capture validation
+        const validation = await validateCapturedImage(
+          photo.dataURL,
+          faceQuality,
+          canvasRef.current
+        );
+
+        if (validation.isValid) {
+          setCapturedImages((prev) => {
+            const newImages = [...prev, photo];
+            setShowSuccessAnimation(true);
+            setTimeout(() => setShowSuccessAnimation(false), 1000);
+
+            // Start cooldown only when image count increases
+            if (newImages.length > previousImageCountRef.current) {
+              startAutoCaptureCooldown();
+              previousImageCountRef.current = newImages.length;
+            }
+
+            toast.success(t("dashboard:faceRegistration.toasts.captureSuccess", {
+              current: newImages.length,
+              max: MAX_IMAGES,
+              quality: Math.round(validation.score * 100)
+            }));
+            speakMessage(t("dashboard:faceRegistration.voice.captureSuccess", { count: newImages.length }));
+
+            return newImages;
+          });
+        } else {
+          // Validation failed, show specific error
+          const errorMessages = getValidationErrors(validation.issues);
+          toast.error(errorMessages[0] || t("dashboard:faceRegistration.errors.captureFailed"));
+          speakMessage(t("dashboard:faceRegistration.voice.lowQuality"));
+        }
+      } catch (error) {
+        console.error('Capture validation error:', error);
+        toast.error(t("dashboard:faceRegistration.errors.captureFailed"));
+      }
     } else {
       toast.error(t("dashboard:faceRegistration.errors.captureFailed"));
     }
     setIsCapturing(false);
   };
 
-  const handleRemove = (index: number) => {
+  const handleRemove = useCallback((index: number) => {
     setCapturedImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Gallery drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
-  // Auto-capture when progress reaches 100% and conditions are met
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const dragIndex = draggedIndex;
+
+    if (dragIndex === null || dragIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    setCapturedImages((prev) => {
+      const newImages = [...prev];
+      const draggedImage = newImages[dragIndex];
+      newImages.splice(dragIndex, 1);
+      newImages.splice(dropIndex, 0, draggedImage);
+      return newImages;
+    });
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // Auto-capture countdown timer - dedicated effect triggered by isAutoCapturing
   useEffect(() => {
-    if (
-      progress === 100 &&
-      !hasAutoCapturedRef.current &&
-      !isCapturing &&
+    if (isAutoCapturing && autoCaptureCountdown > 0) {
+      const countdownInterval = setInterval(() => {
+        setAutoCaptureCountdown(prev => {
+          if (prev <= 1) {
+            // Countdown finished, trigger capture
+            clearInterval(countdownInterval);
+
+            // Check if quality is still good before capturing
+            if (detectionStatus === "good" &&
+              faceQuality?.isGoodQuality &&
+              faceQuality?.score !== undefined &&
+              faceQuality.score >= MIN_QUALITY_SCORE &&
+              !multipleFaces) {
+              handleAutoCapture();
+            } else {
+              // Quality dropped, cancel auto-capture
+              setIsAutoCapturing(false);
+              setConsecutiveGoodFrames(0);
+              speakMessage(t("dashboard:faceRegistration.voice.centerFace"));
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(countdownInterval);
+    }
+  }, [isAutoCapturing, autoCaptureCountdown, detectionStatus, faceQuality?.score, multipleFaces, handleAutoCapture, speakMessage]);
+
+  // Auto-capture logic - start countdown when conditions are met
+  useEffect(() => {
+    // Debug logging for auto-capture conditions
+    const debugInfo = {
+      detectionStatus,
+      isGoodQuality: faceQuality?.isGoodQuality,
+      faceQualityScore: faceQuality?.score,
+      minQualityScore: MIN_QUALITY_SCORE,
+      multipleFaces,
+      capturedCount: capturedImages.length,
+      maxImages: MAX_IMAGES,
+      cooldown: autoCaptureCooldown,
+      isCapturing,
+      isAutoCapturing,
+      consecutiveGoodFrames
+    };
+
+    console.debug('Auto-capture conditions:', debugInfo);
+
+    // Check if all conditions are met for auto-capture
+    const isAllConditionsMet = (
+      detectionStatus === "good" &&
       faceQuality?.isGoodQuality &&
+      faceQuality?.score !== undefined &&
+      faceQuality.score >= MIN_QUALITY_SCORE &&
       !multipleFaces &&
       capturedImages.length < MAX_IMAGES &&
-      faceQuality.isCentered &&
-      faceQuality.isValidSize &&
-      faceQuality.score >= MIN_QUALITY_SCORE
-    ) {
-      // Clear any existing timeout
-      if (autoCaptureTimeoutRef.current) {
-        clearTimeout(autoCaptureTimeoutRef.current);
-      }
-
-      // Set auto-capture with delay
-      autoCaptureTimeoutRef.current = setTimeout(() => {
-        handleAutoCapture();
-        hasAutoCapturedRef.current = true;
-      }, AUTO_CAPTURE_DELAY);
-    }
-
-    // Reset auto-capture flag when progress resets
-    if (progress === 0) {
-      hasAutoCapturedRef.current = false;
-    }
-
-    return () => {
-      if (autoCaptureTimeoutRef.current) {
-        clearTimeout(autoCaptureTimeoutRef.current);
-      }
-    };
-  }, [progress, isCapturing, faceQuality, multipleFaces, capturedImages.length, handleAutoCapture]);
-
-  // Auto-remove low quality images when new images are added
-  useEffect(() => {
-    const lowQualityImages = capturedImages.filter(
-      (img) => img.qualityScore < MIN_QUALITY_SCORE
+      autoCaptureCooldown === 0 &&
+      !isCapturing &&
+      !isAutoCapturing
     );
 
-    if (lowQualityImages.length > 0) {
-      setCapturedImages((prev) => {
-        const filtered = prev.filter((img) => img.qualityScore >= MIN_QUALITY_SCORE);
+    if (isAllConditionsMet) {
+      // Increment consecutive good frames using functional update and start countdown
+      // only when we cross the threshold to avoid repeatedly resetting the timer.
+      setConsecutiveGoodFrames((prev) => {
+        const next = prev + 1;
+        console.debug(`Consecutive good frames: ${next}/5`);
 
-        // Only show toast if images were actually removed
-        if (filtered.length < prev.length) {
-          const removedCount = prev.length - filtered.length;
-          toast.warning(
-            t("dashboard:faceRegistration.toasts.lowQualityRemoved", { count: removedCount }),
-            { duration: 5000 }
-          );
-          speakMessage(t("dashboard:faceRegistration.voice.lowQualityRemoved", { count: removedCount }));
+        if (next >= 5 && !isAutoCapturing) {
+          console.log('Starting auto-capture countdown...');
+          setIsAutoCapturing(true);
+          setAutoCaptureCountdown(3);
+          speakMessage(t("dashboard:faceRegistration.voice.autoCapturing"));
         }
-
-        return filtered;
+        return next;
       });
+    } else {
+      // Reset consecutive frames if conditions not met
+      if (detectionStatus === "none" ||
+        multipleFaces ||
+        (faceQuality && !faceQuality.isGoodQuality) ||
+        (faceQuality?.score !== undefined && faceQuality.score < MIN_QUALITY_SCORE)) {
+        console.debug('Conditions not met or poor quality, resetting consecutive frames');
+        setConsecutiveGoodFrames(0);
+      }
     }
-  }, [capturedImages.length]); // Only trigger when count changes
+    // Don't reset for "warning" or other temporary issues - allow recovery
+  }, [
+    detectionStatus,
+    faceQuality?.isGoodQuality,
+    multipleFaces,
+    capturedImages.length,
+    autoCaptureCooldown,
+    isCapturing,
+    consecutiveGoodFrames,
+    isAutoCapturing,
+    speakMessage,
+    t
+  ]);
+
+
+  // Voice feedback for auto-capture countdown
+  useEffect(() => {
+    if (isAutoCapturing && autoCaptureCountdown > 0 && autoCaptureCountdown <= 3) {
+      speakMessage(`${autoCaptureCountdown}`);
+    }
+  }, [autoCaptureCountdown, isAutoCapturing, speakMessage]);
+
+  // Reset auto-capture state when capture is complete
+  useEffect(() => {
+    if (!isCapturing && isAutoCapturing && autoCaptureCountdown === 0) {
+      setIsAutoCapturing(false);
+      setConsecutiveGoodFrames(0);
+    }
+  }, [isCapturing, isAutoCapturing, autoCaptureCountdown]);
+
+
+  // Screen reader announcements
+  useEffect(() => {
+    if (announcement) {
+      // Use ARIA live region for screen reader announcements
+      const announcementTimeout = setTimeout(() => setAnnouncement(''), 1000);
+      return () => clearTimeout(announcementTimeout);
+    }
+  }, [announcement]);
+
+  // Memoized calculations for performance
+  const canCapture = useMemo(() =>
+    Boolean(faceQuality?.isGoodQuality) && !multipleFaces && cameraReady && modelReady && !modelError && progress >= 100,
+    [faceQuality?.isGoodQuality, multipleFaces, cameraReady, modelReady, modelError, progress]
+  );
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Only handle shortcuts when component is focused and not in input fields
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (event.key) {
+        case ' ': // Spacebar - Capture photo
+          event.preventDefault();
+          if (canCapture && !isCapturing) {
+            handleCapture();
+          }
+          break;
+        case 'Escape': // Escape - Cancel/go back
+          event.preventDefault();
+          navigate(-1);
+          break;
+        case 'r': // R - Retry camera
+          event.preventDefault();
+          if (cameraError) {
+            startCamera();
+          }
+          break;
+        case 'v': // V - Toggle voice
+          event.preventDefault();
+          toggleVoice();
+          break;
+        case 'ArrowLeft': // Navigate gallery left
+          event.preventDefault();
+          // Could implement gallery navigation
+          break;
+        case 'ArrowRight': // Navigate gallery right
+          event.preventDefault();
+          // Could implement gallery navigation
+          break;
+        case 'Delete': // Delete last image
+        case 'Backspace':
+          event.preventDefault();
+          if (capturedImages.length > 0) {
+            handleRemove(capturedImages.length - 1);
+          }
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [canCapture, isCapturing, cameraError, capturedImages.length, handleCapture, handleRemove, navigate, startCamera, toggleVoice]);
+
 
   const dataURLtoFile = (dataURL: string, filename: string): File => {
     const arr = dataURL.split(",");
@@ -1015,46 +1458,97 @@ const FaceRegistrationPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (capturedImages.length < MIN_IMAGES) {
-      toast.error(t("dashboard:faceRegistration.errors.minImagesRequired", { min: MIN_IMAGES }));
-      return;
-    }
-
-    // Filter out low quality images before submit
-    const validImages = capturedImages.filter(
+    // Count qualifying images (those with quality score >= MIN_QUALITY_SCORE)
+    const qualifyingImages = capturedImages.filter(
       (img) => img.qualityScore >= MIN_QUALITY_SCORE
     );
 
-    if (validImages.length < MIN_IMAGES) {
+    if (qualifyingImages.length < MIN_IMAGES) {
       toast.error(
         t("dashboard:faceRegistration.errors.insufficientQualityImages", {
-          current: validImages.length,
+          current: qualifyingImages.length,
           min: MIN_IMAGES,
-          needed: MIN_IMAGES - validImages.length
+          needed: MIN_IMAGES - qualifyingImages.length
         })
       );
       return;
     }
 
+    // Pre-submit validation of qualifying image set
+    const imageSetValidation = await validateImageSet(qualifyingImages);
+
+    if (!imageSetValidation.isValid) {
+      // Show validation issues
+      const errorMessages = getValidationErrors(imageSetValidation.issues);
+      toast.error(errorMessages[0] || t("dashboard:faceRegistration.errors.registrationFailed"));
+
+      // Show recommendations
+      if (imageSetValidation.recommendations.length > 0) {
+        setTimeout(() => {
+          toast.info(imageSetValidation.recommendations[0], { duration: 5000 });
+        }, 1000);
+      }
+      return;
+    }
+
+    // Use only qualifying images for submission
+    const validImages = qualifyingImages;
+
     setIsUploading(true);
+
+    const submitWithRetry = async (retryCount = 0): Promise<void> => {
+      try {
+        const files = validImages.map((img, idx) =>
+          dataURLtoFile(img.dataURL, `face-${idx + 1}.jpg`)
+        );
+
+        // Prepare enhanced metadata for each image
+        const metadata = validImages.map((img) => ({
+          qualityScore: img.qualityScore,
+          detectionConfidence: img.detectionConfidence,
+          timestamp: img.timestamp,
+          validationScore: imageSetValidation.averageScore,
+        }));
+
+        await faceService.registerFace(files, metadata);
+        toast.success(t("dashboard:faceRegistration.success.registrationSuccess"));
+        navigate(-1);
+      } catch (error: any) {
+        console.error(`Registration attempt ${retryCount + 1} failed:`, error);
+
+        // Check if it's a network error and we can retry
+        const isNetworkError = !navigator.onLine ||
+          error.code === 'NETWORK_ERROR' ||
+          error.message?.includes('network') ||
+          error.response?.status >= 500;
+
+        if (isNetworkError && retryCount < 3) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
+          toast.info(`Network error. Retrying in ${delay / 1000}s... (${retryCount + 1}/3)`, { duration: delay });
+
+          setTimeout(() => {
+            submitWithRetry(retryCount + 1);
+          }, delay);
+          return;
+        }
+
+        // Final failure - could implement offline storage here
+        if (!navigator.onLine) {
+          toast.error("You're offline. Registration data saved locally. Please try again when online.");
+          // TODO: Implement offline storage
+        } else {
+          toast.error(error.response?.data?.message || t("dashboard:faceRegistration.errors.registrationFailed"));
+        }
+
+        setIsUploading(false);
+      }
+    };
+
     try {
-      const files = validImages.map((img, idx) =>
-        dataURLtoFile(img.dataURL, `face-${idx + 1}.jpg`)
-      );
-
-      // Prepare metadata for each image
-      const metadata = validImages.map((img) => ({
-        qualityScore: img.qualityScore,
-        detectionConfidence: img.detectionConfidence,
-        timestamp: img.timestamp,
-      }));
-
-      await faceService.registerFace(files, metadata);
-      toast.success(t("dashboard:faceRegistration.success.registrationSuccess"));
-      navigate(-1);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || t("dashboard:faceRegistration.errors.registrationFailed"));
-    } finally {
+      await submitWithRetry();
+    } catch (error) {
+      // This should not happen due to internal error handling, but just in case
+      console.error('Unexpected error during submission:', error);
       setIsUploading(false);
     }
   };
@@ -1075,7 +1569,6 @@ const FaceRegistrationPage: React.FC = () => {
     }
   };
 
-  const canCapture = faceQuality?.isGoodQuality && !multipleFaces && cameraReady && modelReady && !modelError && progress >= 100;
 
   // Cleanup auto-capture timeout on unmount
   useEffect(() => {
@@ -1092,347 +1585,193 @@ const FaceRegistrationPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto max-w-7xl py-6 space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+    <>
+      <style>{`
+        @keyframes breathe {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.05); opacity: 0.8; }
+        }
+      `}</style>
+      <div className="min-h-screen w-full bg-gray-900 text-white">
+        {/* Fixed Header */}
+        <div className="h-16 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 flex items-center justify-between px-6">
           <div>
-            <CardTitle>{t("dashboard:faceRegistration.title")}</CardTitle>
-            <p className="text-sm text-muted-foreground mt-2">
+            <h1 className="text-xl font-bold text-cyan-400">{t("dashboard:faceRegistration.title")}</h1>
+            <p className="text-sm text-gray-400">
               {t("dashboard:faceRegistration.description", { min: MIN_IMAGES, max: MAX_IMAGES })}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleVoice}
-            className={voiceEnabled ? "text-cyan-500" : "text-gray-500"}
-            title={voiceEnabled ? t("dashboard:faceRegistration.buttons.toggleVoiceOff") : t("dashboard:faceRegistration.buttons.toggleVoiceOn")}
-          >
-            {voiceEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Main Content Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Camera Preview with Overlay - Left Column (2/3 width on desktop) */}
-            <div className="lg:col-span-2">
-              <div className="relative rounded-xl overflow-hidden bg-black aspect-video shadow-2xl">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                {/* Canvas overlay for face detection visualization */}
-                <canvas
-                  ref={canvasRef}
-                  className="absolute inset-0 w-full h-full pointer-events-none"
-                  style={{ objectFit: "cover" }}
-                />
-
-                {/* Status indicator overlay - shown when face is detected */}
-                {faceQuality && (
-                  <div
-                    className={`absolute top-4 right-4 px-4 py-2 rounded-lg backdrop-blur-sm transition-all duration-500 ${maskColor === "good"
-                      ? "bg-green-500/20 border border-green-500/50 text-green-400"
-                      : maskColor === "warning"
-                        ? "bg-amber-500/20 border border-amber-500/50 text-amber-400"
-                        : "bg-red-500/20 border border-red-500/50 text-red-400"
-                      }`}
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      {maskColor === "good" && <CheckCircle2 className="h-4 w-4" />}
-                      {(maskColor === "warning" || maskColor === "error") && (
-                        <AlertCircle className="h-4 w-4" />
-                      )}
-                      <span>{getCurrentStepLabel()}</span>
-                    </div>
-                  </div>
-                )}
-
-                {(!cameraReady || modelLoading) && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900/95 text-white">
-                    <div className="text-center">
-                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-cyan-500" />
-                      <p className="text-sm">
-                        {modelLoading ? t("dashboard:faceRegistration.status.loadingModel") : t("dashboard:faceRegistration.status.startingCamera")}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {modelError && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900/95 text-white">
-                    <div className="text-center">
-                      <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                      <p className="text-sm text-red-500">
-                        {t("dashboard:faceRegistration.errors.modelLoadFailed")}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Face Detection Status */}
-              <div className="mt-4 bg-gray-900/50 rounded-lg p-4 border border-gray-800 backdrop-blur-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  {detectionStatus === "good" && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                  {detectionStatus === "warning" && <AlertCircle className="h-5 w-5 text-amber-500" />}
-                  {detectionStatus === "error" && <AlertCircle className="h-5 w-5 text-red-500" />}
-                  {(detectionStatus === "loading" || detectionStatus === "none") && (
-                    <Loader2 className="h-5 w-5 text-gray-500 animate-spin" />
-                  )}
-                  <p className={`text-sm font-medium transition-colors duration-300 ${getStatusColor(detectionStatus)}`}>
-                    {statusMessage}
-                  </p>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex justify-between items-center text-xs text-gray-400">
-                    <span>{getCurrentStepLabel()}</span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div className="w-full h-2.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-300 ease-out rounded-full ${maskColor === "good"
-                        ? "bg-gradient-to-r from-cyan-500 to-green-500"
-                        : maskColor === "warning"
-                          ? "bg-gradient-to-r from-amber-400 to-amber-500"
-                          : "bg-gradient-to-r from-red-400 to-red-500"
-                        }`}
-                      style={{ width: `${progress}%` }}
-                    >
-                      <div className="h-full w-full bg-white/30 animate-pulse"></div>
-                    </div>
-                  </div>
-
-                  {/* Progress Milestones */}
-                  <div className="flex justify-between mt-2 relative">
-                    {PROGRESS_STEPS.map((step, idx) => (
-                      <div
-                        key={step.key}
-                        className={`flex flex-col items-center transition-all duration-300 ${progress >= step.threshold
-                          ? "text-cyan-500 scale-110"
-                          : "text-gray-500"
-                          }`}
-                      >
-                        <div
-                          className={`w-2 h-2 rounded-full transition-all duration-300 ${progress >= step.threshold
-                            ? "bg-cyan-500 shadow-lg shadow-cyan-500/50"
-                            : "bg-gray-600"
-                            }`}
-                        />
-                        <span className="text-[10px] mt-1 text-center max-w-[60px]">
-                          {step.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {faceQuality && (
-                  <div className="text-xs text-gray-400 space-y-1 mt-4 pt-4 border-t border-gray-800">
-                    <div className="grid grid-cols-1 gap-2">
-                      <span>
-                        {t("dashboard:faceRegistration.quality.position")}: {faceQuality.isCentered ? "✓" : "✗"} |
-                        {t("dashboard:faceRegistration.quality.size")}: {faceQuality.isValidSize ? "✓" : "✗"} |
-                        {t("dashboard:faceRegistration.quality.quality")}: {Math.round(faceQuality.score * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Sidebar with Instructions - Right Column (1/3 width on desktop) */}
-            <div className="lg:col-span-1">
-              <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800 backdrop-blur-sm h-full">
-                <h3 className="text-lg font-semibold mb-4 text-cyan-400 flex items-center gap-2">
-                  <span className="w-1 h-6 bg-gradient-to-b from-cyan-500 to-green-500 rounded"></span>
-                  {t("dashboard:faceRegistration.instructions.title")}
-                </h3>
-
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-800/50 hover:bg-gray-800 transition-colors">
-                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                        1
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">{t("dashboard:faceRegistration.steps.step1")}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {t("dashboard:faceRegistration.steps.step1Description")}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-800/50 hover:bg-gray-800 transition-colors">
-                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                        2
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">{t("dashboard:faceRegistration.steps.step2")}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {t("dashboard:faceRegistration.steps.step2Description")}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-800/50 hover:bg-gray-800 transition-colors">
-                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                        3
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">{t("dashboard:faceRegistration.steps.step3")}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {t("dashboard:faceRegistration.steps.step3Description")}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-800/50 hover:bg-gray-800 transition-colors">
-                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                        4
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">{t("dashboard:faceRegistration.steps.step4")}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {t("dashboard:faceRegistration.steps.step4Description")}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tips Section */}
-                  <div className="mt-6 pt-6 border-t border-gray-800">
-                    <h4 className="text-sm font-semibold mb-3 text-amber-400">{t("dashboard:faceRegistration.tips.title")}</h4>
-                    <ul className="space-y-2 text-xs text-gray-400">
-                      <li className="flex items-start gap-2">
-                        <span className="text-amber-500 mt-1">•</span>
-                        <span>{t("dashboard:faceRegistration.tips.lighting.description")}</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-amber-500 mt-1">•</span>
-                        <span>{t("dashboard:faceRegistration.tips.angle.description")}</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-amber-500 mt-1">•</span>
-                        <span>{t("dashboard:faceRegistration.tips.distance.description")}</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-amber-500 mt-1">•</span>
-                        <span>{t("dashboard:faceRegistration.tips.expression.description")}</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Capture Button */}
-          <div className="flex justify-center mt-6">
-            <Button
-              onClick={handleCapture}
-              disabled={!canCapture || capturedImages.length >= MAX_IMAGES || isCapturing}
-              size="lg"
-              className={`transition-all duration-300 ${canCapture
-                ? "bg-gradient-to-r from-cyan-500 to-green-500 hover:from-cyan-600 hover:to-green-600 shadow-lg shadow-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/60 hover:scale-105"
-                : "bg-gray-600 cursor-not-allowed opacity-50"
-                }`}
-            >
-              {isCapturing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {t("dashboard:faceRegistration.buttons.processing")}
-                </>
-              ) : (
-                <>
-                  <Camera className="h-4 w-4 mr-2" />
-                  {t("dashboard:faceRegistration.buttons.capture", { current: capturedImages.length, max: MAX_IMAGES })}
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Captured Images Grid */}
-          {capturedImages.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold mb-3 text-white">
-                {t("dashboard:faceRegistration.capturedImages.title", { current: capturedImages.length, max: MAX_IMAGES })}
-              </h3>
-              <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-                {capturedImages.map((img, index) => {
-                  const qualityPercentage = Math.round(img.qualityScore * 100);
-                  const qualityColor =
-                    qualityPercentage >= 80
-                      ? "text-green-400"
-                      : qualityPercentage >= 70
-                        ? "text-amber-400"
-                        : "text-red-400";
-
-                  return (
-                    <div
-                      key={index}
-                      className={`relative group overflow-hidden rounded-lg border-2 transition-all duration-300 hover:scale-105 ${img.qualityScore >= MIN_QUALITY_SCORE
-                        ? "border-gray-700 hover:border-cyan-500"
-                        : "border-red-500 hover:border-red-600"
-                        }`}
-                    >
-                      <img
-                        src={img.dataURL}
-                        alt={`Face ${index + 1}`}
-                        className="w-full h-32 object-cover"
-                      />
-                      <button
-                        onClick={() => handleRemove(index)}
-                        className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg"
-                        title={t("dashboard:faceRegistration.buttons.removeImage")}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                      {/* Quality Score Badge */}
-                      <div
-                        className={`absolute top-1 left-1 px-2 py-1 rounded-md text-xs font-semibold backdrop-blur-sm ${img.qualityScore >= MIN_QUALITY_SCORE
-                          ? "bg-green-500/80 text-white"
-                          : "bg-red-500/80 text-white"
-                          }`}
-                      >
-                        {qualityPercentage}%
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-white text-xs p-2">
-                        <div className="flex items-center justify-between">
-                          <span>{t("dashboard:faceRegistration.capturedImages.imageNumber", { number: index + 1 })}</span>
-                          <span className={qualityColor}>
-                            {qualityPercentage >= 80
-                              ? t("dashboard:faceRegistration.quality.good")
-                              : qualityPercentage >= 70
-                                ? t("dashboard:faceRegistration.quality.fair")
-                                : t("dashboard:faceRegistration.quality.low")}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Submit Button */}
-          <div className="flex gap-4 justify-end mt-6 pt-6 border-t border-gray-800">
+          <div className="flex items-center gap-3">
             <Button
               variant="outline"
               onClick={() => navigate(-1)}
-              className="border-gray-700 hover:bg-gray-800 hover:border-gray-600 transition-all duration-200"
+              className="border-red-500 text-red-400 hover:bg-red-500/10 hover:border-red-400 transition-all duration-200 px-4"
+              title={t("dashboard:faceRegistration.buttons.cancel")}
             >
               {t("dashboard:faceRegistration.buttons.cancel")}
             </Button>
             <Button
+              variant="outline"
+              size="icon"
+              onClick={toggleVoice}
+              className={`border-gray-700 hover:bg-gray-800 transition-all duration-200 ${voiceEnabled ? "text-cyan-500" : "text-gray-500"}`}
+              title={voiceEnabled ? t("dashboard:faceRegistration.buttons.toggleVoiceOff") : t("dashboard:faceRegistration.buttons.toggleVoiceOn")}
+            >
+              {voiceEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Full-screen Content Layout */}
+        <div
+          className={`flex flex-col flex-1 transition-all duration-500 ${isEntering ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}
+          role="main"
+          aria-label="Face registration interface"
+        >
+          {/* Screen reader announcements */}
+          <div
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+          >
+            {announcement}
+          </div>
+
+          {/* Camera Preview Section with instructions above and right-side gallery (7:3 grid on lg) */}
+          <div className="flex-1 flex flex-col">
+            {/* Instructions row above the camera */}
+            <div className="w-full px-4 lg:px-6 pb-4">
+              <InstructionSidebar
+                showOnMobile={showInstructions}
+                currentStep={currentStep}
+                cameraReady={cameraReady}
+                detectionStatus={detectionStatus}
+                capturedImagesCount={capturedImages.length}
+                compactRow
+              />
+            </div>
+
+            {/* Main content: grid 7/3 on large screens */}
+            <div className="w-full px-4 lg:px-6">
+              <div className="w-full lg:grid lg:grid-cols-10 lg:gap-6">
+                {/* Left: camera (col-span-7) */}
+                <div className="lg:col-span-7">
+                  <div
+                    className={`w-full relative transition-all duration-700 delay-200 ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
+                    role="region"
+                    aria-label="Camera preview"
+                  >
+                    <CameraPreview
+                      cameraReady={cameraReady}
+                      modelLoading={modelLoading}
+                      modelError={modelError}
+                      cameraError={cameraError}
+                      detectionStatus={detectionStatus}
+                      statusMessage={statusMessage}
+                      progress={progress}
+                      currentStep={currentStep}
+                      maskColor={maskColor}
+                      faceQuality={faceQuality}
+                      showFlash={showFlash}
+                      showSuccessAnimation={showSuccessAnimation}
+                      showMilestoneCelebration={showMilestoneCelebration}
+                      isAutoCapturing={isAutoCapturing}
+                      autoCaptureCountdown={autoCaptureCountdown}
+                      onVideoRef={(ref) => {
+                        (videoRef as any).current = ref;
+                      }}
+                      onCanvasRef={(ref) => {
+                        (canvasRef as any).current = ref;
+                      }}
+                      onRetry={startCamera}
+                    />
+
+                    {/* Face Detection Status */}
+                    <div className="mt-4 bg-gray-900/50 rounded-lg p-4 border border-gray-800 backdrop-blur-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        {detectionStatus === "good" && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                        {detectionStatus === "warning" && <AlertCircle className="h-5 w-5 text-amber-500" />}
+                        {detectionStatus === "error" && <AlertCircle className="h-5 w-5 text-red-500" />}
+                        {(detectionStatus === "loading" || detectionStatus === "none") && (
+                          <Loader2 className="h-5 w-5 text-gray-500 animate-spin" />
+                        )}
+                        <p className={`text-sm font-medium transition-colors duration-300 ${getStatusColor(detectionStatus)}`}>
+                          {statusMessage}
+                        </p>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="mt-4 space-y-2">
+                        <div className="flex justify-between items-center text-xs text-gray-400">
+                          <span>{getCurrentStepLabel()}</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ease-out rounded-full ${maskColor === "good"
+                              ? "bg-gradient-to-r from-cyan-500 to-green-500"
+                              : maskColor === "warning"
+                                ? "bg-gradient-to-r from-amber-400 to-amber-500"
+                                : "bg-gradient-to-r from-red-400 to-red-500"
+                              }`}
+                            style={{ width: `${progress}%` }}
+                          >
+                            <div className="h-full w-full bg-white/30 animate-pulse"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: gallery + capture controls (col-span-3) */}
+                <div className="lg:col-span-3 mt-6 lg:mt-0">
+                  <div className="bg-gray-900/60 rounded-lg border border-gray-800 min-h-[400px] max-h-[600px] overflow-y-auto relative">
+                    {capturedImages.length === 0 ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-gray-500">
+                        <div className="text-center">
+                          <div className="text-4xl mb-2">📷</div>
+                          <p className="text-sm font-medium">Chưa có hình ảnh</p>
+                          <p className="text-xs mt-1">Hình ảnh sẽ xuất hiện ở đây khi chụp</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <CapturedGallery
+                        images={capturedImages}
+                        onRemove={handleRemove}
+                        onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
+                        onDragEnd={handleDragEnd}
+                        onDrop={handleDrop}
+                      />
+                    )}
+                  </div>
+
+                  <div className="mt-4">
+                    <CaptureControls
+                      canCapture={canCapture}
+                      isCapturing={isCapturing}
+                      autoCaptureCooldown={autoCaptureCooldown}
+                      capturedImagesLength={capturedImages.length}
+                      maxImages={MAX_IMAGES}
+                      onCapture={handleCapture}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Controls + Horizontal Image Gallery removed - moved to right column beside camera */}
+
+        {/* Bottom Action Bar */}
+        <div className={`flex-shrink-0 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 flex items-center justify-end px-6 transition-all duration-700 delay-700 ${isEntering ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+          {capturedImages.filter(img => img.qualityScore >= MIN_QUALITY_SCORE).length >= MIN_IMAGES && (
+            <Button
               onClick={handleSubmit}
-              disabled={capturedImages.length < MIN_IMAGES || isUploading}
-              className={`transition-all duration-300 ${capturedImages.length >= MIN_IMAGES && !isUploading
+              disabled={isUploading}
+              className={`transition-all duration-300 px-8 ${!isUploading
                 ? "bg-gradient-to-r from-cyan-500 to-green-500 hover:from-cyan-600 hover:to-green-600 shadow-lg shadow-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/60 hover:scale-105"
                 : "bg-gray-600 cursor-not-allowed opacity-50"
                 }`}
@@ -1449,11 +1788,12 @@ const FaceRegistrationPage: React.FC = () => {
                 </>
               )}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 };
 
 export default FaceRegistrationPage;
+

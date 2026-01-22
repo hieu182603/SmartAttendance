@@ -475,10 +475,22 @@ export class FaceService {
         // Upload new images and track publicIds
         const uploadedImages = [];
         const uploadedPublicIds = [];
-        for (const file of newImageFiles) {
-          const result = await uploadFaceImage(file.buffer);
-          uploadedImages.push(result.url);
-          uploadedPublicIds.push(result.publicId);
+        try {
+          for (const file of newImageFiles) {
+            const result = await uploadFaceImage(file.buffer);
+            uploadedImages.push(result.url);
+            uploadedPublicIds.push(result.publicId);
+          }
+        } catch (uploadError) {
+          // If upload fails, clean up any images that were already uploaded
+          if (uploadedPublicIds.length > 0) {
+            try {
+              await deleteFaceImages(uploadedPublicIds);
+            } catch (cleanupError) {
+              console.error("Failed to cleanup uploaded images after upload failure:", cleanupError);
+            }
+          }
+          throw uploadError;
         }
 
         // Get new embeddings
@@ -490,44 +502,65 @@ export class FaceService {
           });
         }
 
-        const aiResponse = await aiServiceClient.registerFaces(formData);
-        if (!aiResponse.data.success) {
-          // Categorize error from AI service
-          const errorCode = aiResponse.data.error_code || "AI_SERVICE_ERROR";
-          const errorMessage = aiResponse.data.error || "Face update failed";
-          const errorDetails = aiResponse.data.error_details || null;
+        try {
+          const aiResponse = await aiServiceClient.registerFaces(formData);
+          if (!aiResponse.data.success) {
+            // Clean up uploaded images before throwing error
+            if (uploadedPublicIds.length > 0) {
+              try {
+                await deleteFaceImages(uploadedPublicIds);
+              } catch (cleanupError) {
+                console.error("Failed to cleanup uploaded images after AI validation failure:", cleanupError);
+              }
+            }
 
-          // Map error codes to specific error classes
-          switch (errorCode) {
-            case "NO_FACE_DETECTED":
-              throw new FaceNotDetectedError(errorMessage, errorDetails);
-            case "MULTIPLE_FACES":
-              throw new MultipleFacesError(errorMessage, errorDetails);
-            case "POOR_IMAGE_QUALITY":
-              throw new PoorImageQualityError(errorMessage, errorDetails);
-            case "AI_SERVICE_ERROR":
-            default:
-              throw new AIServiceError(errorMessage, errorCode, errorDetails);
+            // Categorize error from AI service
+            const errorCode = aiResponse.data.error_code || "AI_SERVICE_ERROR";
+            const errorMessage = aiResponse.data.error || "Face update failed";
+            const errorDetails = aiResponse.data.error_details || null;
+
+            // Map error codes to specific error classes
+            switch (errorCode) {
+              case "NO_FACE_DETECTED":
+                throw new FaceNotDetectedError(errorMessage, errorDetails);
+              case "MULTIPLE_FACES":
+                throw new MultipleFacesError(errorMessage, errorDetails);
+              case "POOR_IMAGE_QUALITY":
+                throw new PoorImageQualityError(errorMessage, errorDetails);
+              case "AI_SERVICE_ERROR":
+              default:
+                throw new AIServiceError(errorMessage, errorCode, errorDetails);
+            }
           }
+
+          const newEmbeddings = aiResponse.data.faces.map((face) => face.embedding);
+          const totalEmbeddings = [...(user.faceData.embeddings || []), ...newEmbeddings];
+
+          // Limit to MAX_EMBEDDINGS (keep most recent)
+          user.faceData.embeddings = totalEmbeddings.slice(-MAX_EMBEDDINGS);
+          user.faceData.faceImages = [...(user.faceData.faceImages || []), ...uploadedImages].slice(-MAX_EMBEDDINGS);
+          user.faceData.faceImagePublicIds = [...(user.faceData.faceImagePublicIds || []), ...uploadedPublicIds].slice(-MAX_EMBEDDINGS);
+          user.faceData.registeredAt = new Date();
+          user.faceData.isRegistered = true;
+
+          await user.save();
+
+          return {
+            success: true,
+            embeddings: user.faceData.embeddings,
+            faceImages: user.faceData.faceImages,
+          };
+        } catch (aiError) {
+          // Clean up uploaded images if AI service call fails
+          if (uploadedPublicIds.length > 0) {
+            try {
+              await deleteFaceImages(uploadedPublicIds);
+            } catch (cleanupError) {
+              console.error("Failed to cleanup uploaded images after AI service failure:", cleanupError);
+            }
+          }
+          throw aiError;
         }
-
-        const newEmbeddings = aiResponse.data.faces.map((face) => face.embedding);
-        const totalEmbeddings = [...(user.faceData.embeddings || []), ...newEmbeddings];
-
-        // Limit to MAX_EMBEDDINGS (keep most recent)
-        user.faceData.embeddings = totalEmbeddings.slice(-MAX_EMBEDDINGS);
-        user.faceData.faceImages = [...(user.faceData.faceImages || []), ...uploadedImages].slice(-MAX_EMBEDDINGS);
-        user.faceData.faceImagePublicIds = [...(user.faceData.faceImagePublicIds || []), ...uploadedPublicIds].slice(-MAX_EMBEDDINGS);
-        user.faceData.registeredAt = new Date();
-        user.faceData.isRegistered = true;
-
-        await user.save();
-
-        return {
-          success: true,
-          embeddings: user.faceData.embeddings,
-          faceImages: user.faceData.faceImages,
-        };
       } else {
         throw new Error(`Invalid update mode: ${mode}`);
       }

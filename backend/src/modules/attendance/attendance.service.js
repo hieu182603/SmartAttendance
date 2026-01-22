@@ -795,6 +795,29 @@ export const processCheckIn = async (
       return { success: false, data: null, error: branchResult.message };
     }
 
+    // Early guard: reject if face verification is required but no photo provided
+    if (ATTENDANCE_CONFIG.REQUIRE_FACE_VERIFICATION && !photoFile) {
+      try {
+        const { UserModel } = await import("../users/user.model.js");
+        const { FACE_RECOGNITION_CONFIG } = await import("../../config/app.config.js");
+
+        if (FACE_RECOGNITION_CONFIG.ENABLED) {
+          const user = await UserModel.findById(userId).select("faceData");
+          if (user?.faceData?.isRegistered) {
+            return {
+              success: false,
+              data: null,
+              error: "Yêu cầu cung cấp ảnh để xác thực khuôn mặt. Vui lòng chụp ảnh và thử lại.",
+              code: "FACE_VERIFICATION_REQUIRED",
+            };
+          }
+        }
+      } catch (error) {
+        // If we can't check user face data, proceed with GPS-only for safety
+        console.warn(`[attendance] Could not check user face data: ${error.message}`);
+      }
+    }
+
     // Face verification (if enabled and user has registered face)
     let faceVerified = false;
     if (photoFile) {
