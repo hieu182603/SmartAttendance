@@ -30,6 +30,7 @@ export default defineConfig({
                         '@tensorflow-models/blazeface',
                         '@tensorflow/tfjs',
                     ],
+                    'recharts-vendor': ['recharts'],
                 },
             },
         },

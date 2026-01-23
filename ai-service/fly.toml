@@ -9,6 +9,12 @@ primary_region = 'sin'
 [build]
   dockerfile = 'Dockerfile'
 
+[source]
+  type = "github"
+  owner = "hieu182603"
+  repo = "SmartAttendance"
+  path = "ai-service"
+
 [env]
   ALLOW_INSECURE_AUTH = 'true'
   API_KEY = 'dev-api-key-change-in-production'

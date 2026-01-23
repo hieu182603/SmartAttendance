@@ -106,6 +106,10 @@ async function start() {
       process.exit(1);
     }
 
+    // Check RAG chatbot configuration (migrated from old Gemini chatbot)
+    console.log("ℹ️ Chatbot functionality migrated to RAG system (ai-service)");
+    console.log("ℹ️ RAG endpoints available at: http://localhost:8001/rag/*");
+
     console.log("🔄 Connecting to database...");
     await connectDatabase();
     console.log("✅ Database connected successfully");

@@ -34,6 +34,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/dashboard/NotificationCenter";
+import { FloatingChatWidget } from "@/components/dashboard/FloatingChatWidget";
 import { useNotifications } from "@/hooks/useNotifications";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
@@ -374,6 +375,7 @@ const DashboardLayout: React.FC = () => {
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
       />
+      <FloatingChatWidget />
     </div>
   );
 };

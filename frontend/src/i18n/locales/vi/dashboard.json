@@ -1817,6 +1817,61 @@
       "message": "Bạn đã đăng ký khuôn mặt trước đó",
       "update": "Cập nhật ảnh đăng ký",
       "view": "Xem ảnh hiện tại"
+    },
+    "autoCapture": {
+      "countdown": "Tự động chụp sau {{seconds}} giây",
+      "preparing": "Chuẩn bị tự động chụp...",
+      "ready": "Sẵn sàng tự động chụp"
+    },
+    "validation": {
+      "sharpness": "Độ sắc nét",
+      "brightness": "Độ sáng",
+      "similarity": "Độ tương đồng"
+    },
+    "accessibility": {
+      "keyboardShortcuts": "Phím tắt: Space (chụp), Esc (quay lại), V (bật/tắt giọng nói)",
+      "captureInstruction": "Nhấn Space hoặc nút chụp để chụp ảnh khuôn mặt",
+      "galleryNavigation": "Sử dụng mũi tên để điều hướng thư viện ảnh",
+      "statusAnnouncements": "Trạng thái phát hiện khuôn mặt sẽ được thông báo"
+    },
+    "performance": {
+      "adaptiveThrottling": "Tự động điều chỉnh hiệu suất cho thiết bị của bạn",
+      "devicePerformance": "Hiệu suất thiết bị: {{level}}"
+    }
+  },
+  "chatbot": {
+    "title": "Trợ lý AI",
+    "conversations": "Cuộc trò chuyện",
+    "newConversation": "Cuộc trò chuyện mới",
+    "noConversations": "Chưa có cuộc trò chuyện nào",
+    "conversationWith": "Cuộc trò chuyện",
+    "startConversation": "Bắt đầu cuộc trò chuyện mới",
+    "welcome": "Chào mừng đến với Trợ lý AI",
+    "welcomeMessage": "Hỏi tôi về chấm công, lương, nghỉ phép, hoặc yêu cầu báo cáo. Tôi ở đây để giúp đỡ!",
+    "placeholder": "Nhập tin nhắn của bạn...",
+    "send": "Gửi",
+    "typing": "AI đang suy nghĩ...",
+    "download": "Tải xuống",
+    "reportDownloaded": "Báo cáo đã tải xuống thành công",
+    "conversationDeleted": "Cuộc trò chuyện đã xóa",
+    "error": {
+      "loadConversations": "Không thể tải danh sách cuộc trò chuyện",
+      "loadConversation": "Không thể tải cuộc trò chuyện",
+      "sendMessage": "Không thể gửi tin nhắn",
+      "deleteConversation": "Không thể xóa cuộc trò chuyện",
+      "downloadReport": "Không thể tải xuống báo cáo"
+    },
+    "hint": "Thử hỏi: \"Tôi đã chấm công bao nhiêu ngày tháng này?\" hoặc \"Tạo báo cáo lương\"",
+    "floatingWidget": {
+      "title": "Trợ lý AI",
+      "tooltip": "Mở trợ lý AI",
+      "minimize": "Thu nhỏ",
+      "close": "Đóng",
+      "placeholder": "Nhập tin nhắn...",
+      "send": "Gửi",
+      "typing": "Đang suy nghĩ...",
+      "newMessages": "{{count}} tin nhắn mới",
+      "roleInfo": "Bạn có thể xem dữ liệu: {{scope}}"
     }
   }
 }

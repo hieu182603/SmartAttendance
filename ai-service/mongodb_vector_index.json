@@ -1,0 +1,29 @@
+{
+  "name": "vector_index",
+  "type": "vectorSearch",
+  "fields": [
+    {
+      "type": "vector",
+      "path": "embedding",
+      "numDimensions": 768,
+      "similarity": "cosine"
+    },
+    {
+      "type": "filter",
+      "path": "metadata.doc_type"
+    },
+    {
+      "type": "filter",
+      "path": "metadata.source"
+    },
+    {
+      "type": "filter",
+      "path": "metadata.department_id"
+    },
+    {
+      "type": "filter",
+      "path": "metadata.role"
+    }
+  ]
+}
+

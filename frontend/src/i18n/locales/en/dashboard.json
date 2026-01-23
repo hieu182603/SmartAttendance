@@ -1809,6 +1809,61 @@
       "message": "You have already registered your face",
       "update": "Update Registration Photo",
       "view": "View Current Photo"
+    },
+    "autoCapture": {
+      "countdown": "Auto capture in {{seconds}} seconds",
+      "preparing": "Preparing auto capture...",
+      "ready": "Ready for auto capture"
+    },
+    "validation": {
+      "sharpness": "Sharpness",
+      "brightness": "Brightness",
+      "similarity": "Similarity"
+    },
+    "accessibility": {
+      "keyboardShortcuts": "Keyboard shortcuts: Space (capture), Esc (back), V (toggle voice)",
+      "captureInstruction": "Press Space or capture button to take photo",
+      "galleryNavigation": "Use arrow keys to navigate image gallery",
+      "statusAnnouncements": "Face detection status will be announced"
+    },
+    "performance": {
+      "adaptiveThrottling": "Automatically adjusting performance for your device",
+      "devicePerformance": "Device performance: {{level}}"
+    }
+  },
+  "chatbot": {
+    "title": "AI Assistant",
+    "conversations": "Conversations",
+    "newConversation": "New Conversation",
+    "noConversations": "No conversations yet",
+    "conversationWith": "Conversation",
+    "startConversation": "Start a new conversation",
+    "welcome": "Welcome to AI Assistant",
+    "welcomeMessage": "Ask me about your attendance, payroll, leave requests, or request reports. I'm here to help!",
+    "placeholder": "Type your message...",
+    "send": "Send",
+    "typing": "AI is thinking...",
+    "download": "Download",
+    "reportDownloaded": "Report downloaded successfully",
+    "conversationDeleted": "Conversation deleted",
+    "error": {
+      "loadConversations": "Failed to load conversations",
+      "loadConversation": "Failed to load conversation",
+      "sendMessage": "Failed to send message",
+      "deleteConversation": "Failed to delete conversation",
+      "downloadReport": "Failed to download report"
+    },
+    "hint": "Try asking: \"How many days have I worked this month?\" or \"Generate payroll report\"",
+    "floatingWidget": {
+      "title": "AI Assistant",
+      "tooltip": "Open AI Assistant",
+      "minimize": "Minimize",
+      "close": "Close",
+      "placeholder": "Type your message...",
+      "send": "Send",
+      "typing": "AI is thinking...",
+      "newMessages": "{{count}} new messages",
+      "roleInfo": "You can view: {{scope}}"
     }
   }
 }

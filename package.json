@@ -2,20 +2,21 @@
   "name": "smartattendance",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "workspaces": [
     "backend",
     "frontend"
   ],
   "scripts": {
-    "dev": "concurrently \"yarn workspace backend dev\" \"yarn workspace frontend dev\"",
-    "concurrent": "concurrently \"yarn workspace backend dev\" \"yarn workspace frontend dev\"",
     "dev:backend": "yarn workspace backend dev",
     "dev:frontend": "yarn workspace frontend dev",
-    "build": "yarn workspace frontend build"
+    "dev:ai": "cd ai-service && DEV_MODE=true python run.py",
+    "build": "yarn workspace frontend build",
+    "build:all": "yarn workspace backend build && yarn workspace frontend build"
   },
-  "devDependencies": {
-    "concurrently": "^9.0.1"
-  },
+  "devDependencies": {},
   "dependencies": {
     "baseline-browser-mapping": "^2.9.12",
     "react-day-picker": "^9.11.1"

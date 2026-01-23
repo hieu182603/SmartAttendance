@@ -34,16 +34,18 @@ class AIServiceClient {
     // Response interceptor for error handling
     client.interceptors.response.use(
       (response) => {
-        // Only count as success if status is 2xx
-        if (response.status >= 200 && response.status < 300) {
+        // Treat 2xx and 4xx responses as successful for circuit breaker
+        // Only 5xx responses indicate service issues that should trigger circuit breaker
+        if (response.status >= 200 && response.status < 500) {
           this.onSuccess();
         } else {
-          // 4xx responses are treated as failures for circuit breaker
+          // Only 5xx responses are treated as failures for circuit breaker
           this.onFailure();
         }
         return response;
       },
       (error) => {
+        // Network failures, timeouts, and other errors that don't reach the server
         this.onFailure();
         return Promise.reject(error);
       }
