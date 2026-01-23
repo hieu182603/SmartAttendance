@@ -24,7 +24,6 @@ import { startCronJobs } from "./jobs/attendance.job.js";
 
 
 import { logRouter } from "./modules/logs/log.router.js";
-// import chatbotRouter from "./modules/chatbot/chatbot.router.js"; // Disabled - migrated to RAG system
 
 dotenv.config();
 
@@ -74,7 +73,6 @@ app.use("/api/performance", performanceRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/face", faceRouter);
 app.use("/api/logs", logRouter);
-// app.use("/api/chatbot", chatbotRouter); // Disabled - migrated to RAG system
 
 // Error handler
 app.use((err, _req, res, _next) => {

@@ -13,7 +13,6 @@
     "migrate:actualBaseSalary": "node scripts/migrateActualBaseSalary.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.8.0",
@@ -31,7 +30,6 @@
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "uuid": "^13.0.0",
     "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
