@@ -2,6 +2,9 @@
   "name": "smartattendance",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "workspaces": [
     "backend",
     "frontend"
@@ -13,8 +16,7 @@
     "build": "yarn workspace frontend build",
     "build:all": "yarn workspace backend build && yarn workspace frontend build"
   },
-  "devDependencies": {
-  },
+  "devDependencies": {},
   "dependencies": {
     "baseline-browser-mapping": "^2.9.12",
     "react-day-picker": "^9.11.1"
