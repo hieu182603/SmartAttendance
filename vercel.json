@@ -4,7 +4,6 @@
   "outputDirectory": "frontend/dist",
   "installCommand": "npm install --prefix frontend",
   "framework": "vite",
-  "nodeVersion": "18",
   "rewrites": [
     {
       "source": "/(.*)",
