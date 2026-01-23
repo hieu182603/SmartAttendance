@@ -37,8 +37,10 @@ Thumbs.db
 # Shared UI/UX
 .shared/ui-ux-pro-max/
 
-# Python (AI Service)
+# Python (Comprehensive AI/ML Service)
 **/venv/
+**/.venv/
+**/.venv*/
 **/env/
 **/ENV/
 **/__pycache__/
@@ -48,12 +50,65 @@ Thumbs.db
 **/.Python
 **/pip-log.txt
 **/pip-delete-this-directory.txt
+**/.pytest_cache/
+**/htmlcov/
+**/.tox/
+**/.nox/
+**/.coverage
+**/coverage.xml
+**/*.cover
+**/.hypothesis/
+
+# AI/ML Models and Data (DO NOT track large model files)
+**/*.pt
+**/*.pth
+**/*.pth.tar
+**/*.pkl
+**/*.pickle
+**/*.joblib
+**/*.onnx
+**/*.bin
+**/*.safetensors
+**/*.gguf
+**/*.tflite
+**/*.model
+**/*.h5
+**/*.hdf5
+**/*.pb
+**/*.ckpt
+**/*.checkpoint
+**/models/
+**/checkpoints/
+**/weights/
+**/embeddings/
+**/data/
+**/datasets/
+**/outputs/
+**/results/
+**/logs/
+**/tensorboard/
+**/wandb/
+
+# Jupyter Notebooks (optional - comment out if you want to track)
+**/*.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# MLflow
+**/mlruns/
+**/mlartifacts/
+
+# DVC
+**/.dvc/
+**/dvc.lock
+**/dvc.yaml
 
 # AI Service specific
-ai-service/models/*.onnx
-ai-service/models/*.bin
 ai-service/venv/
 ai-service/__pycache__/
+ai-service/models/*.onnx
+ai-service/models/*.bin
+ai-service/models/*.pth
+ai-service/models/*.pt
 
 # Database
 **/*.sqlite
@@ -69,4 +124,10 @@ ai-service/__pycache__/
 **/*.swp
 **/*.swo
 **/*~
+
+# Test output files (may contain API keys and sensitive data)
+test-result*.txt
+test-results*.txt
+**/test-result*.txt
+**/test-results*.txt
 
