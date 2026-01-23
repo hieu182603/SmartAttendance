@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "engines": {
-    "node": "22.11.0"
+    "node": "22.x"
   },
   "workspaces": [
     "backend",
