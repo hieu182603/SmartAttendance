@@ -1,4 +1,4 @@
-import { type CapturedImage } from '../pages/FaceRegistrationPage';
+import { type CapturedImage } from '@/components/dashboard/pages/FaceRegistrationPage';
 import { type FaceDetectionStatus } from '@/hooks/useFaceDetection';
 
 export type FlowState = 'initializing' | 'ready' | 'capturing' | 'processing' | 'completed' | 'error';

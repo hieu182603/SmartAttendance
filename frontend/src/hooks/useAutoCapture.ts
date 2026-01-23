@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { type CapturedImage } from '../components/dashboard/pages/FaceRegistrationPage';
+import { type CapturedImage } from '@/components/dashboard/pages/FaceRegistrationPage';
 import { type FaceQuality, type FaceDetectionStatus } from './useFaceDetection';
 import { useFaceValidation } from '@/hooks/useFaceValidation';
 import { toast } from 'sonner';

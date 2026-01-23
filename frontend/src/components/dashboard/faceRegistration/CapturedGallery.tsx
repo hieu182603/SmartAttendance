@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, AlertCircle } from 'lucide-react';
-import { type CapturedImage } from '../pages/FaceRegistrationPage';
+import { type CapturedImage } from '@/components/dashboard/pages/FaceRegistrationPage';
 
 interface CapturedGalleryProps {
   images: CapturedImage[];
