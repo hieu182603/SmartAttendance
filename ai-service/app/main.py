@@ -30,12 +30,20 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],  # Restrict to needed methods
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],  # Include DELETE and OPTIONS for preflight
     allow_headers=["Content-Type", "Authorization", "X-API-Key"],  # Restrict headers
 )
 
 # Include routers
 app.include_router(face_router.router)
+
+# Import RAG router (lazy import to avoid initialization issues)
+try:
+    from app.routers.rag_router import router as rag_router
+    app.include_router(rag_router)
+    logger.info("RAG router included successfully")
+except Exception as e:
+    logger.warning(f"Failed to include RAG router: {str(e)}. RAG functionality may not be available.")
 
 # Root endpoint
 @app.get("/")
