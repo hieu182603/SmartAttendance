@@ -1,4 +1,7 @@
 {
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/dist",
+  "framework": "vite",
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -10,7 +13,7 @@
       ]
     },
     {
-      "source": "/(.*)\\.js",
+      "source": "/*.js",
       "headers": [
         {
           "key": "Cache-Control",
@@ -19,7 +22,7 @@
       ]
     },
     {
-      "source": "/(.*)\\.css",
+      "source": "/*.css",
       "headers": [
         {
           "key": "Cache-Control",
@@ -28,7 +31,7 @@
       ]
     },
     {
-      "source": "/(.*)\\.webm",
+      "source": "/*.webp",
       "headers": [
         {
           "key": "Cache-Control",
@@ -37,7 +40,7 @@
       ]
     },
     {
-      "source": "/(.*)\\.mp4",
+      "source": "/*.avif",
       "headers": [
         {
           "key": "Cache-Control",
@@ -46,16 +49,7 @@
       ]
     },
     {
-      "source": "/(.*)\\.webp",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)\\.avif",
+      "source": "/*.woff2",
       "headers": [
         {
           "key": "Cache-Control",
@@ -80,6 +74,12 @@
           "value": "public, max-age=86400"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
