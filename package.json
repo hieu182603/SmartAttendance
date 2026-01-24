@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "engines": {
-    "node": "22.x"
+    "node": "20.x"
   },
   "workspaces": [
     "backend",
@@ -16,9 +16,13 @@
     "build": "npm --workspace frontend run build",
     "build:all": "yarn workspace backend build && yarn workspace frontend build"
   },
-  "devDependencies": {},
   "dependencies": {
+    "@vitejs/plugin-react": "^5.1.2",
     "baseline-browser-mapping": "^2.9.12",
-    "react-day-picker": "^9.11.1"
+    "react-day-picker": "^9.11.1",
+    "vite": "^7.3.1"
+  },
+  "devDependencies": {
+    "rollup": "^4.56.0"
   }
 }
