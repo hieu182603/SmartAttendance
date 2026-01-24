@@ -63,7 +63,7 @@ class RAGService:
             # Initialize embeddings (Google text-embedding-004)
             self.embeddings = GoogleGenerativeAIEmbeddings(
                 model="models/text-embedding-004",
-                google_api_key=GOOGLE_API_KEY
+                google_api_key=str(GOOGLE_API_KEY)
             )
             logger.info("Initialized Google Generative AI embeddings")
 
@@ -79,7 +79,7 @@ class RAGService:
             # Initialize LLM (Gemini 1.5 Flash)
             self.llm = ChatGoogleGenerativeAI(
                 model="gemini-1.5-flash",
-                google_api_key=GOOGLE_API_KEY,
+                google_api_key=str(GOOGLE_API_KEY),
                 temperature=0.7,
                 max_tokens=2000
             )

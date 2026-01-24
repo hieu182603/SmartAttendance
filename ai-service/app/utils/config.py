@@ -26,7 +26,8 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # RAG Configuration
 MONGODB_ATLAS_URI = os.getenv("MONGODB_ATLAS_CLUSTER_URI", "")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+# Ensure GOOGLE_API_KEY is always a string (not SecretStr)
+GOOGLE_API_KEY = str(os.getenv("GOOGLE_API_KEY", ""))
 VECTOR_SEARCH_INDEX_NAME = os.getenv("VECTOR_SEARCH_INDEX_NAME", "vector_index")
 RAG_COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "documents")
 CONVERSATIONS_COLLECTION_NAME = os.getenv("CONVERSATIONS_COLLECTION_NAME", "rag_conversations")
