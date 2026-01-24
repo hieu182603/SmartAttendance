@@ -79,10 +79,11 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
       return false; // Don't assume available until health check runs
     }
 
+    // Check health status - allow chatbot to work if at least MongoDB is connected
+    // Embeddings/LLM issues will be handled gracefully by the service
     const isHealthy = chatbotHealth.status === 'healthy' &&
-      chatbotHealth.components?.mongodb === 'connected' &&
-      chatbotHealth.components?.embeddings === 'working' &&
-      chatbotHealth.components?.llm === 'working';
+      chatbotHealth.components?.mongodb === 'connected';
+
     return isEnabled && isHealthy;
   }, [chatbotHealth]);
 
