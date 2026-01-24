@@ -37,8 +37,8 @@ export default defineConfig({
         commonjsOptions: {
             include: [/node_modules/],
         },
-        // Cảnh báo khi chunk vượt quá 1MB
-        chunkSizeWarningLimit: 1000,
+        // Cảnh báo khi chunk vượt quá 2MB
+        chunkSizeWarningLimit: 2000,
     },
 })
 

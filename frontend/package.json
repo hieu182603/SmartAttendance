@@ -10,8 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
-    "postinstall": "npm rebuild"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@tensorflow-models/blazeface": "^0.1.0",
