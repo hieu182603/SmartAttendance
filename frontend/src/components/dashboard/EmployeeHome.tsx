@@ -83,6 +83,12 @@ export const EmployeeHome: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
 
+  // Mount detection for Framer Motion animations
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
@@ -278,9 +284,9 @@ export const EmployeeHome: React.FC = () => {
       {/* Welcome Section */}
       <motion.div
         className="bg-gradient-to-r from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--success)] rounded-2xl p-8 text-white relative overflow-hidden animate-gradient"
-        initial={{ opacity: 0, y: -20 }}
+        initial={!hasMounted ? { opacity: 0, y: -20 } : false}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={!hasMounted ? { duration: 0.6 } : { duration: 0 }}
       >
         {/* Floating particles */}
         <motion.div
@@ -315,9 +321,9 @@ export const EmployeeHome: React.FC = () => {
 
         <div className="flex items-center justify-between relative z-10">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
+            initial={!hasMounted ? { opacity: 0, x: -20 } : false}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
+            transition={!hasMounted ? { delay: 0.2 } : { duration: 0 }}
           >
             <h1 className="text-3xl mb-2">{getGreeting()} 👋</h1>
             <p className="opacity-90">{currentDate}</p>
@@ -325,9 +331,9 @@ export const EmployeeHome: React.FC = () => {
 
           <motion.div
             className="text-right"
-            initial={{ opacity: 0, x: 20 }}
+            initial={!hasMounted ? { opacity: 0, x: 20 } : false}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={!hasMounted ? { delay: 0.3 } : { duration: 0 }}
           >
             <motion.div
               className="text-5xl"

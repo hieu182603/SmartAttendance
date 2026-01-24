@@ -16,7 +16,14 @@ export default [
         rules: {
             "no-unused-vars": ["warn", { args: "none", ignoreRestSiblings: true }],
             "no-console": "off",
-            "react-refresh/only-export-components": ["warn", { allowConstantExport: true }]
+            "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+            // Prevent direct lucide-react imports - use centralized icons instead
+            "no-restricted-imports": ["error", {
+                paths: [{
+                    name: "lucide-react",
+                    message: "Import icons from @/components/ui/icons instead for better tree-shaking"
+                }]
+            }]
         },
         ignores: [
             "node_modules/**",

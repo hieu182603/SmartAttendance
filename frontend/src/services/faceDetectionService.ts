@@ -1,5 +1,18 @@
-import * as blazeface from "@tensorflow-models/blazeface";
-import * as tf from "@tensorflow/tfjs";
+// Dynamic imports for TensorFlow.js - loaded only when needed
+let blazeface: typeof import("@tensorflow-models/blazeface") | null = null;
+let tf: typeof import("@tensorflow/tfjs") | null = null;
+
+const loadTensorFlow = async () => {
+  if (!blazeface || !tf) {
+    const [tfModule, blazefaceModule] = await Promise.all([
+      import('@tensorflow/tfjs'),
+      import('@tensorflow-models/blazeface')
+    ]);
+    tf = tfModule;
+    blazeface = blazefaceModule;
+  }
+  return { tf, blazeface };
+};
 
 /**
  * Normalized Bounding Box Interface
@@ -13,7 +26,7 @@ export interface NormalizedBoundingBox {
  * Face Detection Result Interface
  */
 export interface FaceDetectionResult {
-  faces: blazeface.NormalizedFace[];
+  faces: any[];
   isValid: boolean;
   quality: FaceQuality;
   message?: string;
@@ -71,7 +84,7 @@ const DEFAULT_CONFIG: FaceDetectionConfig = {
  * Wraps TensorFlow.js and BlazeFace for client-side face detection
  */
 class FaceDetectionService {
-  private model: blazeface.BlazeFaceModel | null = null;
+  private model: any | null = null;
   private isModelLoaded = false;
   private config: FaceDetectionConfig;
   private _hasLoggedDetectError = false;
@@ -86,7 +99,7 @@ class FaceDetectionService {
    * Normalize bounding box from blazeface prediction
    * Returns normalized bounding box with topLeft and bottomRight coordinates
    */
-  normalizeBoundingBox(face: blazeface.NormalizedFace): NormalizedBoundingBox | null {
+  normalizeBoundingBox(face: any): NormalizedBoundingBox | null {
     // BlazeFace returns predictions with topLeft and bottomRight directly
     if (face.topLeft && face.bottomRight) {
       return {
@@ -107,13 +120,16 @@ class FaceDetectionService {
     }
 
     try {
+      // Dynamically load TensorFlow.js and BlazeFace
+      const { tf: tfModule, blazeface: blazefaceModule } = await loadTensorFlow();
+      
       // Set WebGL backend for better performance
-      await tf.setBackend('webgl');
-      await tf.ready();
-      console.log('TensorFlow.js backend:', tf.getBackend());
+      await tfModule.setBackend('webgl');
+      await tfModule.ready();
+      console.log('TensorFlow.js backend:', tfModule.getBackend());
 
       // Load BlazeFace model
-      this.model = await blazeface.load();
+      this.model = await blazefaceModule.load();
 
       this.isModelLoaded = true;
       console.log('Face detection model loaded successfully');
@@ -128,7 +144,7 @@ class FaceDetectionService {
    */
   async detectFace(
     input: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement
-  ): Promise<blazeface.NormalizedFace[]> {
+  ): Promise<any[]> {
     if (!this.model || !this.isModelLoaded) {
       throw new Error("Model chưa được tải. Vui lòng gọi loadModel() trước.");
     }
@@ -180,7 +196,7 @@ class FaceDetectionService {
    * Validate face quality based on multiple criteria
    */
   validateFaceQuality(
-    face: blazeface.NormalizedFace,
+    face: any,
     videoWidth: number,
     videoHeight: number
   ): FaceQuality {
@@ -233,7 +249,7 @@ class FaceDetectionService {
    * Get face position information
    */
   getFacePosition(
-    face: blazeface.NormalizedFace,
+    face: any,
     videoWidth: number,
     videoHeight: number
   ): FacePosition | null {
@@ -271,7 +287,7 @@ class FaceDetectionService {
   /**
    * Check if multiple faces are detected (foreign object detection)
    */
-  checkMultipleFaces(faces: blazeface.NormalizedFace[]): boolean {
+  checkMultipleFaces(faces: any[]): boolean {
     return faces.length > 1;
   }
 

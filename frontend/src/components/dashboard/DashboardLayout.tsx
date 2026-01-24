@@ -29,7 +29,7 @@ import {
   TrendingUp,
   Award,
 
-} from "lucide-react";
+} from "@/components/ui/icons";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";

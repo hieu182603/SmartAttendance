@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
@@ -12,16 +12,16 @@ import { getDashboardStats } from "@/services/dashboardService";
 import { toast } from "sonner";
 import { Clock as ClockComponent } from "@/components/common/Clock";
 import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+  LazyAreaChart as AreaChart,
+  LazyArea as Area,
+  LazyBarChart as BarChart,
+  LazyBar as Bar,
+  LazyXAxis as XAxis,
+  LazyYAxis as YAxis,
+  LazyCartesianGrid as CartesianGrid,
+  LazyTooltip as Tooltip,
+  LazyResponsiveContainer as ResponsiveContainer,
+} from '@/components/common/LazyChart';
 
 interface WelcomeMessage {
   greeting: string;
@@ -59,6 +59,82 @@ interface KPICard {
   color: string;
   bgColor: string;
 }
+
+// Memoized KPI Card component for performance optimization
+const MemoizedKPICard = memo(({ kpi, index, hasMounted, growthPercentage }: {
+  kpi: KPICard;
+  index: number;
+  hasMounted: boolean;
+  growthPercentage: number;
+}) => {
+  const Icon = kpi.icon;
+  return (
+    <motion.div
+      key={index}
+      initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={!hasMounted ? { delay: index * 0.1 + 0.2 } : { duration: 0 }}
+      whileHover={{ y: -8, scale: 1.03 }}
+    >
+      <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all duration-300 relative overflow-hidden group shadow-lg hover:shadow-2xl">
+        {/* Enhanced animated background gradient */}
+        <motion.div
+          className={`absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300 ${kpi.bgColor.replace("/10", "/30")}`}
+          initial={false}
+          animate={{
+            backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+          }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+        />
+
+        <CardContent className="p-6 relative z-10 mt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-[var(--text-sub)] font-medium">{kpi.title}</p>
+              <motion.p
+                className="text-4xl mt-2 text-[var(--text-main)] font-bold"
+                initial={!hasMounted ? { scale: 0 } : false}
+                animate={{ scale: 1 }}
+                transition={!hasMounted ? { delay: index * 0.1 + 0.4, type: "spring", stiffness: 200 } : { duration: 0 }}
+              >
+                {kpi.value}
+              </motion.p>
+              {growthPercentage !== 0 && (
+                <motion.div
+                  className={`flex items-center mt-2 text-xs font-semibold ${
+                    growthPercentage > 0
+                      ? "text-[var(--success)]"
+                      : "text-[var(--error)]"
+                  }`}
+                  initial={!hasMounted ? { opacity: 0, x: -10 } : false}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={!hasMounted ? { delay: index * 0.1 + 0.6 } : { duration: 0 }}
+                >
+                  <TrendingUp className="h-3 w-3 mr-1" />
+                  <span>
+                    {growthPercentage > 0 ? "+" : ""}
+                    {growthPercentage}%
+                  </span>
+                </motion.div>
+              )}
+            </div>
+            <motion.div
+              className={`p-4 mt-4 rounded-2xl ${kpi.bgColor} shadow-lg`}
+              whileHover={{ rotate: 360, scale: 1.15 }}
+              transition={{ duration: 0.6, type: "spring" }}
+            >
+              <Icon className={`h-7 w-7 ${kpi.color}`} />
+            </motion.div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+});
 
 export const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -170,14 +246,46 @@ export const DashboardOverview: React.FC = () => {
     void fetchDashboardStatsInitial();
   }, [fetchDashboardStatsInitial]);
 
-  // Polling mỗi 60s – không có loading state để tránh re-render
+  // Polling mỗi 60s với Page Visibility API – chỉ poll khi tab đang active
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void fetchDashboardStatsSilent();
-    }, 60000);
-
+    let intervalId: number | null = null;
+    
+    const startPolling = () => {
+      if (intervalId) return; // Already polling
+      intervalId = window.setInterval(() => {
+        if (!document.hidden) {
+          void fetchDashboardStatsSilent();
+        }
+      }, 60000);
+    };
+    
+    const stopPolling = () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is hidden - stop polling to save resources
+        stopPolling();
+      } else {
+        // Tab is visible - start polling and fetch immediately
+        void fetchDashboardStatsSilent();
+        startPolling();
+      }
+    };
+    
+    // Start polling immediately
+    startPolling();
+    
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     return () => {
-      window.clearInterval(intervalId);
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchDashboardStatsSilent]);
 
@@ -204,7 +312,7 @@ export const DashboardOverview: React.FC = () => {
   const basePath = useMemo(() => getRoleBasePath(userRole), [userRole]);
 
   // Prepare KPI data from API - đảm bảo luôn có giá trị mặc định
-  const kpiData: KPICard[] = [
+  const kpiData = useMemo<KPICard[]>(() => [
     {
       title: t('dashboard:overview.kpi.totalEmployees'),
       value: (dashboardData?.kpi?.totalEmployees ?? 0).toString(),
@@ -233,7 +341,7 @@ export const DashboardOverview: React.FC = () => {
       color: "text-[var(--error)]",
       bgColor: "bg-[var(--error)]/10",
     },
-  ];
+  ], [dashboardData, t]);
 
   const attendanceData = dashboardData?.attendanceData || [];
 
@@ -322,75 +430,15 @@ export const DashboardOverview: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiData.map((kpi, index) => {
-          const Icon = kpi.icon;
-          return (
-            <motion.div
-              key={index}
-              initial={!hasMounted ? { opacity: 0, y: 20 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={!hasMounted ? { delay: index * 0.1 + 0.2 } : { duration: 0 }}
-              whileHover={{ y: -8, scale: 1.03 }}
-            >
-              <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all duration-300 relative overflow-hidden group shadow-lg hover:shadow-2xl">
-                {/* Enhanced animated background gradient */}
-                <motion.div
-                  className={`absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300 ${kpi.bgColor.replace("/10", "/30")}`}
-                  initial={false}
-                  animate={{
-                    backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                />
-
-                <CardContent className="p-6 relative z-10 mt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-[var(--text-sub)] font-medium">{kpi.title}</p>
-                      <motion.p
-                        className="text-4xl mt-2 text-[var(--text-main)] font-bold"
-                        initial={!hasMounted ? { scale: 0 } : false}
-                        animate={{ scale: 1 }}
-                        transition={!hasMounted ? { delay: index * 0.1 + 0.4, type: "spring", stiffness: 200 } : { duration: 0 }}
-                      >
-                        {kpi.value}
-                      </motion.p>
-                      {(dashboardData?.growthPercentage ?? 0) !== 0 && (
-                        <motion.div
-                          className={`flex items-center mt-2 text-xs font-semibold ${
-                            (dashboardData?.growthPercentage ?? 0) > 0
-                              ? "text-[var(--success)]"
-                              : "text-[var(--error)]"
-                          }`}
-                          initial={!hasMounted ? { opacity: 0, x: -10 } : false}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={!hasMounted ? { delay: index * 0.1 + 0.6 } : { duration: 0 }}
-                        >
-                          <TrendingUp className="h-3 w-3 mr-1" />
-                          <span>
-                            {(dashboardData?.growthPercentage ?? 0) > 0 ? "+" : ""}
-                            {dashboardData?.growthPercentage ?? 0}%
-                          </span>
-                        </motion.div>
-                      )}
-                    </div>
-                    <motion.div
-                      className={`p-4 mt-4 rounded-2xl ${kpi.bgColor} shadow-lg`}
-                      whileHover={{ rotate: 360, scale: 1.15 }}
-                      transition={{ duration: 0.6, type: "spring" }}
-                    >
-                      <Icon className={`h-7 w-7 ${kpi.color}`} />
-                    </motion.div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+        {kpiData.map((kpi, index) => (
+          <MemoizedKPICard
+            key={index}
+            kpi={kpi}
+            index={index}
+            hasMounted={hasMounted}
+            growthPercentage={dashboardData?.growthPercentage ?? 0}
+          />
+        ))}
       </div>
 
       {/* Main Admin Actions - Highlighted 3 Pages */}
