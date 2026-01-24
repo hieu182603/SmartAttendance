@@ -38,10 +38,11 @@ def verify_token(token: str) -> UserPrincipal:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         # Accept both 'sub' and 'userId' fields for compatibility
         user_id: str = payload.get("sub") or payload.get("userId")
-        role: str = payload.get("role")
+        # Normalize role to lowercase for consistent comparison
+        role: str = payload.get("role", "").lower()
         department_id: Optional[str] = payload.get("department_id")
 
-        if user_id is None or role is None:
+        if user_id is None or not role:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token: missing user information"
@@ -54,7 +55,7 @@ def verify_token(token: str) -> UserPrincipal:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired"
         )
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
