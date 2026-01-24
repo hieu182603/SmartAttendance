@@ -86,12 +86,6 @@ export const TrialHome: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
 
-  // Mount detection for Framer Motion animations
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
@@ -285,9 +279,9 @@ export const TrialHome: React.FC = () => {
       {/* Trial Banner */}
       <motion.div
         className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800"
-        initial={!hasMounted ? { opacity: 0, y: -10 } : false}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={!hasMounted ? { duration: 0.5 } : { duration: 0 }}
+        transition={{ duration: 0.5 }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -319,9 +313,9 @@ export const TrialHome: React.FC = () => {
       {/* Welcome Section */}
       <motion.div
         className="bg-gradient-to-r from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--success)] rounded-2xl p-8 text-white relative overflow-hidden animate-gradient"
-        initial={!hasMounted ? { opacity: 0, y: -20 } : false}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={!hasMounted ? { duration: 0.6 } : { duration: 0 }}
+        transition={{ duration: 0.6 }}
       >
         {/* Floating particles */}
         <motion.div
@@ -356,9 +350,9 @@ export const TrialHome: React.FC = () => {
 
         <div className="flex items-center justify-between relative z-10">
           <motion.div
-            initial={!hasMounted ? { opacity: 0, x: -20 } : false}
+            initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={!hasMounted ? { delay: 0.2 } : { duration: 0 }}
+            transition={{ delay: 0.2 }}
           >
             <h1 className="text-3xl mb-2">{getGreeting()} 👋</h1>
             <p className="opacity-90">{currentDate}</p>
@@ -369,9 +363,9 @@ export const TrialHome: React.FC = () => {
 
           <motion.div
             className="text-right"
-            initial={!hasMounted ? { opacity: 0, x: 20 } : false}
+            initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={!hasMounted ? { delay: 0.3 } : { duration: 0 }}
+            transition={{ delay: 0.3 }}
           >
             <motion.div
               className="text-5xl"

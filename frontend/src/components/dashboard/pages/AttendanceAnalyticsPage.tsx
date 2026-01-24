@@ -16,17 +16,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 import {
-  LazyBarChart as BarChart,
-  LazyBar as Bar,
-  LazyLineChart as LineChart,
-  LazyLine as Line,
-  LazyXAxis as XAxis,
-  LazyYAxis as YAxis,
-  LazyCartesianGrid as CartesianGrid,
-  LazyTooltip as Tooltip,
-  LazyLegend as Legend,
-  LazyResponsiveContainer as ResponsiveContainer,
-} from '@/components/common/LazyChart'
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts'
 import { getAttendanceAnalytics, exportAttendanceAnalytics } from '@/services/attendanceService'
 import { DepartmentAttendanceDetailDialog } from './DepartmentAttendanceDetailDialog'
 
@@ -97,12 +97,6 @@ const AttendanceAnalyticsPage: React.FC = () => {
       totalEmployees: 150
     }
   })
-
-  // Mount detection for Framer Motion animations
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
 
   // Fetch analytics data from API
   const fetchAnalytics = useCallback(async () => {
@@ -261,7 +255,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <motion.div initial={!hasMounted ? { opacity: 0, y: 20 } : false} animate={{ opacity: 1, y: 0 }} transition={!hasMounted ? { delay: 0.1 } : { duration: 0 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-6 mt-4 text-center ">
               <div className="flex items-center justify-between mt-4">
@@ -285,7 +279,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
           </Card>
         </motion.div>
 
-        <motion.div initial={!hasMounted ? { opacity: 0, y: 20 } : false} animate={{ opacity: 1, y: 0 }} transition={!hasMounted ? { delay: 0.2 } : { duration: 0 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between mt-4">
@@ -306,7 +300,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
           </Card>
         </motion.div>
 
-        <motion.div initial={!hasMounted ? { opacity: 0, y: 20 } : false} animate={{ opacity: 1, y: 0 }} transition={!hasMounted ? { delay: 0.3 } : { duration: 0 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between mt-4">
@@ -327,7 +321,7 @@ const AttendanceAnalyticsPage: React.FC = () => {
           </Card>
         </motion.div>
 
-        <motion.div initial={!hasMounted ? { opacity: 0, y: 20 } : false} animate={{ opacity: 1, y: 0 }} transition={!hasMounted ? { delay: 0.4 } : { duration: 0 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-6 mt-4 text-center">
               <div className="flex items-center justify-between mt-4">

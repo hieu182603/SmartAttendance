@@ -10,20 +10,20 @@ import {
   Clock,
 } from "lucide-react";
 import {
-  LazyLineChart as LineChart,
-  LazyLine as Line,
-  LazyBarChart as BarChart,
-  LazyBar as Bar,
-  LazyPieChart as PieChart,
-  LazyPie as Pie,
-  LazyCell as Cell,
-  LazyXAxis as XAxis,
-  LazyYAxis as YAxis,
-  LazyCartesianGrid as CartesianGrid,
-  LazyTooltip as Tooltip,
-  LazyLegend as Legend,
-  LazyResponsiveContainer as ResponsiveContainer,
-} from "@/components/common/LazyChart";
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -106,12 +106,6 @@ export default function AdminReportsPage() {
       absent: 0
     }
   });
-
-  // Mount detection for Framer Motion animations
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
 
   // Fetch analytics data from API
   const fetchAnalytics = useCallback(async () => {
@@ -285,9 +279,9 @@ export default function AdminReportsPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <motion.div
-          initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={!hasMounted ? { delay: 0.1 } : { duration: 0 }}
+          transition={{ delay: 0.1 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-6 mt-4">
@@ -313,9 +307,9 @@ export default function AdminReportsPage() {
         </motion.div>
 
         <motion.div
-          initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={!hasMounted ? { delay: 0.2 } : { duration: 0 }}
+          transition={{ delay: 0.2 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-6 mt-4">
@@ -340,9 +334,9 @@ export default function AdminReportsPage() {
         </motion.div>
 
         <motion.div
-          initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={!hasMounted ? { delay: 0.3 } : { duration: 0 }}
+          transition={{ delay: 0.3 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-6 mt-4">
@@ -369,9 +363,9 @@ export default function AdminReportsPage() {
         </motion.div>
 
         <motion.div
-          initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={!hasMounted ? { delay: 0.4 } : { duration: 0 }}
+          transition={{ delay: 0.4 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardContent className="p-6 mt-4">
@@ -402,9 +396,9 @@ export default function AdminReportsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Trend Line Chart */}
         <motion.div
-          initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={!hasMounted ? { delay: 0.5 } : { duration: 0 }}
+          transition={{ delay: 0.5 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardHeader>
@@ -459,9 +453,9 @@ export default function AdminReportsPage() {
 
         {/* Department Distribution Pie Chart */}
         <motion.div
-          initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={!hasMounted ? { delay: 0.6 } : { duration: 0 }}
+          transition={{ delay: 0.6 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardHeader>
@@ -482,7 +476,7 @@ export default function AdminReportsPage() {
                       data={data.departmentStats.map((dept, idx) => ({
                         name: dept.department,
                         value: dept.totalEmployees || dept.onTime || 1,
-                        fill: ["#6366F1", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"][idx % 5]
+                        color: ["#6366F1", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"][idx % 5]
                       }))}
                       cx="50%"
                       cy="50%"
@@ -491,15 +485,13 @@ export default function AdminReportsPage() {
                         `${name}: ${(percent * 100).toFixed(0)}%`
                       }
                       outerRadius={100}
+                      fill="#8884d8"
                       dataKey="value"
-                      nameKey="name"
                     >
                       {data.departmentStats.map((_, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={["#6366F1", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"][index % 5]}
-                          stroke="var(--surface)"
-                          strokeWidth={2}
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={["#6366F1", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"][index % 5]} 
                         />
                       ))}
                     </Pie>
@@ -520,9 +512,9 @@ export default function AdminReportsPage() {
 
         {/* Overtime Trend Bar Chart */}
         <motion.div
-          initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={!hasMounted ? { delay: 0.7 } : { duration: 0 }}
+          transition={{ delay: 0.7 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardHeader>
@@ -562,9 +554,9 @@ export default function AdminReportsPage() {
 
         {/* Top Performers */}
         <motion.div
-          initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={!hasMounted ? { delay: 0.8 } : { duration: 0 }}
+          transition={{ delay: 0.8 }}
         >
           <Card className="bg-[var(--surface)] border-[var(--border)]">
             <CardHeader>

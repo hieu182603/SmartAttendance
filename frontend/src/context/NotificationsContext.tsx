@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react'
 import { useSocket } from '@/hooks/useSocket'
-import { useFaviconBadge } from '@/hooks/useFaviconBadge'
 import {
   getNotifications,
   markAsRead,
@@ -26,20 +25,24 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const socket = useSocket()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const { setBadge } = useFaviconBadge()
 
   const unreadCount = useMemo(() => {
     return notifications.filter(n => !n.isRead).length
   }, [notifications])
 
-  // Update favicon badge when unreadCount changes
+  // ⚠️ Update favicon badge when unreadCount changes
   useEffect(() => {
-    if (unreadCount > 0) {
-      setBadge(unreadCount)
-    } else {
-      setBadge(null)
+    if (typeof window !== 'undefined') {
+      const setFaviconBadge = (window as any).setFaviconBadge
+      if (typeof setFaviconBadge === 'function') {
+        if (unreadCount > 0) {
+          setFaviconBadge(unreadCount)
+        } else {
+          setFaviconBadge(null)
+        }
+      }
     }
-  }, [unreadCount, setBadge])
+  }, [unreadCount])
 
   const loadNotifications = useCallback(async () => {
     // Check if user is authenticated before making API call

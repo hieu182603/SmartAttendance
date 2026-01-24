@@ -27,15 +27,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/components/ThemeProvider'
 import { useAuth } from '@/context/AuthContext'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
 
 export default function LandingPage() {
   const navigate = useNavigate()
   const { toggleTheme } = useTheme()
   const { token, loading, user } = useAuth()
-  const [isHeroVideoVisible, setIsHeroVideoVisible] = useState(false)
-  const heroVideoRef = useRef<HTMLDivElement>(null)
 
   // Redirect to appropriate dashboard based on role if already logged in
   useEffect(() => {
@@ -46,24 +44,6 @@ export default function LandingPage() {
       navigate('/employee', { replace: true })
     }
   }, [token, loading, navigate, user])
-
-  // Intersection Observer for lazy loading video
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsHeroVideoVisible(true)
-        }
-      },
-      { rootMargin: '50px' }
-    )
-    
-    if (heroVideoRef.current) {
-      observer.observe(heroVideoRef.current)
-    }
-    
-    return () => observer.disconnect()
-  }, [])
 
   const onGetStarted = () => {
     navigate('/register')
@@ -366,7 +346,7 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                <div ref={heroVideoRef} className="aspect-square bg-[var(--input-bg)] rounded-2xl border-2 border-[var(--accent-cyan)] relative overflow-hidden mb-6 animate-glow">
+                <div className="aspect-square bg-[var(--input-bg)] rounded-2xl border-2 border-[var(--accent-cyan)] relative overflow-hidden mb-6 animate-glow">
                   <motion.div
                     className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/20 to-[var(--accent-cyan)]/20"
                     animate={{
@@ -378,26 +358,12 @@ export default function LandingPage() {
                       repeat: Infinity,
                     }}
                   />
-                  {isHeroVideoVisible ? (
-                    <video
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-                    >
-                      <source src="/ảnh/FACEid1.webm" type="video/webm" />
-                      <source src="/ảnh/FACEid1.mp4" type="video/mp4" />
-                      <img
-                        src="/ảnh/FACEid1.gif"
-                        alt="Face recognition demo"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </video>
-                  ) : (
-                    <div className="absolute inset-0 w-full h-full bg-[var(--surface)] animate-pulse rounded-2xl" />
-                  )}
+                <img
+                  src="/ảnh/FACEid1.gif"
+                  alt="Face recognition demo"
+                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  style={{ display: 'block' }}
+                />
                 </div>
 
                 <div className="flex items-center justify-between text-sm">

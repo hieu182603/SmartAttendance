@@ -12,18 +12,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  LazyBarChart as BarChart,
-  LazyBar as Bar,
-  LazyXAxis as XAxis,
-  LazyYAxis as YAxis,
-  LazyCartesianGrid as CartesianGrid,
-  LazyTooltip as Tooltip,
-  LazyLegend as Legend,
-  LazyResponsiveContainer as ResponsiveContainer,
-  LazyPieChart as PieChart,
-  LazyPie as Pie,
-  LazyCell as Cell,
-} from "@/components/common/LazyChart";
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart as RePieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,12 +64,6 @@ const PayrollReportsPage: React.FC = () => {
   const [trendData, setTrendData] = useState<MonthlyTrendPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDeptDetail, setSelectedDeptDetail] = useState<{ name: string; stats: { employees: number; totalSalary: number; avgSalary: number; percentage: number } } | null>(null);
-
-  // Mount detection for Framer Motion animations
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
 
   const fetchReports = useCallback(
     async (monthFilter?: string, shouldInitializeMonth = false) => {
@@ -192,9 +186,8 @@ const PayrollReportsPage: React.FC = () => {
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <motion.div
-              initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={!hasMounted ? { delay: 0.1 } : { duration: 0 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)]">
                 <CardContent className="p-6 mt-4">
@@ -234,7 +227,7 @@ const PayrollReportsPage: React.FC = () => {
             </motion.div>
 
             <motion.div
-              initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)]">
@@ -263,7 +256,7 @@ const PayrollReportsPage: React.FC = () => {
             </motion.div>
 
             <motion.div
-              initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)]">
@@ -286,7 +279,7 @@ const PayrollReportsPage: React.FC = () => {
             </motion.div>
 
             <motion.div
-              initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
               <Card className="bg-[var(--surface)] border-[var(--border)]">
@@ -355,28 +348,27 @@ const PayrollReportsPage: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
+                  <RePieChart>
                     <Pie
-                      data={departmentData.map((entry, index) => ({
-                        ...entry,
-                        fill: COLORS[index % COLORS.length],
-                      }))}
+                      data={
+                        departmentData as unknown as Record<string, unknown>[]
+                      }
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ department, percentage }) =>
-                        `${department ?? ""} ${percentage ?? 0}%`
+                      label={({ payload }) =>
+                        `${payload?.department ?? ""} ${
+                          payload?.percentage ?? 0
+                        }%`
                       }
                       outerRadius={110}
+                      fill="#8884d8"
                       dataKey="percentage"
-                      nameKey="department"
                     >
                       {departmentData.map((entry, index) => (
                         <Cell
                           key={`cell-${entry.department}`}
                           fill={COLORS[index % COLORS.length]}
-                          stroke="var(--surface)"
-                          strokeWidth={2}
                         />
                       ))}
                     </Pie>
@@ -387,11 +379,11 @@ const PayrollReportsPage: React.FC = () => {
                         borderRadius: "8px",
                         color: "var(--text-main)",
                       }}
-                      formatter={(value: number, name, payload) =>
+                      formatter={(value: number, _name, payload) =>
                         `${payload?.payload?.department}: ${value}%`
                       }
                     />
-                  </PieChart>
+                  </RePieChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>

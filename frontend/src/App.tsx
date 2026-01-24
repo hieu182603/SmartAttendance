@@ -8,12 +8,6 @@ import { ChatbotProvider } from "@/context/ChatbotContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { UserRole, Permission } from "@/utils/roles";
 
-// Preload TensorFlow.js modules for face detection features
-const preloadFaceModules = () => {
-  import('@tensorflow/tfjs');
-  import('@tensorflow-models/blazeface');
-};
-
 // Public Pages - Lazy Load
 const LandingPage = lazy(() => import("@/components/LandingPage"));
 const Login = lazy(() => import("@/components/auth/Login"));
