@@ -13,7 +13,7 @@
     "dev:backend": "yarn workspace backend dev",
     "dev:frontend": "yarn workspace frontend dev",
     "dev:ai": "cd ai-service && DEV_MODE=true python run.py",
-    "build": "yarn workspace frontend build",
+    "build": "npm --workspace frontend run build",
     "build:all": "yarn workspace backend build && yarn workspace frontend build"
   },
   "devDependencies": {},
