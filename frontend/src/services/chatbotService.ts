@@ -16,7 +16,7 @@ export interface Conversation {
   lastActivity: string;
   messageCount: number;
   preview: string;
-  department_id?: string;
+  departmentId?: string;
   role?: string;
 }
 
@@ -87,7 +87,7 @@ export const getConversation = async (
   id: string;
   messages: ChatMessage[];
   lastActivity: string;
-  department_id?: string;
+  departmentId?: string;
   role?: string;
 }> => {
   const response = await api.get(`/rag/conversation/${conversationId}`);

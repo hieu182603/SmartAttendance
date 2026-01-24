@@ -294,13 +294,15 @@ class RAGService:
         """Enhance query with user context for better retrieval"""
         context_parts = [query]
 
-        # Add role context
+        # Add role context (roles are normalized to lowercase in auth.py)
         role_context = {
             "employee": "nhân viên",
             "supervisor": "quản lý phòng ban",
             "manager": "trưởng phòng",
             "hr_manager": "quản lý nhân sự",
-            "admin": "quản trị viên"
+            "admin": "quản trị viên",
+            "super_admin": "quản trị viên cao cấp",
+            "trial": "tài khoản dùng thử"
         }
 
         if role in role_context:
@@ -554,15 +556,15 @@ class RAGService:
                 {"user_id": user_id}
             ).sort("last_activity", -1).skip(skip).limit(limit).to_list(length=None)
 
-            # Format conversations
+            # Format conversations with camelCase field names for frontend compatibility
             formatted_conversations = []
             for conv in conversations:
                 formatted_conversations.append({
                     "id": conv["conversation_id"],
-                    "last_activity": conv["last_activity"],
-                    "message_count": len(conv.get("messages", [])),
+                    "lastActivity": conv["last_activity"],
+                    "messageCount": len(conv.get("messages", [])),
                     "preview": self._get_conversation_preview(conv),
-                    "department_id": conv.get("department_id"),
+                    "departmentId": conv.get("department_id"),
                     "role": conv.get("role")
                 })
 
@@ -602,8 +604,8 @@ class RAGService:
             return {
                 "id": conversation["conversation_id"],
                 "messages": conversation.get("messages", []),
-                "last_activity": conversation["last_activity"],
-                "department_id": conversation.get("department_id"),
+                "lastActivity": conversation["last_activity"],
+                "departmentId": conversation.get("department_id"),
                 "role": conversation.get("role")
             }
 

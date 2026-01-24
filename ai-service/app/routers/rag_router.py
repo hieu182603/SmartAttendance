@@ -65,7 +65,8 @@ async def chat_with_rag(
         logger.info(f"Processing RAG chat request for user {current_user.user_id}")
 
         # Check if user has permission for RAG operations
-        allowed_roles = ["employee", "supervisor", "manager", "hr_manager", "admin"]
+        # Roles are normalized to lowercase in auth.py
+        allowed_roles = ["employee", "supervisor", "manager", "hr_manager", "admin", "super_admin", "trial"]
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=403,
@@ -114,7 +115,8 @@ async def ingest_documents(
     """
     try:
         # Restrict to privileged roles only
-        privileged_roles = ["admin", "manager", "hr_manager"]
+        # Roles are normalized to lowercase in auth.py
+        privileged_roles = ["admin", "manager", "hr_manager", "super_admin"]
         if current_user.role not in privileged_roles:
             raise HTTPException(
                 status_code=403,
@@ -233,7 +235,8 @@ async def search_documents(
     """
     try:
         # Restrict to privileged roles only
-        privileged_roles = ["admin", "manager", "hr_manager"]
+        # Roles are normalized to lowercase in auth.py
+        privileged_roles = ["admin", "manager", "hr_manager", "super_admin"]
         if current_user.role not in privileged_roles:
             raise HTTPException(
                 status_code=403,
