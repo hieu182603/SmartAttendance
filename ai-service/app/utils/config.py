@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file FIRST (before any pydantic parsing)
 load_dotenv()
 
 # Base paths
@@ -25,9 +25,15 @@ HOST = os.getenv("HOST", "0.0.0.0")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # RAG Configuration
-MONGODB_ATLAS_URI = os.getenv("MONGODB_ATLAS_CLUSTER_URI", "")
-# Ensure GOOGLE_API_KEY is always a string (not SecretStr)
-GOOGLE_API_KEY = str(os.getenv("GOOGLE_API_KEY", ""))
+# CRITICAL: Use os.environ.get() to get plain strings, NOT SecretStr
+# This fixes the pydantic v2 SecretStr issue with google-auth
+_MONGODB_URI = os.environ.get("MONGODB_ATLAS_CLUSTER_URI", "") or ""
+_MONGODB_URI_PLATINUM = os.environ.get("MONGODB_ATLAS_CLUSTER_URI_PLATINUM", "") or ""
+MONGODB_ATLAS_URI = _MONGODB_URI_PLATINUM if _MONGODB_URI_PLATINUM else _MONGODB_URI
+
+# For GOOGLE_API_KEY, read as raw string from environment
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+
 VECTOR_SEARCH_INDEX_NAME = os.getenv("VECTOR_SEARCH_INDEX_NAME", "vector_index")
 RAG_COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "documents")
 CONVERSATIONS_COLLECTION_NAME = os.getenv("CONVERSATIONS_COLLECTION_NAME", "rag_conversations")

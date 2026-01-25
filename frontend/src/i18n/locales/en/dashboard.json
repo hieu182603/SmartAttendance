@@ -1839,6 +1839,7 @@
     "conversationWith": "Conversation",
     "startConversation": "Start a new conversation",
     "welcome": "Welcome to AI Assistant",
+    "welcomeWithName": "Hi {{name}}! I'm your AI assistant. What would you like to know?",
     "welcomeMessage": "Ask me about your attendance, payroll, leave requests, or request reports. I'm here to help!",
     "placeholder": "Type your message...",
     "send": "Send",
