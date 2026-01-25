@@ -38,7 +38,7 @@ class RAGService:
     """RAG Service for document retrieval and conversational AI"""
 
     def __init__(self):
-        """Initialize RAG service with MongoDB and LangChain components"""
+        """Initialize RAG service with lazy loading"""
         self.mongodb_client = None
         self.async_mongodb_client = None
         self.embeddings = None
@@ -46,9 +46,14 @@ class RAGService:
         self.llm = None
         self.qa_chain = None
         self.conversations_collection = None
+        self._initialized = False
 
-        # Initialize components
+    def _ensure_initialized(self):
+        """Lazy initialization - only initialize when actually needed"""
+        if self._initialized:
+            return
         self._initialize_components()
+        self._initialized = True
 
     def _initialize_components(self):
         """Initialize all RAG components"""
@@ -169,6 +174,9 @@ class RAGService:
         Returns:
             Dict containing response data
         """
+        # Lazy initialize
+        self._ensure_initialized()
+
         try:
             # Load or create conversation
             conversation = await self._load_or_create_conversation(
@@ -236,6 +244,9 @@ class RAGService:
         department_id: Optional[str]
     ) -> str:
         """Handle general questions without document retrieval"""
+        # Lazy initialize
+        self._ensure_initialized()
+
         prompt = f"""
         Bạn là trợ lý AI của hệ thống SmartAttendance. Người dùng có vai trò: {role}
         {f', phòng ban: {department_id}' if department_id else ''}
@@ -380,6 +391,9 @@ class RAGService:
         chunk_overlap: int = 200
     ) -> Dict[str, Any]:
         """Ingest documents into vector database"""
+        # Lazy initialize
+        self._ensure_initialized()
+
         try:
             # Create text splitter
             text_splitter = RecursiveCharacterTextSplitter(
@@ -444,6 +458,9 @@ class RAGService:
         department_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Search documents using vector similarity with access controls"""
+        # Lazy initialize
+        self._ensure_initialized()
+
         try:
             # Apply access controls based on user role
             filter_criteria = {}
@@ -558,6 +575,9 @@ class RAGService:
         limit: int = 10
     ) -> List[Dict[str, Any]]:
         """Get user's conversation history"""
+        # Lazy initialize
+        self._ensure_initialized()
+
         try:
             skip = (page - 1) * limit
 
@@ -601,6 +621,9 @@ class RAGService:
         user_id: str
     ) -> Dict[str, Any]:
         """Get specific conversation"""
+        # Lazy initialize
+        self._ensure_initialized()
+
         try:
             conversation = await self.conversations_collection.find_one({
                 "conversation_id": conversation_id,
@@ -628,6 +651,9 @@ class RAGService:
         user_id: str
     ) -> Dict[str, Any]:
         """Delete a conversation"""
+        # Lazy initialize
+        self._ensure_initialized()
+
         try:
             result = await self.conversations_collection.delete_one({
                 "conversation_id": conversation_id,
@@ -661,6 +687,9 @@ class RAGService:
             "timestamp": datetime.utcnow(),
             "components": {}
         }
+
+        # Lazy initialize
+        self._ensure_initialized()
 
         try:
             # Check MongoDB connection (use sync client for health check)
