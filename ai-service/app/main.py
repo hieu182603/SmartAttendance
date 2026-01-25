@@ -48,14 +48,15 @@ try:
     from app.routers.rag_router import router as rag_router
     app.include_router(rag_router)
     rag_router_imported = True
-    logger.info("RAG router included successfully")
+    logger.info("✅ RAG router included successfully")
 except Exception as e:
     rag_import_error = e
-    rag_import_error_message = str(e)  # Store the error message before the except block exits
+    rag_import_error_message = str(e)
     # Log full exception with stack trace for debugging
-    logger.error(f"Failed to import RAG router: {rag_import_error_message}")
+    logger.error(f"❌ FAILED TO IMPORT RAG ROUTER: {rag_import_error_message}")
     logger.error(f"Full traceback:\n{traceback.format_exc()}")
-    logger.error("RAG functionality will be unavailable - registering fallback router with 503 response")
+    # Raise the error to stop startup - we need to see the actual error!
+    raise
 
     # Create fallback router that returns clear error message
     fallback_router = APIRouter(prefix="/rag", tags=["RAG Chatbot (Unavailable)"])
