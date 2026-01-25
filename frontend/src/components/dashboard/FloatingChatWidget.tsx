@@ -18,6 +18,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
   const { user } = useAuth();
   const {
     messages,
+    setMessages,
     isLoading,
     sendChatMessage,
     createNewConversation,
@@ -29,6 +30,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [hasOpenedBefore, setHasOpenedBefore] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +59,22 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
       }
     }
   }, [messages, isOpen]);
+
+  // Show welcome message when chat is opened for the first time
+  useEffect(() => {
+    if (isOpen && !hasOpenedBefore && isChatbotAvailable && messages.length === 0) {
+      const userName = user?.name || t('common:there', 'there');
+      const welcomeMessage = t('dashboard:chatbot.welcomeWithName', 'Hi {{name}}! I\'m your AI assistant. What would you like to know?', { name: userName });
+
+      // Add welcome message as assistant message directly (don't call API)
+      setMessages([{
+        role: 'assistant',
+        content: welcomeMessage,
+        timestamp: new Date().toISOString()
+      }]);
+      setHasOpenedBefore(true);
+    }
+  }, [isOpen, hasOpenedBefore, isChatbotAvailable, messages.length, user, t]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -155,9 +173,9 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
           >
-            <Card className="w-96 h-[600px] bg-[var(--surface)] border-[var(--border)] shadow-2xl backdrop-blur-sm">
+            <Card className="w-96 h-[600px] bg-[var(--surface)] border-[var(--border)] shadow-2xl backdrop-blur-sm flex flex-col">
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+              <div className="flex-none flex items-center justify-between p-4 border-b border-[var(--border)]">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                     <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -199,9 +217,9 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
                 </div>
               </div>
 
-              {/* Messages Area */}
+              {/* Messages Area - scrollable, takes remaining space */}
               {!isMinimized && (
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[480px]">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {messages.length === 0 ? (
                     <div className="text-center py-8">
                       <Bot className="h-12 w-12 text-[var(--text-sub)] mx-auto mb-3" />
@@ -247,42 +265,49 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
                 </div>
               )}
 
-              {/* Input Area */}
-              {!isMinimized && (
-                <div className="p-4 border-t border-[var(--border)]">
-                  {isChatbotAvailable ? (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        ref={inputRef}
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder={t('dashboard:floatingWidget.placeholder', 'Type your message...')}
-                        className="flex-1 bg-[var(--background)] border-[var(--border)] text-[var(--text-main)] placeholder-[var(--text-sub)]"
-                        disabled={isLoading}
-                      />
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={!inputValue.trim() || isLoading}
-                        size="sm"
-                        className="h-10 w-10 p-0 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
-                        aria-label={t('dashboard:floatingWidget.send', 'Send')}
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-2">
-                      <p className="text-[var(--text-sub)] text-sm">
-                        {t('dashboard:chatbot.inputDisabled', 'Chat input is disabled')}
-                      </p>
-                    </div>
-                  )}
-                  {isChatbotAvailable && (
-                    <p className="text-xs text-[var(--text-sub)] mt-1">
-                      {t('common:pressEnter', 'Press Enter to send, Shift+Enter for new line')}
+              {/* Input Area - fixed at bottom */}
+              {!isMinimized && isChatbotAvailable && (
+                <div className="flex-none p-3 border-t border-[var(--border)]">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={inputRef}
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder={t('dashboard:floatingWidget.placeholder', 'Type your message...')}
+                      className="flex-1 bg-[var(--background)] border-[var(--border)] text-[var(--text-main)] placeholder-[var(--text-sub)]"
+                      disabled={isLoading}
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!inputValue.trim() || isLoading}
+                      size="sm"
+                      className="h-10 w-10 p-0 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+                      aria-label={t('dashboard:floatingWidget.send', 'Send')}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Help Text - fixed at very bottom */}
+              {!isMinimized && isChatbotAvailable && (
+                <div className="flex-none p-2 text-center border-t border-[var(--border)] bg-[var(--surface)] rounded-bl-xl rounded-br-xl">
+                  <p className="text-xs text-[var(--text-sub)]">
+                    {t('common:pressEnter', 'Press Enter to send, Shift+Enter for new line')}
+                  </p>
+                </div>
+              )}
+
+              {/* Chat disabled message */}
+              {!isMinimized && !isChatbotAvailable && (
+                <div className="flex-none p-3 border-t border-[var(--border)]">
+                  <div className="text-center py-2">
+                    <p className="text-[var(--text-sub)] text-sm">
+                      {t('dashboard:chatbot.inputDisabled', 'Chat input is disabled')}
                     </p>
-                  )}
+                  </div>
                 </div>
               )}
             </Card>

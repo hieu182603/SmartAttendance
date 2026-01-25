@@ -1847,6 +1847,7 @@
     "conversationWith": "Cuộc trò chuyện",
     "startConversation": "Bắt đầu cuộc trò chuyện mới",
     "welcome": "Chào mừng đến với Trợ lý AI",
+    "welcomeWithName": "Xin chào {{name}}! Tôi là trợ lý AI của bạn. Bạn muốn biết thông tin gì?",
     "welcomeMessage": "Hỏi tôi về chấm công, lương, nghỉ phép, hoặc yêu cầu báo cáo. Tôi ở đây để giúp đỡ!",
     "placeholder": "Nhập tin nhắn của bạn...",
     "send": "Gửi",

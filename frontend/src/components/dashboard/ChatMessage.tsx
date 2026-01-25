@@ -96,7 +96,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div className={`flex flex-col max-w-[70%] ${isAssistant ? 'items-start' : 'items-end'}`}>
         <Card className={`p-3 shadow-sm ${
           isAssistant
-            ? 'bg-white border-gray-200'
+            ? 'bg-white border-gray-200 text-gray-900'
             : 'bg-blue-600 text-white border-blue-600'
         }`}>
           {renderMessageContent()}

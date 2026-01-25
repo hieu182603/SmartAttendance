@@ -16,6 +16,7 @@ interface ChatbotContextType {
   conversations: Conversation[];
   currentConversation: Conversation | null;
   messages: ChatMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   isLoading: boolean;
   isLoadingConversations: boolean;
   isChatbotAvailable: boolean;
@@ -247,6 +248,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
     conversations,
     currentConversation,
     messages,
+    setMessages,
     isLoading,
     isLoadingConversations,
     isChatbotAvailable,
