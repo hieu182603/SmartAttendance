@@ -1,10 +1,17 @@
 """RAG Service - Core service for RAG functionality with MongoDB Atlas Vector Search"""
 import os
 import logging
+import sys
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import uuid
 import json
+
+# CRITICAL: Force reload environment variables FIRST (before any other imports)
+# This ensures we always get the freshest values from .env
+if os.path.exists(os.path.join(os.path.dirname(__file__), '..', '..', '.env')):
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'), override=True)
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_mongodb import MongoDBAtlasVectorSearch
@@ -24,12 +31,6 @@ from app.utils.config import (
     CHATBOT_MAX_CONVERSATIONS,
     CHATBOT_MAX_MESSAGES
 )
-
-# CRITICAL: Set API key as environment variable BEFORE any imports
-# This fixes pydantic v1 SecretStr issue with google-auth
-_API_KEY_FROM_ENV = os.getenv("GOOGLE_API_KEY", "")
-if _API_KEY_FROM_ENV:
-    os.environ["GOOGLE_API_KEY"] = str(_API_KEY_FROM_ENV)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -70,12 +71,27 @@ class RAGService:
             self.mongodb_client.admin.command('ping')
             logger.info("Successfully connected to MongoDB Atlas")
 
+            # CRITICAL: Ensure API key is in environment BEFORE creating embeddings/LLM
+            # This avoids SecretStr issues by letting the libraries read from environment
+            if "GOOGLE_API_KEY" not in os.environ:
+                from dotenv import load_dotenv
+                env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+                if os.path.exists(env_path):
+                    load_dotenv(dotenv_path=env_path, override=True)
+            
+            # Verify API key is available
+            api_key = os.environ.get("GOOGLE_API_KEY", "")
+            if not api_key:
+                raise ValueError("GOOGLE_API_KEY not found in environment variables")
+            
+            # Set API key explicitly in environment for this process
+            os.environ["GOOGLE_API_KEY"] = str(api_key)
+            
             # Initialize embeddings (Google text-embedding-004)
-            # Get API key directly from environment, not from config import
-            api_key = os.environ.get("GOOGLE_API_KEY", "") or _API_KEY_FROM_ENV
+            # NOTE: DO NOT pass google_api_key parameter - let it read from environment
+            # This avoids SecretStr issues
             self.embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/text-embedding-004",
-                google_api_key=api_key
+                model="models/text-embedding-004"
             )
             logger.info("Initialized Google Generative AI embeddings")
 
@@ -88,16 +104,14 @@ class RAGService:
             )
             logger.info(f"Initialized MongoDB Atlas Vector Search with index: {VECTOR_SEARCH_INDEX_NAME}")
 
-            # Initialize LLM (Gemini 1.5 Flash)
-            # Get API key directly from environment, not from config import
-            api_key = os.environ.get("GOOGLE_API_KEY", "") or _API_KEY_FROM_ENV
+            # Initialize LLM (Gemini 2.5 Flash - updated to available model)
+            # NOTE: DO NOT pass google_api_key parameter - let it read from environment
             self.llm = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
-                google_api_key=api_key,
+                model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=2000
             )
-            logger.info("Initialized Gemini 1.5 Flash LLM")
+            logger.info("Initialized Gemini 2.5 Flash LLM")
 
             # Initialize conversations collection (async Motor collection)
             self.conversations_collection = async_db["rag_conversations"]
