@@ -315,10 +315,113 @@ export const faceService = {
     return response.data.data;
   },
 
+  // =========================================================================
+  // Liveness Detection APIs
+  // =========================================================================
+
   /**
-   * Register user face with multiple images
+   * Create a new liveness verification session
+   * @returns Session info with challenge type and instructions
+   */
+  createLivenessSession: async (): Promise<{
+    success: boolean;
+    session_id: string;
+    challenge: {
+      type: string;
+      instruction: string;
+      challenge_id: number;
+      timeout_seconds: number;
+    };
+    pose: any;
+  }> => {
+    const response = await api.post("/face/liveness/session");
+    return response.data;
+  },
+
+  /**
+   * Capture baseline pose for liveness challenge
+   * @param sessionId Session ID from createLivenessSession
+   * @param image Base64 encoded image or File
+   * @returns Baseline pose and instruction
+   */
+  captureLivenessBaseline: async (
+    sessionId: string,
+    image: string | File
+  ): Promise<{
+    success: boolean;
+    challenge: any;
+    baseline_pose: {
+      yaw: number;
+      pitch: number;
+      roll: number;
+    };
+    instruction: string;
+  }> => {
+    const formData = new FormData();
+    if (typeof image === "string") {
+      formData.append("image", image);
+    } else {
+      formData.append("image", image);
+    }
+
+    const response = await api.post(
+      `/face/liveness/baseline/${sessionId}`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Verify liveness challenge response
+   * @param sessionId Session ID from createLivenessSession
+   * @param image Base64 encoded image or File after completing challenge
+   * @returns Verification result with passed/failed status
+   */
+  verifyLivenessResponse: async (
+    sessionId: string,
+    image: string | File
+  ): Promise<{
+    success: boolean;
+    passed: boolean;
+    challenge: string;
+    confidence: number;
+    expected_pose: any;
+    actual_pose: any;
+    error_message?: string;
+  }> => {
+    const formData = new FormData();
+    if (typeof image === "string") {
+      formData.append("image", image);
+    } else {
+      formData.append("image", image);
+    }
+
+    const response = await api.post(
+      `/face/liveness/verify/${sessionId}`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  },
+
+  // =========================================================================
+  // Face Registration APIs
+  // =========================================================================
+
+  /**
+   * Register user face with multiple images and liveness verification
    * @param images Array of File objects (5-7 images recommended)
    * @param metadata Optional metadata array with quality scores and detection confidence
+   * @param livenessResult Optional liveness verification result
    * @param retryConfig Optional retry configuration
    */
   registerFace: async (
@@ -328,6 +431,12 @@ export const faceService = {
       detectionConfidence: number;
       timestamp: number;
     }>,
+    livenessResult?: {
+      success: boolean;
+      passed: boolean;
+      confidence: number;
+      challenge: string;
+    },
     retryConfig?: Partial<RetryConfig>
   ): Promise<FaceRegistrationResponse> => {
     const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
@@ -345,6 +454,14 @@ export const faceService = {
           formData.append(`metadata[${index}][timestamp]`, meta.timestamp.toString());
         }
       });
+
+      // Append liveness verification result if provided
+      if (livenessResult) {
+        formData.append("liveness_success", livenessResult.success.toString());
+        formData.append("liveness_passed", livenessResult.passed.toString());
+        formData.append("liveness_confidence", livenessResult.confidence.toString());
+        formData.append("liveness_challenge", livenessResult.challenge);
+      }
 
       const response = await api.post("/face/register", formData, {
         headers: {

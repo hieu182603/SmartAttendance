@@ -1,18 +1,28 @@
-"""RAG Service - Core service for RAG functionality with MongoDB Atlas Vector Search"""
+"""RAG Service - Core service for RAG functionality with MongoDB Atlas Vector Search
+
+MODULAR ARCHITECTURE:
+This file has been refactored into separate modules for better maintainability:
+- rag/models.py: Data models and schemas
+- rag/permissions.py: Role-based access control
+- rag/query_generators/intent_detector.py: Intent detection
+- rag/query_generators/dynamic_query.py: Dynamic query generation
+- rag/query_handlers/: Domain-specific query handlers (employee, department, etc.)
+- rag/conversations.py: Conversation management
+- rag/documents.py: Document ingestion and search
+"""
 import os
 import logging
 import sys
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timedelta, timezone
 import uuid
-import json
 
 # CRITICAL: Force reload environment variables FIRST (before any other imports)
-# This ensures we always get the freshest values from .env
 if os.path.exists(os.path.join(os.path.dirname(__file__), '..', '..', '.env')):
     from dotenv import load_dotenv
     load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'), override=True)
 
+# LangChain imports
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_mongodb import MongoDBAtlasVectorSearch
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -24,55 +34,128 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 import numpy as np
 
+# Local imports
 from app.utils.config import (
     MONGODB_ATLAS_URI,
+    MAIN_MONGODB_URI,
     VECTOR_SEARCH_INDEX_NAME,
     RAG_COLLECTION_NAME,
     CHATBOT_MAX_CONVERSATIONS,
-    CHATBOT_MAX_MESSAGES
+    CHATBOT_MAX_MESSAGES,
+    RAG_PARALLEL_QUERIES
 )
 
-# Configure logging
+# RAG package imports (modularized components)
+from app.services.rag.models import COLLECTION_SCHEMAS
+from app.services.rag.permissions import PermissionChecker
+from app.services.rag.query_generators.intent_detector import IntentDetector
+from app.services.rag.query_generators.dynamic_query import (
+    DynamicQueryGenerator,
+    DynamicQueryExecutor,
+    DynamicQueryResultFormatter
+)
+from app.services.rag.query_handlers.employee_handler import EmployeeQueryHandler
+from app.services.rag.query_handlers.department_handler import DepartmentQueryHandler
+from app.services.rag.query_handlers.attendance_handler import AttendanceQueryHandler
+from app.services.rag.query_handlers.request_handler import RequestQueryHandler
+from app.services.rag.query_handlers.branch_handler import BranchQueryHandler
+from app.services.rag.query_handlers.shift_handler import ShiftQueryHandler
+from app.services.rag.query_handlers.payroll_handler import PayrollQueryHandler
+from app.services.rag.conversations import ConversationManager
+from app.services.rag.documents import DocumentManager
+from app.services.rag.cache import get_rag_cache, RAGCache
+
 logger = logging.getLogger(__name__)
 
-class RAGService:
-    """RAG Service for document retrieval and conversational AI"""
+SYSTEM_PROMPT = """Bạn là SmartBot - Trợ lý AI thông minh của hệ thống quản lý nhân sự SmartAttendance.
 
+PHONG CÁCH PHỤC VỤ:
+- Thân thiện, lịch sự và chuyên nghiệp.
+- Trả lời ngắn gọn, tập trung vào trọng tâm câu hỏi.
+- Sử dụng emoji phù hợp (📅, 📊, ✅, ⚠️, 💰, 🏢) để làm cho câu trả lời sinh động hơn.
+- Định dạng thông tin rõ ràng bằng Markdown (bullet points, bold text, tables).
+
+QUY TẮC CỐT LÕI:
+1. Luôn trả lời bằng tiếng Việt.
+2. Chỉ sử dụng thông tin được cung cấp trong "NGỮ CẢNH" hoặc "DỮ LIỆU HỆ THỐNG".
+3. Nếu không có thông tin trong ngữ cảnh, hãy nói "Xin lỗi, tôi không tìm thấy thông tin này trong hệ thống. Bạn có thể liên hệ bộ phận nhân sự để được hỗ trợ cụ thể hơn."
+4. Không tự bịa ra thông tin không có thực.
+5. Khi cung cấp số liệu (lương, ngày công), hãy định dạng rõ ràng (ví dụ: 15.000.000 VNĐ).
+"""
+
+
+class RAGService:
+    """RAG Service for document retrieval and conversational AI
+    
+    This is the main entry point that orchestrates all RAG components.
+    Individual responsibilities have been delegated to specialized modules:
+    - Intent detection: IntentDetector
+    - Query generation: DynamicQueryGenerator, DynamicQueryExecutor
+    - Query handling: Domain-specific handlers (EmployeeQueryHandler, etc.)
+    - Conversations: ConversationManager
+    - Documents: DocumentManager
+    - Permissions: PermissionChecker
+    """
+    
     def __init__(self):
         """Initialize RAG service with lazy loading"""
+        # MongoDB clients
         self.mongodb_client = None
         self.async_mongodb_client = None
+        self.main_mongodb_client = None
+        
+        # LangChain components
         self.embeddings = None
         self.vector_store = None
         self.llm = None
         self.qa_chain = None
+        
+        # Database collections
         self.conversations_collection = None
+        self.users_collection = None
+        self.departments_collection = None
+        self.branches_collection = None
+        self.attendance_collection = None
+        self.requests_collection = None
+        self.shifts_collection = None
+        self.payroll_collection = None
+        
+        # Service managers (initialized lazily)
+        self._conversation_manager: Optional[ConversationManager] = None
+        self._document_manager: Optional[DocumentManager] = None
+        self._query_handlers: Dict[str, Any] = {}
+        
+        # Cache for performance optimization
+        self._cache: RAGCache = get_rag_cache()
+        
+        # Parallel query configuration
+        self._parallel_queries = RAG_PARALLEL_QUERIES
+        
         self._initialized = False
-
+    
     def _ensure_initialized(self):
         """Lazy initialization - only initialize when actually needed"""
         if self._initialized:
             return
         self._initialize_components()
         self._initialized = True
-
+    
     def _initialize_components(self):
         """Initialize all RAG components"""
         try:
             # Initialize synchronous MongoDB client for vector search
             self.mongodb_client = MongoClient(MONGODB_ATLAS_URI)
             db = self.mongodb_client.get_database()
-
+            
             # Initialize async MongoDB client for conversations
             self.async_mongodb_client = AsyncIOMotorClient(MONGODB_ATLAS_URI)
             async_db = self.async_mongodb_client.get_database()
-
+            
             # Test connection
             self.mongodb_client.admin.command('ping')
             logger.info("Successfully connected to MongoDB Atlas")
-
+            
             # CRITICAL: Ensure API key is in environment BEFORE creating embeddings/LLM
-            # This avoids SecretStr issues by letting the libraries read from environment
             if "GOOGLE_API_KEY" not in os.environ:
                 from dotenv import load_dotenv
                 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -88,14 +171,12 @@ class RAGService:
             os.environ["GOOGLE_API_KEY"] = str(api_key)
             
             # Initialize embeddings (Google text-embedding-004)
-            # NOTE: DO NOT pass google_api_key parameter - let it read from environment
-            # This avoids SecretStr issues
             self.embeddings = GoogleGenerativeAIEmbeddings(
                 model="models/text-embedding-004"
             )
             logger.info("Initialized Google Generative AI embeddings")
-
-            # Initialize vector store (requires synchronous client)
+            
+            # Initialize vector store
             self.vector_store = MongoDBAtlasVectorSearch(
                 collection=db[RAG_COLLECTION_NAME],
                 embedding=self.embeddings,
@@ -103,49 +184,107 @@ class RAGService:
                 relevance_score_fn="cosine"
             )
             logger.info(f"Initialized MongoDB Atlas Vector Search with index: {VECTOR_SEARCH_INDEX_NAME}")
-
-            # Initialize LLM (Gemini 2.5 Flash - updated to available model)
-            # NOTE: DO NOT pass google_api_key parameter - let it read from environment
+            
+            # Initialize LLM (Gemini 2.5 Flash)
             self.llm = ChatGoogleGenerativeAI(
                 model="gemini-2.5-flash",
                 temperature=0.7,
                 max_tokens=2000
             )
             logger.info("Initialized Gemini 2.5 Flash LLM")
-
-            # Initialize conversations collection (async Motor collection)
+            
+            # Initialize conversations collection
             self.conversations_collection = async_db["rag_conversations"]
-
+            
+            # Initialize main database connection
+            self._init_main_database()
+            
             # Create QA chain
             self._create_qa_chain()
-
+            
+            # Initialize service managers
+            self._init_service_managers()
+            
         except ConnectionFailure as e:
             logger.error(f"Failed to connect to MongoDB Atlas: {str(e)}")
             raise
         except Exception as e:
             logger.error(f"Failed to initialize RAG components: {str(e)}")
             raise
-
+    
+    def _init_main_database(self):
+        """Initialize main database collections"""
+        try:
+            self.main_mongodb_client = AsyncIOMotorClient(MAIN_MONGODB_URI)
+            main_db = self.main_mongodb_client.get_database()
+            
+            # Initialize all collections
+            self.users_collection = main_db["users"]
+            self.departments_collection = main_db["departments"]
+            self.branches_collection = main_db["branches"]
+            self.attendance_collection = main_db["attendance"]
+            self.requests_collection = main_db["requests"]
+            self.shifts_collection = main_db["shifts"]
+            self.payroll_collection = main_db["payroll"]
+            
+            logger.info("Successfully connected to main MongoDB database. All collections initialized.")
+        except Exception as e:
+            logger.warning(f"Failed to connect to main database: {str(e)}. Direct database queries will not be available.")
+            self.main_mongodb_client = None
+    
+    def _init_service_managers(self):
+        """Initialize service managers"""
+        # Conversation manager
+        self._conversation_manager = ConversationManager(self.conversations_collection)
+        
+        # Document manager
+        self._document_manager = DocumentManager(self.vector_store)
+        
+        # Query handlers
+        collections = self._get_collections_object()
+        self._query_handlers = {
+            'employee': EmployeeQueryHandler(collections),
+            'department': DepartmentQueryHandler(collections),
+            'attendance': AttendanceQueryHandler(collections),
+            'request': RequestQueryHandler(collections),
+            'branch': BranchQueryHandler(collections),
+            'shift': ShiftQueryHandler(collections),
+            'payroll': PayrollQueryHandler(collections)
+        }
+    
+    def _get_collections_object(self):
+        """Get collections object for query handlers"""
+        class Collections:
+            pass
+        
+        collections = Collections()
+        collections.users_collection = self.users_collection
+        collections.departments_collection = self.departments_collection
+        collections.branches_collection = self.branches_collection
+        collections.attendance_collection = self.attendance_collection
+        collections.requests_collection = self.requests_collection
+        collections.shifts_collection = self.shifts_collection
+        collections.payroll_collection = self.payroll_collection
+        return collections
+    
     def _create_qa_chain(self):
-        """Create the RAG QA chain with custom prompt"""
-        # Custom prompt template
-        prompt_template = """
-        Bạn là trợ lý AI thông minh của hệ thống SmartAttendance. Nhiệm vụ của bạn là trả lời câu hỏi dựa trên thông tin được cung cấp trong ngữ cảnh.
+        """Create the RAG QA chain with custom prompt including source citation"""
+        prompt_template = """Bạn là trợ lý AI thông minh của hệ thống SmartAttendance. Nhiệm vụ của bạn là trả lời câu hỏi dựa trên thông tin được cung cấp trong ngữ cảnh.
 
-        NGỮ CẢNH:
-        {context}
+NGỮ CẢNH:
+{context}
 
-        CÂU HỎI: {question}
+CÂU HỎI: {question}
 
-        HƯỚNG DẪN:
-        1. Chỉ trả lời dựa trên thông tin có trong ngữ cảnh được cung cấp.
-        2. Nếu không có thông tin liên quan trong ngữ cảnh, hãy trả lời "Tôi không biết" hoặc "Tôi không có thông tin về vấn đề này".
-        3. Trả lời bằng tiếng Việt một cách tự nhiên và hữu ích.
-        4. Nếu có nhiều thông tin, hãy tổng hợp và trình bày rõ ràng.
-        5. Luôn lịch sự và chuyên nghiệp.
+HƯỚNG DẪN:
+1. Chỉ trả lời dựa trên thông tin có trong ngữ cảnh được cung cấp.
+2. Nếu không có thông tin liên quan trong ngữ cảnh, hãy trả lời "Tôi không biết" hoặc "Tôi không có thông tin về vấn đề này".
+3. Trả lời bằng tiếng Việt một cách tự nhiên và hữu ích.
+4. Nếu có nhiều thông tin, hãy tổng hợp và trình bày rõ ràng.
+5. Luôn lịch sự và chuyên nghiệp.
+6. Khi trích dẫn thông tin từ ngữ cảnh, hãy đề cập đến nguồn một cách tự nhiên (ví dụ: "Theo tài liệu về...", "Dựa trên thông tin...")
 
-        TRẢ LỜI:
-        """
+TRẢ LỜI:"""
 
         PROMPT = PromptTemplate(
             template=prompt_template,
@@ -164,27 +303,29 @@ class RAGService:
             return_source_documents=True
         )
 
-        logger.info("Created RAG QA chain")
-
+        logger.info("Created RAG QA chain with source citation support")
+    
     async def process_message(
         self,
         user_id: str,
         message: str,
         conversation_id: Optional[str] = None,
         department_id: Optional[str] = None,
-        role: str = "employee",
-        user_context: Optional[Dict[str, Any]] = None
+        role: str = "employee"
     ) -> Dict[str, Any]:
         """
         Process a user message using RAG
-
+        
+        This is the main entry point for processing chat messages.
+        It orchestrates intent detection, query handling, and response generation.
+        
         Args:
             user_id: User ID
             message: User message
             conversation_id: Optional conversation ID
             department_id: Optional department ID for filtering
             role: User role for context
-
+            
         Returns:
             Dict containing response data
         """
@@ -193,210 +334,697 @@ class RAGService:
 
         try:
             # Load or create conversation
-            conversation = await self._load_or_create_conversation(
+            conversation = await self._conversation_manager.load_or_create(
                 conversation_id, user_id, department_id, role
             )
 
             # Add user message to conversation
-            conversation["messages"].append({
-                "role": "user",
-                "content": message,
-                "timestamp": datetime.utcnow()
-            })
+            self._conversation_manager.add_message(conversation, "user", message)
 
-            # Check if this is a simple greeting or general question
-            if self._is_general_question(message):
-                # Use direct LLM response for general questions
-                response_text = await self._handle_general_question(message, role, department_id)
-                sources = []
-            else:
-                # Use RAG for document-based questions
-                rag_result = await self._run_rag_query(message, department_id, role, user_context)
-
-                response_text = rag_result["answer"]
-                sources = rag_result.get("sources", [])
+            # Detect intent and route to appropriate handler
+            response_text, sources = await self._route_query(
+                message, role, user_id, department_id
+            )
 
             # Add assistant response to conversation
-            conversation["messages"].append({
-                "role": "assistant",
-                "content": response_text,
-                "timestamp": datetime.utcnow(),
-                "sources": sources
-            })
+            self._conversation_manager.add_message(
+                conversation, "assistant", response_text, sources
+            )
 
             # Enforce message limits
-            self._enforce_message_limits(conversation)
+            self._conversation_manager.enforce_limits(conversation)
 
             # Save conversation
-            await self._save_conversation(conversation)
+            await self._conversation_manager.save(conversation)
 
             return {
                 "conversation_id": conversation["conversation_id"],
                 "message": response_text,
-                "timestamp": datetime.utcnow(),
-                "sources": sources
+                "timestamp": datetime.now(timezone.utc),
+                "sources": sources or []
             }
 
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
             raise
+    
+    def _should_use_vector_search(
+        self,
+        intent_type: str,
+        message: str
+    ) -> bool:
+        """
+        Determine if vector search should be used for this query
+        
+        Args:
+            intent_type: Detected intent type
+            message: User message
+            
+        Returns:
+            True if vector search should be used
+        """
+        # Always use vector search for general questions
+        if intent_type == 'general':
+            return True
+        
+        # Use vector search for policy/guide related queries
+        policy_keywords = ['chính sách', 'quy định', 'hướng dẫn', 'quy trình', 
+                          'policy', 'guide', 'procedure', 'rule', 'regulation']
+        message_lower = message.lower()
+        if any(keyword in message_lower for keyword in policy_keywords):
+            return True
+        
+        # For other intents, use direct DB queries
+        return False
+    
+    def _should_use_hybrid(
+        self,
+        intent_type: str,
+        message: str
+    ) -> bool:
+        """
+        Determine if hybrid approach (both vector search and DB query) should be used
+        
+        Args:
+            intent_type: Detected intent type
+            message: User message
+            
+        Returns:
+            True if hybrid approach should be used
+        """
+        # Use hybrid for complex queries that might need both structured data and documents
+        complex_keywords = ['tổng hợp', 'chi tiết', 'đầy đủ', 'comprehensive', 
+                          'detailed', 'complete', 'summary']
+        message_lower = message.lower()
+        
+        # If it's a general question with complex keywords, use hybrid
+        if intent_type == 'general' and any(keyword in message_lower for keyword in complex_keywords):
+            return True
+        
+        return False
+    
+    async def _route_query(
+        self,
+        message: str,
+        role: str,
+        user_id: str,
+        department_id: Optional[str]
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Route query to appropriate handler based on intent with hybrid retrieval support
+        
+        Uses caching when available to improve performance.
+        
+        Returns:
+            Tuple of (response_text, sources)
+        """
+        sources = []
+        response_text = None
+        
+        # Check cache for intent first
+        cached_intent = self._cache.get_intent(message)
+        if cached_intent:
+            intent_type, details = cached_intent
+            logger.debug(f"Intent cache HIT: {intent_type}")
+        else:
+            # Detect intent and cache it
+            intent_type, details = IntentDetector.detect_intent(message)
+            self._cache.set_intent(message, intent_type, details)
+            logger.debug(f"Intent detected: {intent_type}")
+        
+        # Check if hybrid approach should be used
+        use_hybrid = self._should_use_hybrid(intent_type, message)
+        use_vector_search = self._should_use_vector_search(intent_type, message) or use_hybrid
+        
+        # Route based on intent and retrieval strategy
+        if use_hybrid:
+            # Hybrid approach: combine vector search and DB query
+            response_text, sources = await self._handle_hybrid_query(
+                message, intent_type, details, role, user_id, department_id
+            )
+        elif use_vector_search and intent_type == 'general':
+            # Use vector search for general questions
+            response_text, sources = await self._handle_general_question_with_rag(
+                message, role, department_id
+            )
+        elif intent_type == 'general':
+            # Fallback for general questions without vector search
+            response_text = await self._handle_general_question(message, role, department_id)
+            sources = []
+        
+        elif intent_type == 'employee':
+            handler = self._query_handlers.get('employee')
+            if handler:
+                response_text = await handler.handle(
+                    details.get('query_type', 'count'),
+                    message, role, department_id,
+                    details.get('params', {}),
+                    user_id=user_id
+                )
+                sources = self._create_db_query_sources('employee', details.get('query_type', 'count'))
+            else:
+                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về nhân viên lúc này."
+                sources = []
+        
+        elif intent_type == 'department':
+            handler = self._query_handlers.get('department')
+            if handler:
+                response_text = await handler.handle(
+                    details.get('query_type', 'list'),
+                    message, role, department_id,
+                    details.get('params', {}),
+                    user_id=user_id
+                )
+                sources = self._create_db_query_sources('department', details.get('query_type', 'list'))
+            else:
+                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về phòng ban lúc này."
+                sources = []
+        
+        elif intent_type == 'request':
+            handler = self._query_handlers.get('request')
+            if handler:
+                response_text = await handler.handle(
+                    details.get('query_type', 'pending'),
+                    message, role, department_id,
+                    details.get('params', {}),
+                    user_id=user_id
+                )
+                sources = self._create_db_query_sources('request', details.get('query_type', 'pending'))
+            else:
+                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về đơn từ lúc này."
+                sources = []
+        
+        elif intent_type == 'attendance':
+            handler = self._query_handlers.get('attendance')
+            if handler:
+                response_text = await handler.handle(
+                    details.get('query_type', 'today'),
+                    message, role, department_id,
+                    details.get('params', {}),
+                    user_id=user_id
+                )
+                sources = self._create_db_query_sources('attendance', details.get('query_type', 'today'))
+            else:
+                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về chấm công lúc này."
+                sources = []
+        
+        elif intent_type == 'branch':
+            handler = self._query_handlers.get('branch')
+            if handler:
+                response_text = await handler.handle(
+                    details.get('query_type', 'list'),
+                    message, role, department_id,
+                    details.get('params', {}),
+                    user_id=user_id
+                )
+                sources = self._create_db_query_sources('branch', details.get('query_type', 'list'))
+            else:
+                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về chi nhánh lúc này."
+                sources = []
+        
+        elif intent_type == 'shift':
+            handler = self._query_handlers.get('shift')
+            if handler:
+                response_text = await handler.handle(
+                    details.get('query_type', 'list'),
+                    message, role, department_id,
+                    details.get('params', {}),
+                    user_id=user_id
+                )
+                sources = self._create_db_query_sources('shift', details.get('query_type', 'list'))
+            else:
+                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về ca làm việc lúc này."
+                sources = []
+        
+        elif intent_type == 'payroll':
+            handler = self._query_handlers.get('payroll')
+            if handler:
+                response_text = await handler.handle(
+                    details.get('query_type', 'total'),
+                    message, role, department_id,
+                    details.get('params', {}),
+                    user_id=user_id
+                )
+                sources = self._create_db_query_sources('payroll', details.get('query_type', 'total'))
+            else:
+                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về lương lúc này."
+                sources = []
+        
+        else:
+            # Dynamic query for unknown intents
+            response_text = await self._handle_dynamic_query(
+                message, role, user_id, department_id
+            )
+            sources = self._create_db_query_sources('dynamic', 'query')
+        
+        # Ensure response_text is never None
+        if response_text is None:
+            response_text = "Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau."
+            logger.warning(f"response_text is None for intent_type: {intent_type}, message: {message}")
+        
+        return response_text, sources
+    
+    async def _handle_hybrid_query(
+        self,
+        message: str,
+        intent_type: str,
+        details: Dict[str, Any],
+        role: str,
+        user_id: str,
+        department_id: Optional[str]
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Handle query using hybrid approach (vector search + DB query)
+        
+        Args:
+            message: User message
+            intent_type: Detected intent type
+            details: Intent details
+            role: User role
+            user_id: User ID
+            department_id: Department ID
+            
+        Returns:
+            Tuple of (response_text, sources)
+        """
+        all_sources = []
+        vector_context = ""
+        db_response = ""
+        
+        # Step 1: Vector search for document context
+        try:
+            retrieved_docs = await self._document_manager.search(
+                query=message,
+                limit=3,
+                user_role=role,
+                department_id=department_id
+            )
+            vector_context = self._augment_context_with_documents(retrieved_docs)
+            vector_sources = self._format_sources_from_documents(retrieved_docs)
+            all_sources.extend(vector_sources)
+        except Exception as e:
+            logger.warning(f"Vector search failed in hybrid query: {str(e)}")
+        
+        # Step 2: DB query for structured data (if applicable)
+        if intent_type != 'general':
+            try:
+                # Route to appropriate handler
+                handler = self._query_handlers.get(intent_type)
+                if handler:
+                    query_type_map = {
+                        'employee': 'count',
+                        'department': 'list',
+                        'request': 'pending',
+                        'attendance': 'today',
+                        'branch': 'list',
+                        'shift': 'list',
+                        'payroll': 'total'
+                    }
+                    default_query_type = query_type_map.get(intent_type, 'list')
+                    db_response = await handler.handle(
+                        details.get('query_type', default_query_type),
+                        message, role, department_id,
+                        details.get('params', {}),
+                        user_id=user_id
+                    )
+                    all_sources.extend(self._create_db_query_sources(intent_type, details.get('query_type', default_query_type)))
+                else:
+                    logger.warning(f"No handler found for intent_type: {intent_type} in hybrid query")
+            except Exception as e:
+                logger.warning(f"DB query failed in hybrid query: {str(e)}")
+        
+        # Step 3: Combine contexts and generate unified response
+        combined_context = ""
+        if vector_context:
+            combined_context += f"THÔNG TIN TỪ TÀI LIỆU:\n{vector_context}\n\n"
+        if db_response:
+            combined_context += f"THÔNG TIN TỪ DỮ LIỆU:\n{db_response}\n\n"
+        
+        if combined_context:
+            prompt = self._create_hybrid_prompt(message, combined_context, role, department_id)
+            try:
+                response = await self.llm.ainvoke(prompt)
+                response_text = response.content if hasattr(response, 'content') else str(response)
+            except Exception as e:
+                logger.error(f"Error in hybrid LLM generation: {str(e)}")
+                # Fallback: combine responses
+                if vector_context and db_response:
+                    response_text = f"{vector_context}\n\n{db_response}"
+                elif vector_context:
+                    response_text = vector_context
+                elif db_response:
+                    response_text = db_response
+                else:
+                    response_text = await self._handle_general_question(message, role, department_id)
+        else:
+            # Fallback if no context available
+            response_text = await self._handle_general_question(message, role, department_id)
+        
+        # Ensure response_text is never None or empty
+        if not response_text or response_text.strip() == "":
+            response_text = "Xin lỗi, tôi không thể tìm thấy thông tin phù hợp để trả lời câu hỏi của bạn."
+        
+        return response_text, all_sources
+    
+    def _create_hybrid_prompt(
+        self,
+        question: str,
+        combined_context: str,
+        role: str,
+        department_id: Optional[str]
+    ) -> str:
+        """
+        Create prompt for hybrid query combining vector search and DB query results
+        
+        Args:
+            question: User question
+            combined_context: Combined context from both sources
+            role: User role
+            department_id: Department ID
+            
+        Returns:
+            Formatted prompt string
+        """
+        return f"""{SYSTEM_PROMPT}
 
-    def _is_general_question(self, message: str) -> bool:
-        """Check if message is a general question not requiring document retrieval"""
-        general_keywords = [
-            "xin chào", "hello", "hi", "chào", "cảm ơn", "thank", "bye", "tạm biệt",
-            "bạn là ai", "who are you", "giúp", "help", "hướng dẫn"
-        ]
+Nhiệm vụ của bạn là tổng hợp và trả lời câu hỏi dựa trên thông tin từ cả tài liệu và dữ liệu hệ thống.
 
-        message_lower = message.lower().strip()
-        return any(keyword in message_lower for keyword in general_keywords)
+=== THÔNG TIN TỔNG HỢP ===
+{combined_context}
 
+=== CÂU HỎI CỦA NGƯỜI DÙNG ===
+{question}
+
+=== THÔNG TIN NGƯỜI DÙNG ===
+- Vai trò: {role}
+{f'- Phòng ban: {department_id}' if department_id else ''}
+
+HƯỚNG DẪN TRẢ LỜI:
+1. Tổng hợp thông tin một cách logic.
+2. Ưu tiên dữ liệu hệ thống (số liệu cụ thể).
+3. Sử dụng Markdown để trình bày đẹp (bullet points, bảng).
+"""
+    
+    async def _handle_general_question_with_rag(
+        self,
+        message: str,
+        role: str,
+        department_id: Optional[str]
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        """Handle general questions with RAG (vector search + context augmentation)"""
+        try:
+            # Retrieve relevant documents using vector search
+            retrieved_docs = await self._document_manager.search(
+                query=message,
+                limit=5,
+                user_role=role,
+                department_id=department_id
+            )
+            
+            # Augment context with retrieved documents
+            context = self._augment_context_with_documents(retrieved_docs)
+            
+            # Create prompt with context
+            prompt = self._create_rag_prompt(message, context, role, department_id)
+            
+            # Generate response using LLM
+            response = await self.llm.ainvoke(prompt)
+            # Handle different response types from LLM
+            if hasattr(response, 'content'):
+                response_text = response.content
+            elif isinstance(response, str):
+                response_text = response
+            else:
+                response_text = str(response)
+            
+            # Ensure response_text is not None or empty
+            if not response_text or response_text.strip() == "":
+                response_text = "Xin lỗi, tôi không thể tìm thấy thông tin phù hợp để trả lời câu hỏi của bạn."
+            
+            # Format sources from retrieved documents
+            sources = self._format_sources_from_documents(retrieved_docs)
+            
+            return response_text, sources
+            
+        except Exception as e:
+            logger.error(f"Error in RAG general question handling: {str(e)}")
+            # Fallback to simple response
+            return "Xin chào! Tôi là trợ lý AI của hệ thống SmartAttendance. Tôi có thể giúp bạn với các câu hỏi về chấm công, lương, nghỉ phép và các thông tin khác trong hệ thống.", []
+    
     async def _handle_general_question(
         self,
         message: str,
         role: str,
         department_id: Optional[str]
     ) -> str:
-        """Handle general questions without document retrieval"""
-        # Lazy initialize
-        self._ensure_initialized()
+        """Handle general questions without document retrieval (fallback)"""
+        prompt = f"""{SYSTEM_PROMPT}
 
-        prompt = f"""
-        Bạn là trợ lý AI của hệ thống SmartAttendance. Người dùng có vai trò: {role}
-        {f', phòng ban: {department_id}' if department_id else ''}
+Bạn đang trả lời một câu hỏi chung hoặc câu chào hỏi. Người dùng có vai trò: {role} {f', phòng ban: {department_id}' if department_id else ''}.
 
-        Hãy trả lời câu hỏi chung sau một cách thân thiện và hữu ích bằng tiếng Việt:
+CÂU HỎI: "{message}"
 
-        "{message}"
-
-        Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ thể về dữ liệu.
-        """
+HƯỚNG DẪN:
+- Nếu là lời chào, hãy chào lại một cách thân thiện và giới thiệu ngắn gọn khả năng giúp đỡ của bạn.
+- Chỉ trả lời những kiến thức chung về hệ thống hoặc quy trình.
+- Không cung cấp dữ liệu giả định nếu không được phép.
+"""
 
         try:
             response = await self.llm.ainvoke(prompt)
             return response.content
         except Exception as e:
             logger.error(f"Error in general question handling: {str(e)}")
-            return "Xin chào! Tôi là trợ lý AI của hệ thống SmartAttendance. Tôi có thể giúp bạn với các câu hỏi về chấm công, lương, nghỉ phép và các thông tin khác trong hệ thống."
-
-    async def _run_rag_query(
+            return "Xin chào! Tôi là trợ lý AI SmartBot của hệ thống SmartAttendance. Tôi có thể giúp bạn với các câu hỏi về chấm công, lương, nghỉ phép và các thông tin khác trong hệ thống."
+    
+    def _augment_context_with_documents(
+        self,
+        retrieved_docs: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Augment context with retrieved documents
+        
+        Args:
+            retrieved_docs: List of retrieved documents with content and metadata
+            
+        Returns:
+            Formatted context string
+        """
+        if not retrieved_docs:
+            return ""
+        
+        context_parts = []
+        context_parts.append("=== THÔNG TIN THAM KHẢO ===\n")
+        
+        for i, doc in enumerate(retrieved_docs, 1):
+            content = doc.get("content", "")
+            metadata = doc.get("metadata", {})
+            score = doc.get("score", 0.0)
+            
+            title = metadata.get("title", f"Tài liệu {i}")
+            doc_type = metadata.get("doc_type", "text")
+            source = metadata.get("source", "unknown")
+            
+            context_parts.append(f"\n[{i}] {title} (Loại: {doc_type}, Nguồn: {source}, Độ liên quan: {score:.2f})")
+            context_parts.append(f"{content}\n")
+        
+        context_parts.append("\n=== HẾT THÔNG TIN THAM KHẢO ===\n")
+        
+        return "\n".join(context_parts)
+    
+    def _create_rag_prompt(
         self,
         question: str,
-        department_id: Optional[str],
-        role: str,
-        user_context: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Run RAG query with filtering"""
-        try:
-            # Add role and department context to the query
-            enhanced_query = self._enhance_query_with_context(question, role, department_id)
-
-            # Run QA chain
-            result = await self.qa_chain.acall({"query": enhanced_query})
-
-            # Extract answer and sources
-            answer = result.get("result", "Tôi không có thông tin về câu hỏi này.")
-            source_docs = result.get("source_documents", [])
-
-            # Format sources
-            sources = []
-            for doc in source_docs:
-                sources.append({
-                    "content": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
-                    "metadata": doc.metadata,
-                    "score": getattr(doc, 'score', None)
-                })
-
-            return {
-                "answer": answer,
-                "sources": sources
-            }
-
-        except Exception as e:
-            logger.error(f"Error in RAG query: {str(e)}")
-            return {
-                "answer": "Xin lỗi, tôi gặp lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại.",
-                "sources": []
-            }
-
-    def _enhance_query_with_context(
-        self,
-        query: str,
+        context: str,
         role: str,
         department_id: Optional[str]
     ) -> str:
-        """Enhance query with user context for better retrieval"""
-        context_parts = [query]
+        """
+        Create RAG prompt with context augmentation
+        
+        Args:
+            question: User question
+            context: Augmented context from retrieved documents
+            role: User role
+            department_id: User's department ID
+            
+        Returns:
+            Formatted prompt string
+        """
+        if context:
+            prompt = f"""{SYSTEM_PROMPT}
 
-        # Add role context (roles are normalized to lowercase in auth.py)
-        role_context = {
-            "employee": "nhân viên",
-            "supervisor": "quản lý phòng ban",
-            "manager": "trưởng phòng",
-            "hr_manager": "quản lý nhân sự",
-            "admin": "quản trị viên",
-            "super_admin": "quản trị viên cao cấp",
-            "trial": "tài khoản dùng thử"
-        }
+Nhiệm vụ của bạn là trả lời câu hỏi dựa trên thông tin được cung cấp trong ngữ cảnh tham khảo bên dưới.
 
-        if role in role_context:
-            context_parts.append(f"trong vai trò {role_context[role]}")
+=== NGỮ CẢNH THAM KHẢO ===
+{context}
 
-        # Add department context if available
-        if department_id:
-            context_parts.append(f"thuộc phòng ban {department_id}")
+=== CÂU HỎI CỦA NGƯỜI DÙNG ===
+{question}
 
-        return " ".join(context_parts)
+=== THÔNG TIN NGƯỜI DÙNG ===
+- Vai trò: {role}
+{f'- Phòng ban: {department_id}' if department_id else ''}
 
-    async def _load_or_create_conversation(
+HƯỚNG DẪN TRẢ LỜI:
+1. Chỉ trả lời dựa trên thông tin có trong ngữ cảnh.
+2. Nếu ngữ cảnh không có thông tin, hãy nói rõ bạn không tìm thấy dữ liệu.
+3. Trình bày đẹp bằng Markdown.
+
+TRẢ LỜI:"""
+        else:
+            # Fallback when no context available
+            prompt = f"""Bạn là trợ lý AI của hệ thống SmartAttendance. Người dùng có vai trò: {role}
+{f', phòng ban: {department_id}' if department_id else ''}
+
+Hãy trả lời câu hỏi chung sau một cách thân thiện và hữu ích bằng tiếng Việt:
+
+"{question}"
+
+Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ thể về dữ liệu."""
+        
+        return prompt
+    
+    def _format_sources_from_documents(
         self,
-        conversation_id: Optional[str],
+        retrieved_docs: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Format sources from retrieved documents for citation
+        
+        Args:
+            retrieved_docs: List of retrieved documents
+            
+        Returns:
+            List of formatted source dictionaries
+        """
+        sources = []
+        
+        for doc in retrieved_docs:
+            metadata = doc.get("metadata", {})
+            score = doc.get("score", 0.0)
+            
+            source = {
+                "title": metadata.get("title", "Tài liệu không có tiêu đề"),
+                "doc_type": metadata.get("doc_type", "text"),
+                "source": metadata.get("source", "unknown"),
+                "relevance_score": float(score),
+                "chunk_index": metadata.get("chunk_index", 0),
+                "collection_name": metadata.get("collection_name", "documents"),
+                "access_level": metadata.get("access_level", "public"),
+                "ingested_at": metadata.get("ingested_at"),
+                "source_type": "vector_search"
+            }
+            
+            # Add document ID if available
+            if "_id" in metadata:
+                source["document_id"] = str(metadata["_id"])
+            
+            sources.append(source)
+        
+        return sources
+    
+    def _create_db_query_sources(
+        self,
+        collection_name: str,
+        query_type: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Create source citation for database queries
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+            query_type: Type of query performed
+            
+        Returns:
+            List of source dictionaries
+        """
+        return [{
+            "collection": collection_name,
+            "query_type": query_type,
+            "source_type": "database_query",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }]
+    
+    async def _handle_dynamic_query(
+        self,
+        message: str,
+        role: str,
         user_id: str,
-        department_id: Optional[str],
-        role: str
+        department_id: Optional[str]
+    ) -> str:
+        """
+        Handle dynamic queries using LLM to generate MongoDB queries
+        """
+        try:
+            # Generate query from natural language
+            prompt = DynamicQueryGenerator.build_prompt(message, role, user_id, department_id)
+            response = await self.llm.ainvoke(prompt)
+            
+            # Parse response
+            query_data = DynamicQueryGenerator.parse_response(response.content)
+            
+            if "error" in query_data:
+                return f"Xin lỗi, tôi chưa hiểu rõ câu hỏi của bạn. {query_data['error']}\n\n💡 Bạn có thể thử hỏi theo cách khác, ví dụ:\n- 'Có bao nhiêu nhân viên?'\n- 'Đơn nào đang chờ duyệt?'\n- 'Hôm nay có bao nhiêu người đi làm?'"
+            
+            # Execute query with RBAC enforcement
+            collections = self._get_collections_object()
+            executor = DynamicQueryExecutor(collections)
+            result = await executor.execute(
+                query_data=query_data,
+                role=role,
+                user_id=user_id,
+                department_id=department_id
+            )
+            
+            # Format result
+            response = DynamicQueryResultFormatter.format(result, message)
+            
+            return response
+        
+        except Exception as e:
+            logger.error(f"Error in dynamic query handler: {str(e)}")
+            return "Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau hoặc hỏi theo cách khác."
+    
+    # =========================================================================
+    # Conversation Management Methods
+    # =========================================================================
+    
+    async def get_user_conversations(
+        self,
+        user_id: str,
+        page: int = 1,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """Get user conversation history"""
+        self._ensure_initialized()
+        return await self._conversation_manager.get_user_conversations(user_id, page, limit)
+    
+    async def get_conversation(
+        self,
+        conversation_id: str,
+        user_id: str
     ) -> Dict[str, Any]:
-        """Load existing conversation or create new one"""
-        if conversation_id:
-            conversation = await self.conversations_collection.find_one({
-                "conversation_id": conversation_id,
-                "user_id": user_id
-            })
-
-            if conversation:
-                return conversation
-
-        # Create new conversation
-        conversation_id = str(uuid.uuid4())
-        conversation = {
-            "conversation_id": conversation_id,
-            "user_id": user_id,
-            "department_id": department_id,
-            "role": role,
-            "messages": [],
-            "created_at": datetime.utcnow(),
-            "last_activity": datetime.utcnow()
-        }
-
-        return conversation
-
-    async def _save_conversation(self, conversation: Dict[str, Any]):
-        """Save conversation to database"""
-        conversation["last_activity"] = datetime.utcnow()
-
-        await self.conversations_collection.replace_one(
-            {"conversation_id": conversation["conversation_id"]},
-            conversation,
-            upsert=True
-        )
-
-    def _enforce_message_limits(self, conversation: Dict[str, Any]):
-        """Enforce message count limits"""
-        max_messages = CHATBOT_MAX_MESSAGES or 50
-
-        if len(conversation["messages"]) > max_messages:
-            # Keep most recent messages
-            conversation["messages"] = conversation["messages"][-max_messages:]
-
+        """Get specific conversation"""
+        self._ensure_initialized()
+        return await self._conversation_manager.get_conversation(conversation_id, user_id)
+    
+    async def delete_conversation(
+        self,
+        conversation_id: str,
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Delete a conversation"""
+        self._ensure_initialized()
+        success = await self._conversation_manager.delete(conversation_id, user_id)
+        if success:
+            return {"success": True}
+        raise ValueError("Conversation not found")
+    
+    # =========================================================================
+    # Document Management Methods
+    # =========================================================================
+    
     async def ingest_documents(
         self,
         documents: List[Dict[str, Any]],
@@ -404,65 +1032,22 @@ class RAGService:
         chunk_size: int = 1000,
         chunk_overlap: int = 200
     ) -> Dict[str, Any]:
-        """Ingest documents into vector database"""
-        # Lazy initialize
+        """Ingest documents into vector database
+        
+        Args:
+            documents: List of documents to ingest
+            collection_name: Target collection name
+            chunk_size: Size of text chunks
+            chunk_overlap: Overlap between chunks
+        """
         self._ensure_initialized()
-
-        try:
-            # Create text splitter
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-                separators=["\n\n", "\n", ". ", " ", ""]
-            )
-
-            # Process documents
-            langchain_docs = []
-            total_chunks = 0
-
-            for doc_data in documents:
-                content = doc_data.get("content", "")
-                metadata = doc_data.get("metadata", {})
-
-                # Add processing metadata
-                metadata.update({
-                    "ingested_at": datetime.utcnow(),
-                    "source": doc_data.get("source", "unknown"),
-                    "doc_type": doc_data.get("doc_type", "text")
-                })
-
-                # Split text into chunks
-                chunks = text_splitter.split_text(content)
-
-                for i, chunk in enumerate(chunks):
-                    chunk_metadata = metadata.copy()
-                    chunk_metadata["chunk_index"] = i
-                    chunk_metadata["total_chunks"] = len(chunks)
-
-                    langchain_docs.append(Document(
-                        page_content=chunk,
-                        metadata=chunk_metadata
-                    ))
-
-                total_chunks += len(chunks)
-
-            # Add to vector store
-            if langchain_docs:
-                await self.vector_store.aadd_documents(langchain_docs)
-                logger.info(f"Successfully ingested {len(langchain_docs)} chunks from {len(documents)} documents")
-            else:
-                logger.warning("No documents to ingest")
-
-            return {
-                "total_documents": len(documents),
-                "total_chunks": total_chunks,
-                "collection_name": collection_name
-            }
-
-        except Exception as e:
-            logger.error(f"Error ingesting documents: {str(e)}")
-            raise
-
+        return await self._document_manager.ingest(
+            documents=documents,
+            collection_name=collection_name,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
+        )
+    
     async def search_documents(
         self,
         query: str,
@@ -471,253 +1056,134 @@ class RAGService:
         user_role: str = "employee",
         department_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Search documents using vector similarity with access controls"""
-        # Lazy initialize
+        """Search documents using vector similarity with access controls
+        
+        Args:
+            query: Search query
+            collection_name: Target collection name for filtering
+            limit: Maximum number of results
+            user_role: User role for access control
+            department_id: User department ID
+        """
         self._ensure_initialized()
-
-        try:
-            # Apply access controls based on user role
-            filter_criteria = {}
-
-            # Admin can see all documents
-            if user_role == "admin":
-                pass  # No filters
-            # HR managers can see documents from their department and general documents
-            elif user_role == "hr_manager":
-                if department_id:
-                    filter_criteria = {
-                        "$or": [
-                            {"department_id": department_id},
-                            {"department_id": {"$exists": False}},  # General documents
-                            {"access_level": "public"}
-                        ]
-                    }
-                else:
-                    filter_criteria = {
-                        "$or": [
-                            {"department_id": {"$exists": False}},  # General documents
-                            {"access_level": "public"}
-                        ]
-                    }
-            # Managers can see documents from their department and below
-            elif user_role == "manager":
-                if department_id:
-                    filter_criteria = {
-                        "$or": [
-                            {"department_id": department_id},
-                            {"department_id": {"$exists": False}},  # General documents
-                            {"access_level": "public"}
-                        ]
-                    }
-                else:
-                    filter_criteria = {
-                        "$or": [
-                            {"department_id": {"$exists": False}},  # General documents
-                            {"access_level": "public"}
-                        ]
-                    }
-            # Supervisors and employees can only see general/public documents
-            else:
-                filter_criteria = {
-                    "$or": [
-                        {"department_id": {"$exists": False}},  # General documents
-                        {"access_level": "public"}
-                    ]
-                }
-
-            # Perform similarity search with filters
-            if filter_criteria:
-                # Note: MongoDBAtlasVectorSearch may not support all filter operations
-                # This is a simplified implementation
-                docs = await self.vector_store.asimilarity_search_with_score(
-                    query=query,
-                    k=limit
-                )
-
-                # Apply post-filtering since vector store may not support complex filters
-                filtered_results = []
-                for doc, score in docs:
-                    metadata = doc.metadata
-                    include_doc = False
-
-                    # Check if document matches filter criteria
-                    if user_role == "admin":
-                        include_doc = True
-                    elif "access_level" in metadata and metadata["access_level"] == "public":
-                        include_doc = True
-                    elif "department_id" not in metadata or not metadata.get("department_id"):
-                        include_doc = True  # General documents
-                    elif department_id and metadata.get("department_id") == department_id:
-                        if user_role in ["hr_manager", "manager"]:
-                            include_doc = True
-
-                    if include_doc:
-                        filtered_results.append({
-                            "content": doc.page_content,
-                            "metadata": metadata,
-                            "score": score
-                        })
-
-                        if len(filtered_results) >= limit:
-                            break
-
-                results = filtered_results
-            else:
-                docs = await self.vector_store.asimilarity_search_with_score(
-                    query=query,
-                    k=limit
-                )
-
-                results = []
-                for doc, score in docs:
-                    results.append({
-                        "content": doc.page_content,
-                        "metadata": doc.metadata,
-                        "score": score
-                    })
-
-            return results
-
-        except Exception as e:
-            logger.error(f"Error searching documents: {str(e)}")
-            raise
-
-    async def get_user_conversations(
-        self,
-        user_id: str,
-        page: int = 1,
-        limit: int = 10
-    ) -> List[Dict[str, Any]]:
-        """Get user's conversation history"""
-        # Lazy initialize
-        self._ensure_initialized()
-
-        try:
-            skip = (page - 1) * limit
-
-            conversations = await self.conversations_collection.find(
-                {"user_id": user_id}
-            ).sort("last_activity", -1).skip(skip).limit(limit).to_list(length=None)
-
-            # Format conversations with camelCase field names for frontend compatibility
-            formatted_conversations = []
-            for conv in conversations:
-                formatted_conversations.append({
-                    "id": conv["conversation_id"],
-                    "lastActivity": conv["last_activity"],
-                    "messageCount": len(conv.get("messages", [])),
-                    "preview": self._get_conversation_preview(conv),
-                    "departmentId": conv.get("department_id"),
-                    "role": conv.get("role")
-                })
-
-            return formatted_conversations
-
-        except Exception as e:
-            logger.error(f"Error getting user conversations: {str(e)}")
-            raise
-
-    def _get_conversation_preview(self, conversation: Dict[str, Any]) -> str:
-        """Get conversation preview from last assistant message"""
-        messages = conversation.get("messages", [])
-
-        # Find last assistant message
-        for msg in reversed(messages):
-            if msg.get("role") == "assistant":
-                content = msg.get("content", "")
-                return content[:100] + "..." if len(content) > 100 else content
-
-        return "No messages yet"
-
-    async def get_conversation(
-        self,
-        conversation_id: str,
-        user_id: str
-    ) -> Dict[str, Any]:
-        """Get specific conversation"""
-        # Lazy initialize
-        self._ensure_initialized()
-
-        try:
-            conversation = await self.conversations_collection.find_one({
-                "conversation_id": conversation_id,
-                "user_id": user_id
-            })
-
-            if not conversation:
-                raise ValueError("Conversation not found")
-
-            return {
-                "id": conversation["conversation_id"],
-                "messages": conversation.get("messages", []),
-                "lastActivity": conversation["last_activity"],
-                "departmentId": conversation.get("department_id"),
-                "role": conversation.get("role")
-            }
-
-        except Exception as e:
-            logger.error(f"Error getting conversation: {str(e)}")
-            raise
-
-    async def delete_conversation(
-        self,
-        conversation_id: str,
-        user_id: str
-    ) -> Dict[str, Any]:
-        """Delete a conversation"""
-        # Lazy initialize
-        self._ensure_initialized()
-
-        try:
-            result = await self.conversations_collection.delete_one({
-                "conversation_id": conversation_id,
-                "user_id": user_id
-            })
-
-            if result.deleted_count == 0:
-                raise ValueError("Conversation not found")
-
-            return {"success": True}
-
-        except Exception as e:
-            logger.error(f"Error deleting conversation: {str(e)}")
-            raise
-
+        return await self._document_manager.search(
+            query=query,
+            collection_name=collection_name,
+            limit=limit,
+            user_role=user_role,
+            department_id=department_id
+        )
+    
     async def update_conversation_metadata(self, conversation_id: str):
-        """Update conversation metadata (background task)"""
-        try:
-            # Update last activity timestamp
-            await self.conversations_collection.update_one(
-                {"conversation_id": conversation_id},
-                {"$set": {"last_activity": datetime.utcnow()}}
-            )
-        except Exception as e:
-            logger.error(f"Error updating conversation metadata: {str(e)}")
-
+        """Update conversation metadata (background task)
+        
+        Args:
+            conversation_id: Conversation ID to update
+        """
+        self._ensure_initialized()
+        await self._conversation_manager.update_metadata(conversation_id)
+    
+    # =========================================================================
+    # Health Check
+    # =========================================================================
+    
+    async def sync_collections_to_vector_store(
+        self,
+        collection_names: List[str] = None,
+        limit_per_collection: int = 100
+    ) -> Dict[str, Any]:
+        """
+        Sync structured data from MongoDB collections to vector store
+        
+        Args:
+            collection_names: List of collection names to sync (None for all)
+            limit_per_collection: Maximum records per collection to sync
+            
+        Returns:
+            Dict with sync results
+        """
+        self._ensure_initialized()
+        
+        # Default collections to sync
+        if collection_names is None:
+            collection_names = ["users", "departments", "branches", "shifts"]
+        
+        results = {
+            "total_synced": 0,
+            "collections": {},
+            "errors": []
+        }
+        
+        collection_map = {
+            "users": self.users_collection,
+            "departments": self.departments_collection,
+            "branches": self.branches_collection,
+            "attendance": self.attendance_collection,
+            "requests": self.requests_collection,
+            "shifts": self.shifts_collection,
+            "payroll": self.payroll_collection
+        }
+        
+        for collection_name in collection_names:
+            try:
+                collection = collection_map.get(collection_name)
+                if collection is None:
+                    results["errors"].append(f"Collection '{collection_name}' not available")
+                    continue
+                
+                logger.info(f"Syncing collection '{collection_name}' to vector store...")
+                
+                # Ingest from collection
+                ingest_result = await self._document_manager.ingest_from_collection(
+                    collection=collection,
+                    collection_name=collection_name,
+                    limit=limit_per_collection
+                )
+                
+                if ingest_result.get("success", True):
+                    results["collections"][collection_name] = {
+                        "total_documents": ingest_result.get("total_documents", 0),
+                        "total_chunks": ingest_result.get("total_chunks", 0),
+                        "status": "success"
+                    }
+                    results["total_synced"] += ingest_result.get("total_documents", 0)
+                else:
+                    results["collections"][collection_name] = {
+                        "status": "error",
+                        "error": ingest_result.get("error", "Unknown error")
+                    }
+                    results["errors"].append(f"Failed to sync '{collection_name}': {ingest_result.get('error')}")
+            
+            except Exception as e:
+                logger.error(f"Error syncing collection '{collection_name}': {str(e)}")
+                results["errors"].append(f"Error syncing '{collection_name}': {str(e)}")
+                results["collections"][collection_name] = {
+                    "status": "error",
+                    "error": str(e)
+                }
+        
+        logger.info(f"Sync completed: {results['total_synced']} documents synced from {len(collection_names)} collections")
+        
+        return results
+    
     async def health_check(self) -> Dict[str, Any]:
         """Health check for RAG service"""
         health_status = {
             "status": "healthy",
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
             "components": {}
         }
-
-        # Lazy initialize
+        
         self._ensure_initialized()
-
+        
         try:
-            # Check MongoDB connection (use sync client for health check)
             self.mongodb_client.admin.command('ping')
             health_status["components"]["mongodb"] = "connected"
         except Exception as e:
             health_status["components"]["mongodb"] = f"error: {str(e)}"
             health_status["status"] = "unhealthy"
-
-        # NOTE: Skipping actual API calls to Google to avoid SecretStr issues
-        # The embeddings and LLM will be tested when actually used
-        # If there's an issue, it will be caught in the actual request
+        
         health_status["components"]["embeddings"] = "configured"
         health_status["components"]["llm"] = "configured"
-
+        
         return health_status
-

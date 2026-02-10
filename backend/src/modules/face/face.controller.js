@@ -19,6 +19,7 @@ export class FaceController {
     try {
       const userId = req.user.userId;
       const files = req.files;
+      const { liveness_success, liveness_passed, liveness_confidence, liveness_challenge } = req.body;
 
       if (!files || files.length === 0) {
         return res.status(400).json({
@@ -27,8 +28,16 @@ export class FaceController {
         });
       }
 
+      // Prepare liveness data if provided
+      const livenessData = liveness_success !== undefined || liveness_passed !== undefined ? {
+        liveness_success: liveness_success === 'true' || liveness_success === true,
+        liveness_passed: liveness_passed === 'true' || liveness_passed === true,
+        liveness_confidence: parseFloat(liveness_confidence) || 0,
+        liveness_challenge: liveness_challenge || '',
+      } : null;
+
       const faceService = new FaceService();
-      const result = await faceService.registerUserFace(userId, files);
+      const result = await faceService.registerUserFace(userId, files, livenessData);
 
       return res.status(200).json({
         success: true,
@@ -144,6 +153,7 @@ export class FaceController {
       const userId = req.user.userId;
       const files = req.files;
       const mode = req.body.mode || "replace"; // replace, append, refresh
+      const { liveness_success, liveness_passed, liveness_confidence, liveness_challenge } = req.body;
 
       if (!files || files.length === 0) {
         return res.status(400).json({
@@ -152,8 +162,16 @@ export class FaceController {
         });
       }
 
+      // Prepare liveness data if provided
+      const livenessData = liveness_success !== undefined || liveness_passed !== undefined ? {
+        liveness_success: liveness_success === 'true' || liveness_success === true,
+        liveness_passed: liveness_passed === 'true' || liveness_passed === true,
+        liveness_confidence: parseFloat(liveness_confidence) || 0,
+        liveness_challenge: liveness_challenge || '',
+      } : null;
+
       const faceService = new FaceService();
-      const result = await faceService.updateUserFace(userId, files, mode);
+      const result = await faceService.updateUserFace(userId, files, mode, livenessData);
 
       return res.status(200).json({
         success: true,

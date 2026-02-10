@@ -94,7 +94,11 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
       const health = await getChatbotHealth();
       setChatbotHealth(health);
     } catch (error) {
-      console.error('Failed to check chatbot health:', error);
+      const err = error as Error & { name?: string; code?: string; message?: string }
+      // Only log non-network errors (network errors are expected when service is down)
+      if (err?.message !== 'Network Error' && err?.code !== 'ERR_NETWORK' && err?.name !== 'NetworkError') {
+        console.error('Failed to check chatbot health:', error);
+      }
       // Set clear unavailable state when health check fails
       setChatbotHealth({
         status: 'unavailable',
@@ -111,14 +115,18 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
   // Check chatbot health when user is authenticated
   useEffect(() => {
     if (user) {
-      checkChatbotHealth();
+      checkChatbotHealth().catch(() => {
+        // Error already handled in checkChatbotHealth
+      });
     }
   }, [user]);
 
   // Load conversations when user is authenticated
   useEffect(() => {
     if (user) {
-      loadConversations();
+      loadConversations().catch(() => {
+        // Error already handled in loadConversations
+      });
     } else {
       // Clear conversations when user logs out
       setConversations([]);
@@ -135,8 +143,13 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
       const response = await getConversations(user.id);
       setConversations(response.conversations);
     } catch (error) {
-      console.error('Error loading conversations:', error);
-      toast.error('Failed to load conversations');
+      const err = error as Error & { name?: string; code?: string; message?: string }
+      // Only show error toast for non-network errors (network errors are expected when service is down)
+      if (err?.message !== 'Network Error' && err?.code !== 'ERR_NETWORK' && err?.name !== 'NetworkError') {
+        console.error('Error loading conversations:', error);
+        toast.error('Failed to load conversations');
+      }
+      // Silently fail for network errors - service is just unavailable
     } finally {
       setIsLoadingConversations(false);
     }

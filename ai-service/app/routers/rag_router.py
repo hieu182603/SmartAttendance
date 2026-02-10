@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter(
-    prefix="/rag",
+    prefix="/api/rag",
     tags=["RAG Chatbot"],
     responses={404: {"description": "Not found"}},
 )
@@ -43,10 +43,15 @@ class DataIngestionRequest(BaseModel):
 class ConversationListResponse(BaseModel):
     conversations: List[Dict[str, Any]]
 
-# Dependency injection for RAG service
-def get_rag_service():
-    """Dependency to get RAG service instance"""
-    return RAGService()
+# Singleton instance for RAGService (avoids re-initialization per request)
+_rag_service_instance: RAGService = None
+
+def get_rag_service() -> RAGService:
+    """Dependency to get RAGService singleton instance"""
+    global _rag_service_instance
+    if _rag_service_instance is None:
+        _rag_service_instance = RAGService()
+    return _rag_service_instance
 
 @router.post("/chat", response_model=ConversationResponse)
 async def chat_with_rag(
@@ -79,8 +84,7 @@ async def chat_with_rag(
             message=request.message,
             conversation_id=request.conversation_id,
             department_id=current_user.department_id,
-            role=current_user.role,
-            user_context={"user_id": current_user.user_id, "role": current_user.role, "department_id": current_user.department_id}
+            role=current_user.role
         )
 
         # Add background task to update conversation metadata

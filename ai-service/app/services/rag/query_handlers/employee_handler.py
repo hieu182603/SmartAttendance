@@ -1,0 +1,219 @@
+"""Employee query handler"""
+import logging
+from typing import Dict, Any
+from app.services.rag.query_handlers.base import BaseQueryHandler
+from app.services.rag.permissions import PermissionChecker
+
+logger = logging.getLogger(__name__)
+
+
+class EmployeeQueryHandler(BaseQueryHandler):
+    """Handle employee-related queries"""
+    
+    @property
+    def collection_name(self) -> str:
+        return "users"
+    
+    @property
+    def error_message(self) -> str:
+        return "bạn không có quyền truy cập thông tin nhân viên"
+    
+    async def _handle_count(self, query: Dict[str, Any]) -> str:
+        """Handle employee count with role breakdown"""
+        collection = await self._get_collection()
+        if collection is None:
+            return f"Xin lỗi, {self.error_message}"
+        
+        # Ensure only active employees
+        if "isActive" not in query:
+            query["isActive"] = True
+        
+        count = await collection.count_documents(query)
+        
+        response = f"📊 **Thống kê nhân viên:**\n\n"
+        response += f"✅ **Tổng số nhân viên đang hoạt động:** {count} người\n"
+        
+        # Add role breakdown
+        role_counts = await self._get_role_counts()
+        if role_counts:
+            response += "\n**🔍 Phân loại theo vai trò:**\n"
+            for rc in role_counts:
+                response += f"🔹 **{rc['role_name']}**: {rc['count']} người\n"
+        
+        return response
+    
+    async def _handle_list(self, query: Dict[str, Any]) -> str:
+        """Handle employee list"""
+        collection = await self._get_collection()
+        if collection is None:
+            return f"Xin lỗi, {self.error_message}"
+        
+        if "isActive" not in query:
+            query["isActive"] = True
+        
+        employees = await collection.find(query).limit(20).to_list(length=None)
+        
+        if not employees:
+            return "Không tìm thấy nhân viên phù hợp."
+        
+        response = f"👥 **Danh sách nhân viên:**\n\n"
+        response += f"🔍 **Tìm thấy:** {len(employees)} nhân viên phù hợp\n\n"
+        
+        for i, emp in enumerate(employees[:10], 1):
+            name = emp.get("name", "N/A")
+            position = emp.get("position", "N/A")
+            email = emp.get("email", "N/A")
+            response += f"**{i}. {name}**\n"
+            response += f"   🔹 **Vị trí:** {position}\n"
+            response += f"   📧 **Email:** *{email}*\n\n"
+        
+        if len(employees) > 10:
+            response += f"*... và {len(employees) - 10} nhân viên khác*"
+        
+        return response
+    
+    async def _handle_by_department(self, query: Dict[str, Any]) -> str:
+        """Handle employees grouped by department"""
+        collection = await self._get_collection()
+        if collection is None:
+            return f"Xin lỗi, {self.error_message}"
+        
+        if "isActive" not in query:
+            query["isActive"] = True
+        
+        pipeline = [
+            {"$match": query},
+            {"$group": {"_id": "$department", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        results = await self._aggregate(pipeline)
+        
+        if not results:
+            return "Không tìm thấy thông tin phù hợp."
+        
+        response = f"🏢 **Nhân viên theo phòng ban:**\n\n"
+        
+        for item in results:
+            dept_name = item['_id'] if item['_id'] else 'Chưa phân phòng'
+            response += f"🔹 **{dept_name}**: {item['count']} nhân viên\n"
+        
+        return response
+    
+    async def _handle_by_role(self, role_filter: str, query: Dict[str, Any]) -> str:
+        """Handle employees grouped by role"""
+        collection = await self._get_collection()
+        if collection is None:
+            return f"Xin lỗi, {self.error_message}"
+        
+        if "isActive" not in query:
+            query["isActive"] = True
+        
+        # Normalize role
+        role_mapping = {
+            "quản lý": "MANAGER",
+            "manager": "MANAGER",
+            "hr": "HR_MANAGER",
+            "hr_manager": "HR_MANAGER",
+            "nhân viên": "EMPLOYEE",
+            "employee": "EMPLOYEE",
+            "supervisor": "SUPERVISOR",
+            "quản lý phòng": "SUPERVISOR",
+            "admin": "ADMIN",
+            "quản trị": "ADMIN"
+        }
+        
+        normalized_role = role_mapping.get(role_filter.lower(), role_filter.upper())
+        query["role"] = normalized_role
+        
+        count = await collection.count_documents(query)
+        
+        role_names = {
+            "EMPLOYEE": "Nhân viên",
+            "SUPERVISOR": "Supervisor",
+            "MANAGER": "Quản lý",
+            "HR_MANAGER": "HR Manager",
+            "ADMIN": "Admin",
+            "SUPER_ADMIN": "Super Admin"
+        }
+        
+        role_display = role_names.get(normalized_role, normalized_role)
+        return f"👥 **Nhân viên theo vai trò:**\n\n- **{role_display}:** {count} người"
+    
+    async def handle(
+        self, 
+        query_type: str, 
+        message: str, 
+        role: str, 
+        department_id: str = None,
+        filters: Dict[str, Any] = None
+    ) -> str:
+        """Handle employee query with specific types"""
+        
+        # Check permission - only HR, Manager, Admin can see employee data
+        role_lower = role.lower() if role else ""
+        allowed_roles = ["hr_manager", "manager", "admin", "super_admin"]
+        
+        if role_lower not in allowed_roles:
+            return "Xin lỗi, bạn không có quyền truy cập thông tin về nhân viên. Chỉ có HR, Quản lý hoặc Admin mới có thể xem thông tin này."
+        
+        try:
+            has_access, permission_filter = self.check_permission(role, department_id)
+            if not has_access:
+                return f"Xin lỗi, {self.error_message}"
+            
+            query = permission_filter.copy()
+            if filters:
+                query.update(filters)
+            
+            if query_type == 'count':
+                return await self._handle_count(query)
+            elif query_type == 'list':
+                return await self._handle_list(query)
+            elif query_type == 'by_department':
+                return await self._handle_by_department(query)
+            elif query_type == 'by_role':
+                role_filter = filters.get('role', 'employee') if filters else 'employee'
+                return await self._handle_by_role(role_filter, query)
+            else:
+                return "Xin lỗi, tôi chưa hiểu rõ câu hỏi của bạn về nhân viên."
+        
+        except Exception as e:
+            logger.error(f"Error handling employee query: {str(e)}")
+            return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu: {str(e)}"
+    
+    async def _get_role_counts(self) -> list:
+        """Get employee count by role"""
+        collection = await self._get_collection()
+        if collection is None:
+            return []
+        
+        try:
+            pipeline = [
+                {"$match": {"isActive": True}},
+                {"$group": {"_id": "$role", "count": {"$sum": 1}}}
+            ]
+            results = await self._aggregate(pipeline)
+            
+            role_names = {
+                "EMPLOYEE": "Nhân viên",
+                "SUPERVISOR": "Supervisor",
+                "MANAGER": "Quản lý",
+                "HR_MANAGER": "HR Manager",
+                "ADMIN": "Admin",
+                "SUPER_ADMIN": "Super Admin"
+            }
+            
+            return [
+                {"role_name": role_names.get(r["_id"], r["_id"]), "count": r["count"]}
+                for r in results
+            ]
+        except Exception:
+            return []
+    
+    async def _format_item(self, item: Dict[str, Any], index: int) -> str:
+        """Format employee item"""
+        name = item.get("name", "N/A")
+        position = item.get("position", "N/A")
+        role = item.get("role", "N/A")
+        return f"**{index}.** {name} - {position} ({role})\n"
+

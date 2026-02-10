@@ -2,10 +2,19 @@ import axios, { type InternalAxiosRequestConfig, type AxiosError, type AxiosResp
 
 // Get base URLs from environment variables or use defaults
 const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000'
-const ragServiceUrl = import.meta.env.VITE_RAG_SERVICE_URL || 'http://localhost:8001'
+// IMPORTANT:
+// - RAG FastAPI routes are mounted under `/api/rag` on the ai-service.
+// - The frontend calls `/rag/...` paths (see `chatbotService.ts`).
+// Therefore `VITE_RAG_SERVICE_URL` MUST include the `/api` prefix so `/rag/...` resolves to `/api/rag/...`.
+// Examples:
+// - Local: http://localhost:8001/api
+// - Fly:   http://<host>:8080/api
+const envRagServiceUrl = import.meta.env.VITE_RAG_SERVICE_URL || 'http://localhost:8001/api'
 
 // Ensure backend baseURL always ends with /api for backend routes
 const backendBaseURL = envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl}/api`
+// Ensure RAG baseURL always ends with /api so `/rag/*` resolves to `/api/rag/*`
+const ragBaseURL = envRagServiceUrl.endsWith('/api') ? envRagServiceUrl : `${envRagServiceUrl}/api`
 
 export interface ValidationError extends Error {
     fieldErrors?: Record<string, string[]>
@@ -16,7 +25,7 @@ export interface ValidationError extends Error {
 const getBaseURL = (url: string) => {
     // If URL starts with /rag/, use RAG service URL
     if (url.startsWith('/rag/')) {
-        return ragServiceUrl;
+        return ragBaseURL;
     }
     // Otherwise use backend API URL
     return backendBaseURL;
@@ -137,6 +146,16 @@ api.interceptors.response.use(
             validationError.fieldErrors = fieldErrors
             validationError.response = error.response
             return Promise.reject(validationError)
+        }
+        
+        // Handle network errors (connection refused, etc.)
+        if (!error.response && error.code === 'ERR_NETWORK') {
+            // For network errors, preserve the error code for better handling upstream
+            const networkError = new Error('Network Error') as ValidationError
+            networkError.response = error.response
+            // Add code property for easier detection
+            ;(networkError as any).code = 'ERR_NETWORK'
+            return Promise.reject(networkError)
         }
         
         // Handle other errors (404, 500, etc.)
