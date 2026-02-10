@@ -78,6 +78,16 @@ export class AIServiceError extends Error {
   }
 }
 
+export class SpoofDetectedError extends Error {
+  constructor(message = "Spoofing attack detected", antiSpoofingData = null) {
+    super(message);
+    this.name = "SpoofDetectedError";
+    this.statusCode = 403;
+    this.errorCode = "SPOOF_DETECTED";
+    this.antiSpoofingData = antiSpoofingData;
+  }
+}
+
 /**
  * Face Service - Handles face registration and verification
  */
@@ -86,12 +96,17 @@ export class FaceService {
    * Register user face with multiple images
    * @param {string} userId - User ID
    * @param {Array<Express.Multer.File>} imageFiles - Array of image files
+   * @param {Object} livenessData - Optional liveness verification data
+   * @param {boolean} livenessData.liveness_success - Whether liveness check succeeded
+   * @param {boolean} livenessData.liveness_passed - Whether liveness check passed
+   * @param {number} livenessData.liveness_confidence - Liveness check confidence score
+   * @param {string} livenessData.liveness_challenge - Liveness challenge type
    * @returns {Promise<{success: boolean, embeddings: Array, faceImages: Array, errors?: Array}>}
    */
-  async registerUserFace(userId, imageFiles) {
+  async registerUserFace(userId, imageFiles, livenessData = null) {
     // Declare variables outside try block for cleanup in catch
     let uploadedPublicIds = [];
-    
+
     try {
       // Validate image count (from centralized config)
       const MIN_IMAGES = FACE_RECOGNITION_CONFIG.MIN_REGISTRATION_IMAGES;
@@ -143,6 +158,22 @@ export class FaceService {
         });
       }
 
+      // Append liveness verification data if provided
+      if (livenessData) {
+        if (livenessData.liveness_success !== undefined) {
+          formData.append("liveness_success", livenessData.liveness_success.toString());
+        }
+        if (livenessData.liveness_passed !== undefined) {
+          formData.append("liveness_passed", livenessData.liveness_passed.toString());
+        }
+        if (livenessData.liveness_confidence !== undefined) {
+          formData.append("liveness_confidence", livenessData.liveness_confidence.toString());
+        }
+        if (livenessData.liveness_challenge !== undefined) {
+          formData.append("liveness_challenge", livenessData.liveness_challenge);
+        }
+      }
+
       // Call AI service
       let aiResponse;
       try {
@@ -170,18 +201,18 @@ export class FaceService {
                 throw new AIServiceError(errorMessage, errorCode, errorDetails);
             }
           }
-          
+
           // Handle timeout errors
           if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
             throw new AIServiceTimeoutError();
           }
-          
+
           // Handle connection errors
           if (error.code === "ECONNREFUSED" || error.message.includes("circuit breaker") || error.message.includes("unavailable")) {
             throw new AIServiceUnavailableError();
           }
         }
-        
+
         // Re-throw if not handled
         throw error;
       }
@@ -196,7 +227,7 @@ export class FaceService {
             console.error("Failed to cleanup uploaded images after AI validation failure:", cleanupError);
           }
         }
-        
+
         // Categorize error from AI service
         const errorCode = aiResponse.data.error_code || "AI_SERVICE_ERROR";
         const errorMessage = aiResponse.data.error || aiResponse.data.detail || "Face registration failed";
@@ -218,7 +249,7 @@ export class FaceService {
 
       // Extract embeddings from response
       const embeddings = aiResponse.data.faces.map((face) => face.embedding);
-      
+
       // Validate minimum valid faces count (Comment 3)
       const validFacesCount = embeddings.length;
       if (validFacesCount < MIN_IMAGES) {
@@ -230,7 +261,7 @@ export class FaceService {
             console.error("Failed to cleanup uploaded images after validation failure:", cleanupError);
           }
         }
-        
+
         throw new AIServiceError(
           `Registration failed: Only ${validFacesCount} valid face(s) detected, but minimum ${MIN_IMAGES} required.`,
           "VALIDATION_ERROR",
@@ -254,10 +285,10 @@ export class FaceService {
         faceImagePublicIds: uploadedPublicIds,
         lastVerifiedAt: null,
       };
-      
+
       // Save user data
       await user.save();
-      
+
       // Clean up old images after successful save
       if (oldPublicIds.length > 0) {
         try {
@@ -298,7 +329,7 @@ export class FaceService {
           console.error("Failed to cleanup uploaded images after registration failure:", cleanupError);
         }
       }
-      
+
       // Log error
       await logActivityWithoutRequest({
         userId,
@@ -372,23 +403,25 @@ export class FaceService {
                 throw new MultipleFacesError(errorMessage, errorDetails);
               case "POOR_IMAGE_QUALITY":
                 throw new PoorImageQualityError(errorMessage, errorDetails);
+              case "SPOOF_DETECTED":
+                throw new SpoofDetectedError(errorMessage, errorDetails);
               case "AI_SERVICE_ERROR":
               default:
                 throw new AIServiceError(errorMessage, errorCode, errorDetails);
             }
           }
-          
+
           // Handle timeout errors
           if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
             throw new AIServiceTimeoutError();
           }
-          
+
           // Handle connection errors
           if (error.code === "ECONNREFUSED" || error.message.includes("circuit breaker") || error.message.includes("unavailable")) {
             throw new AIServiceUnavailableError();
           }
         }
-        
+
         // Re-throw if not handled
         throw error;
       }
@@ -408,6 +441,8 @@ export class FaceService {
             throw new MultipleFacesError(errorMessage, errorDetails);
           case "POOR_IMAGE_QUALITY":
             throw new PoorImageQualityError(errorMessage, errorDetails);
+          case "SPOOF_DETECTED":
+            throw new SpoofDetectedError(errorMessage, errorDetails);
           case "AI_SERVICE_ERROR":
           default:
             throw new AIServiceError(errorMessage, errorCode, errorDetails);
@@ -436,7 +471,8 @@ export class FaceService {
         error instanceof PoorImageQualityError ||
         error instanceof FaceVerificationFailedError ||
         error instanceof AIServiceTimeoutError ||
-        error instanceof AIServiceError
+        error instanceof AIServiceError ||
+        error instanceof SpoofDetectedError
       ) {
         throw error;
       }
@@ -451,9 +487,14 @@ export class FaceService {
    * @param {string} userId - User ID
    * @param {Array<Express.Multer.File>} newImageFiles - New image files
    * @param {string} mode - 'replace' | 'append' | 'refresh'
+   * @param {Object} livenessData - Optional liveness verification data
+   * @param {boolean} livenessData.liveness_success - Whether liveness check succeeded
+   * @param {boolean} livenessData.liveness_passed - Whether liveness check passed
+   * @param {number} livenessData.liveness_confidence - Liveness check confidence score
+   * @param {string} livenessData.liveness_challenge - Liveness challenge type
    * @returns {Promise<{success: boolean, embeddings: Array, faceImages: Array}>}
    */
-  async updateUserFace(userId, newImageFiles, mode = "replace") {
+  async updateUserFace(userId, newImageFiles, mode = "replace", livenessData = null) {
     try {
       const user = await UserModel.findById(userId);
       if (!user) {
@@ -462,7 +503,7 @@ export class FaceService {
 
       if (mode === "replace") {
         // Delete old embeddings and register new ones
-        return await this.registerUserFace(userId, newImageFiles);
+        return await this.registerUserFace(userId, newImageFiles, livenessData);
       } else if (mode === "append") {
         // Add new embeddings to existing set
         const MAX_EMBEDDINGS = 15;
@@ -500,6 +541,22 @@ export class FaceService {
             filename: file.originalname || "face.jpg",
             contentType: file.mimetype || "image/jpeg",
           });
+        }
+
+        // Append liveness verification data if provided
+        if (livenessData) {
+          if (livenessData.liveness_success !== undefined) {
+            formData.append("liveness_success", livenessData.liveness_success.toString());
+          }
+          if (livenessData.liveness_passed !== undefined) {
+            formData.append("liveness_passed", livenessData.liveness_passed.toString());
+          }
+          if (livenessData.liveness_confidence !== undefined) {
+            formData.append("liveness_confidence", livenessData.liveness_confidence.toString());
+          }
+          if (livenessData.liveness_challenge !== undefined) {
+            formData.append("liveness_challenge", livenessData.liveness_challenge);
+          }
         }
 
         try {

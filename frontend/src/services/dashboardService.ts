@@ -34,7 +34,11 @@ export const getDashboardSummary = async (config: AxiosRequestConfig = {}): Prom
       workingDays: null,
     })
   } catch (error) {
-    console.warn('[dashboard] summary unavailable', (error as Error).message)
+    const err = error as Error & { name?: string; code?: string }
+    // Don't log canceled requests
+    if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
+      console.warn('[dashboard] summary unavailable', err.message)
+    }
     return {
       shift: null,
       location: null,
@@ -49,7 +53,11 @@ export const getRecentAttendance = async (config: AxiosRequestConfig = {}): Prom
     if (!Array.isArray(data)) return []
     return data as AttendanceRecord[]
   } catch (error) {
-    console.warn('[dashboard] recent attendance unavailable', (error as Error).message)
+    const err = error as Error & { name?: string; code?: string }
+    // Don't log canceled requests
+    if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
+      console.warn('[dashboard] recent attendance unavailable', err.message)
+    }
     return []
   }
 }
@@ -62,7 +70,11 @@ export const getPendingActions = async (config: AxiosRequestConfig = {}): Promis
       hasUnreadNotifications: false,
     })
   } catch (error) {
-    console.warn('[dashboard] pending actions unavailable', (error as Error).message)
+    const err = error as Error & { name?: string; code?: string }
+    // Don't log canceled requests
+    if (err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED' && err?.message !== 'canceled') {
+      console.warn('[dashboard] pending actions unavailable', err.message)
+    }
     return {
       hasPendingRequests: false,
       hasUnreadNotifications: false,

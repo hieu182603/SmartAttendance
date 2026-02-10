@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, AlertCircle, Volume2, VolumeX } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Volume2, VolumeX, Shield, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { faceService } from "@/services/faceService";
@@ -10,6 +10,7 @@ import faceDetectionService, {
   type FacePosition,
 } from "@/services/faceDetectionService";
 import { useFaceValidation } from "@/hooks/useFaceValidation";
+import { useFaceLiveness } from "@/hooks/useFaceLiveness";
 import { CameraPreview, CaptureControls, CapturedGallery, InstructionSidebar } from "../faceRegistration";
 
 // Face registration image limits - must match backend config (FACE_RECOGNITION_CONFIG.MIN/MAX_REGISTRATION_IMAGES)
@@ -77,6 +78,16 @@ const FaceRegistrationPage: React.FC = () => {
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [maskColor, setMaskColor] = useState<"good" | "warning" | "error">("error");
 
+  // Liveness detection state
+  const [showLivenessModal, setShowLivenessModal] = useState(false);
+  const [livenessVerified, setLivenessVerified] = useState(false);
+  const liveness = useFaceLiveness();
+  const livenessImageRef = useRef<HTMLCanvasElement | null>(null);
+
+  // User face registration status
+  const [hasRegisteredFace, setHasRegisteredFace] = useState(false);
+  const [isCheckingFaceStatus, setIsCheckingFaceStatus] = useState(true);
+
   // Auto-capture states
   const [autoCaptureCooldown, setAutoCaptureCooldown] = useState<number>(0);
   const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number>(0);
@@ -103,6 +114,29 @@ const FaceRegistrationPage: React.FC = () => {
 
   // Mobile instructions panel state
   const [showInstructions, setShowInstructions] = useState<boolean>(false);
+
+  // Check user's face registration status on mount
+  useEffect(() => {
+    const checkFaceStatus = async () => {
+      try {
+        const status = await faceService.getFaceStatus();
+        setHasRegisteredFace(status.isRegistered);
+        
+        // If already registered, auto-verify liveness
+        if (status.isRegistered) {
+          setLivenessVerified(true);
+        }
+      } catch (error) {
+        console.error('Failed to check face status:', error);
+        // If error, assume not registered to be safe
+        setHasRegisteredFace(false);
+      } finally {
+        setIsCheckingFaceStatus(false);
+      }
+    };
+
+    checkFaceStatus();
+  }, []);
 
   // Initialize Web Speech API
   useEffect(() => {
@@ -374,7 +408,84 @@ const FaceRegistrationPage: React.FC = () => {
     }
   };
 
-  // Progress management
+  // =========================================================================
+  // Liveness Detection Functions
+  // =========================================================================
+
+  const openLivenessModal = () => {
+    setShowLivenessModal(true);
+    liveness.reset();
+  };
+
+  const closeLivenessModal = () => {
+    setShowLivenessModal(false);
+    liveness.reset();
+  };
+
+  const captureLivenessImage = (): string | null => {
+    if (!videoRef.current || !livenessImageRef.current) return null;
+
+    const video = videoRef.current;
+    const canvas = livenessImageRef.current;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return null;
+
+    // Set canvas size to match video
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    // Draw current video frame to canvas
+    ctx.drawImage(video, 0, 0);
+
+    return canvas.toDataURL('image/jpeg', 0.8);
+  };
+
+  const handleStartLivenessCheck = async () => {
+    const success = await liveness.startLivenessCheck();
+    if (success && liveness.challenge) {
+      speakMessage(liveness.getInstruction(liveness.challenge.type));
+    }
+  };
+
+  const handleCaptureBaseline = async () => {
+    const imageDataUrl = captureLivenessImage();
+    if (imageDataUrl) {
+      const success = await liveness.captureBaseline(imageDataUrl);
+      if (success) {
+        speakMessage(liveness.getInstruction(liveness.challenge?.type || 'turn_left'));
+      }
+    }
+  };
+
+  const handleVerifyChallenge = async () => {
+    const imageDataUrl = captureLivenessImage();
+    if (imageDataUrl) {
+      const result = await liveness.verifyChallenge(imageDataUrl);
+      if (result?.passed) {
+        setLivenessVerified(true);
+        toast.success('Xác thực khuôn mặt thành công! ✅');
+        speakMessage('Xác thực thành công. Bạn có thể tiếp tục đăng ký.');
+        setTimeout(() => {
+          setShowLivenessModal(false);
+        }, 1500);
+      } else {
+        toast.error(result?.error_message || 'Xác thực thất bại. Vui lòng thử lại.');
+        speakMessage('Xác thực thất bại. Vui lòng thử lại.');
+      }
+    }
+  };
+
+  const handleRetryLiveness = async () => {
+    liveness.reset();
+    await handleStartLivenessCheck();
+  };
+
+  // =========================================================================
+  // Progress Management
+  // =========================================================================
   const resetProgress = useCallback(() => {
     setProgress(0);
     setCurrentStep("detecting");
@@ -1059,6 +1170,12 @@ const FaceRegistrationPage: React.FC = () => {
   const handleAutoCapture = useCallback(async () => {
     console.log('Auto-capture triggered!');
 
+    // ✅ BẮT BUỘC khi đăng ký lần đầu: Phải xác thực liveness trước
+    if (!hasRegisteredFace && !livenessVerified) {
+      console.log('Auto-capture skipped: liveness not verified for new registration');
+      return;
+    }
+
     if (isCapturing) {
       console.log('Already capturing, skipping auto-capture');
       return;
@@ -1131,9 +1248,17 @@ const FaceRegistrationPage: React.FC = () => {
       toast.warning(t("dashboard:faceRegistration.errors.autoCaptureFailed"));
     }
     setIsCapturing(false);
-  }, [isCapturing, capturePhoto, resetProgress, stopProgressTracking, speakMessage, validateCapturedImage, getValidationErrors, faceQuality]);
+  }, [isCapturing, capturePhoto, resetProgress, stopProgressTracking, speakMessage, validateCapturedImage, getValidationErrors, faceQuality, livenessVerified, hasRegisteredFace]);
 
   const handleCapture = async () => {
+    // ✅ BẮT BUỘC khi đăng ký lần đầu: Phải xác thực liveness trước
+    if (!hasRegisteredFace && !livenessVerified) {
+      toast.error('Vui lòng xác thực khuôn mặt trước khi chụp ảnh');
+      speakMessage('Vui lòng xác thực khuôn mặt trước.');
+      openLivenessModal();
+      return;
+    }
+
     if (capturedImages.length >= MAX_IMAGES) {
       toast.warning(t("dashboard:faceRegistration.errors.maxImagesReached", { max: MAX_IMAGES }));
       return;
@@ -1309,7 +1434,9 @@ const FaceRegistrationPage: React.FC = () => {
     console.debug('Auto-capture conditions:', debugInfo);
 
     // Check if all conditions are met for auto-capture
+    // ✅ Only require liveness for NEW registrations (not yet registered)
     const isAllConditionsMet = (
+      (hasRegisteredFace || livenessVerified) &&
       detectionStatus === "good" &&
       faceQuality?.isGoodQuality &&
       faceQuality?.score !== undefined &&
@@ -1357,7 +1484,9 @@ const FaceRegistrationPage: React.FC = () => {
     consecutiveGoodFrames,
     isAutoCapturing,
     speakMessage,
-    t
+    t,
+    livenessVerified,
+    hasRegisteredFace // ✅ Added for registration check
   ]);
 
 
@@ -1388,8 +1517,14 @@ const FaceRegistrationPage: React.FC = () => {
 
   // Memoized calculations for performance
   const canCapture = useMemo(() =>
-    Boolean(faceQuality?.isGoodQuality) && !multipleFaces && cameraReady && modelReady && !modelError && progress >= 100,
-    [faceQuality?.isGoodQuality, multipleFaces, cameraReady, modelReady, modelError, progress]
+    Boolean(faceQuality?.isGoodQuality) && 
+    !multipleFaces && 
+    cameraReady && 
+    modelReady && 
+    !modelError && 
+    progress >= 100 &&
+    (hasRegisteredFace || livenessVerified), // ✅ Chỉ cần verify khi chưa đăng ký
+    [faceQuality?.isGoodQuality, multipleFaces, cameraReady, modelReady, modelError, progress, livenessVerified, hasRegisteredFace]
   );
 
   // Keyboard shortcuts
@@ -1458,6 +1593,14 @@ const FaceRegistrationPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    // Check liveness verification first (only for new registrations)
+    if (!hasRegisteredFace && !livenessVerified) {
+      toast.error('Vui lòng xác thực khuôn mặt trước khi đăng ký');
+      speakMessage('Vui lòng xác thực khuôn mặt trước.');
+      openLivenessModal();
+      return;
+    }
+
     // Count qualifying images (those with quality score >= MIN_QUALITY_SCORE)
     const qualifyingImages = capturedImages.filter(
       (img) => img.qualityScore >= MIN_QUALITY_SCORE
@@ -1510,7 +1653,15 @@ const FaceRegistrationPage: React.FC = () => {
           validationScore: imageSetValidation.averageScore,
         }));
 
-        await faceService.registerFace(files, metadata);
+        // Prepare liveness result
+        const livenessResult = liveness.result ? {
+          success: liveness.result.success,
+          passed: liveness.result.passed,
+          confidence: liveness.result.confidence,
+          challenge: liveness.result.challenge,
+        } : undefined;
+
+        await faceService.registerFace(files, metadata, livenessResult);
         toast.success(t("dashboard:faceRegistration.success.registrationSuccess"));
         navigate(-1);
       } catch (error: any) {
@@ -1598,10 +1749,44 @@ const FaceRegistrationPage: React.FC = () => {
           <div>
             <h1 className="text-xl font-bold text-cyan-400">{t("dashboard:faceRegistration.title")}</h1>
             <p className="text-sm text-gray-400">
-              {t("dashboard:faceRegistration.description", { min: MIN_IMAGES, max: MAX_IMAGES })}
+              {hasRegisteredFace 
+                ? "Bạn đã đăng ký khuôn mặt. Có thể chụp thêm ảnh mới."
+                : t("dashboard:faceRegistration.description", { min: MIN_IMAGES, max: MAX_IMAGES })
+              }
+              {!hasRegisteredFace && !livenessVerified && <span className="text-yellow-500 ml-2">• Cần xác thực khuôn mặt trước</span>}
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Face Registration Status */}
+            {isCheckingFaceStatus ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-500/20 border border-gray-500/50 rounded-lg">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                <span className="text-sm text-gray-400">Đang kiểm tra...</span>
+              </div>
+            ) : hasRegisteredFace ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 text-blue-500" />
+                <span className="text-sm text-blue-400">Đã đăng ký khuôn mặt</span>
+              </div>
+            ) : livenessVerified ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 border border-green-500/50 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <span className="text-sm text-green-400">Đã xác thực</span>
+              </div>
+            ) : (
+              <Button
+                onClick={openLivenessModal}
+                disabled={liveness.isLoading}
+                className="border-yellow-500 text-yellow-400 hover:bg-yellow-500/10 hover:border-yellow-400 transition-all duration-200 px-4 bg-yellow-500/10"
+              >
+                {liveness.isLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Shield className="h-4 w-4 mr-2" />
+                )}
+                Xác Thực Khuôn Mặt *
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => navigate(-1)}
@@ -1748,6 +1933,23 @@ const FaceRegistrationPage: React.FC = () => {
                   </div>
 
                   <div className="mt-4">
+                    {/* ⚠️ Warning: Liveness required - Only show for NEW registrations */}
+                    {!hasRegisteredFace && !livenessVerified && (
+                      <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <Shield className="h-5 w-5 text-yellow-500 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-yellow-400">
+                              Cần xác thực khuôn mặt trước
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              Nhấn nút "Xác Thực Khuôn Mặt *" ở trên để hoàn tất xác thực
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     <CaptureControls
                       canCapture={canCapture}
                       isCapturing={isCapturing}
@@ -1790,6 +1992,199 @@ const FaceRegistrationPage: React.FC = () => {
             </Button>
           )}
         </div>
+
+        {/* ========================================================================= */}
+        {/* Liveness Detection Modal */}
+        {/* ========================================================================= */}
+        {showLivenessModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md overflow-hidden">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Shield className="h-5 w-5 text-cyan-400" />
+                  <h3 className="text-lg font-semibold text-white">Xác Thực Khuôn Mặt</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={closeLivenessModal}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </Button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6">
+                {/* Hidden canvas for capturing liveness images */}
+                <canvas ref={livenessImageRef} className="hidden" />
+
+                {/* Step 1: Start Liveness Check */}
+                {liveness.step === 'idle' && (
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-cyan-500/20 rounded-full flex items-center justify-center">
+                      <Shield className="h-8 w-8 text-cyan-400" />
+                    </div>
+                    <h4 className="text-lg font-medium text-white mb-2">Xác Thực Khuôn Mặt</h4>
+                    <p className="text-gray-400 mb-6">
+                      Để đảm bảo an toàn, vui lòng hoàn tất xác thực khuôn mặt bằng cách thực hiện một hành động đơn giản.
+                    </p>
+                    <Button
+                      onClick={handleStartLivenessCheck}
+                      disabled={liveness.isLoading}
+                      className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+                    >
+                      {liveness.isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Đang khởi tạo...
+                        </>
+                      ) : (
+                        <>
+                          Bắt Đầu Xác Thực
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Step 2: Capture Baseline */}
+                {liveness.step === 'started' && liveness.challenge && (
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                      <span className="text-2xl">📸</span>
+                    </div>
+                    <h4 className="text-lg font-medium text-white mb-2">
+                      Bước 1/2: Chụp Ảnh Mặt Thẳng
+                    </h4>
+                    <p className="text-gray-400 mb-2">
+                      {liveness.challenge.instruction}
+                    </p>
+                    <p className="text-sm text-gray-500 mb-6">
+                      Giữ mặt thẳng vào camera, nhìn vào ống kính
+                    </p>
+                    <Button
+                      onClick={handleCaptureBaseline}
+                      disabled={liveness.isLoading || detectionStatus !== 'good'}
+                      className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+                    >
+                      {liveness.isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        'Chụp Ảnh Baseline'
+                      )}
+                    </Button>
+                    {detectionStatus !== 'good' && (
+                      <p className="text-sm text-yellow-500 mt-2">
+                        Vui lòng đưa mặt vào khung hình và giữ ổn định
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 3: Verify Challenge */}
+                {liveness.step === 'baseline_captured' && liveness.challenge && (
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
+                      <span className="text-2xl">🎯</span>
+                    </div>
+                    <h4 className="text-lg font-medium text-white mb-2">
+                      Bước 2/2: Thực Hiện Hành Động
+                    </h4>
+                    <p className="text-2xl font-bold text-cyan-400 mb-2">
+                      {liveness.challenge.instruction}
+                    </p>
+                    <p className="text-sm text-gray-500 mb-6">
+                      Sau khi thực hiện xong, hãy chụp ảnh
+                    </p>
+                    <Button
+                      onClick={handleVerifyChallenge}
+                      disabled={liveness.isLoading || detectionStatus !== 'good'}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                    >
+                      {liveness.isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Đang xác minh...
+                        </>
+                      ) : (
+                        'Xác Minh'
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Step 4: Result */}
+                {liveness.step === 'verified' && liveness.result && (
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
+                      <CheckCircle2 className="h-8 w-8 text-green-500" />
+                    </div>
+                    <h4 className="text-lg font-medium text-white mb-2">Xác Thực Thành Công!</h4>
+                    <p className="text-gray-400 mb-4">
+                      Độ tin cậy: {(liveness.result.confidence * 100).toFixed(0)}%
+                    </p>
+                    <Button
+                      onClick={closeLivenessModal}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                    >
+                      Tiếp Tục Đăng Ký
+                    </Button>
+                  </div>
+                )}
+
+                {/* Step 5: Failed */}
+                {liveness.step === 'failed' && (
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
+                      <AlertCircle className="h-8 w-8 text-red-500" />
+                    </div>
+                    <h4 className="text-lg font-medium text-white mb-2">Xác Thực Thất Bại</h4>
+                    <p className="text-gray-400 mb-4">
+                      {liveness.error || 'Vui lòng thử lại'}
+                    </p>
+                    {liveness.retryCount < 3 ? (
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={closeLivenessModal}
+                          className="flex-1"
+                        >
+                          Hủy
+                        </Button>
+                        <Button
+                          onClick={handleRetryLiveness}
+                          disabled={liveness.isLoading}
+                          className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+                        >
+                          {liveness.isLoading ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : null}
+                          Thử Lại
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-yellow-500 mb-4">Bạn đã thử quá nhiều lần</p>
+                        <Button
+                          onClick={closeLivenessModal}
+                          className="w-full"
+                        >
+                          Đóng
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

@@ -8,11 +8,13 @@ import {
   Plus,
   Trash2,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Bot
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ChatMessage } from '../ChatMessage';
 import { useChatbot } from '../../../context/ChatbotContext';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const ChatbotPage: React.FC = () => {
   const { t } = useTranslation();
@@ -108,8 +110,8 @@ const ChatbotPage: React.FC = () => {
                 <div
                   key={conversation.id}
                   className={`p-3 rounded-lg mb-2 cursor-pointer transition-colors ${currentConversation?.id === conversation.id
-                      ? 'bg-blue-50 border-blue-200'
-                      : 'hover:bg-gray-50'
+                    ? 'bg-blue-50 border-blue-200'
+                    : 'hover:bg-gray-50'
                     } border`}
                   onClick={() => loadConversation(conversation)}
                 >
@@ -196,13 +198,29 @@ const ChatbotPage: React.FC = () => {
                 />
               ))}
               {isLoading && (
-                <div className="flex justify-start mb-4">
-                  <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm text-gray-600">
-                        {t('chatbot.typing', 'AI is thinking...')}
+                <div className="flex justify-start mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex gap-3 max-w-[85%] sm:max-w-[70%] items-start">
+                    <Avatar className="w-10 h-10 shadow-sm border border-blue-100">
+                      <AvatarFallback className="bg-blue-600 text-white">
+                        <Bot className="w-5 h-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start">
+                      <span className="text-xs font-medium text-gray-500 mb-1 ml-1 flex items-center gap-1">
+                        SmartBot <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
                       </span>
+                      <div className="bg-white border border-gray-100 rounded-lg rounded-tl-none p-4 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="flex gap-1">
+                            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-bounce"></span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-500 italic">
+                            SmartBot is thinking...
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

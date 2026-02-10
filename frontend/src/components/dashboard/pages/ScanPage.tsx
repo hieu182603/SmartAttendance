@@ -209,6 +209,7 @@ const ScanPage: React.FC = () => {
   // ==========================================================================
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const permissionListenerRef = useRef<boolean>(false);
 
   // ==========================================================================
   // COMPUTED VALUES
@@ -341,24 +342,91 @@ const ScanPage: React.FC = () => {
   );
 
   const getLocation = useCallback(async () => {
+    // Kiểm tra xem geolocation API có sẵn không
+    if (!navigator.geolocation) {
+      const errorMessage = t("dashboard:scan.errors.locationNotSupported", {
+        defaultValue: "Trình duyệt của bạn không hỗ trợ định vị. Vui lòng sử dụng trình duyệt khác.",
+      });
+      setLocationError(errorMessage);
+      setPermissions((prev) => ({ ...prev, location: false }));
+      toast.error(errorMessage);
+      return;
+    }
+
+    // Kiểm tra permission status nếu Permissions API có sẵn
+    if (navigator.permissions && navigator.permissions.query && !permissionListenerRef.current) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+        
+        if (permissionStatus.state === "denied") {
+          const errorMessage = t("dashboard:scan.errors.locationPermissionDenied", {
+            defaultValue: "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt.",
+          });
+          setLocationError(errorMessage);
+          setPermissions((prev) => ({ ...prev, location: false }));
+          toast.error(errorMessage);
+          return;
+        }
+
+        // Chỉ setup listener một lần
+        if (!permissionListenerRef.current) {
+          permissionListenerRef.current = true;
+          // Lắng nghe thay đổi permission
+          permissionStatus.onchange = () => {
+            if (permissionStatus.state === "granted") {
+              // Tự động retry khi permission được cấp
+              // Sử dụng setTimeout để tránh gọi ngay lập tức
+              setTimeout(() => {
+                getLocation();
+              }, 500);
+            } else if (permissionStatus.state === "denied") {
+              setPermissions((prev) => ({ ...prev, location: false }));
+              const errorMessage = t("dashboard:scan.errors.locationPermissionDenied", {
+                defaultValue: "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt.",
+              });
+              setLocationError(errorMessage);
+            }
+          };
+        }
+      } catch (permError) {
+        // Permissions API có thể không hỗ trợ hoặc bị lỗi, tiếp tục thử getCurrentPosition
+        console.warn("Permissions API not available, falling back to getCurrentPosition:", permError);
+      }
+    }
+
     setState((prev) => ({ ...prev, locationLoading: true }));
     setLocationError(null);
 
     try {
       const position = await new Promise<GeolocationPosition>(
         (resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: LOCATION_TIMEOUT,
-            maximumAge: 0,
-          });
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            {
+              enableHighAccuracy: true,
+              timeout: LOCATION_TIMEOUT,
+              // Cho phép sử dụng cache trong 5 phút để tránh phải lấy vị trí mới mỗi lần
+              maximumAge: 5 * 60 * 1000, // 5 phút
+            }
+          );
         }
       );
+
+      // Validate coordinates
+      if (
+        typeof position.coords.latitude !== "number" ||
+        typeof position.coords.longitude !== "number" ||
+        isNaN(position.coords.latitude) ||
+        isNaN(position.coords.longitude)
+      ) {
+        throw new Error("Invalid location coordinates");
+      }
 
       const location: LocationData = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
+        accuracy: position.coords.accuracy || 0,
       };
 
       const nearest = findNearestOffice(location.latitude, location.longitude);
@@ -369,12 +437,50 @@ const ScanPage: React.FC = () => {
 
       setLocationData(location);
       setPermissions((prev) => ({ ...prev, location: true }));
+      // Clear any previous errors on success
+      setLocationError(null);
     } catch (error: any) {
-      console.error("Error getting location:", error);
-      const errorMessage = getLocationErrorMessage(error.code || 0, t);
+      // Xử lý các loại lỗi khác nhau
+      const errorCode = error.code || 0;
+      
+      // Log tất cả lỗi để debug (trừ permission denied đã được xử lý ở trên)
+      if (errorCode !== 1) {
+        console.error("Error getting location:", error);
+      }
+
+      let errorMessage: string;
+      
+      switch (errorCode) {
+        case 1: // PERMISSION_DENIED
+          errorMessage = t("dashboard:scan.errors.locationPermissionDenied", {
+            defaultValue: "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt.",
+          });
+          setPermissions((prev) => ({ ...prev, location: false }));
+          // Không hiển thị toast cho permission denied để tránh spam
+          break;
+        case 2: // POSITION_UNAVAILABLE
+          errorMessage = t("dashboard:scan.errors.locationUnavailable", {
+            defaultValue: "Không thể lấy vị trí. Vui lòng kiểm tra GPS và thử lại.",
+          });
+          setPermissions((prev) => ({ ...prev, location: false }));
+          toast.error(errorMessage);
+          break;
+        case 3: // TIMEOUT
+          errorMessage = t("dashboard:scan.errors.locationTimeout", {
+            defaultValue: "Hết thời gian chờ lấy vị trí. Vui lòng thử lại.",
+          });
+          setPermissions((prev) => ({ ...prev, location: false }));
+          toast.error(errorMessage);
+          break;
+        default:
+          errorMessage = t("dashboard:scan.errors.locationGeneric", {
+            defaultValue: "Lỗi khi lấy vị trí. Vui lòng thử lại.",
+          });
+          setPermissions((prev) => ({ ...prev, location: false }));
+          toast.error(errorMessage);
+      }
+      
       setLocationError(errorMessage);
-      setPermissions((prev) => ({ ...prev, location: false }));
-      toast.error(errorMessage);
     } finally {
       setState((prev) => ({ ...prev, locationLoading: false }));
     }
@@ -686,7 +792,8 @@ const ScanPage: React.FC = () => {
     if (offices.length > 0) {
       getLocation();
     }
-  }, [offices.length, getLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offices.length]); // Chỉ gọi lại khi offices được load, không phụ thuộc vào getLocation để tránh vòng lặp
 
   useEffect(() => {
     let lastCheckDate = new Date().toDateString();
