@@ -17,8 +17,6 @@ interface CameraPreviewProps {
   showFlash: boolean;
   showSuccessAnimation: boolean;
   showMilestoneCelebration: boolean;
-  isAutoCapturing: boolean;
-  autoCaptureCountdown: number;
   onVideoRef: (ref: HTMLVideoElement | null) => void;
   onCanvasRef: (ref: HTMLCanvasElement | null) => void;
   onRetry: () => void;
@@ -45,8 +43,6 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
   showFlash,
   showSuccessAnimation,
   showMilestoneCelebration,
-  isAutoCapturing,
-  autoCaptureCountdown,
   onVideoRef,
   onCanvasRef,
   onRetry,
@@ -64,12 +60,11 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
     if (modelError) return 'error';
     if (cameraError && !cameraReady) return 'error';
     if (!cameraReady || modelLoading) return 'loading';
-    if (isAutoCapturing) return 'countdown';
     if (showSuccessAnimation) return 'success';
     if (showMilestoneCelebration) return 'milestone';
     if (showFlash) return 'flash';
     return 'none';
-  }, [modelError, cameraError, cameraReady, modelLoading, isAutoCapturing, showSuccessAnimation, showMilestoneCelebration, showFlash]);
+  }, [modelError, cameraError, cameraReady, modelLoading, showSuccessAnimation, showMilestoneCelebration, showFlash]);
 
   const getStatusColor = (status: FaceDetectionStatus): string => {
     switch (status) {
@@ -86,7 +81,7 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
   };
 
   return (
-    <div className="relative rounded-xl overflow-hidden bg-black aspect-video shadow-2xl">
+    <div className="relative rounded-xl overflow-hidden bg-black aspect-video min-h-[60vh] md:min-h-0 shadow-2xl">
       <video
         ref={videoRef}
         autoPlay
@@ -107,34 +102,8 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
 
       {/* Success and milestone effects removed per request */}
 
-      {overlayState === 'countdown' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50">
-          <div className="text-center">
-            <div className="w-24 h-24 mx-auto mb-4 relative">
-              <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
-                <circle
-                  cx="50" cy="50" r="45"
-                  stroke="currentColor" strokeWidth="8" fill="transparent"
-                  className="text-gray-600"
-                />
-                <circle
-                  cx="50" cy="50" r="45"
-                  stroke="currentColor" strokeWidth="8" fill="transparent"
-                  strokeDasharray={`${2 * Math.PI * 45}`}
-                  strokeDashoffset={`${2 * Math.PI * 45 * (1 - autoCaptureCountdown / 3)}`}
-                  className="text-cyan-500 transition-all duration-1000 ease-linear"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-4xl font-bold text-white animate-pulse">
-                  {autoCaptureCountdown}
-                </span>
-              </div>
-            </div>
-            <p className="text-lg text-cyan-400 font-medium">Auto capturing...</p>
-          </div>
-        </div>
-      )}
+      {/* Auto-capture countdown overlay removed - manual capture only */}
+
 
       {overlayState === 'loading' && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/95 text-white z-50">
@@ -185,11 +154,10 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
 
       {/* Status indicator */}
       {faceQuality && (
-        <div className={`absolute top-6 right-6 px-4 py-2 rounded-lg backdrop-blur-sm transition-all duration-500 ${
-          maskColor === "good" ? "bg-green-500/20 border border-green-500/50 text-green-400" :
+        <div className={`absolute top-6 right-6 px-4 py-2 rounded-lg backdrop-blur-sm transition-all duration-500 ${maskColor === "good" ? "bg-green-500/20 border border-green-500/50 text-green-400" :
           maskColor === "warning" ? "bg-amber-500/20 border border-amber-500/50 text-amber-400" :
-          "bg-red-500/20 border border-red-500/50 text-red-400"
-        }`}>
+            "bg-red-500/20 border border-red-500/50 text-red-400"
+          }`}>
           <div className="flex items-center gap-2 text-sm font-medium">
             {maskColor === "good" && <CheckCircle2 className="h-4 w-4" />}
             {(maskColor === "warning" || maskColor === "error") && <AlertCircle className="h-4 w-4" />}
@@ -208,19 +176,17 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
           <div className="flex items-center gap-2">
             <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
               <div
-                className={`h-full transition-all duration-300 ${
-                  faceQuality.score >= 0.8 ? 'bg-gradient-to-r from-green-500 to-green-400' :
+                className={`h-full transition-all duration-300 ${faceQuality.score >= 0.8 ? 'bg-gradient-to-r from-green-500 to-green-400' :
                   faceQuality.score >= 0.7 ? 'bg-gradient-to-r from-amber-500 to-amber-400' :
-                  'bg-gradient-to-r from-red-500 to-red-400'
-                }`}
+                    'bg-gradient-to-r from-red-500 to-red-400'
+                  }`}
                 style={{ width: `${faceQuality.score * 100}%` }}
               ></div>
             </div>
-            <span className={`text-xs font-bold ${
-              faceQuality.score >= 0.8 ? 'text-green-400' :
+            <span className={`text-xs font-bold ${faceQuality.score >= 0.8 ? 'text-green-400' :
               faceQuality.score >= 0.7 ? 'text-amber-400' :
-              'text-red-400'
-            }`}>
+                'text-red-400'
+              }`}>
               {Math.round(faceQuality.score * 100)}%
             </span>
           </div>

@@ -17,7 +17,7 @@ face_service = FaceService()
 
 # Get minimum/maximum images from environment
 MIN_IMAGES = int(os.getenv("MIN_REGISTRATION_IMAGES", "5"))
-MAX_IMAGES = int(os.getenv("MAX_REGISTRATION_IMAGES", "10"))
+MAX_IMAGES = int(os.getenv("MAX_REGISTRATION_IMAGES", "5"))
 
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):

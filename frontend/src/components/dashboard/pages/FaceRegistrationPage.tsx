@@ -15,9 +15,18 @@ import { CameraPreview, CaptureControls, CapturedGallery, InstructionSidebar } f
 
 // Face registration image limits - must match backend config (FACE_RECOGNITION_CONFIG.MIN/MAX_REGISTRATION_IMAGES)
 // These values should be kept in sync with backend/src/config/app.config.js
-const MIN_IMAGES = Number(import.meta.env.VITE_MIN_REGISTRATION_IMAGES) || 5;
-const MAX_IMAGES = Number(import.meta.env.VITE_MAX_REGISTRATION_IMAGES) || 10;
+const MIN_IMAGES = 5;
+const MAX_IMAGES = 5;
 const MIN_QUALITY_SCORE = 0.7; // Minimum quality score threshold
+
+// Hướng dẫn chụp 5 ảnh theo các góc độ khác nhau
+const CAPTURE_INSTRUCTIONS = [
+  { title: "Ảnh 1: Nhìn thẳng", description: "Nhìn thẳng vào camera, giữ đầu thẳng", icon: "👤" },
+  { title: "Ảnh 2: Quay trái", description: "Quay đầu sang bên trái khoảng 30°", icon: "◀️" },
+  { title: "Ảnh 3: Quay phải", description: "Quay đầu sang bên phải khoảng 30°", icon: "▶️" },
+  { title: "Ảnh 4: Ngước lên", description: "Ngước đầu lên trên một chút", icon: "🔼" },
+  { title: "Ảnh 5: Cúi xuống", description: "Cúi đầu xuống một chút", icon: "🔽" },
+];
 
 type FaceDetectionStatus = "loading" | "detecting" | "good" | "warning" | "error" | "none";
 type ProgressStep = "detecting" | "aligning" | "capturing" | "completed";
@@ -57,8 +66,7 @@ const FaceRegistrationPage: React.FC = () => {
 
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
-  const autoCaptureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasAutoCapturedRef = useRef<boolean>(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [modelLoading, setModelLoading] = useState(true);
@@ -88,12 +96,7 @@ const FaceRegistrationPage: React.FC = () => {
   const [hasRegisteredFace, setHasRegisteredFace] = useState(false);
   const [isCheckingFaceStatus, setIsCheckingFaceStatus] = useState(true);
 
-  // Auto-capture states
-  const [autoCaptureCooldown, setAutoCaptureCooldown] = useState<number>(0);
-  const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number>(0);
-  const [isAutoCapturing, setIsAutoCapturing] = useState<boolean>(false);
-  const [consecutiveGoodFrames, setConsecutiveGoodFrames] = useState<number>(0);
-  const previousImageCountRef = useRef<number>(0); // Track previous image count to detect increases
+  // Manual capture only - no auto-capture states needed
 
   // Gallery interaction states
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -121,7 +124,7 @@ const FaceRegistrationPage: React.FC = () => {
       try {
         const status = await faceService.getFaceStatus();
         setHasRegisteredFace(status.isRegistered);
-        
+
         // If already registered, auto-verify liveness
         if (status.isRegistered) {
           setLivenessVerified(true);
@@ -221,9 +224,6 @@ const FaceRegistrationPage: React.FC = () => {
       }
 
       // Clear any pending timeouts
-      if (autoCaptureTimeoutRef.current) {
-        clearTimeout(autoCaptureTimeoutRef.current);
-      }
       if (cameraRetryTimeoutRef.current) {
         clearTimeout(cameraRetryTimeoutRef.current);
       }
@@ -490,14 +490,9 @@ const FaceRegistrationPage: React.FC = () => {
     setProgress(0);
     setCurrentStep("detecting");
     currentStepRef.current = "detecting";
-    hasAutoCapturedRef.current = false; // Reset auto-capture flag
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
       progressIntervalRef.current = null;
-    }
-    if (autoCaptureTimeoutRef.current) {
-      clearTimeout(autoCaptureTimeoutRef.current);
-      autoCaptureTimeoutRef.current = null;
     }
   }, []);
 
@@ -508,21 +503,8 @@ const FaceRegistrationPage: React.FC = () => {
     }
   }, []);
 
-  const startAutoCaptureCooldown = useCallback(() => {
-    setAutoCaptureCooldown(3); // 3 second cooldown
+  // Auto-capture cooldown removed - manual capture only
 
-    const cooldownInterval = setInterval(() => {
-      setAutoCaptureCooldown(prev => {
-        if (prev <= 1) {
-          clearInterval(cooldownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(cooldownInterval);
-  }, []);
 
   const increaseProgress = useCallback(() => {
     setProgress((prev) => {
@@ -978,9 +960,6 @@ const FaceRegistrationPage: React.FC = () => {
     ctx.stroke();
 
     ctx.restore();
-
-    // Note: Landmark drawing removed for blazeface compatibility
-    // Blazeface doesn't provide facial keypoints/landmarks
   };
 
   const drawFaceOverlay = (
@@ -1167,88 +1146,7 @@ const FaceRegistrationPage: React.FC = () => {
     };
   }, [cameraReady, faceQuality, faceDetectionConfidence, multipleFaces]);
 
-  const handleAutoCapture = useCallback(async () => {
-    console.log('Auto-capture triggered!');
-
-    // ✅ BẮT BUỘC khi đăng ký lần đầu: Phải xác thực liveness trước
-    if (!hasRegisteredFace && !livenessVerified) {
-      console.log('Auto-capture skipped: liveness not verified for new registration');
-      return;
-    }
-
-    if (isCapturing) {
-      console.log('Already capturing, skipping auto-capture');
-      return;
-    }
-
-    setIsCapturing(true);
-    resetProgress();
-    stopProgressTracking();
-    speakMessage(t("dashboard:faceRegistration.voice.autoCapturing"));
-
-    // Flash effect
-    setShowFlash(true);
-    setTimeout(() => setShowFlash(false), 200);
-
-    const photo = capturePhoto();
-    console.log('Photo captured:', photo ? 'success' : 'failed', {
-      hasPhoto: !!photo,
-      faceQuality: faceQuality,
-      canvasReady: !!canvasRef.current
-    });
-
-    if (photo && canvasRef.current && faceQuality) {
-      try {
-        // Post-capture validation
-        const validation = await validateCapturedImage(
-          photo.dataURL,
-          faceQuality,
-          canvasRef.current
-        );
-
-        console.log('Validation result:', validation);
-
-        if (validation.isValid) {
-          setCapturedImages((prev) => {
-            if (prev.length >= MAX_IMAGES) {
-              console.log('Max images reached, not adding more');
-              return prev;
-            }
-            const newImages = [...prev, photo];
-            setShowSuccessAnimation(true);
-            setTimeout(() => setShowSuccessAnimation(false), 1000);
-
-            // Start cooldown only when image count increases
-            if (newImages.length > previousImageCountRef.current) {
-              startAutoCaptureCooldown();
-              previousImageCountRef.current = newImages.length;
-            }
-
-            toast.success(t("dashboard:faceRegistration.toasts.autoCaptureSuccess", {
-              current: newImages.length,
-              max: MAX_IMAGES,
-              quality: Math.round(validation.score * 100)
-            }));
-            speakMessage(t("dashboard:faceRegistration.voice.captureSuccess", { count: newImages.length }));
-            return newImages;
-          });
-        } else {
-          // Validation failed, show specific error
-          const errorMessages = getValidationErrors(validation.issues);
-          console.log('Validation failed:', errorMessages);
-          toast.warning(errorMessages[0] || t("dashboard:faceRegistration.errors.autoCaptureFailed"));
-          speakMessage(t("dashboard:faceRegistration.voice.lowQuality"));
-        }
-      } catch (error) {
-        console.error('Auto-capture validation error:', error);
-        toast.warning(t("dashboard:faceRegistration.errors.autoCaptureFailed"));
-      }
-    } else {
-      console.log('Auto-capture failed: missing requirements');
-      toast.warning(t("dashboard:faceRegistration.errors.autoCaptureFailed"));
-    }
-    setIsCapturing(false);
-  }, [isCapturing, capturePhoto, resetProgress, stopProgressTracking, speakMessage, validateCapturedImage, getValidationErrors, faceQuality, livenessVerified, hasRegisteredFace]);
+  // Auto-capture removed - manual capture only via handleCapture
 
   const handleCapture = async () => {
     // ✅ BẮT BUỘC khi đăng ký lần đầu: Phải xác thực liveness trước
@@ -1308,18 +1206,24 @@ const FaceRegistrationPage: React.FC = () => {
             setShowSuccessAnimation(true);
             setTimeout(() => setShowSuccessAnimation(false), 1000);
 
-            // Start cooldown only when image count increases
-            if (newImages.length > previousImageCountRef.current) {
-              startAutoCaptureCooldown();
-              previousImageCountRef.current = newImages.length;
-            }
+            // Update currentImageIndex to next step
+            setCurrentImageIndex(newImages.length);
 
             toast.success(t("dashboard:faceRegistration.toasts.captureSuccess", {
               current: newImages.length,
               max: MAX_IMAGES,
               quality: Math.round(validation.score * 100)
             }));
-            speakMessage(t("dashboard:faceRegistration.voice.captureSuccess", { count: newImages.length }));
+
+            // Show next instruction
+            if (newImages.length < MAX_IMAGES) {
+              const nextInstruction = CAPTURE_INSTRUCTIONS[newImages.length];
+              if (nextInstruction) {
+                speakMessage(nextInstruction.title);
+              }
+            } else {
+              speakMessage(t("dashboard:faceRegistration.voice.captureSuccess", { count: newImages.length }));
+            }
 
             return newImages;
           });
@@ -1340,7 +1244,12 @@ const FaceRegistrationPage: React.FC = () => {
   };
 
   const handleRemove = useCallback((index: number) => {
-    setCapturedImages((prev) => prev.filter((_, i) => i !== index));
+    setCapturedImages((prev) => {
+      const newImages = prev.filter((_, i) => i !== index);
+      // Sync currentImageIndex with the new image count
+      setCurrentImageIndex(newImages.length);
+      return newImages;
+    });
   }, []);
 
   // Gallery drag and drop handlers
@@ -1382,128 +1291,8 @@ const FaceRegistrationPage: React.FC = () => {
     setDragOverIndex(null);
   };
 
-  // Auto-capture countdown timer - dedicated effect triggered by isAutoCapturing
-  useEffect(() => {
-    if (isAutoCapturing && autoCaptureCountdown > 0) {
-      const countdownInterval = setInterval(() => {
-        setAutoCaptureCountdown(prev => {
-          if (prev <= 1) {
-            // Countdown finished, trigger capture
-            clearInterval(countdownInterval);
+  // Auto-capture useEffects removed - manual capture only
 
-            // Check if quality is still good before capturing
-            if (detectionStatus === "good" &&
-              faceQuality?.isGoodQuality &&
-              faceQuality?.score !== undefined &&
-              faceQuality.score >= MIN_QUALITY_SCORE &&
-              !multipleFaces) {
-              handleAutoCapture();
-            } else {
-              // Quality dropped, cancel auto-capture
-              setIsAutoCapturing(false);
-              setConsecutiveGoodFrames(0);
-              speakMessage(t("dashboard:faceRegistration.voice.centerFace"));
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(countdownInterval);
-    }
-  }, [isAutoCapturing, autoCaptureCountdown, detectionStatus, faceQuality?.score, multipleFaces, handleAutoCapture, speakMessage]);
-
-  // Auto-capture logic - start countdown when conditions are met
-  useEffect(() => {
-    // Debug logging for auto-capture conditions
-    const debugInfo = {
-      detectionStatus,
-      isGoodQuality: faceQuality?.isGoodQuality,
-      faceQualityScore: faceQuality?.score,
-      minQualityScore: MIN_QUALITY_SCORE,
-      multipleFaces,
-      capturedCount: capturedImages.length,
-      maxImages: MAX_IMAGES,
-      cooldown: autoCaptureCooldown,
-      isCapturing,
-      isAutoCapturing,
-      consecutiveGoodFrames
-    };
-
-    console.debug('Auto-capture conditions:', debugInfo);
-
-    // Check if all conditions are met for auto-capture
-    // ✅ Only require liveness for NEW registrations (not yet registered)
-    const isAllConditionsMet = (
-      (hasRegisteredFace || livenessVerified) &&
-      detectionStatus === "good" &&
-      faceQuality?.isGoodQuality &&
-      faceQuality?.score !== undefined &&
-      faceQuality.score >= MIN_QUALITY_SCORE &&
-      !multipleFaces &&
-      capturedImages.length < MAX_IMAGES &&
-      autoCaptureCooldown === 0 &&
-      !isCapturing &&
-      !isAutoCapturing
-    );
-
-    if (isAllConditionsMet) {
-      // Increment consecutive good frames using functional update and start countdown
-      // only when we cross the threshold to avoid repeatedly resetting the timer.
-      setConsecutiveGoodFrames((prev) => {
-        const next = prev + 1;
-        console.debug(`Consecutive good frames: ${next}/5`);
-
-        if (next >= 5 && !isAutoCapturing) {
-          console.log('Starting auto-capture countdown...');
-          setIsAutoCapturing(true);
-          setAutoCaptureCountdown(3);
-          speakMessage(t("dashboard:faceRegistration.voice.autoCapturing"));
-        }
-        return next;
-      });
-    } else {
-      // Reset consecutive frames if conditions not met
-      if (detectionStatus === "none" ||
-        multipleFaces ||
-        (faceQuality && !faceQuality.isGoodQuality) ||
-        (faceQuality?.score !== undefined && faceQuality.score < MIN_QUALITY_SCORE)) {
-        console.debug('Conditions not met or poor quality, resetting consecutive frames');
-        setConsecutiveGoodFrames(0);
-      }
-    }
-    // Don't reset for "warning" or other temporary issues - allow recovery
-  }, [
-    detectionStatus,
-    faceQuality?.isGoodQuality,
-    multipleFaces,
-    capturedImages.length,
-    autoCaptureCooldown,
-    isCapturing,
-    consecutiveGoodFrames,
-    isAutoCapturing,
-    speakMessage,
-    t,
-    livenessVerified,
-    hasRegisteredFace // ✅ Added for registration check
-  ]);
-
-
-  // Voice feedback for auto-capture countdown
-  useEffect(() => {
-    if (isAutoCapturing && autoCaptureCountdown > 0 && autoCaptureCountdown <= 3) {
-      speakMessage(`${autoCaptureCountdown}`);
-    }
-  }, [autoCaptureCountdown, isAutoCapturing, speakMessage]);
-
-  // Reset auto-capture state when capture is complete
-  useEffect(() => {
-    if (!isCapturing && isAutoCapturing && autoCaptureCountdown === 0) {
-      setIsAutoCapturing(false);
-      setConsecutiveGoodFrames(0);
-    }
-  }, [isCapturing, isAutoCapturing, autoCaptureCountdown]);
 
 
   // Screen reader announcements
@@ -1517,14 +1306,13 @@ const FaceRegistrationPage: React.FC = () => {
 
   // Memoized calculations for performance
   const canCapture = useMemo(() =>
-    Boolean(faceQuality?.isGoodQuality) && 
-    !multipleFaces && 
-    cameraReady && 
-    modelReady && 
-    !modelError && 
-    progress >= 100 &&
+    Boolean(faceQuality?.isGoodQuality) &&
+    !multipleFaces &&
+    cameraReady &&
+    modelReady &&
+    !modelError &&
     (hasRegisteredFace || livenessVerified), // ✅ Chỉ cần verify khi chưa đăng ký
-    [faceQuality?.isGoodQuality, multipleFaces, cameraReady, modelReady, modelError, progress, livenessVerified, hasRegisteredFace]
+    [faceQuality?.isGoodQuality, multipleFaces, cameraReady, modelReady, modelError, livenessVerified, hasRegisteredFace]
   );
 
   // Keyboard shortcuts
@@ -1721,14 +1509,7 @@ const FaceRegistrationPage: React.FC = () => {
   };
 
 
-  // Cleanup auto-capture timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (autoCaptureTimeoutRef.current) {
-        clearTimeout(autoCaptureTimeoutRef.current);
-      }
-    };
-  }, []);
+
 
   // Get current progress step label
   const getCurrentStepLabel = () => {
@@ -1749,11 +1530,10 @@ const FaceRegistrationPage: React.FC = () => {
           <div>
             <h1 className="text-xl font-bold text-cyan-400">{t("dashboard:faceRegistration.title")}</h1>
             <p className="text-sm text-gray-400">
-              {hasRegisteredFace 
+              {hasRegisteredFace
                 ? "Bạn đã đăng ký khuôn mặt. Có thể chụp thêm ảnh mới."
                 : t("dashboard:faceRegistration.description", { min: MIN_IMAGES, max: MAX_IMAGES })
               }
-              {!hasRegisteredFace && !livenessVerified && <span className="text-yellow-500 ml-2">• Cần xác thực khuôn mặt trước</span>}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -1860,8 +1640,6 @@ const FaceRegistrationPage: React.FC = () => {
                       showFlash={showFlash}
                       showSuccessAnimation={showSuccessAnimation}
                       showMilestoneCelebration={showMilestoneCelebration}
-                      isAutoCapturing={isAutoCapturing}
-                      autoCaptureCountdown={autoCaptureCountdown}
                       onVideoRef={(ref) => {
                         (videoRef as any).current = ref;
                       }}
@@ -1933,30 +1711,15 @@ const FaceRegistrationPage: React.FC = () => {
                   </div>
 
                   <div className="mt-4">
-                    {/* ⚠️ Warning: Liveness required - Only show for NEW registrations */}
-                    {!hasRegisteredFace && !livenessVerified && (
-                      <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                        <div className="flex items-start gap-3">
-                          <Shield className="h-5 w-5 text-yellow-500 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-yellow-400">
-                              Cần xác thực khuôn mặt trước
-                            </p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              Nhấn nút "Xác Thực Khuôn Mặt *" ở trên để hoàn tất xác thực
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
                     <CaptureControls
                       canCapture={canCapture}
                       isCapturing={isCapturing}
-                      autoCaptureCooldown={autoCaptureCooldown}
                       capturedImagesLength={capturedImages.length}
                       maxImages={MAX_IMAGES}
                       onCapture={handleCapture}
+                      currentInstruction={CAPTURE_INSTRUCTIONS[currentImageIndex]}
+                      currentStep={currentImageIndex}
+                      totalSteps={MAX_IMAGES}
                     />
                   </div>
                 </div>

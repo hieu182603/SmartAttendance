@@ -181,6 +181,9 @@ export const PAYROLL_RULES = {
         WEEKEND_MULTIPLIER: 2,
         // Hệ số cho ngày lễ
         HOLIDAY_MULTIPLIER: 3,
+        // Giới hạn OT (Điều 107 BLLĐ)
+        MAX_PER_MONTH: 40, // ≤ 40 giờ/tháng
+        MAX_PER_YEAR: 200, // ≤ 200 giờ/năm
         // Công thức: overtimeHours * (baseSalary / (STANDARD_WORK_DAYS * STANDARD_WORK_HOURS_PER_DAY)) * MULTIPLIER
     },
 

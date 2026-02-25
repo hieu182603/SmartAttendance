@@ -2,19 +2,10 @@ import axios, { type InternalAxiosRequestConfig, type AxiosError, type AxiosResp
 
 // Get base URLs from environment variables or use defaults
 const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000'
-// IMPORTANT:
-// - RAG FastAPI routes are mounted under `/api/rag` on the ai-service.
-// - The frontend calls `/rag/...` paths (see `chatbotService.ts`).
-// Therefore `VITE_RAG_SERVICE_URL` MUST include the `/api` prefix so `/rag/...` resolves to `/api/rag/...`.
-// Examples:
-// - Local: http://localhost:8001/api
-// - Fly:   http://<host>:8080/api
-const envRagServiceUrl = import.meta.env.VITE_RAG_SERVICE_URL || 'http://localhost:8001/api'
+const ragServiceUrl = import.meta.env.VITE_RAG_SERVICE_URL || 'http://localhost:8001'
 
 // Ensure backend baseURL always ends with /api for backend routes
 const backendBaseURL = envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl}/api`
-// Ensure RAG baseURL always ends with /api so `/rag/*` resolves to `/api/rag/*`
-const ragBaseURL = envRagServiceUrl.endsWith('/api') ? envRagServiceUrl : `${envRagServiceUrl}/api`
 
 export interface ValidationError extends Error {
     fieldErrors?: Record<string, string[]>
@@ -23,9 +14,10 @@ export interface ValidationError extends Error {
 
 // Helper function to determine base URL based on endpoint
 const getBaseURL = (url: string) => {
-    // If URL starts with /rag/, use RAG service URL
+    // If URL starts with /rag/, use RAG service URL with /api prefix
+    // The AI service mounts routes at /api/rag/*, so we prepend /api to match
     if (url.startsWith('/rag/')) {
-        return ragBaseURL;
+        return `${ragServiceUrl}/api`;
     }
     // Otherwise use backend API URL
     return backendBaseURL;
