@@ -131,3 +131,8 @@ test-results*.txt
 **/test-result*.txt
 **/test-results*.txt
 
+# Analysis files (not for version control)
+luong_dang_ky_khuon_mat.md
+luong_cham_cong.md
+luong_rag.md
+luong_tinh_luong.md

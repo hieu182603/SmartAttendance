@@ -101,6 +101,13 @@ const payrollRecordSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // Chi tiết giờ OT theo loại ngày (Điều 98 BLLĐ)
+    overtimeDetails: {
+      weekday: { type: Number, default: 0, min: 0 },   // Giờ OT ngày thường (150%)
+      weekend: { type: Number, default: 0, min: 0 },   // Giờ OT cuối tuần (200%)
+      holiday: { type: Number, default: 0, min: 0 },   // Giờ OT ngày lễ (300%)
+    },
+
     // Thông tin lương
     baseSalary: {
       type: Number,

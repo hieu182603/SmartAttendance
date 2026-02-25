@@ -80,17 +80,17 @@ export async function calculateBaseSalary(user, department = null) {
   // getBaseSalaryFromConfig trả về salary, cần xác định source
   const deptCode = departmentCode?.toUpperCase() || "OTHER";
   const pos = position?.trim() || "";
-  
+
   let source = "GLOBAL_DEFAULT";
   let configSalary = 0;
-  
+
   // Helper function to find matching key in object (case-insensitive)
   const findMatchingKey = (obj, searchKey) => {
     if (!obj || !searchKey) return null;
     const normalizedSearch = searchKey.toLowerCase();
     return Object.keys(obj).find(key => key.toLowerCase() === normalizedSearch);
   };
-  
+
   // Xác định source theo logic giống getBaseSalaryFromConfig (case-insensitive)
   // 1. SALARY_MATRIX[departmentCode][position] - normalized matching
   if (pos && SALARY_MATRIX[deptCode]) {
@@ -100,13 +100,13 @@ export async function calculateBaseSalary(user, department = null) {
       source = "SALARY_MATRIX"; // Từ config, nhưng logic giống SALARY_MATRIX
     }
   }
-  
+
   // 2. SALARY_MATRIX[departmentCode].DEFAULT (if no position match found)
   if (source === "GLOBAL_DEFAULT" && SALARY_MATRIX[deptCode] && SALARY_MATRIX[deptCode].DEFAULT) {
     configSalary = SALARY_MATRIX[deptCode].DEFAULT;
     source = "DEPT_DEFAULT";
   }
-  
+
   // 3. POSITION_DEFAULT_SALARY - normalized matching (if no department match)
   if (source === "GLOBAL_DEFAULT" && pos) {
     const matchingPosKey = findMatchingKey(POSITION_DEFAULT_SALARY, pos);
@@ -115,13 +115,13 @@ export async function calculateBaseSalary(user, department = null) {
       source = "POS_DEFAULT";
     }
   }
-  
+
   // 4. DEPARTMENT_DEFAULT_SALARY (if no position match found)
   if (source === "GLOBAL_DEFAULT" && DEPARTMENT_DEFAULT_SALARY[deptCode]) {
     configSalary = DEPARTMENT_DEFAULT_SALARY[deptCode];
     source = "DEPT_DEFAULT";
   }
-  
+
   // 5. GLOBAL_DEFAULT_SALARY (fallback)
   if (source === "GLOBAL_DEFAULT") {
     configSalary = getBaseSalaryFromConfig(departmentCode, position);
@@ -139,12 +139,12 @@ export async function calculateBaseSalary(user, department = null) {
 // ============================================================================
 
 /**
- * Tính số ngày làm việc, giờ làm thêm, số ngày đi muộn từ attendance
+ * Tính số ngày làm việc, giờ làm thêm (phân biệt loại), số ngày đi muộn từ attendance
  * 
  * @param {string} userId - User ID
  * @param {Date} periodStart - Ngày bắt đầu
  * @param {Date} periodEnd - Ngày kết thúc
- * @returns {Promise<Object>} { workDays, totalDays, overtimeHours, lateDays, leaveDays }
+ * @returns {Promise<Object>} { workDays, totalDays, overtimeHours, overtimeDetails, lateDays, leaveDays }
  */
 export async function calculateAttendanceData(userId, periodStart, periodEnd) {
   const attendances = await AttendanceModel.find({
@@ -169,12 +169,38 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
 
   const lateDays = attendances.filter((a) => a.status === "late").length;
 
-  const overtimeHours = attendances.reduce((sum, a) => {
+  // ✅ FIX: Phân biệt OT theo loại ngày (Điều 98 BLLĐ)
+  const overtimeDetails = { weekday: 0, weekend: 0, holiday: 0 };
+  let totalOvertimeHours = 0;
+
+  for (const a of attendances) {
     if (a.workHours > 8) {
-      return sum + (a.workHours - 8);
+      const otHours = a.workHours - 8;
+      totalOvertimeHours += otHours;
+
+      const dayOfWeek = new Date(a.date).getUTCDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Thứ 7 / Chủ nhật
+        overtimeDetails.weekend += otHours;
+      } else {
+        // Ngày thường (T2-T6)
+        overtimeDetails.weekday += otHours;
+      }
     }
-    return sum;
-  }, 0);
+  }
+
+  // ✅ Giới hạn OT (Điều 107 BLLĐ: tối đa 40 giờ/tháng)
+  const maxOT = PAYROLL_RULES.OVERTIME.MAX_PER_MONTH || Infinity;
+  if (totalOvertimeHours > maxOT) {
+    const ratio = maxOT / totalOvertimeHours;
+    overtimeDetails.weekday = Math.round(overtimeDetails.weekday * ratio * 10) / 10;
+    overtimeDetails.weekend = Math.round(overtimeDetails.weekend * ratio * 10) / 10;
+    overtimeDetails.holiday = Math.round(overtimeDetails.holiday * ratio * 10) / 10;
+    totalOvertimeHours = maxOT;
+    console.warn(
+      `[payroll] OT capped at ${maxOT}h/month for user ${userId} (was ${Math.round(totalOvertimeHours * 10) / 10}h)`
+    );
+  }
 
   const totalDays = PAYROLL_RULES.STANDARD_WORK_DAYS;
   const leaveDays = Math.max(0, totalDays - workDays);
@@ -182,10 +208,11 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
   return {
     workDays,
     totalDays,
-    overtimeHours: Math.round(overtimeHours * 10) / 10,
+    overtimeHours: Math.round(totalOvertimeHours * 10) / 10,
+    overtimeDetails, // ✅ Chi tiết OT theo loại ngày
     lateDays,
     leaveDays,
-    hasAttendanceData, // ✅ Flag để frontend có thể hiển thị warning
+    hasAttendanceData,
   };
 }
 
@@ -228,20 +255,29 @@ export function calculateActualBaseSalary(baseSalary, workDays) {
 }
 
 /**
- * Tính lương làm thêm giờ
+ * Tính lương làm thêm giờ — phân biệt hệ số theo loại ngày (Điều 98 BLLĐ)
  * 
- * @param {number} overtimeHours - Số giờ làm thêm
+ * @param {Object} overtimeDetails - { weekday, weekend, holiday } giờ OT theo loại
  * @param {number} baseSalary - Lương cơ bản
  * @returns {number} Overtime pay
  */
-export function calculateOvertimePay(overtimeHours, baseSalary) {
+export function calculateOvertimePay(overtimeDetails, baseSalary) {
   const hourlyRate =
     baseSalary /
     (PAYROLL_RULES.STANDARD_WORK_DAYS *
       PAYROLL_RULES.STANDARD_WORK_HOURS_PER_DAY);
-  const overtimePay =
-    overtimeHours * hourlyRate * PAYROLL_RULES.OVERTIME.MULTIPLIER;
-  return roundSalary(overtimePay);
+
+  // Hỗ trợ cả format cũ (number) và format mới (object)
+  if (typeof overtimeDetails === "number") {
+    // Backward compatibility: dùng hệ số ngày thường cho tất cả
+    return roundSalary(overtimeDetails * hourlyRate * PAYROLL_RULES.OVERTIME.MULTIPLIER);
+  }
+
+  const weekdayOT = (overtimeDetails.weekday || 0) * hourlyRate * PAYROLL_RULES.OVERTIME.MULTIPLIER;         // 150%
+  const weekendOT = (overtimeDetails.weekend || 0) * hourlyRate * PAYROLL_RULES.OVERTIME.WEEKEND_MULTIPLIER;  // 200%
+  const holidayOT = (overtimeDetails.holiday || 0) * hourlyRate * PAYROLL_RULES.OVERTIME.HOLIDAY_MULTIPLIER;  // 300%
+
+  return roundSalary(weekdayOT + weekendOT + holidayOT);
 }
 
 /**
@@ -327,7 +363,7 @@ export async function generatePayrollRecord(userId, month) {
   if (monthNum < 1 || monthNum > 12) {
     throw new Error("Invalid month number. Must be between 1-12");
   }
-  
+
   const periodStart = new Date(Date.UTC(year, monthNum - 1, 1));
   const periodEnd = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59));
 
@@ -351,7 +387,7 @@ export async function generatePayrollRecord(userId, month) {
     attendanceData.workDays
   );
   const overtimePay = calculateOvertimePay(
-    attendanceData.overtimeHours,
+    attendanceData.overtimeDetails || attendanceData.overtimeHours,
     baseSalary
   );
   const deductions = calculateDeductions(
@@ -380,6 +416,7 @@ export async function generatePayrollRecord(userId, month) {
     baseSalary, // Lương tháng đầy đủ
     actualBaseSalary, // Lương cơ bản thực tế (theo số ngày làm việc)
     salarySource, // ✅ Nguồn của baseSalary
+    overtimeDetails: attendanceData.overtimeDetails || { weekday: 0, weekend: 0, holiday: 0 }, // ✅ Chi tiết OT
     overtimePay,
     bonus,
     deductions,
@@ -399,18 +436,19 @@ export async function generatePayrollRecord(userId, month) {
       // ✅ FIX: Update attendance và tính lại actualBaseSalary, overtimePay, etc.
       payrollRecord.workDays = recordData.workDays;
       payrollRecord.overtimeHours = recordData.overtimeHours;
+      payrollRecord.overtimeDetails = recordData.overtimeDetails;
       payrollRecord.leaveDays = recordData.leaveDays;
       payrollRecord.lateDays = recordData.lateDays;
-      
+
       // Tính lại actualBaseSalary dựa trên workDays mới
       payrollRecord.actualBaseSalary = calculateActualBaseSalary(
         payrollRecord.baseSalary,
         recordData.workDays
       );
-      
+
       // Recalculate các components
       payrollRecord.overtimePay = calculateOvertimePay(
-        recordData.overtimeHours,
+        recordData.overtimeDetails || recordData.overtimeHours,
         payrollRecord.baseSalary
       );
       payrollRecord.deductions = calculateDeductions(
@@ -426,7 +464,7 @@ export async function generatePayrollRecord(userId, month) {
         },
         payrollRecord.baseSalary
       );
-      
+
       // Pre-save hook sẽ tự động tính lại totalSalary từ actualBaseSalary
       await payrollRecord.save();
     }
@@ -499,7 +537,7 @@ export async function previewPayrollRecord(userId, month) {
   if (monthNum < 1 || monthNum > 12) {
     throw new Error("Invalid month number. Must be between 1-12");
   }
-  
+
   const periodStart = new Date(Date.UTC(year, monthNum - 1, 1));
   const periodEnd = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59));
 
@@ -523,7 +561,7 @@ export async function previewPayrollRecord(userId, month) {
     attendanceData.workDays
   );
   const overtimePay = calculateOvertimePay(
-    attendanceData.overtimeHours,
+    attendanceData.overtimeDetails || attendanceData.overtimeHours,
     baseSalary
   );
   const deductions = calculateDeductions(
@@ -553,11 +591,12 @@ export async function previewPayrollRecord(userId, month) {
       deductions,
       totalSalary,
     },
+    overtimeDetails: attendanceData.overtimeDetails || { weekday: 0, weekend: 0, holiday: 0 },
     calculation: {
       hourlyRate: Math.round(
         baseSalary /
-          (PAYROLL_RULES.STANDARD_WORK_DAYS *
-            PAYROLL_RULES.STANDARD_WORK_HOURS_PER_DAY)
+        (PAYROLL_RULES.STANDARD_WORK_DAYS *
+          PAYROLL_RULES.STANDARD_WORK_HOURS_PER_DAY)
       ),
       workDaysRatio: attendanceData.workDays / PAYROLL_RULES.STANDARD_WORK_DAYS,
     },
