@@ -230,7 +230,7 @@ export class FaceService {
 
         // Categorize error from AI service
         const errorCode = aiResponse.data.error_code || "AI_SERVICE_ERROR";
-        const errorMessage = aiResponse.data.error || aiResponse.data.detail || "Face registration failed";
+        const errorMessage = aiResponse.data.error || (typeof aiResponse.data.detail === 'string' ? aiResponse.data.detail : JSON.stringify(aiResponse.data.detail)) || "Face registration failed";
         const errorDetails = aiResponse.data.error_details || null;
 
         // Map error codes to specific error classes
@@ -692,6 +692,409 @@ export class FaceService {
       lastVerifiedAt: user.faceData?.lastVerifiedAt || null,
       embeddingCount: user.faceData?.embeddings?.length || 0,
     };
+  }
+
+  // ==========================================================================
+  // UNIFIED FACE SCAN (Register OR Verify + Attendance)
+  // ==========================================================================
+
+  /**
+   * Compute element-wise mean of multiple embedding vectors
+   * @param {Array<Array<number>>} embeddings - Array of embedding vectors (each 512-dim)
+   * @returns {Array<number>} Mean embedding vector
+   */
+  static computeMeanEmbedding(embeddings) {
+    if (!embeddings || embeddings.length === 0) return [];
+    if (embeddings.length === 1) return [...embeddings[0]];
+
+    const dim = embeddings[0].length;
+    const mean = new Array(dim).fill(0);
+
+    for (const emb of embeddings) {
+      for (let i = 0; i < dim; i++) {
+        mean[i] += emb[i];
+      }
+    }
+
+    for (let i = 0; i < dim; i++) {
+      mean[i] /= embeddings.length;
+    }
+
+    return mean;
+  }
+
+  /**
+   * Unified face scan — auto-detects registration vs verification flow
+   *
+   * @param {string} userId
+   * @param {Array<Express.Multer.File>} imageFiles - 1–5 images
+   * @param {Object} livenessData - { livenessPassed: boolean }
+   * @param {string|null} deviceId - Optional device identifier
+   * @returns {Promise<Object>} Unified response
+   *
+   * Concurrency notes:
+   * - AttendanceModel has a unique compound index { userId, date } which prevents
+   *   duplicate records even under concurrent requests.
+   * - Mongoose save() uses optimistic locking — concurrent saves will throw a
+   *   duplicate key error caught and handled gracefully.
+   */
+  async faceScan(userId, imageFiles, livenessData = null, deviceId = null) {
+    // ── Step 1: Validate inputs ─────────────────────────────────────────
+    if (!livenessData || livenessData.livenessPassed !== true) {
+      throw new AIServiceError(
+        "Liveness verification is required. Please complete the liveness check before scanning.",
+        "LIVENESS_REQUIRED"
+      );
+    }
+
+    if (!imageFiles || imageFiles.length === 0) {
+      throw new AIServiceError(
+        "At least 1 image is required for face scan.",
+        "VALIDATION_ERROR"
+      );
+    }
+
+    // ── Step 2: Lookup user ─────────────────────────────────────────────
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const hasExistingFace = user.hasFaceRegistered();
+
+    // ── Step 3A: REGISTRATION FLOW ──────────────────────────────────────
+    if (!hasExistingFace) {
+      return await this._scanRegister(user, imageFiles, livenessData);
+    }
+
+    // ── Step 3B: VERIFICATION FLOW ──────────────────────────────────────
+    return await this._scanVerify(user, imageFiles, deviceId);
+  }
+
+  /**
+   * Registration sub-flow for faceScan
+   * @private
+   */
+  async _scanRegister(user, imageFiles, livenessData) {
+    const MIN_IMAGES = FACE_RECOGNITION_CONFIG.MIN_REGISTRATION_IMAGES;
+    const MAX_IMAGES = FACE_RECOGNITION_CONFIG.MAX_REGISTRATION_IMAGES;
+
+    if (imageFiles.length < MIN_IMAGES) {
+      throw new AIServiceError(
+        `Registration requires ${MIN_IMAGES}–${MAX_IMAGES} images. Provided: ${imageFiles.length}`,
+        "VALIDATION_ERROR",
+        { required: MIN_IMAGES, provided: imageFiles.length }
+      );
+    }
+
+    if (imageFiles.length > MAX_IMAGES) {
+      throw new AIServiceError(
+        `Maximum ${MAX_IMAGES} images allowed. Provided: ${imageFiles.length}`,
+        "VALIDATION_ERROR",
+        { max: MAX_IMAGES, provided: imageFiles.length }
+      );
+    }
+
+    // Upload images to Cloudinary
+    const { uploadFaceImage, deleteFaceImages } = await import("../../utils/cloudinary.js");
+    const uploadedImages = [];
+    const uploadedPublicIds = [];
+
+    try {
+      for (const file of imageFiles) {
+        const result = await uploadFaceImage(file.buffer);
+        uploadedImages.push(result.url);
+        uploadedPublicIds.push(result.publicId);
+      }
+    } catch (uploadError) {
+      if (uploadedPublicIds.length > 0) {
+        try { await deleteFaceImages(uploadedPublicIds); } catch (_) { /* cleanup best-effort */ }
+      }
+      throw uploadError;
+    }
+
+    // Call AI service to extract embeddings
+    const formData = new FormData();
+    for (const file of imageFiles) {
+      formData.append("images", file.buffer, {
+        filename: file.originalname || "face.jpg",
+        contentType: file.mimetype || "image/jpeg",
+      });
+    }
+
+    // Append liveness data
+    if (livenessData) {
+      formData.append("liveness_success", "true");
+      formData.append("liveness_passed", "true");
+      if (livenessData.liveness_confidence !== undefined) {
+        formData.append("liveness_confidence", livenessData.liveness_confidence.toString());
+      }
+      if (livenessData.liveness_challenge) {
+        formData.append("liveness_challenge", livenessData.liveness_challenge);
+      }
+    }
+
+    let aiResponse;
+    try {
+      aiResponse = await aiServiceClient.registerFaces(formData);
+    } catch (error) {
+      // Cleanup uploaded images on AI failure
+      if (uploadedPublicIds.length > 0) {
+        try { await deleteFaceImages(uploadedPublicIds); } catch (_) { /* cleanup */ }
+      }
+      this._handleAIError(error);
+    }
+
+    if (aiResponse.status >= 400 || !aiResponse.data.success) {
+      if (uploadedPublicIds.length > 0) {
+        try { await deleteFaceImages(uploadedPublicIds); } catch (_) { /* cleanup */ }
+      }
+      this._throwFromAIResponse(aiResponse);
+    }
+
+    // Extract individual embeddings
+    const individualEmbeddings = aiResponse.data.faces.map((face) => face.embedding);
+
+    if (individualEmbeddings.length < MIN_IMAGES) {
+      if (uploadedPublicIds.length > 0) {
+        try { await deleteFaceImages(uploadedPublicIds); } catch (_) { /* cleanup */ }
+      }
+      throw new AIServiceError(
+        `Only ${individualEmbeddings.length} valid face(s) detected, minimum ${MIN_IMAGES} required.`,
+        "VALIDATION_ERROR",
+        { valid_faces: individualEmbeddings.length, required: MIN_IMAGES }
+      );
+    }
+
+    // Compute mean embedding
+    const meanEmbedding = FaceService.computeMeanEmbedding(individualEmbeddings);
+
+    // Store old publicIds for cleanup
+    const oldPublicIds = user.faceData?.faceImagePublicIds || [];
+
+    // Save to user profile — mean embedding first, then individuals
+    user.faceData = {
+      isRegistered: true,
+      embeddings: [meanEmbedding, ...individualEmbeddings],
+      registeredAt: new Date(),
+      faceImages: uploadedImages,
+      faceImagePublicIds: uploadedPublicIds,
+      lastVerifiedAt: null,
+    };
+
+    await user.save();
+
+    // Cleanup old images
+    if (oldPublicIds.length > 0) {
+      try { await deleteFaceImages(oldPublicIds); } catch (_) { /* best-effort */ }
+    }
+
+    // Log activity
+    await logActivityWithoutRequest({
+      userId: user._id,
+      action: "register_face",
+      entityType: "user",
+      entityId: user._id,
+      details: {
+        description: "Face registered via unified scan endpoint",
+        imageCount: uploadedImages.length,
+        validFaces: individualEmbeddings.length,
+        timestamp: new Date(),
+      },
+      status: "success",
+    });
+
+    return {
+      status: "registered",
+      message: "Face registered successfully",
+    };
+  }
+
+  /**
+   * Verification + attendance sub-flow for faceScan
+   * @private
+   */
+  async _scanVerify(user, imageFiles, deviceId) {
+    const candidateImage = imageFiles[0]; // Use first image for verification
+
+    // Call AI service to verify
+    const formData = new FormData();
+    formData.append("image", candidateImage.buffer, {
+      filename: "verify.jpg",
+      contentType: candidateImage.mimetype || "image/jpeg",
+    });
+    formData.append(
+      "reference_embeddings_json",
+      JSON.stringify(user.faceData.embeddings)
+    );
+    formData.append(
+      "threshold",
+      FACE_RECOGNITION_CONFIG.SCAN_SIMILARITY_THRESHOLD.toString()
+    );
+
+    let aiResponse;
+    try {
+      aiResponse = await aiServiceClient.verifyFace(formData);
+    } catch (error) {
+      this._handleAIError(error);
+    }
+
+    if (aiResponse.status >= 400 || aiResponse.data.error) {
+      this._throwFromAIResponse(aiResponse);
+    }
+
+    const similarity = aiResponse.data.similarity;
+    const threshold = FACE_RECOGNITION_CONFIG.SCAN_SIMILARITY_THRESHOLD;
+    const isMatch = similarity >= threshold;
+
+    if (!isMatch) {
+      throw new FaceVerificationFailedError(
+        `Face verification failed. Similarity: ${(similarity * 100).toFixed(1)}%, required: ${(threshold * 100).toFixed(1)}%`,
+        similarity,
+        threshold
+      );
+    }
+
+    // ── Record attendance ────────────────────────────────────────────────
+    const { AttendanceModel } = await import("../attendance/attendance.model.js");
+
+    const now = new Date();
+    const dateOnly = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+
+    let attendance = await AttendanceModel.findOne({ userId: user._id, date: dateOnly });
+    let action = "check_in";
+
+    if (!attendance) {
+      // First scan today → check-in
+      attendance = new AttendanceModel({
+        userId: user._id,
+        date: dateOnly,
+        checkIn: now,
+        status: "present",
+      });
+    } else if (!attendance.checkOut) {
+      // Already checked in, no check-out → check-out
+      attendance.checkOut = now;
+      attendance.calculateWorkHours();
+      action = "check_out";
+    } else {
+      // Already has both check-in and check-out
+      // Update lastVerifiedAt for face data
+      user.faceData.lastVerifiedAt = now;
+      await user.save();
+
+      return {
+        status: "verified",
+        confidence: similarity,
+        attendanceRecorded: false,
+        message: "Face verified successfully. Attendance already recorded for today.",
+      };
+    }
+
+    try {
+      await attendance.save();
+    } catch (saveError) {
+      // Handle duplicate key error from concurrent requests
+      if (saveError.code === 11000) {
+        // Another request already created the attendance record — refetch and retry
+        attendance = await AttendanceModel.findOne({ userId: user._id, date: dateOnly });
+        if (attendance && !attendance.checkOut) {
+          attendance.checkOut = now;
+          attendance.calculateWorkHours();
+          action = "check_out";
+          await attendance.save();
+        } else {
+          return {
+            status: "verified",
+            confidence: similarity,
+            attendanceRecorded: false,
+            message: "Face verified successfully. Attendance already recorded for today.",
+          };
+        }
+      } else {
+        throw saveError;
+      }
+    }
+
+    // Update face lastVerifiedAt
+    user.faceData.lastVerifiedAt = now;
+    await user.save();
+
+    // Log activity
+    await logActivityWithoutRequest({
+      userId: user._id,
+      action: `face_scan_${action}`,
+      entityType: "attendance",
+      entityId: attendance._id,
+      details: {
+        description: `Attendance ${action} via face scan`,
+        confidence: similarity,
+        deviceId: deviceId || null,
+        timestamp: now,
+      },
+      status: "success",
+    });
+
+    return {
+      status: "verified",
+      confidence: similarity,
+      attendanceRecorded: true,
+      action, // "check_in" | "check_out"
+      checkIn: attendance.checkIn,
+      checkOut: attendance.checkOut || null,
+      workHours: attendance.workHours || 0,
+    };
+  }
+
+  // ==========================================================================
+  // HELPERS (shared by scan sub-flows)
+  // ==========================================================================
+
+  /**
+   * Handle axios/AI connection errors and rethrow as typed errors
+   * @private
+   */
+  _handleAIError(error) {
+    if (axios.isAxiosError(error)) {
+      if (error.response && error.response.status >= 400 && error.response.status < 500) {
+        const data = error.response.data || {};
+        const code = data.error_code || "AI_SERVICE_ERROR";
+        const msg = data.error || data.detail || "AI service error";
+        const details = data.error_details || null;
+        switch (code) {
+          case "NO_FACE_DETECTED": throw new FaceNotDetectedError(msg, details);
+          case "MULTIPLE_FACES": throw new MultipleFacesError(msg, details);
+          case "POOR_IMAGE_QUALITY": throw new PoorImageQualityError(msg, details);
+          case "SPOOF_DETECTED": throw new SpoofDetectedError(msg, details);
+          default: throw new AIServiceError(msg, code, details);
+        }
+      }
+      if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+        throw new AIServiceTimeoutError();
+      }
+      if (error.code === "ECONNREFUSED" || error.message?.includes("circuit breaker") || error.message?.includes("unavailable")) {
+        throw new AIServiceUnavailableError();
+      }
+    }
+    throw error;
+  }
+
+  /**
+   * Throw a typed error from an AI service non-200 response
+   * @private
+   */
+  _throwFromAIResponse(aiResponse) {
+    const data = aiResponse.data || {};
+    const code = data.error_code || "AI_SERVICE_ERROR";
+    const msg = data.error || data.detail || "AI service error";
+    const details = data.error_details || null;
+    switch (code) {
+      case "NO_FACE_DETECTED": throw new FaceNotDetectedError(msg, details);
+      case "MULTIPLE_FACES": throw new MultipleFacesError(msg, details);
+      case "POOR_IMAGE_QUALITY": throw new PoorImageQualityError(msg, details);
+      case "SPOOF_DETECTED": throw new SpoofDetectedError(msg, details);
+      default: throw new AIServiceError(msg, code, details);
+    }
   }
 }
 

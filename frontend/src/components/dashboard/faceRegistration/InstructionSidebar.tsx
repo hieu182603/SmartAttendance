@@ -9,6 +9,10 @@ interface InstructionSidebarProps {
   detectionStatus?: string;
   capturedImagesCount?: number;
   compactRow?: boolean;
+  hasRegisteredFace?: boolean;
+  livenessVerified?: boolean;
+  onStartLiveness?: () => void;
+  maxImages?: number;
 }
 
 export const InstructionSidebar: React.FC<InstructionSidebarProps> = ({
@@ -17,10 +21,17 @@ export const InstructionSidebar: React.FC<InstructionSidebarProps> = ({
   cameraReady = false,
   detectionStatus = "loading",
   capturedImagesCount = 0,
-  compactRow = false
+  compactRow = false,
+  hasRegisteredFace = false,
+  livenessVerified = false,
+  onStartLiveness,
+  maxImages = 4,
 }) => {
   const { t } = useTranslation(['dashboard', 'common']);
   const [showInstructions, setShowInstructions] = useState(showOnMobile);
+
+  const livenessStepNeeded = !hasRegisteredFace;
+  const livenessStepCompleted = hasRegisteredFace || livenessVerified;
 
   const rootClasses = compactRow
     ? "w-full bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 overflow-visible transition-all duration-700 delay-500"
@@ -58,7 +69,7 @@ export const InstructionSidebar: React.FC<InstructionSidebarProps> = ({
                   ];
                   const stepConfig = steps[step - 1];
                   const isActive = currentStep === stepConfig.key;
-                  const isCompleted = capturedImagesCount >= (step === 4 ? 5 : step);
+                  const isCompleted = capturedImagesCount >= Math.min(step, maxImages);
 
                   // Dynamic descriptions based on current state for mobile
                   let descriptionKey = `dashboard:faceRegistration.steps.step${step}Description`;
@@ -116,7 +127,7 @@ export const InstructionSidebar: React.FC<InstructionSidebarProps> = ({
                   ];
                   const stepConfig = steps[step - 1];
                   const isActive = currentStep === stepConfig.key;
-                  const isCompleted = capturedImagesCount >= (step === 4 ? 5 : step);
+                  const isCompleted = capturedImagesCount >= Math.min(step, maxImages);
 
                   // Smart text truncation based on step
                   const getTruncatedText = (fullText: string, step: number) => {
@@ -152,7 +163,7 @@ export const InstructionSidebar: React.FC<InstructionSidebarProps> = ({
                       </div>
                       {isActive && step === 3 && (
                         <div className="text-xs text-cyan-300 mt-3 font-medium">
-                          {capturedImagesCount}/5
+                          {capturedImagesCount}/{maxImages}
                         </div>
                       )}
                     </div>
@@ -180,7 +191,7 @@ export const InstructionSidebar: React.FC<InstructionSidebarProps> = ({
                     ];
 
                     const stepConfig = steps[step - 1];
-                    const isCompleted = capturedImagesCount >= (step === 4 ? 5 : step); // Assuming MIN_IMAGES = 5
+                    const isCompleted = capturedImagesCount >= Math.min(step, maxImages);
                     const isActive = currentStep === stepConfig.key && !isCompleted;
                     const isUpcoming = !isCompleted && !isActive;
 
@@ -229,7 +240,7 @@ export const InstructionSidebar: React.FC<InstructionSidebarProps> = ({
                           </p>
                           {isActive && step === 3 && (
                             <p className="text-xs text-cyan-300 mt-1 font-medium">
-                              {capturedImagesCount} / 5 images captured
+                              {capturedImagesCount} / {maxImages} images captured
                             </p>
                           )}
                         </div>

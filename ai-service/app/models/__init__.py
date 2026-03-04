@@ -1,17 +1,13 @@
 """
-AI Service Models Package
+Models package for AI service.
 
-Contains neural network architectures and model utilities.
+This package exposes face detection and recognition utilities.
 """
 
-from app.models.anti_spoofing_model import (
-    SilentFaceAntiSpoofing,
-    MiniFASNet,
-    load_pretrained_model
-)
+from app.models.face_detector import FaceDetector
+from app.models.face_recognizer import FaceRecognizer
 
 __all__ = [
-    'SilentFaceAntiSpoofing',
-    'MiniFASNet',
-    'load_pretrained_model'
+    "FaceDetector",
+    "FaceRecognizer",
 ]

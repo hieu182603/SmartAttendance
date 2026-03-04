@@ -1,6 +1,11 @@
+// Load environment variables FIRST — must be the very first import.
+// ES modules hoist all imports, so dotenv.config() in this file would run
+// AFTER all other imports resolve. Isolating it in env.js ensures .env
+// is loaded before any module reads process.env.
+import "./config/env.js";
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 
 import { connectDatabase } from "./config/database.js";
@@ -24,8 +29,6 @@ import { startCronJobs } from "./jobs/attendance.job.js";
 
 
 import { logRouter } from "./modules/logs/log.router.js";
-
-dotenv.config();
 
 const app = express();
 

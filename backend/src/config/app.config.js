@@ -85,10 +85,14 @@ export const FACE_RECOGNITION_CONFIG = {
   AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8001',
   API_KEY: process.env.AI_SERVICE_API_KEY || '',
   VERIFICATION_THRESHOLD: parseFloat(process.env.FACE_VERIFICATION_THRESHOLD) || 0.6,
-  TIMEOUT: parseInt(process.env.AI_SERVICE_TIMEOUT) || 5000,
+  // NOTE: face registration can take > 5s on CPU; clamp to avoid accidental too-low timeout
+  TIMEOUT: Math.max(parseInt(process.env.AI_SERVICE_TIMEOUT || "30000", 10), 30000),
   // Image registration limits (centralized configuration)
-  MIN_REGISTRATION_IMAGES: parseInt(process.env.MIN_REGISTRATION_IMAGES || "5", 10),
-  MAX_REGISTRATION_IMAGES: parseInt(process.env.MAX_REGISTRATION_IMAGES || "10", 10),
+  // Updated default to 4 images to match frontend guided capture (thẳng, trên, trái, phải)
+  MIN_REGISTRATION_IMAGES: parseInt(process.env.MIN_REGISTRATION_IMAGES || "4", 10),
+  MAX_REGISTRATION_IMAGES: parseInt(process.env.MAX_REGISTRATION_IMAGES || "4", 10),
+  // Scan endpoint threshold (stricter for unified scan flow)
+  SCAN_SIMILARITY_THRESHOLD: parseFloat(process.env.FACE_SCAN_THRESHOLD) || 0.85,
   // Threshold presets
   THRESHOLD_STRICT: 0.75,  // High security
   THRESHOLD_BALANCED: 0.6, // Default

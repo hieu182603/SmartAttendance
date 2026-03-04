@@ -57,8 +57,10 @@ class FaceService:
         """
         session = LivenessSession()
         self._liveness_sessions[session_id] = session
-        
+
         result = session.start_challenge()
+        # Ensure response matches LivenessChallengeResponse model
+        result["success"] = True
         return result
     
     def capture_liveness_baseline(

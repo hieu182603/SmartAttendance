@@ -19,7 +19,8 @@ export const generateTokenFromUser = (user) => {
     return generateToken({
         userId: user._id,
         email: user.email,
-        role: user.role || 'EMPLOYEE'
+        role: user.role || 'EMPLOYEE',
+        department_id: user.department
     });
 };
 
