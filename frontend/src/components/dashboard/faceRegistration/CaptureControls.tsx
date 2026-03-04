@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface CaptureControlsProps {
@@ -15,6 +15,12 @@ interface CaptureControlsProps {
   };
   currentStep?: number;
   totalSteps?: number;
+  /**
+   * When true, user must complete liveness verification before capturing photos.
+   * The capture button is replaced with a prominent "Xác Thực Khuôn Mặt" button.
+   */
+  livenessRequired?: boolean;
+  onStartLiveness?: () => void;
 }
 
 export const CaptureControls: React.FC<CaptureControlsProps> = ({
@@ -25,7 +31,9 @@ export const CaptureControls: React.FC<CaptureControlsProps> = ({
   onCapture,
   currentInstruction,
   currentStep = 0,
-  totalSteps = 5,
+  totalSteps = 4,
+  livenessRequired = false,
+  onStartLiveness,
 }) => {
   const isComplete = capturedImagesLength >= maxImages;
 
@@ -57,30 +65,43 @@ export const CaptureControls: React.FC<CaptureControlsProps> = ({
         ))}
       </div>
 
-      {/* Capture button */}
+      {/* Capture / Liveness button */}
       {!isComplete ? (
-        <Button
-          onClick={onCapture}
-          disabled={!canCapture || isCapturing}
-          size="lg"
-          className={`w-full transition-all duration-300 ${canCapture
-              ? "bg-gradient-to-r from-cyan-500 to-green-500 hover:from-cyan-600 hover:to-green-600 shadow-lg shadow-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/60 hover:scale-105"
-              : "bg-gray-600 cursor-not-allowed opacity-50"
-            }`}
-          aria-label={canCapture ? "Chụp ảnh khuôn mặt" : "Đang chờ vị trí tốt"}
-        >
-          {isCapturing ? (
-            <>
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              Đang xử lý...
-            </>
-          ) : (
-            <>
-              <Camera className="h-5 w-5 mr-2" />
-              Chụp ảnh ({capturedImagesLength}/{maxImages})
-            </>
-          )}
-        </Button>
+        livenessRequired ? (
+          <Button
+            onClick={onStartLiveness}
+            size="lg"
+            className="w-full transition-all duration-300 bg-amber-500 text-black hover:bg-amber-400 shadow-lg shadow-amber-500/40 hover:shadow-xl hover:shadow-amber-500/60 hover:scale-105"
+            aria-label="Xác thực khuôn mặt trước khi chụp ảnh"
+          >
+            <Shield className="h-5 w-5 mr-2" />
+            Xác Thực Khuôn Mặt
+          </Button>
+        ) : (
+          <Button
+            onClick={onCapture}
+            disabled={!canCapture || isCapturing}
+            size="lg"
+            className={`w-full transition-all duration-300 ${canCapture
+                ? "bg-gradient-to-r from-cyan-500 to-green-500 hover:from-cyan-600 hover:to-green-600 shadow-lg shadow-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/60 hover:scale-105"
+                : "bg-gray-600 cursor-not-allowed opacity-50"
+              }`}
+            aria-label={canCapture ? "Chụp ảnh khuôn mặt" : "Đang chờ vị trí tốt"}
+            title={!canCapture ? "Vui lòng xác thực và căn chỉnh khuôn mặt trước khi chụp" : "Chụp ảnh khuôn mặt"}
+          >
+            {isCapturing ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Đang xử lý...
+              </>
+            ) : (
+              <>
+                <Camera className="h-5 w-5 mr-2" />
+                Chụp ảnh ({capturedImagesLength}/{maxImages})
+              </>
+            )}
+          </Button>
+        )
       ) : (
         <div className="w-full text-center px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg">
           <p className="text-sm font-medium text-green-400">✅ Đã chụp đủ {maxImages} ảnh</p>

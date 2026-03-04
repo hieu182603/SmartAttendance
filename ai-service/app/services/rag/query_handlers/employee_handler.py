@@ -1,6 +1,7 @@
 """Employee query handler"""
 import logging
 from typing import Dict, Any
+from bson import ObjectId
 from app.services.rag.query_handlers.base import BaseQueryHandler
 from app.services.rag.permissions import PermissionChecker
 
@@ -140,31 +141,48 @@ class EmployeeQueryHandler(BaseQueryHandler):
         return f"👥 **Nhân viên theo vai trò:**\n\n- **{role_display}:** {count} người"
     
     async def handle(
-        self, 
-        query_type: str, 
-        message: str, 
-        role: str, 
+        self,
+        query_type: str,
+        message: str,
+        role: str,
         department_id: str = None,
-        filters: Dict[str, Any] = None
+        filters: Dict[str, Any] = None,
+        user_id: str = None
     ) -> str:
         """Handle employee query with specific types"""
-        
-        # Check permission - only HR, Manager, Admin can see employee data
+
         role_lower = role.lower() if role else ""
+
+        # 1) Trường hợp đặc biệt: nhân viên hỏi về NGÀY PHÉP CỦA CHÍNH MÌNH
+        if query_type == "self_leave_balance":
+            if role_lower != "employee":
+                return (
+                    "Câu hỏi về số ngày phép còn lại hiện chỉ hỗ trợ cho nhân viên hỏi về **tài khoản của chính mình**. "
+                    "Vui lòng dùng màn hình HR nếu bạn muốn xem phép của người khác."
+                )
+            if not user_id:
+                return "Xin lỗi, tôi không xác định được tài khoản của bạn để xem ngày phép. Vui lòng đăng nhập lại và thử lại."
+
+            return await self._handle_self_leave_balance(user_id)
+
+        # 2) Các truy vấn nhân sự khác: chỉ HR/Manager/Admin được phép
         allowed_roles = ["hr_manager", "manager", "admin", "super_admin"]
-        
+
         if role_lower not in allowed_roles:
-            return "Xin lỗi, bạn không có quyền truy cập thông tin về nhân viên. Chỉ có HR, Quản lý hoặc Admin mới có thể xem thông tin này."
-        
+            return (
+                "Xin lỗi, bạn không có quyền truy cập thông tin chi tiết về nhân viên. "
+                "Chỉ HR, Quản lý hoặc Admin mới có thể xem các thống kê này."
+            )
+
         try:
-            has_access, permission_filter = self.check_permission(role, department_id)
+            has_access, permission_filter = self.check_permission(role, department_id, user_id)
             if not has_access:
                 return f"Xin lỗi, {self.error_message}"
-            
+
             query = permission_filter.copy()
             if filters:
                 query.update(filters)
-            
+
             if query_type == 'count':
                 return await self._handle_count(query)
             elif query_type == 'list':
@@ -176,10 +194,64 @@ class EmployeeQueryHandler(BaseQueryHandler):
                 return await self._handle_by_role(role_filter, query)
             else:
                 return "Xin lỗi, tôi chưa hiểu rõ câu hỏi của bạn về nhân viên."
-        
+
         except Exception as e:
             logger.error(f"Error handling employee query: {str(e)}")
             return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu: {str(e)}"
+
+    async def _handle_self_leave_balance(self, user_id: str) -> str:
+        """
+        Trả lời câu hỏi: \"Tôi còn bao nhiêu ngày phép?\" cho nhân viên hiện tại.
+
+        Quy tắc:
+        - Đọc trực tiếp field leaveBalance trên collection users.
+        - Không tự tính lại, giả định HR đã cập nhật đúng.
+        """
+        collection = await self._get_collection()
+        if collection is None:
+            return "Xin lỗi, tôi không truy cập được dữ liệu nhân viên để xem ngày phép của bạn."
+
+        try:
+            user = await collection.find_one({"_id": ObjectId(user_id)})
+        except Exception as e:
+            logger.error(f"Error fetching user for self_leave_balance: {str(e)}")
+            return "Xin lỗi, tôi gặp lỗi khi lấy thông tin ngày phép của bạn."
+
+        if not user:
+            return "Xin lỗi, tôi không tìm thấy tài khoản của bạn trong hệ thống."
+
+        lb = user.get("leaveBalance") or {}
+
+        def _extract_type(data, key):
+            t = data.get(key) or {}
+            return {
+                "total": t.get("total", 0),
+                "used": t.get("used", 0),
+                "remaining": t.get("remaining", 0),
+                "pending": t.get("pending", 0),
+            }
+
+        annual = _extract_type(lb, "annual")
+        sick = _extract_type(lb, "sick")
+        unpaid = _extract_type(lb, "unpaid")
+        compensatory = _extract_type(lb, "compensatory")
+        maternity = _extract_type(lb, "maternity")
+
+        # Dòng kết luận ngắn gọn theo style SYSTEM_PROMPT
+        summary = f"**✅ Bạn hiện còn {annual['remaining']} / {annual['total']} ngày phép năm.**"
+
+        lines = [
+            summary,
+            "",
+            "📅 **Chi tiết số ngày phép của bạn:**",
+            f"- Phép năm: **còn {annual['remaining']} / {annual['total']} ngày**, chờ duyệt: {annual['pending']} ngày",
+            f"- Nghỉ ốm: còn {sick['remaining']} / {sick['total']} ngày, chờ duyệt: {sick['pending']} ngày",
+            f"- Nghỉ không lương: còn {unpaid['remaining']} / {unpaid['total']} ngày, chờ duyệt: {unpaid['pending']} ngày",
+            f"- Nghỉ bù: còn {compensatory['remaining']} / {compensatory['total']} ngày, chờ duyệt: {compensatory['pending']} ngày",
+            f"- Nghỉ thai sản: còn {maternity['remaining']} / {maternity['total']} ngày, chờ duyệt: {maternity['pending']} ngày",
+        ]
+
+        return "\n".join(lines)
     
     async def _get_role_counts(self) -> list:
         """Get employee count by role"""

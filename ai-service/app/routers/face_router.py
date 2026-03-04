@@ -16,8 +16,11 @@ router = APIRouter(prefix="/api/face", tags=["Face Recognition"])
 face_service = FaceService()
 
 # Get minimum/maximum images from environment
-MIN_IMAGES = int(os.getenv("MIN_REGISTRATION_IMAGES", "5"))
+MIN_IMAGES = int(os.getenv("MIN_REGISTRATION_IMAGES", "4"))
 MAX_IMAGES = int(os.getenv("MAX_REGISTRATION_IMAGES", "5"))
+
+# Liveness requirement for registration (default: disabled to match guided 4-photo flow)
+REQUIRE_LIVENESS_FOR_REGISTRATION = os.getenv("REQUIRE_LIVENESS_FOR_REGISTRATION", "false").lower() == "true"
 
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
@@ -142,10 +145,10 @@ async def register_faces(
             except (ValueError, TypeError) as e:
                 logger.warning(f"Invalid liveness data format: {e}")
         
-        # Process faces with optional liveness verification
+        # Process faces with optional liveness verification for registration
         result = face_service.register_faces(
             image_bytes_list,
-            require_liveness=True,  # BẮT BUỘC phải verify
+            require_liveness=REQUIRE_LIVENESS_FOR_REGISTRATION,
             liveness_result=liveness_result
         )
         

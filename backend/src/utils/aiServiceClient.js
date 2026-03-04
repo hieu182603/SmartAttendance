@@ -109,7 +109,7 @@ class AIServiceClient {
         return await requestFn();
       } catch (error) {
         if (i === retries - 1) throw error;
-        
+
         // Don't retry on client errors (4xx)
         if (error.response && error.response.status < 500) {
           throw error;
@@ -129,18 +129,50 @@ class AIServiceClient {
     }
 
     const client = this.createClient();
+
+    const hasGetHeaders = Boolean(formData && typeof formData.getHeaders === "function");
+    const fdHeaders = hasGetHeaders ? formData.getHeaders() : {};
+    const formHeaderKeys = Object.keys(fdHeaders).map((k) => k.toLowerCase());
+
+    // IMPORTANT (Node + form-data): must include boundary from formData.getHeaders()
+    // Prepare headers (do NOT log secrets)
+    const headers = { ...fdHeaders };
+    if (this.apiKey) headers["X-API-Key"] = this.apiKey;
+
+    const contentTypeCandidate =
+      headers["content-type"] ||
+      headers["Content-Type"] ||
+      "";
+    const isMultipart = String(contentTypeCandidate).toLowerCase().includes("multipart/form-data");
+    const hasBoundary = String(contentTypeCandidate).toLowerCase().includes("boundary=");
+    void isMultipart;
+    void hasBoundary;
+
+    const startedAt = Date.now();
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/ebcb62c3-fbc1-4197-a199-939706bff08d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: 'run2', hypothesisId: 'T1', location: 'backend/src/utils/aiServiceClient.js:registerFaces:start', message: 'registerFaces start', data: { timeoutMs: this.timeout, hasXApiKey: Boolean(this.apiKey), hasGetHeaders: Boolean(formData && typeof formData.getHeaders === "function") }, timestamp: Date.now() }) }).catch(() => { });
+    // #endregion
+
     const requestFn = () =>
-      client.post("/face/register", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          ...(this.apiKey && { "X-API-Key": this.apiKey }),
-        },
+      client.post("/api/face/register", formData, {
+        headers,
         timeout: this.timeout,
       });
 
     try {
-      return await this.retryRequest(requestFn);
+      const resp = await this.retryRequest(requestFn);
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/ebcb62c3-fbc1-4197-a199-939706bff08d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: 'run2', hypothesisId: 'T1', location: 'backend/src/utils/aiServiceClient.js:registerFaces:success', message: 'registerFaces success', data: { elapsedMs: Date.now() - startedAt, status: resp?.status }, timestamp: Date.now() }) }).catch(() => { });
+      // #endregion
+
+      return resp;
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/ebcb62c3-fbc1-4197-a199-939706bff08d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: 'run2', hypothesisId: 'T1', location: 'backend/src/utils/aiServiceClient.js:registerFaces:error', message: 'registerFaces error', data: { elapsedMs: Date.now() - startedAt, code: error?.code, responseStatus: error?.response?.status }, timestamp: Date.now() }) }).catch(() => { });
+      // #endregion
+
       if (error.code === "ECONNABORTED") {
         throw new Error("AI Service request timeout");
       }
@@ -160,12 +192,109 @@ class AIServiceClient {
     }
 
     const client = this.createClient();
+
+    const hasGetHeaders = Boolean(formData && typeof formData.getHeaders === "function");
+    const fdHeaders = hasGetHeaders ? formData.getHeaders() : {};
+    const headers = { ...fdHeaders };
+    if (this.apiKey) headers["X-API-Key"] = this.apiKey;
+
     const requestFn = () =>
-      client.post("/face/verify", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          ...(this.apiKey && { "X-API-Key": this.apiKey }),
-        },
+      client.post("/api/face/verify", formData, {
+        headers,
+        timeout: this.timeout,
+      });
+
+    try {
+      return await this.retryRequest(requestFn);
+    } catch (error) {
+      if (error.code === "ECONNABORTED") {
+        throw new Error("AI Service request timeout");
+      }
+      if (error.code === "ECONNREFUSED") {
+        throw new Error("AI Service connection refused");
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new liveness verification session
+   */
+  async createLivenessSession() {
+    if (!this.canMakeRequest()) {
+      throw new Error("AI Service is currently unavailable (circuit breaker open)");
+    }
+
+    const client = this.createClient();
+    const requestFn = () =>
+      client.post("/api/face/liveness/session", null, {
+        timeout: this.timeout,
+      });
+
+    try {
+      return await this.retryRequest(requestFn);
+    } catch (error) {
+      if (error.code === "ECONNABORTED") {
+        throw new Error("AI Service request timeout");
+      }
+      if (error.code === "ECONNREFUSED") {
+        throw new Error("AI Service connection refused");
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Capture baseline pose for liveness challenge
+   */
+  async captureLivenessBaseline(sessionId, formData) {
+    if (!this.canMakeRequest()) {
+      throw new Error("AI Service is currently unavailable (circuit breaker open)");
+    }
+
+    const client = this.createClient();
+
+    const hasGetHeaders = Boolean(formData && typeof formData.getHeaders === "function");
+    const fdHeaders = hasGetHeaders ? formData.getHeaders() : {};
+    const headers = { ...fdHeaders };
+    if (this.apiKey) headers["X-API-Key"] = this.apiKey;
+
+    const requestFn = () =>
+      client.post(`/api/face/liveness/baseline/${sessionId}`, formData, {
+        headers,
+        timeout: this.timeout,
+      });
+
+    try {
+      return await this.retryRequest(requestFn);
+    } catch (error) {
+      if (error.code === "ECONNABORTED") {
+        throw new Error("AI Service request timeout");
+      }
+      if (error.code === "ECONNREFUSED") {
+        throw new Error("AI Service connection refused");
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Verify liveness challenge response
+   */
+  async verifyLivenessResponse(sessionId, formData) {
+    if (!this.canMakeRequest()) {
+      throw new Error("AI Service is currently unavailable (circuit breaker open)");
+    }
+
+    const client = this.createClient();
+    const hasGetHeaders = Boolean(formData && typeof formData.getHeaders === "function");
+    const fdHeaders = hasGetHeaders ? formData.getHeaders() : {};
+    const headers = { ...fdHeaders };
+    if (this.apiKey) headers["X-API-Key"] = this.apiKey;
+
+    const requestFn = () =>
+      client.post(`/api/face/liveness/verify/${sessionId}`, formData, {
+        headers,
         timeout: this.timeout,
       });
 
@@ -192,7 +321,7 @@ class AIServiceClient {
 
     try {
       const client = this.createClient();
-      const response = await client.get("/face/health", { timeout: 3000 });
+      const response = await client.get("/api/face/health", { timeout: 3000 });
       return response.data;
     } catch (error) {
       return { status: "unavailable", error: error.message };

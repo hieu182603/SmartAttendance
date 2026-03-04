@@ -34,6 +34,11 @@ const upload = multer({
   },
 });
 
+// Multer instance for liveness routes where we only need fields (image as data URL)
+const livenessUpload = multer({
+  storage: multer.memoryStorage(),
+});
+
 /**
  * @route   POST /api/face/register
  * @desc    Register user face with 5-7 images
@@ -44,6 +49,41 @@ faceRouter.post(
   faceRateLimit,
   upload.array("images", 10),
   FaceController.registerFace
+);
+
+/**
+ * @route   POST /api/face/liveness/session
+ * @desc    Create liveness verification session
+ * @access  Private
+ */
+faceRouter.post(
+  "/liveness/session",
+  faceRateLimit,
+  FaceController.createLivenessSession
+);
+
+/**
+ * @route   POST /api/face/liveness/baseline/:sessionId
+ * @desc    Capture baseline pose for liveness challenge
+ * @access  Private
+ */
+faceRouter.post(
+  "/liveness/baseline/:sessionId",
+  faceRateLimit,
+  livenessUpload.none(),
+  FaceController.captureLivenessBaseline
+);
+
+/**
+ * @route   POST /api/face/liveness/verify/:sessionId
+ * @desc    Verify liveness challenge response
+ * @access  Private
+ */
+faceRouter.post(
+  "/liveness/verify/:sessionId",
+  faceRateLimit,
+  livenessUpload.none(),
+  FaceController.verifyLivenessResponse
 );
 
 /**
@@ -71,6 +111,18 @@ faceRouter.put(
  * @access  Private
  */
 faceRouter.delete("/register", FaceController.deleteFace);
+
+/**
+ * @route   POST /api/face/scan
+ * @desc    Unified face scan — auto-detects registration vs verification + attendance
+ * @access  Private
+ */
+faceRouter.post(
+  "/scan",
+  faceRateLimit,
+  upload.array("images", 5),
+  FaceController.scanFace
+);
 
 export { faceRouter };
 

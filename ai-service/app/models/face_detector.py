@@ -1,135 +1,141 @@
-"""Face detection using InsightFace"""
-import cv2
-import numpy as np
-from app.services.model_loader import ModelLoader
-from app.utils.config import DETECTION_THRESHOLD
 import logging
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+
+from app.services.model_loader import ModelLoader
 
 logger = logging.getLogger(__name__)
 
+
 class FaceDetector:
-    """Detect faces in images using InsightFace"""
-    
-    def __init__(self):
-        self.model_loader = ModelLoader()
-        self.app = None
-    
-    def get_model(self):
-        """Lazy load model"""
-        if self.app is None:
-            self.app = self.model_loader.load_model()
-        return self.app
-    
-    def detect_faces(self, image: np.ndarray):
-        """
-        Detect faces in image
-        
-        Args:
-            image: numpy array (BGR format from OpenCV)
-            
-        Returns:
-            list: List of detected faces with bounding boxes and embeddings
-        """
+    """
+    Wrapper around the underlying InsightFace app used for face detection.
+
+    The health check in `face_router.py` relies on `detector.app` being
+    non-None to confirm the model has been loaded successfully.
+    """
+
+    def __init__(self) -> None:
+        self._app: Optional[Any] = None
         try:
-            app = self.get_model()
-            faces = app.get(image)
-            
-            results = []
-            for face in faces:
-                if face.det_score >= DETECTION_THRESHOLD:
-                    results.append({
-                        'bbox': face.bbox.tolist(),  # [x1, y1, x2, y2]
-                        'score': float(face.det_score),
-                        'embedding': face.normed_embedding.tolist(),  # 512-dim vector
-                        'landmark': face.landmark_2d_106.tolist() if hasattr(face, 'landmark_2d_106') else None
-                    })
-            
-            return results
-        except Exception as e:
-            logger.error(f"Error detecting faces: {str(e)}")
-            raise
-    
-    def detect_single_face(self, image: np.ndarray):
+            loader = ModelLoader()
+            self._app = loader.get_model()
+            logger.info("InsightFace model loaded successfully for FaceDetector")
+        except Exception as e:  # pragma: no cover - defensive logging
+            self._app = None
+            logger.exception("Failed to load InsightFace model in FaceDetector: %s", e)
+
+    @property
+    def app(self) -> Optional[Any]:
         """
-        Detect exactly one face in image (for registration/verification)
-        
-        Returns:
-            dict: Face data with detailed error information if detection fails
+        Expose the underlying model/app for health checks.
+
+        Used by: `face_service.detector.app is not None`
+        """
+
+        return self._app
+
+    def detect_single_face(self, image: np.ndarray) -> Dict[str, Any]:
+        """
+        Detect exactly one face in the given image.
+
+        Returns a structured dictionary describing the detection result:
+
+        - No face:
             {
-                'success': bool,
-                'face': dict (if success) or None,
-                'error_code': str (if failed),
-                'error_message': str (if failed),
-                'detected_faces_count': int,
-                'faces': list (all detected faces with details)
+                "success": False,
+                "error_code": "NO_FACE_DETECTED",
+                "error_message": "Không phát hiện khuôn mặt trong ảnh",
+                "detected_faces_count": 0,
+            }
+        - Multiple faces:
+            {
+                "success": False,
+                "error_code": "MULTIPLE_FACES",
+                "error_message": "Phát hiện nhiều khuôn mặt trong ảnh",
+                "detected_faces_count": N,
+                "faces": [...],
+            }
+        - Exactly one face:
+            {
+                "success": True,
+                "face": {
+                    "embedding": [...],
+                    "bbox": [...],
+                    "score": float,
+                    "confidence": float,
+                    "kps": [...],
+                },
             }
         """
+
         try:
-            faces = self.detect_faces(image)
-            
-            if len(faces) == 0:
+            if self._app is None:
+                raise RuntimeError("InsightFace model is not loaded")
+
+            faces = self._app.get(image)  # type: ignore[attr-defined]
+            if not faces:
                 return {
-                    'success': False,
-                    'face': None,
-                    'error_code': 'NO_FACE_DETECTED',
-                    'error_message': 'No face detected in image. Ensure face is clearly visible and well-lit.',
-                    'detected_faces_count': 0,
-                    'faces': []
+                    "success": False,
+                    "error_code": "NO_FACE_DETECTED",
+                    "error_message": "Không phát hiện khuôn mặt trong ảnh",
+                    "detected_faces_count": 0,
                 }
-            elif len(faces) > 1:
-                # Return details about all detected faces
-                face_details = []
-                for idx, face in enumerate(faces):
-                    face_details.append({
-                        'index': idx + 1,
-                        'bbox': face['bbox'],
-                        'score': face['score'],
-                        'confidence': round(face['score'] * 100, 2)
-                    })
-                
+
+            # Ensure we have a list
+            faces_list: List[Any] = list(faces)
+            detected_count = len(faces_list)
+
+            if detected_count != 1:
+                faces_info: List[Dict[str, Any]] = []
+                for face in faces_list:
+                    bbox = getattr(face, "bbox", None)
+                    det_score = getattr(face, "det_score", None)
+                    faces_info.append(
+                        {
+                            "bbox": bbox.tolist() if hasattr(bbox, "tolist") else bbox,
+                            "score": float(det_score) if det_score is not None else None,
+                        }
+                    )
+
                 return {
-                    'success': False,
-                    'face': None,
-                    'error_code': 'MULTIPLE_FACES',
-                    'error_message': f'Multiple faces detected ({len(faces)}). Only one face is allowed per image.',
-                    'detected_faces_count': len(faces),
-                    'faces': face_details
+                    "success": False,
+                    "error_code": "MULTIPLE_FACES",
+                    "error_message": "Phát hiện nhiều khuôn mặt trong ảnh",
+                    "detected_faces_count": detected_count,
+                    "faces": faces_info,
                 }
-            
-            # Single face detected - return success with face data
-            face = faces[0]
-            return {
-                'success': True,
-                'face': {
-                    'bbox': face['bbox'],
-                    'score': face['score'],
-                    'confidence': round(face['score'] * 100, 2),
-                    'embedding': face['embedding'],
-                    'landmark': face.get('landmark')
-                },
-                'error_code': None,
-                'error_message': None,
-                'detected_faces_count': 1,
-                'faces': [{
-                    'index': 1,
-                    'bbox': face['bbox'],
-                    'score': face['score'],
-                    'confidence': round(face['score'] * 100, 2)
-                }]
+
+            face = faces_list[0]
+
+            # Prefer normalized embedding if available
+            embedding = getattr(face, "normed_embedding", None)
+            if embedding is None:
+                embedding = getattr(face, "embedding", None)
+
+            bbox = getattr(face, "bbox", None)
+            det_score = getattr(face, "det_score", None)
+            kps = getattr(face, "kps", None)
+
+            face_payload: Dict[str, Any] = {
+                "embedding": embedding.tolist() if hasattr(embedding, "tolist") else embedding,
+                "bbox": bbox.tolist() if hasattr(bbox, "tolist") else bbox,
+                "score": float(det_score) if det_score is not None else None,
+                "confidence": float(det_score) if det_score is not None else None,
+                "kps": kps.tolist() if hasattr(kps, "tolist") else kps,
             }
+
+            return {
+                "success": True,
+                "face": face_payload,
+            }
+
         except Exception as e:
-            logger.error(f"Error in detect_single_face: {str(e)}")
+            logger.exception("Error during face detection: %s", e)
             return {
-                'success': False,
-                'face': None,
-                'error_code': 'AI_SERVICE_ERROR',
-                'error_message': f'Face detection error: {str(e)}',
-                'detected_faces_count': 0,
-                'faces': []
+                "success": False,
+                "error_code": "AI_SERVICE_ERROR",
+                "error_message": str(e),
+                "detected_faces_count": 0,
             }
-
-
-
-
-
-

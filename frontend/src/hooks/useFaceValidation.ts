@@ -72,7 +72,7 @@ export const useFaceValidation = () => {
         averageScore: 0,
         diversityScore: 0,
         issues: ['No images provided'],
-        recommendations: ['Capture at least 5 images']
+        recommendations: ['Capture at least 4 images']
       };
     }
 
@@ -95,35 +95,14 @@ export const useFaceValidation = () => {
         recommendations.push('Capture more high-quality images');
       }
 
-      // Check diversity (avoid duplicate images)
+      // Diversity check currently disabled – we rely on guided capture (thẳng, trên, trái, phải)
       let diversityScore = 1;
-      if (images.length > 1) {
-        const similarityPromises: Promise<number>[] = [];
 
-        for (let i = 0; i < images.length; i++) {
-          for (let j = i + 1; j < images.length; j++) {
-            similarityPromises.push(
-              faceDetectionService.checkImageSimilarity(images[i].dataURL, images[j].dataURL)
-            );
-          }
-        }
 
-        const similarities = await Promise.all(similarityPromises);
-        const avgSimilarity = similarities.reduce((sum, sim) => sum + sim, 0) / similarities.length;
-
-        // Diversity score is inverse of similarity (higher = more diverse)
-        diversityScore = 1 - avgSimilarity;
-
-        if (diversityScore < 0.3) {
-          issues.push('Images are too similar');
-          recommendations.push('Capture images from different angles and lighting conditions');
-        }
-      }
-
-      // Check minimum image count
-      if (images.length < 5) {
+      // Check minimum image count (4 guided angles)
+      if (images.length < 4) {
         issues.push('Insufficient images');
-        recommendations.push('Capture at least 5 images');
+        recommendations.push('Capture at least 4 images');
       }
 
       // Face consistency check (all images should be of the same person)

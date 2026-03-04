@@ -67,20 +67,54 @@ from app.services.rag.cache import get_rag_cache, RAGCache
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Bạn là SmartBot - Trợ lý AI thông minh của hệ thống quản lý nhân sự SmartAttendance.
+# Minimum relevance score for vector search results (0.0 - 1.0)
+VECTOR_SEARCH_MIN_SCORE = 0.3
 
-PHONG CÁCH PHỤC VỤ:
-- Thân thiện, lịch sự và chuyên nghiệp.
-- Trả lời ngắn gọn, tập trung vào trọng tâm câu hỏi.
-- Sử dụng emoji phù hợp (📅, 📊, ✅, ⚠️, 💰, 🏢) để làm cho câu trả lời sinh động hơn.
-- Định dạng thông tin rõ ràng bằng Markdown (bullet points, bold text, tables).
+SYSTEM_PROMPT = """
+Bạn là **SmartBot** – trợ lý AI của hệ thống chấm công & nhân sự SmartAttendance.
 
-QUY TẮC CỐT LÕI:
-1. Luôn trả lời bằng tiếng Việt.
-2. Chỉ sử dụng thông tin được cung cấp trong "NGỮ CẢNH" hoặc "DỮ LIỆU HỆ THỐNG".
-3. Nếu không có thông tin trong ngữ cảnh, hãy nói "Xin lỗi, tôi không tìm thấy thông tin này trong hệ thống. Bạn có thể liên hệ bộ phận nhân sự để được hỗ trợ cụ thể hơn."
-4. Không tự bịa ra thông tin không có thực.
-5. Khi cung cấp số liệu (lương, ngày công), hãy định dạng rõ ràng (ví dụ: 15.000.000 VNĐ).
+PHONG CÁCH TRẢ LỜI
+- Luôn dùng **tiếng Việt**, giọng điệu **thân thiện, rõ ràng, tôn trọng người dùng**.
+- Ưu tiên **ngắn gọn, súc tích**: thường 2–6 câu là đủ cho mỗi câu hỏi.
+- Cách trình bày:
+  - Dùng gạch đầu dòng (-) cho danh sách.
+  - Dùng **in đậm** cho thông tin chính (kết luận, số liệu, trạng thái quan trọng).
+- Có thể dùng emoji phù hợp (📅, 📊, ✅, ⚠️, 💰, 🏢) để câu trả lời dễ đọc hơn, nhưng **không lạm dụng**.
+
+QUY TẮC DỮ LIỆU & MINH BẠCH
+1. Chỉ sử dụng thông tin từ **ngữ cảnh** và **dữ liệu hệ thống** (MongoDB, RAG documents).
+2. Nếu **không có dữ liệu đủ rõ**, hãy nói thẳng:
+   "Xin lỗi, tôi không tìm thấy thông tin này trong hệ thống. Bạn có thể liên hệ bộ phận nhân sự để được hỗ trợ thêm."
+3. **Không bịa số liệu** (giờ công, ngày công, tiền lương, số ngày phép...). Không phỏng đoán khi không có dữ liệu chính xác.
+4. Khi trả lời có số liệu, luôn định dạng dễ đọc, ví dụ:
+   - **Lương**: 15.000.000 VNĐ
+   - **Tổng ngày công**: 22 ngày
+   - **Ngày phép còn lại**: 5 ngày
+
+TRẢ LỜI CÁC CÂU HỎI TRẠNG THÁI / KẾT QUẢ
+- Với các câu như: đã chấm công chưa, còn bao nhiêu ngày phép, lương tháng này bao nhiêu…
+  - **Dòng 1**: Kết luận ngắn gọn, rõ ràng (có/không + số liệu chính), ví dụ:
+    - "**✅ Hôm nay bạn đã chấm công lúc 08:05.**"
+    - "**⚠️ Hôm nay hệ thống chưa ghi nhận chấm công nào của bạn.**"
+  - **Dòng 2–3**: Thêm chi tiết liên quan (thời gian, ca làm, địa điểm, loại phép, chi nhánh… nếu có).
+  - **Dòng 4 (tuỳ chọn)**: Gợi ý bước tiếp theo (mở màn hình chấm công, xem lịch làm, liên hệ HR, v.v.).
+
+TỐI ƯU HIỆU NĂNG & TRẢI NGHIỆM
+- Trả lời **trực tiếp vào câu hỏi**, tránh vòng vo hoặc nhắc lại nguyên văn câu hỏi nếu không cần thiết.
+- Khi ngữ cảnh đã rõ, **đưa thẳng kết luận và số liệu**, không cần giải thích dài dòng.
+- Nếu câu hỏi mơ hồ, hãy **hỏi lại 1 câu làm rõ** thay vì tự suy đoán.
+- Luôn tham khảo **LỊCH SỬ HỘI THOẠI** (nếu có) để hiểu ngữ cảnh trước đó, tránh hỏi lại những gì đã nói.
+
+VÍ DỤ MẪU
+
+User: "Xin chào"
+Assistant: "Chào bạn! 👋 Tôi là SmartBot – trợ lý AI của hệ thống SmartAttendance. Tôi có thể giúp bạn với:\n- 📅 Tra cứu chấm công\n- 💰 Thông tin lương\n- 📋 Đơn nghỉ phép, tăng ca\n- 🏢 Thông tin phòng ban, chi nhánh\nBạn cần hỗ trợ gì?"
+
+User: "Hôm nay tôi đã chấm công chưa?"
+Assistant: "**✅ Hôm nay bạn đã chấm công.**\n- Check-in: **08:02 AM** tại chi nhánh Hà Nội\n- Ca làm việc: Sáng (08:00 – 12:00)\n\nBạn chưa check-out. Nhớ check-out khi kết thúc ca nhé!"
+
+User: "Tháng này tôi còn bao nhiêu ngày phép?"
+Assistant: "📅 **Bạn còn 5 ngày phép** trong tháng này.\n- Đã sử dụng: 2 ngày (10/03, 15/03)\n- Tổng phép năm: 12 ngày\n\nBạn muốn tạo đơn xin nghỉ phép không?"
 """
 
 
@@ -185,11 +219,11 @@ class RAGService:
             )
             logger.info(f"Initialized MongoDB Atlas Vector Search with index: {VECTOR_SEARCH_INDEX_NAME}")
             
-            # Initialize LLM (Gemini 2.5 Flash)
+            # Initialize LLM (Gemini 2.5 Flash) với cấu hình tối ưu hơn cho tốc độ và độ ngắn gọn
             self.llm = ChatGoogleGenerativeAI(
                 model="gemini-2.5-flash",
-                temperature=0.7,
-                max_tokens=2000
+                temperature=0.5,
+                max_tokens=800
             )
             logger.info("Initialized Gemini 2.5 Flash LLM")
             
@@ -239,6 +273,9 @@ class RAGService:
         
         # Document manager
         self._document_manager = DocumentManager(self.vector_store)
+        
+        # Set LLM for intent detector fallback
+        IntentDetector.set_llm(self.llm)
         
         # Query handlers
         collections = self._get_collections_object()
@@ -338,12 +375,19 @@ TRẢ LỜI:"""
                 conversation_id, user_id, department_id, role
             )
 
+            # Build conversation history BEFORE adding current message
+            # so the history contains only prior exchanges
+            conversation_history = self._format_conversation_history(
+                conversation.get("messages", [])
+            )
+
             # Add user message to conversation
             self._conversation_manager.add_message(conversation, "user", message)
 
             # Detect intent and route to appropriate handler
             response_text, sources = await self._route_query(
-                message, role, user_id, department_id
+                message, role, user_id, department_id,
+                conversation_history=conversation_history
             )
 
             # Add assistant response to conversation
@@ -423,17 +467,70 @@ TRẢ LỜI:"""
         
         return False
     
+    def _format_conversation_history(
+        self,
+        messages: List[Dict[str, Any]],
+        max_messages: int = 10
+    ) -> str:
+        """
+        Format conversation history for inclusion in LLM prompts.
+        
+        Takes the most recent messages and formats them into a readable
+        string for the LLM to understand conversation context.
+        
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            max_messages: Maximum number of messages to include
+            
+        Returns:
+            Formatted conversation history string, or empty string if no history
+        """
+        if not messages:
+            return ""
+        
+        # Take only the last N messages (excluding the current user message)
+        recent_messages = messages[-max_messages:]
+        
+        if not recent_messages:
+            return ""
+        
+        history_parts = []
+        for msg in recent_messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            # Truncate very long messages to avoid token overflow
+            if len(content) > 500:
+                content = content[:500] + "..."
+            
+            if role == "user":
+                history_parts.append(f"Người dùng: {content}")
+            elif role == "assistant":
+                history_parts.append(f"SmartBot: {content}")
+        
+        if not history_parts:
+            return ""
+        
+        return "\n".join(history_parts)
+    
     async def _route_query(
         self,
         message: str,
         role: str,
         user_id: str,
-        department_id: Optional[str]
+        department_id: Optional[str],
+        conversation_history: str = ""
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Route query to appropriate handler based on intent with hybrid retrieval support
         
         Uses caching when available to improve performance.
+        
+        Args:
+            message: User message
+            role: User role
+            user_id: User ID
+            department_id: Department ID
+            conversation_history: Formatted prior conversation context
         
         Returns:
             Tuple of (response_text, sources)
@@ -449,6 +546,19 @@ TRẢ LỜI:"""
         else:
             # Detect intent and cache it
             intent_type, details = IntentDetector.detect_intent(message)
+            
+            # If regex couldn't determine intent, try LLM-based classification
+            if intent_type == 'dynamic':
+                logger.info(f"Regex intent returned 'dynamic', trying LLM fallback for: '{message}'")
+                try:
+                    llm_intent, llm_details = await IntentDetector.detect_intent_with_llm(message)
+                    if llm_intent != 'general':  # LLM found a specific intent
+                        intent_type = llm_intent
+                        details = llm_details
+                        logger.info(f"LLM fallback classified as: '{intent_type}'")
+                except Exception as e:
+                    logger.warning(f"LLM intent fallback failed: {str(e)}")
+            
             self._cache.set_intent(message, intent_type, details)
             logger.debug(f"Intent detected: {intent_type}")
         
@@ -460,16 +570,21 @@ TRẢ LỜI:"""
         if use_hybrid:
             # Hybrid approach: combine vector search and DB query
             response_text, sources = await self._handle_hybrid_query(
-                message, intent_type, details, role, user_id, department_id
+                message, intent_type, details, role, user_id, department_id,
+                conversation_history=conversation_history
             )
         elif use_vector_search and intent_type == 'general':
             # Use vector search for general questions
             response_text, sources = await self._handle_general_question_with_rag(
-                message, role, department_id
+                message, role, department_id,
+                conversation_history=conversation_history
             )
         elif intent_type == 'general':
             # Fallback for general questions without vector search
-            response_text = await self._handle_general_question(message, role, department_id)
+            response_text = await self._handle_general_question(
+                message, role, department_id,
+                conversation_history=conversation_history
+            )
             sources = []
         
         elif intent_type == 'employee':
@@ -591,7 +706,8 @@ TRẢ LỜI:"""
         details: Dict[str, Any],
         role: str,
         user_id: str,
-        department_id: Optional[str]
+        department_id: Optional[str],
+        conversation_history: str = ""
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Handle query using hybrid approach (vector search + DB query)
@@ -603,6 +719,7 @@ TRẢ LỜI:"""
             role: User role
             user_id: User ID
             department_id: Department ID
+            conversation_history: Prior conversation context
             
         Returns:
             Tuple of (response_text, sources)
@@ -619,6 +736,11 @@ TRẢ LỜI:"""
                 user_role=role,
                 department_id=department_id
             )
+            # Filter out low-relevance results
+            retrieved_docs = [
+                doc for doc in retrieved_docs
+                if doc.get("score", 0) >= VECTOR_SEARCH_MIN_SCORE
+            ]
             vector_context = self._augment_context_with_documents(retrieved_docs)
             vector_sources = self._format_sources_from_documents(retrieved_docs)
             all_sources.extend(vector_sources)
@@ -661,7 +783,10 @@ TRẢ LỜI:"""
             combined_context += f"THÔNG TIN TỪ DỮ LIỆU:\n{db_response}\n\n"
         
         if combined_context:
-            prompt = self._create_hybrid_prompt(message, combined_context, role, department_id)
+            prompt = self._create_hybrid_prompt(
+                message, combined_context, role, department_id,
+                conversation_history=conversation_history
+            )
             try:
                 response = await self.llm.ainvoke(prompt)
                 response_text = response.content if hasattr(response, 'content') else str(response)
@@ -675,10 +800,16 @@ TRẢ LỜI:"""
                 elif db_response:
                     response_text = db_response
                 else:
-                    response_text = await self._handle_general_question(message, role, department_id)
+                    response_text = await self._handle_general_question(
+                        message, role, department_id,
+                        conversation_history=conversation_history
+                    )
         else:
             # Fallback if no context available
-            response_text = await self._handle_general_question(message, role, department_id)
+            response_text = await self._handle_general_question(
+                message, role, department_id,
+                conversation_history=conversation_history
+            )
         
         # Ensure response_text is never None or empty
         if not response_text or response_text.strip() == "":
@@ -691,7 +822,8 @@ TRẢ LỜI:"""
         question: str,
         combined_context: str,
         role: str,
-        department_id: Optional[str]
+        department_id: Optional[str],
+        conversation_history: str = ""
     ) -> str:
         """
         Create prompt for hybrid query combining vector search and DB query results
@@ -701,12 +833,17 @@ TRẢ LỜI:"""
             combined_context: Combined context from both sources
             role: User role
             department_id: Department ID
+            conversation_history: Prior conversation context
             
         Returns:
             Formatted prompt string
         """
+        history_section = ""
+        if conversation_history:
+            history_section = f"\n=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY ===\n{conversation_history}\n"
+        
         return f"""{SYSTEM_PROMPT}
-
+{history_section}
 Nhiệm vụ của bạn là tổng hợp và trả lời câu hỏi dựa trên thông tin từ cả tài liệu và dữ liệu hệ thống.
 
 === THÔNG TIN TỔNG HỢP ===
@@ -723,13 +860,15 @@ HƯỚNG DẪN TRẢ LỜI:
 1. Tổng hợp thông tin một cách logic.
 2. Ưu tiên dữ liệu hệ thống (số liệu cụ thể).
 3. Sử dụng Markdown để trình bày đẹp (bullet points, bảng).
+4. Tham khảo lịch sử hội thoại để trả lời đúng ngữ cảnh.
 """
     
     async def _handle_general_question_with_rag(
         self,
         message: str,
         role: str,
-        department_id: Optional[str]
+        department_id: Optional[str],
+        conversation_history: str = ""
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """Handle general questions with RAG (vector search + context augmentation)"""
         try:
@@ -741,11 +880,21 @@ HƯỚNG DẪN TRẢ LỜI:
                 department_id=department_id
             )
             
+            # Filter out low-relevance results
+            retrieved_docs = [
+                doc for doc in retrieved_docs
+                if doc.get("score", 0) >= VECTOR_SEARCH_MIN_SCORE
+            ]
+            logger.debug(f"Vector search returned {len(retrieved_docs)} relevant docs (min_score={VECTOR_SEARCH_MIN_SCORE})")
+            
             # Augment context with retrieved documents
             context = self._augment_context_with_documents(retrieved_docs)
             
-            # Create prompt with context
-            prompt = self._create_rag_prompt(message, context, role, department_id)
+            # Create prompt with context and conversation history
+            prompt = self._create_rag_prompt(
+                message, context, role, department_id,
+                conversation_history=conversation_history
+            )
             
             # Generate response using LLM
             response = await self.llm.ainvoke(prompt)
@@ -775,11 +924,16 @@ HƯỚNG DẪN TRẢ LỜI:
         self,
         message: str,
         role: str,
-        department_id: Optional[str]
+        department_id: Optional[str],
+        conversation_history: str = ""
     ) -> str:
         """Handle general questions without document retrieval (fallback)"""
+        history_section = ""
+        if conversation_history:
+            history_section = f"\n=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY ===\n{conversation_history}\n"
+        
         prompt = f"""{SYSTEM_PROMPT}
-
+{history_section}
 Bạn đang trả lời một câu hỏi chung hoặc câu chào hỏi. Người dùng có vai trò: {role} {f', phòng ban: {department_id}' if department_id else ''}.
 
 CÂU HỎI: "{message}"
@@ -788,6 +942,7 @@ HƯỚNG DẪN:
 - Nếu là lời chào, hãy chào lại một cách thân thiện và giới thiệu ngắn gọn khả năng giúp đỡ của bạn.
 - Chỉ trả lời những kiến thức chung về hệ thống hoặc quy trình.
 - Không cung cấp dữ liệu giả định nếu không được phép.
+- Tham khảo lịch sử hội thoại (nếu có) để trả lời đúng ngữ cảnh.
 """
 
         try:
@@ -837,23 +992,29 @@ HƯỚNG DẪN:
         question: str,
         context: str,
         role: str,
-        department_id: Optional[str]
+        department_id: Optional[str],
+        conversation_history: str = ""
     ) -> str:
         """
-        Create RAG prompt with context augmentation
+        Create RAG prompt with context augmentation and conversation history
         
         Args:
             question: User question
             context: Augmented context from retrieved documents
             role: User role
             department_id: User's department ID
+            conversation_history: Prior conversation context
             
         Returns:
             Formatted prompt string
         """
+        history_section = ""
+        if conversation_history:
+            history_section = f"\n=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY ===\n{conversation_history}\n"
+        
         if context:
             prompt = f"""{SYSTEM_PROMPT}
-
+{history_section}
 Nhiệm vụ của bạn là trả lời câu hỏi dựa trên thông tin được cung cấp trong ngữ cảnh tham khảo bên dưới.
 
 === NGỮ CẢNH THAM KHẢO ===
@@ -870,11 +1031,14 @@ HƯỚNG DẪN TRẢ LỜI:
 1. Chỉ trả lời dựa trên thông tin có trong ngữ cảnh.
 2. Nếu ngữ cảnh không có thông tin, hãy nói rõ bạn không tìm thấy dữ liệu.
 3. Trình bày đẹp bằng Markdown.
+4. Tham khảo lịch sử hội thoại để trả lời đúng ngữ cảnh.
 
 TRẢ LỜI:"""
         else:
             # Fallback when no context available
-            prompt = f"""Bạn là trợ lý AI của hệ thống SmartAttendance. Người dùng có vai trò: {role}
+            prompt = f"""{SYSTEM_PROMPT}
+{history_section}
+Bạn là trợ lý AI của hệ thống SmartAttendance. Người dùng có vai trò: {role}
 {f', phòng ban: {department_id}' if department_id else ''}
 
 Hãy trả lời câu hỏi chung sau một cách thân thiện và hữu ích bằng tiếng Việt:
