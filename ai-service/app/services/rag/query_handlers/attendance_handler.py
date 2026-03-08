@@ -2,6 +2,7 @@
 import logging
 from typing import Dict, Any
 from datetime import datetime, timedelta
+from bson import ObjectId
 from app.services.rag.query_handlers.base import BaseQueryHandler
 
 logger = logging.getLogger(__name__)
@@ -26,10 +27,12 @@ class AttendanceQueryHandler(BaseQueryHandler):
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        # Giới hạn theo user nếu có
+        # Giới hạn theo user nếu có - convert to ObjectId for proper matching
         if user_id:
-            # Đặt thêm filter userId nếu schema đang dùng field này
-            query.setdefault("userId", user_id)
+            try:
+                query.setdefault("userId", ObjectId(user_id))
+            except Exception:
+                query.setdefault("userId", user_id)
         
         today = datetime.now()
         today_start = datetime(today.year, today.month, today.day)
@@ -40,8 +43,10 @@ class AttendanceQueryHandler(BaseQueryHandler):
         
         if not records:
             return (
-                "⚠️ Hôm nay hệ thống **chưa ghi nhận bản ghi chấm công** nào của bạn.\n"
-                "- Bạn có thể mở mục **Chấm công** để thực hiện chấm công ngay."
+                "⚠️ Hôm nay hệ thống **chưa ghi nhận bản ghi chấm công** nào của bạn.\n\n"
+                "💡 **Gợi ý:**\n"
+                "- Bạn có thể mở mục **Chấm công** trên menu để thực hiện chấm công ngay.\n"
+                "- Nếu bạn đã chấm công nhưng không thấy, hãy liên hệ quản lý trực tiếp."
             )
         
         # Lấy bản ghi check-in đầu tiên trong ngày

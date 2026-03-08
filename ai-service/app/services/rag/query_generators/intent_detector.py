@@ -90,6 +90,18 @@ class IntentDetector:
         r"nhân viên.*bộ phận nào$"
     ]
 
+    # Employee self-info patterns ("Thông tin cá nhân của tôi", "Hồ sơ của tôi")
+    SELF_INFO_PATTERNS = [
+        r"thông tin.*cá nhân.*(của)?\s*tôi",
+        r"thông tin.*của tôi",
+        r"hồ sơ.*của tôi",
+        r"profile.*của tôi",
+        r"tôi là ai",
+        r"thông tin.*tài khoản",
+        r"my.*profile",
+        r"my.*info",
+    ]
+
     # Employee self leave balance patterns ("Tôi còn bao nhiêu ngày phép?")
     LEAVE_BALANCE_SELF_PATTERNS = [
         r"tôi.*còn.*bao nhiêu.*(ngày)?\s*(phép|nghỉ)",
@@ -281,7 +293,12 @@ class IntentDetector:
         """Detect employee-related queries"""
         message_lower = message.lower().strip()
 
-        # Self leave balance first: "Tôi còn bao nhiêu ngày phép?"
+        # Self-info first: "Thông tin cá nhân của tôi"
+        for pattern in cls.SELF_INFO_PATTERNS:
+            if re.search(pattern, message_lower):
+                return True, 'self_info', {}
+
+        # Self leave balance: "Tôi còn bao nhiêu ngày phép?"
         for pattern in cls.LEAVE_BALANCE_SELF_PATTERNS:
             if re.search(pattern, message_lower):
                 return True, 'self_leave_balance', {}

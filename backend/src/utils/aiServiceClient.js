@@ -218,6 +218,45 @@ class AIServiceClient {
   }
 
   /**
+   * Verify face with optimized settings for attendance flow
+   * - Shorter timeout (VERIFICATION_TIMEOUT instead of TIMEOUT)
+   * - Fewer retries (VERIFY_MAX_RETRIES, default 1)
+   * - No exponential backoff delay between retries
+   */
+  async verifyFaceFast(formData) {
+    if (!this.canMakeRequest()) {
+      throw new Error("AI Service is currently unavailable (circuit breaker open)");
+    }
+
+    const client = this.createClient();
+    const verifyTimeout = FACE_RECOGNITION_CONFIG.VERIFICATION_TIMEOUT || 15000;
+    const maxRetries = FACE_RECOGNITION_CONFIG.VERIFY_MAX_RETRIES || 1;
+
+    const hasGetHeaders = Boolean(formData && typeof formData.getHeaders === "function");
+    const fdHeaders = hasGetHeaders ? formData.getHeaders() : {};
+    const headers = { ...fdHeaders };
+    if (this.apiKey) headers["X-API-Key"] = this.apiKey;
+
+    const requestFn = () =>
+      client.post("/api/face/verify", formData, {
+        headers,
+        timeout: verifyTimeout,
+      });
+
+    try {
+      return await this.retryRequest(requestFn, maxRetries, 500);
+    } catch (error) {
+      if (error.code === "ECONNABORTED") {
+        throw new Error("AI Service verification timeout");
+      }
+      if (error.code === "ECONNREFUSED") {
+        throw new Error("AI Service connection refused");
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Create a new liveness verification session
    */
   async createLivenessSession() {

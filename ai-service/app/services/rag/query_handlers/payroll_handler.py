@@ -85,14 +85,15 @@ class PayrollQueryHandler(BaseQueryHandler):
         message: str, 
         role: str, 
         department_id: str = None,
-        filters: Dict[str, Any] = None
+        filters: Dict[str, Any] = None,
+        user_id: str = None
     ) -> str:
         """Handle payroll query with permission check"""
         
         # Check permission first
-        has_access, _ = PermissionChecker.check(role, self.collection_name, department_id)
+        has_access, _ = PermissionChecker.check(role, self.collection_name, department_id, user_id)
         if not has_access:
-            return f"Xin lỗi, {self.error_message}"
+            return f"Xin lỗi, {self.error_message}. Thông tin lương chỉ dành cho quản lý cấp cao và bộ phận nhân sự."
         
         try:
             query = {}
@@ -105,12 +106,14 @@ class PayrollQueryHandler(BaseQueryHandler):
                 return await self._handle_average(query)
             elif query_type == 'count':
                 return await self._handle_count(query)
+            elif query_type == 'list':
+                return await self._handle_list(query)
             else:
-                return "Xin lỗi, tôi chưa hiểu rõ câu hỏi về lương."
+                return "Xin lỗi, tôi chưa hiểu rõ câu hỏi về lương. Bạn có thể hỏi về tổng lương, lương trung bình, hoặc danh sách bảng lương."
         
         except Exception as e:
             logger.error(f"Error handling payroll query: {str(e)}")
-            return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu: {str(e)}"
+            return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu. Vui lòng thử lại sau."
     
     async def _format_item(self, item: Dict[str, Any], index: int) -> str:
         """Format payroll item"""

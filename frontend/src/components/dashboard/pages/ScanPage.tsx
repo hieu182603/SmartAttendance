@@ -11,12 +11,20 @@ import {
   RotateCcw,
   X,
   User,
+  Scan,
+  Volume2,
+  VolumeX,
+  ShieldCheck,
+  ShieldAlert,
+  Eye,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { faceService, type FaceStatus } from "@/services/faceService";
+import { useScanFaceDetection, type ScanDetectionStatus, type FaceBoundingBox } from "@/hooks/useScanFaceDetection";
+import { useVoiceFeedback } from "@/hooks/useVoiceFeedback";
 
 // ============================================================================
 // CONSTANTS
@@ -29,6 +37,7 @@ const PHOTO_MAX_WIDTH = 800;
 const PHOTO_MAX_HEIGHT = 600;
 const PHOTO_QUALITY = 0.6;
 const LOCATION_TIMEOUT = 30000;
+const AUTO_CAPTURE_DELAY_MS = 800; // Delay trước khi auto-capture (ms)
 const DAY_CHECK_INTERVAL = 60000;
 const WORK_HOURS_CHECK_INTERVAL = 60000;
 const DEFAULT_OFFICE_RADIUS = 100;
@@ -191,7 +200,7 @@ const ScanPage: React.FC = () => {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [offices, setOffices] = useState<Office[]>([]);
   const [facingMode, setFacingMode] = useState<"user" | "environment">(
-    "environment"
+    "user"
   );
   
   // ⚠️ MỚI: Early checkout state
@@ -204,10 +213,19 @@ const ScanPage: React.FC = () => {
   const navigate = useNavigate();
   const [earlyCheckoutError, setEarlyCheckoutError] = useState<CheckInError | null>(null);
 
+  // Face detection for scan
+  const faceDetection = useScanFaceDetection();
+  const voiceFeedback = useVoiceFeedback();
+  const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
+  const [autoCaptureTriggered, setAutoCaptureTriggered] = useState(false);
+  const autoCaptureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastVoiceStatusRef = useRef<ScanDetectionStatus | null>(null);
+
   // ==========================================================================
   // REFS
   // ==========================================================================
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasOverlayRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const permissionListenerRef = useRef<boolean>(false);
 
@@ -301,12 +319,15 @@ const ScanPage: React.FC = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    ctx.translate(width, 0);
-    ctx.scale(-1, 1);
+    // Mirror khi dùng camera trước
+    if (facingMode === "user") {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0, width, height);
 
     return canvas.toDataURL("image/jpeg", PHOTO_QUALITY);
-  }, [isCameraReady]);
+  }, [isCameraReady, facingMode]);
 
   // ==========================================================================
   // LOCATION FUNCTIONS
@@ -856,6 +877,281 @@ const ScanPage: React.FC = () => {
     };
   }, [startCamera, stopCamera]);
 
+  // Load face detection model on mount
+  useEffect(() => {
+    if (faceStatus?.isRegistered) {
+      faceDetection.loadModel().catch((err) => {
+        console.warn("[ScanPage] Face detection model load failed:", err);
+      });
+    }
+    return () => {
+      faceDetection.dispose();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [faceStatus?.isRegistered]);
+
+  // Start face detection when camera is ready and model is loaded
+  useEffect(() => {
+    if (isCameraReady && faceDetection.modelReady && videoRef.current && faceStatus?.isRegistered) {
+      faceDetection.startDetection(videoRef.current);
+    }
+    return () => {
+      faceDetection.stopDetection();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCameraReady, faceDetection.modelReady, faceStatus?.isRegistered]);
+
+  // Voice feedback based on detection status changes
+  useEffect(() => {
+    if (!faceStatus?.isRegistered) return;
+    const status = faceDetection.detectionStatus;
+    if (status === lastVoiceStatusRef.current) return;
+    lastVoiceStatusRef.current = status;
+
+    const voiceMessages: Partial<Record<ScanDetectionStatus, string>> = {
+      no_face: "Không tìm thấy khuôn mặt",
+      multiple_faces: "Phát hiện nhiều khuôn mặt",
+      too_far: "Hãy di chuyển lại gần hơn",
+      too_close: "Hãy di chuyển ra xa hơn",
+      not_centered: "Hãy đưa khuôn mặt vào giữa",
+      good: "Khuôn mặt OK",
+    };
+
+    const msg = voiceMessages[status];
+    if (msg) {
+      voiceFeedback.speakMessage(msg);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [faceDetection.detectionStatus, faceStatus?.isRegistered]);
+
+  // Auto-capture: when face quality is good for enough consecutive frames
+  useEffect(() => {
+    if (
+      !autoCaptureEnabled ||
+      autoCaptureTriggered ||
+      isProcessing ||
+      !faceDetection.canAutoCapture ||
+      !locationData ||
+      !permissions.camera ||
+      !permissions.location ||
+      !faceStatus?.isRegistered
+    ) {
+      return;
+    }
+
+    // Determine which action to auto-trigger
+    const shouldCheckIn = !hasCheckedIn && !hasCheckedOut;
+    const shouldCheckOut = hasCheckedIn && !hasCheckedOut;
+
+    if (!shouldCheckIn && !shouldCheckOut) return;
+
+    // Set a small delay before auto-capture to avoid accidental triggers
+    if (autoCaptureTimeoutRef.current) {
+      clearTimeout(autoCaptureTimeoutRef.current);
+    }
+
+    autoCaptureTimeoutRef.current = setTimeout(() => {
+      // Re-check conditions
+      if (faceDetection.canAutoCapture && !isProcessing) {
+        setAutoCaptureTriggered(true);
+        if (shouldCheckIn) {
+          voiceFeedback.speakMessage("Đang chấm công vào");
+          handleCheckIn();
+        } else if (shouldCheckOut) {
+          voiceFeedback.speakMessage("Đang chấm công ra");
+          handleCheckOut();
+        }
+      }
+    }, AUTO_CAPTURE_DELAY_MS);
+
+    return () => {
+      if (autoCaptureTimeoutRef.current) {
+        clearTimeout(autoCaptureTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    faceDetection.canAutoCapture,
+    autoCaptureEnabled,
+    autoCaptureTriggered,
+    isProcessing,
+    hasCheckedIn,
+    hasCheckedOut,
+    locationData,
+    permissions.camera,
+    permissions.location,
+    faceStatus?.isRegistered,
+  ]);
+
+  // Reset auto-capture trigger after processing completes
+  useEffect(() => {
+    if (!isProcessing && autoCaptureTriggered) {
+      // Reset after a delay to prevent immediate re-trigger
+      const timer = setTimeout(() => {
+        setAutoCaptureTriggered(false);
+        faceDetection.resetConsecutiveFrames();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProcessing, autoCaptureTriggered]);
+
+  // Draw face detection overlay on canvas
+  useEffect(() => {
+    if (!canvasOverlayRef.current || !videoRef.current || !isCameraReady || !faceStatus?.isRegistered) return;
+
+    const canvas = canvasOverlayRef.current;
+    const video = videoRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Match canvas size to video display size
+    const rect = video.getBoundingClientRect();
+    if (canvas.width !== rect.width || canvas.height !== rect.height) {
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+
+    // Clear previous frame
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const bbox = faceDetection.faceBoundingBox;
+    const status = faceDetection.detectionStatus;
+
+    if (bbox && video.videoWidth > 0 && video.videoHeight > 0) {
+      // Scale bounding box from video coordinates to canvas display coordinates
+      const scaleX = canvas.width / video.videoWidth;
+      const scaleY = canvas.height / video.videoHeight;
+
+      let drawX = bbox.x * scaleX;
+      const drawY = bbox.y * scaleY;
+      const drawW = bbox.width * scaleX;
+      const drawH = bbox.height * scaleY;
+
+      // Mirror X when using front camera
+      if (facingMode === "user") {
+        drawX = canvas.width - drawX - drawW;
+      }
+
+      // Color based on status
+      let color = "#ef4444"; // red
+      if (status === "good") {
+        color = "#22c55e"; // green
+      } else if (status === "not_centered" || status === "too_far" || status === "too_close") {
+        color = "#f59e0b"; // amber
+      }
+
+      // Draw rounded bounding box
+      const padding = 10;
+      const x = drawX - padding;
+      const y = drawY - padding;
+      const w = drawW + padding * 2;
+      const h = drawH + padding * 2;
+      const radius = 12;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + h - radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      ctx.stroke();
+
+      // Draw corner accents
+      const cornerLen = 20;
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = color;
+
+      // Top-left
+      ctx.beginPath();
+      ctx.moveTo(x, y + cornerLen);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.lineTo(x + cornerLen, y);
+      ctx.stroke();
+
+      // Top-right
+      ctx.beginPath();
+      ctx.moveTo(x + w - cornerLen, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + cornerLen);
+      ctx.stroke();
+
+      // Bottom-left
+      ctx.beginPath();
+      ctx.moveTo(x, y + h - cornerLen);
+      ctx.lineTo(x, y + h - radius);
+      ctx.quadraticCurveTo(x, y + h, x + radius, y + h);
+      ctx.lineTo(x + cornerLen, y + h);
+      ctx.stroke();
+
+      // Bottom-right
+      ctx.beginPath();
+      ctx.moveTo(x + w - cornerLen, y + h);
+      ctx.lineTo(x + w - radius, y + h);
+      ctx.quadraticCurveTo(x + w, y + h, x + w, y + h - radius);
+      ctx.lineTo(x + w, y + h - cornerLen);
+      ctx.stroke();
+    }
+  }, [
+    faceDetection.faceBoundingBox,
+    faceDetection.detectionStatus,
+    isCameraReady,
+    facingMode,
+    faceStatus?.isRegistered,
+  ]);
+
+  // Cleanup auto-capture timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (autoCaptureTimeoutRef.current) {
+        clearTimeout(autoCaptureTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // ==========================================================================
+  // HELPER: Get detection status color & icon
+  // ==========================================================================
+  const getDetectionStatusConfig = useCallback((status: ScanDetectionStatus) => {
+    switch (status) {
+      case "good":
+        return { color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 dark:bg-green-900/30", icon: ShieldCheck, label: "Khuôn mặt OK" };
+      case "no_face":
+        return { color: "text-gray-500 dark:text-gray-400", bgColor: "bg-gray-100 dark:bg-gray-800/50", icon: Eye, label: "Đang tìm khuôn mặt..." };
+      case "multiple_faces":
+        return { color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 dark:bg-red-900/30", icon: ShieldAlert, label: "Nhiều khuôn mặt" };
+      case "too_far":
+        return { color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 dark:bg-amber-900/30", icon: Scan, label: "Di chuyển lại gần" };
+      case "too_close":
+        return { color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 dark:bg-amber-900/30", icon: Scan, label: "Di chuyển ra xa" };
+      case "not_centered":
+        return { color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-100 dark:bg-amber-900/30", icon: Scan, label: "Căn giữa khuôn mặt" };
+      case "loading":
+        return { color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-100 dark:bg-blue-900/30", icon: Loader2, label: "Đang tải..." };
+      case "error":
+        return { color: "text-red-600 dark:text-red-400", bgColor: "bg-red-100 dark:bg-red-900/30", icon: AlertCircle, label: "Lỗi nhận diện" };
+      default:
+        return { color: "text-gray-500", bgColor: "bg-gray-100", icon: Eye, label: "..." };
+    }
+  }, []);
+
+  // ==========================================================================
+  // COMPUTED: Face detection status config for rendering
+  // ==========================================================================
+  const detectionStatusConfig = faceStatus?.isRegistered && faceDetection.modelReady
+    ? getDetectionStatusConfig(faceDetection.detectionStatus)
+    : null;
+  const DetectionStatusIcon = detectionStatusConfig?.icon ?? Eye;
+
   // ==========================================================================
   // RENDER
   // ==========================================================================
@@ -947,27 +1243,68 @@ const ScanPage: React.FC = () => {
             )}
           </div>
 
-          {/* Camera */}
+          {/* Camera with Face Detection */}
           <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[var(--text-main)]">
+              <h3 className="text-sm font-semibold text-[var(--text-main)] flex items-center gap-2">
+                <Camera className="h-4 w-4" />
                 {t("dashboard:scan.camera.title")}
               </h3>
-              {isCameraReady && (
-                <button
-                  type="button"
-                  onClick={toggleCamera}
-                  className="flex items-center gap-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
-                  title={t("dashboard:scan.camera.switch")}
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {facingMode === "environment"
-                      ? t("dashboard:scan.camera.switchToFront")
-                      : t("dashboard:scan.camera.switchToBack")}
-                  </span>
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {/* Voice toggle */}
+                {faceStatus?.isRegistered && (
+                  <button
+                    type="button"
+                    onClick={voiceFeedback.toggleVoice}
+                    className="flex items-center gap-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                    title={voiceFeedback.voiceEnabled ? "Tắt giọng nói" : "Bật giọng nói"}
+                  >
+                    {voiceFeedback.voiceEnabled ? (
+                      <Volume2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <VolumeX className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                )}
+                {/* Auto-capture toggle */}
+                {faceStatus?.isRegistered && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAutoCaptureEnabled((prev) => !prev);
+                      setAutoCaptureTriggered(false);
+                      faceDetection.resetConsecutiveFrames();
+                    }}
+                    className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
+                      autoCaptureEnabled
+                        ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400"
+                        : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
+                    }`}
+                    title={autoCaptureEnabled ? "Tắt tự động chấm công" : "Bật tự động chấm công"}
+                  >
+                    <Scan className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">
+                      {autoCaptureEnabled ? "Tự động" : "Thủ công"}
+                    </span>
+                  </button>
+                )}
+                {/* Camera switch */}
+                {isCameraReady && (
+                  <button
+                    type="button"
+                    onClick={toggleCamera}
+                    className="flex items-center gap-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
+                    title={t("dashboard:scan.camera.switch")}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">
+                      {facingMode === "environment"
+                        ? t("dashboard:scan.camera.switchToFront")
+                        : t("dashboard:scan.camera.switchToBack")}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--shell)]">
               <video
@@ -982,6 +1319,56 @@ const ScanPage: React.FC = () => {
                   transform: facingMode === "user" ? "scaleX(-1)" : "none",
                 }}
               />
+              {/* Face detection overlay canvas */}
+              {isCameraReady && faceStatus?.isRegistered && (
+                <canvas
+                  ref={canvasOverlayRef}
+                  className="absolute inset-0 h-full w-full pointer-events-none"
+                  style={{ zIndex: 10 }}
+                />
+              )}
+              {/* Face detection status badge (top-center) */}
+              {isCameraReady && detectionStatusConfig && (
+                <div
+                  className={`absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur-sm ${detectionStatusConfig.bgColor} ${detectionStatusConfig.color}`}
+                >
+                  <DetectionStatusIcon className={`h-3.5 w-3.5 ${faceDetection.detectionStatus === "loading" ? "animate-spin" : ""}`} />
+                  {detectionStatusConfig.label}
+                </div>
+              )}
+              {/* Auto-capture progress indicator (bottom-center) */}
+              {isCameraReady && faceStatus?.isRegistered && autoCaptureEnabled && faceDetection.detectionStatus === "good" && !autoCaptureTriggered && !isProcessing && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20">
+                  <div className="flex items-center gap-2 rounded-full bg-green-100/90 dark:bg-green-900/70 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300 shadow-lg backdrop-blur-sm">
+                    <div className="flex gap-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${
+                            i < faceDetection.consecutiveGoodFrames
+                              ? "bg-green-500"
+                              : "bg-green-300 dark:bg-green-700"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span>
+                      {faceDetection.canAutoCapture
+                        ? "Đang chụp..."
+                        : `Giữ yên ${faceDetection.consecutiveGoodFrames}/5`}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {/* Processing overlay */}
+              {isProcessing && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                  <div className="flex flex-col items-center gap-2 text-white">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <span className="text-sm font-medium">Đang xác thực...</span>
+                  </div>
+                </div>
+              )}
               {!isCameraReady && (
                 <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--shell)] text-[var(--text-sub)]">
                   <Camera className="h-12 w-12" />
@@ -991,6 +1378,13 @@ const ScanPage: React.FC = () => {
                 </div>
               )}
             </div>
+            {/* Face detection model loading indicator */}
+            {faceStatus?.isRegistered && faceDetection.modelLoading && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Đang tải mô hình nhận diện khuôn mặt...
+              </div>
+            )}
           </div>
 
           {/* Location Info */}
@@ -1096,6 +1490,14 @@ const ScanPage: React.FC = () => {
             ) : null}
           </div>
 
+          {/* Face Detection Hint (when registered but face not detected) */}
+          {faceStatus?.isRegistered && faceDetection.modelReady && !autoCaptureEnabled && faceDetection.detectionStatus !== "good" && !hasCheckedIn && !hasCheckedOut && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <p>{faceDetection.statusMessage}</p>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -1106,7 +1508,8 @@ const ScanPage: React.FC = () => {
                 !permissions.camera ||
                 !permissions.location ||
                 !locationData ||
-                hasCheckedIn
+                hasCheckedIn ||
+                (faceStatus?.isRegistered && faceDetection.modelReady && faceDetection.detectionStatus !== "good" && !autoCaptureEnabled)
               }
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -1137,7 +1540,8 @@ const ScanPage: React.FC = () => {
                 !permissions.location ||
                 !locationData ||
                 !hasCheckedIn ||
-                hasCheckedOut
+                hasCheckedOut ||
+                (faceStatus?.isRegistered && faceDetection.modelReady && faceDetection.detectionStatus !== "good" && !autoCaptureEnabled)
               }
               className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               title={
@@ -1164,6 +1568,17 @@ const ScanPage: React.FC = () => {
               )}
             </button>
           </div>
+
+          {/* Auto-capture info */}
+          {faceStatus?.isRegistered && autoCaptureEnabled && !hasCheckedOut && (
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+              <Scan className="h-4 w-4 flex-shrink-0" />
+              <p>
+                <strong>Chế độ tự động:</strong> Hệ thống sẽ tự động chấm công khi nhận diện được khuôn mặt của bạn. 
+                {!hasCheckedIn ? " Đưa mặt vào camera để check-in." : " Đưa mặt vào camera để check-out."}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

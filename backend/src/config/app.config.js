@@ -87,6 +87,12 @@ export const FACE_RECOGNITION_CONFIG = {
   VERIFICATION_THRESHOLD: parseFloat(process.env.FACE_VERIFICATION_THRESHOLD) || 0.6,
   // NOTE: face registration can take > 5s on CPU; clamp to avoid accidental too-low timeout
   TIMEOUT: Math.max(parseInt(process.env.AI_SERVICE_TIMEOUT || "30000", 10), 30000),
+  // Verification-specific timeout (shorter since verify only processes 1 image)
+  VERIFICATION_TIMEOUT: Math.max(parseInt(process.env.AI_VERIFICATION_TIMEOUT || "15000", 10), 10000),
+  // Max retries for verification (fewer retries = faster failure)
+  VERIFY_MAX_RETRIES: parseInt(process.env.AI_VERIFY_MAX_RETRIES || "1", 10),
+  // Auto-verify face when user has registered face data (no need for REQUIRE_FACE_VERIFICATION flag)
+  AUTO_VERIFY_WHEN_REGISTERED: process.env.AUTO_VERIFY_WHEN_REGISTERED !== 'false', // default: true
   // Image registration limits (centralized configuration)
   // Updated default to 4 images to match frontend guided capture (thẳng, trên, trái, phải)
   MIN_REGISTRATION_IMAGES: parseInt(process.env.MIN_REGISTRATION_IMAGES || "4", 10),

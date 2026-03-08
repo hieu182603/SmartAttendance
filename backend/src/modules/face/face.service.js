@@ -366,6 +366,44 @@ export class FaceService {
         throw new Error("User has not registered face");
       }
 
+      return await this._verifyAgainstEmbeddings(candidateImageBuffer, user.faceData.embeddings, user);
+    } catch (error) {
+      // Re-throw custom errors as-is
+      if (
+        error instanceof AIServiceUnavailableError ||
+        error instanceof FaceNotDetectedError ||
+        error instanceof MultipleFacesError ||
+        error instanceof PoorImageQualityError ||
+        error instanceof FaceVerificationFailedError ||
+        error instanceof AIServiceTimeoutError ||
+        error instanceof AIServiceError ||
+        error instanceof SpoofDetectedError
+      ) {
+        throw error;
+      }
+
+      // Wrap other errors
+      throw new Error(`Face verification failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Optimized face verification for attendance flow
+   * - Accepts pre-loaded user data to avoid duplicate DB query
+   * - Uses faster AI service call (shorter timeout, fewer retries)
+   * - Updates lastVerifiedAt asynchronously (non-blocking)
+   * 
+   * @param {string} userId - User ID
+   * @param {Buffer} candidateImageBuffer - Candidate image buffer
+   * @param {Object} preloadedFaceData - Pre-loaded user.faceData object
+   * @returns {Promise<{match: boolean, similarity: number, threshold: number}>}
+   */
+  async verifyUserFaceOptimized(userId, candidateImageBuffer, preloadedFaceData) {
+    try {
+      if (!preloadedFaceData || !preloadedFaceData.isRegistered || !preloadedFaceData.embeddings?.length) {
+        throw new Error("User has not registered face");
+      }
+
       // Prepare form data for AI service
       const formData = new FormData();
       formData.append("image", candidateImageBuffer, {
@@ -374,79 +412,24 @@ export class FaceService {
       });
       formData.append(
         "reference_embeddings_json",
-        JSON.stringify(user.faceData.embeddings)
+        JSON.stringify(preloadedFaceData.embeddings)
       );
       formData.append(
         "threshold",
         FACE_RECOGNITION_CONFIG.VERIFICATION_THRESHOLD.toString()
       );
 
-      // Call AI service
+      // Call AI service with fast verify (shorter timeout, fewer retries)
       let aiResponse;
       try {
-        aiResponse = await aiServiceClient.verifyFace(formData);
+        aiResponse = await aiServiceClient.verifyFaceFast(formData);
       } catch (error) {
-        // Handle AxiosError with 4xx responses
-        if (axios.isAxiosError(error)) {
-          // Check if it's a 4xx response from AI service
-          if (error.response && error.response.status >= 400 && error.response.status < 500) {
-            const errorData = error.response.data || {};
-            const errorCode = errorData.error_code || "AI_SERVICE_ERROR";
-            const errorMessage = errorData.error || errorData.detail || "Face verification failed";
-            const errorDetails = errorData.error_details || null;
-
-            // Map error codes to specific error classes
-            switch (errorCode) {
-              case "NO_FACE_DETECTED":
-                throw new FaceNotDetectedError(errorMessage, errorDetails);
-              case "MULTIPLE_FACES":
-                throw new MultipleFacesError(errorMessage, errorDetails);
-              case "POOR_IMAGE_QUALITY":
-                throw new PoorImageQualityError(errorMessage, errorDetails);
-              case "SPOOF_DETECTED":
-                throw new SpoofDetectedError(errorMessage, errorDetails);
-              case "AI_SERVICE_ERROR":
-              default:
-                throw new AIServiceError(errorMessage, errorCode, errorDetails);
-            }
-          }
-
-          // Handle timeout errors
-          if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
-            throw new AIServiceTimeoutError();
-          }
-
-          // Handle connection errors
-          if (error.code === "ECONNREFUSED" || error.message.includes("circuit breaker") || error.message.includes("unavailable")) {
-            throw new AIServiceUnavailableError();
-          }
-        }
-
-        // Re-throw if not handled
-        throw error;
+        this._handleAIError(error);
       }
 
-      // Check if response indicates failure (4xx status or error field)
+      // Check if response indicates failure
       if (aiResponse.status >= 400 || aiResponse.data.error) {
-        // Categorize error from AI service
-        const errorCode = aiResponse.data.error_code || "AI_SERVICE_ERROR";
-        const errorMessage = aiResponse.data.error || aiResponse.data.detail || "Face verification failed";
-        const errorDetails = aiResponse.data.error_details || null;
-
-        // Map error codes to specific error classes
-        switch (errorCode) {
-          case "NO_FACE_DETECTED":
-            throw new FaceNotDetectedError(errorMessage, errorDetails);
-          case "MULTIPLE_FACES":
-            throw new MultipleFacesError(errorMessage, errorDetails);
-          case "POOR_IMAGE_QUALITY":
-            throw new PoorImageQualityError(errorMessage, errorDetails);
-          case "SPOOF_DETECTED":
-            throw new SpoofDetectedError(errorMessage, errorDetails);
-          case "AI_SERVICE_ERROR":
-          default:
-            throw new AIServiceError(errorMessage, errorCode, errorDetails);
-        }
+        this._throwFromAIResponse(aiResponse);
       }
 
       const result = {
@@ -455,10 +438,13 @@ export class FaceService {
         threshold: aiResponse.data.threshold || FACE_RECOGNITION_CONFIG.VERIFICATION_THRESHOLD,
       };
 
-      // Update lastVerifiedAt if match
+      // Update lastVerifiedAt asynchronously (non-blocking) if match
       if (result.match) {
-        user.faceData.lastVerifiedAt = new Date();
-        await user.save();
+        UserModel.findByIdAndUpdate(userId, {
+          "faceData.lastVerifiedAt": new Date(),
+        }).catch((err) => {
+          console.warn(`[FaceService] Failed to update lastVerifiedAt for user ${userId}:`, err.message);
+        });
       }
 
       return result;
@@ -480,6 +466,109 @@ export class FaceService {
       // Wrap other errors
       throw new Error(`Face verification failed: ${error.message}`);
     }
+  }
+
+  /**
+   * Internal: verify image against embeddings and update lastVerifiedAt
+   * @private
+   */
+  async _verifyAgainstEmbeddings(candidateImageBuffer, embeddings, user) {
+    // Prepare form data for AI service
+    const formData = new FormData();
+    formData.append("image", candidateImageBuffer, {
+      filename: "verify.jpg",
+      contentType: "image/jpeg",
+    });
+    formData.append(
+      "reference_embeddings_json",
+      JSON.stringify(embeddings)
+    );
+    formData.append(
+      "threshold",
+      FACE_RECOGNITION_CONFIG.VERIFICATION_THRESHOLD.toString()
+    );
+
+    // Call AI service
+    let aiResponse;
+    try {
+      aiResponse = await aiServiceClient.verifyFace(formData);
+    } catch (error) {
+      // Handle AxiosError with 4xx responses
+      if (axios.isAxiosError(error)) {
+        // Check if it's a 4xx response from AI service
+        if (error.response && error.response.status >= 400 && error.response.status < 500) {
+          const errorData = error.response.data || {};
+          const errorCode = errorData.error_code || "AI_SERVICE_ERROR";
+          const errorMessage = errorData.error || errorData.detail || "Face verification failed";
+          const errorDetails = errorData.error_details || null;
+
+          // Map error codes to specific error classes
+          switch (errorCode) {
+            case "NO_FACE_DETECTED":
+              throw new FaceNotDetectedError(errorMessage, errorDetails);
+            case "MULTIPLE_FACES":
+              throw new MultipleFacesError(errorMessage, errorDetails);
+            case "POOR_IMAGE_QUALITY":
+              throw new PoorImageQualityError(errorMessage, errorDetails);
+            case "SPOOF_DETECTED":
+              throw new SpoofDetectedError(errorMessage, errorDetails);
+            case "AI_SERVICE_ERROR":
+            default:
+              throw new AIServiceError(errorMessage, errorCode, errorDetails);
+          }
+        }
+
+        // Handle timeout errors
+        if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+          throw new AIServiceTimeoutError();
+        }
+
+        // Handle connection errors
+        if (error.code === "ECONNREFUSED" || error.message.includes("circuit breaker") || error.message.includes("unavailable")) {
+          throw new AIServiceUnavailableError();
+        }
+      }
+
+      // Re-throw if not handled
+      throw error;
+    }
+
+    // Check if response indicates failure (4xx status or error field)
+    if (aiResponse.status >= 400 || aiResponse.data.error) {
+      // Categorize error from AI service
+      const errorCode = aiResponse.data.error_code || "AI_SERVICE_ERROR";
+      const errorMessage = aiResponse.data.error || aiResponse.data.detail || "Face verification failed";
+      const errorDetails = aiResponse.data.error_details || null;
+
+      // Map error codes to specific error classes
+      switch (errorCode) {
+        case "NO_FACE_DETECTED":
+          throw new FaceNotDetectedError(errorMessage, errorDetails);
+        case "MULTIPLE_FACES":
+          throw new MultipleFacesError(errorMessage, errorDetails);
+        case "POOR_IMAGE_QUALITY":
+          throw new PoorImageQualityError(errorMessage, errorDetails);
+        case "SPOOF_DETECTED":
+          throw new SpoofDetectedError(errorMessage, errorDetails);
+        case "AI_SERVICE_ERROR":
+        default:
+          throw new AIServiceError(errorMessage, errorCode, errorDetails);
+      }
+    }
+
+    const result = {
+      match: aiResponse.data.match,
+      similarity: aiResponse.data.similarity,
+      threshold: aiResponse.data.threshold || FACE_RECOGNITION_CONFIG.VERIFICATION_THRESHOLD,
+    };
+
+    // Update lastVerifiedAt if match
+    if (result.match && user) {
+      user.faceData.lastVerifiedAt = new Date();
+      await user.save();
+    }
+
+    return result;
   }
 
   /**
