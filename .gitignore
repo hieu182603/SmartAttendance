@@ -130,10 +130,13 @@ test-result*.txt
 test-results*.txt
 **/test-result*.txt
 **/test-results*.txt
-
+project.tar.gz
+*.tar.gz
 # Analysis files (not for version control)
 luong_dang_ky_khuon_mat.md
 luong_cham_cong.md
 luong_rag.md
 luong_tinh_luong.md
 TODO.md
+DEPLOY_VPS.md
+

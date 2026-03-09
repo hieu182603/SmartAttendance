@@ -150,10 +150,6 @@ class AIServiceClient {
 
     const startedAt = Date.now();
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ebcb62c3-fbc1-4197-a199-939706bff08d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: 'run2', hypothesisId: 'T1', location: 'backend/src/utils/aiServiceClient.js:registerFaces:start', message: 'registerFaces start', data: { timeoutMs: this.timeout, hasXApiKey: Boolean(this.apiKey), hasGetHeaders: Boolean(formData && typeof formData.getHeaders === "function") }, timestamp: Date.now() }) }).catch(() => { });
-    // #endregion
-
     const requestFn = () =>
       client.post("/api/face/register", formData, {
         headers,
@@ -163,16 +159,8 @@ class AIServiceClient {
     try {
       const resp = await this.retryRequest(requestFn);
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/ebcb62c3-fbc1-4197-a199-939706bff08d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: 'run2', hypothesisId: 'T1', location: 'backend/src/utils/aiServiceClient.js:registerFaces:success', message: 'registerFaces success', data: { elapsedMs: Date.now() - startedAt, status: resp?.status }, timestamp: Date.now() }) }).catch(() => { });
-      // #endregion
-
       return resp;
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/ebcb62c3-fbc1-4197-a199-939706bff08d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: 'run2', hypothesisId: 'T1', location: 'backend/src/utils/aiServiceClient.js:registerFaces:error', message: 'registerFaces error', data: { elapsedMs: Date.now() - startedAt, code: error?.code, responseStatus: error?.response?.status }, timestamp: Date.now() }) }).catch(() => { });
-      // #endregion
-
       if (error.code === "ECONNABORTED") {
         throw new Error("AI Service request timeout");
       }
