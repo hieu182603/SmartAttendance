@@ -11,6 +11,46 @@ import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { getRoleName, getRoleScope } from '@/utils/roles';
 
+// Quick suggestion chips based on user role
+const ROLE_SUGGESTIONS: Record<string, string[]> = {
+  employee: [
+    'Hôm nay tôi đã chấm công chưa?',
+    'Tôi còn bao nhiêu ngày phép?',
+    'Thông tin cá nhân của tôi',
+    'Đơn từ của tôi',
+  ],
+  supervisor: [
+    'Nhân viên phòng ban đã chấm công hôm nay?',
+    'Đơn nào đang chờ duyệt?',
+    'Thống kê chấm công phòng ban',
+    'Danh sách nhân viên phòng ban',
+  ],
+  manager: [
+    'Thống kê nhân viên phòng ban',
+    'Đơn nào đang chờ duyệt?',
+    'Báo cáo chấm công hôm nay',
+    'Danh sách nhân viên',
+  ],
+  hr_manager: [
+    'Có bao nhiêu nhân viên?',
+    'Thống kê chấm công hôm nay',
+    'Đơn nào đang chờ duyệt?',
+    'Tổng quỹ lương tháng này',
+  ],
+  admin: [
+    'Có bao nhiêu nhân viên?',
+    'Danh sách chi nhánh',
+    'Thống kê chấm công hôm nay',
+    'Tổng quỹ lương',
+  ],
+  super_admin: [
+    'Tổng quan hệ thống',
+    'Có bao nhiêu nhân viên?',
+    'Danh sách chi nhánh',
+    'Thống kê chấm công hôm nay',
+  ],
+};
+
 interface FloatingChatWidgetProps {}
 
 export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
@@ -115,9 +155,19 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
     setIsMinimized(false);
   };
 
+  const handleSuggestionClick = async (suggestion: string) => {
+    if (isLoading) return;
+    setInputValue('');
+    await sendChatMessage(suggestion);
+  };
+
+  // Get suggestions for current user role
+  const suggestions = user?.role
+    ? ROLE_SUGGESTIONS[user.role] || ROLE_SUGGESTIONS.employee
+    : ROLE_SUGGESTIONS.employee;
 
   // Get user role scope for display
-  const userRoleScope = user?.role ? getRoleScope(user.role) : 'own';
+  const userRoleScope = user?.role ? getRoleScope(user.role as import('@/utils/roles').UserRoleType) : 'own';
 
   return (
     <>
@@ -173,15 +223,15 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
           >
-            <Card className="w-96 h-[600px] bg-[var(--surface)] border-[var(--border)] shadow-2xl backdrop-blur-sm flex flex-col">
+            <Card className="w-[400px] max-h-[calc(100vh-10rem)] h-[550px] bg-[var(--surface)] border-[var(--border)] shadow-2xl backdrop-blur-sm flex flex-col overflow-hidden rounded-2xl">
               {/* Header */}
-              <div className="flex-none flex items-center justify-between p-4 border-b border-[var(--border)]">
+              <div className="flex-none flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--surface)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                    <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <div className="w-9 h-9 rounded-full bg-[var(--primary)]/10 flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-[var(--primary)]" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-[var(--text-main)]">
+                    <h3 className="font-semibold text-[var(--text-main)]">
                       {t('dashboard:floatingWidget.title', 'AI Assistant')}
                     </h3>
                     {user?.role && (
@@ -221,12 +271,27 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
               {!isMinimized && (
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {messages.length === 0 ? (
-                    <div className="text-center py-8">
+                    <div className="text-center py-6">
                       <Bot className="h-12 w-12 text-[var(--text-sub)] mx-auto mb-3" />
                       {isChatbotAvailable ? (
-                        <p className="text-[var(--text-sub)]">
-                          {t('dashboard:chatbot.welcome', 'Hi! I\'m your AI assistant. How can I help you today?')}
-                        </p>
+                        <>
+                          <p className="text-[var(--text-sub)] mb-4">
+                            {t('dashboard:chatbot.welcome', 'Hi! I\'m your AI assistant. How can I help you today?')}
+                          </p>
+                          {/* Suggestion chips */}
+                          <div className="flex flex-wrap gap-2 justify-center px-2">
+                            {suggestions.slice(0, 4).map((suggestion, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => handleSuggestionClick(suggestion)}
+                                disabled={isLoading}
+                                className="text-xs px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--shell)] text-[var(--text-main)] hover:bg-[var(--primary)] hover:text-white hover:border-[var(--primary)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        </>
                       ) : (
                         <div className="space-y-2">
                           <p className="text-[var(--text-sub)] font-medium">
@@ -267,36 +332,32 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
 
               {/* Input Area - fixed at bottom */}
               {!isMinimized && isChatbotAvailable && (
-                <div className="flex-none p-3 border-t border-[var(--border)]">
-                  <div className="flex items-center gap-2">
+                <div className="flex-none p-4 border-t border-[var(--border)] bg-[var(--surface)]">
+                  <div className="flex items-center gap-2 bg-[var(--shell)] border border-[var(--border)] rounded-full p-1 pr-1.5 focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
                     <Input
                       ref={inputRef}
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder={t('dashboard:floatingWidget.placeholder', 'Type your message...')}
-                      className="flex-1 bg-[var(--background)] border-[var(--border)] text-[var(--text-main)] placeholder-[var(--text-sub)]"
+                      className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-[var(--text-main)] placeholder-[var(--text-sub)] px-4 h-10"
                       disabled={isLoading}
                     />
                     <Button
                       onClick={handleSendMessage}
                       disabled={!inputValue.trim() || isLoading}
                       size="sm"
-                      className="h-10 w-10 p-0 bg-[var(--primary)] hover:bg-[var(--primary)]/90"
+                      className="h-9 w-9 rounded-full p-0 bg-[var(--primary)] hover:bg-[var(--primary)]/90 shrink-0 transition-transform active:scale-95"
                       aria-label={t('dashboard:floatingWidget.send', 'Send')}
                     >
-                      <Send className="h-4 w-4" />
+                      <Send className="h-4 w-4 ml-0.5" />
                     </Button>
                   </div>
-                </div>
-              )}
-
-              {/* Help Text - fixed at very bottom */}
-              {!isMinimized && isChatbotAvailable && (
-                <div className="flex-none p-2 text-center border-t border-[var(--border)] bg-[var(--surface)] rounded-bl-xl rounded-br-xl">
-                  <p className="text-xs text-[var(--text-sub)]">
-                    {t('common:pressEnter', 'Press Enter to send, Shift+Enter for new line')}
-                  </p>
+                  <div className="text-center mt-2">
+                    <p className="text-[10px] text-[var(--text-sub)]">
+                      {t('common:pressEnter', 'Press Enter to send, Shift+Enter for new line')}
+                    </p>
+                  </div>
                 </div>
               )}
 

@@ -46,8 +46,10 @@ class PermissionChecker:
             if role_lower in PermissionChecker.HIGH_ROLES:
                 return True, {}
             elif role_lower in PermissionChecker.MID_ROLES and user_department_id:
-                return True, {'department_id': user_department_id}
-            elif role_lower == 'employee' and user_id:
+                # Note: attendance collection uses 'userId', not 'department_id'.
+                # The handler must resolve department → user IDs before querying.
+                return True, {'__department_filter__': user_department_id}
+            elif role_lower in ['employee', 'trial'] and user_id:
                 return True, {'userId': user_id}
             else:
                 return False, {}
@@ -56,8 +58,10 @@ class PermissionChecker:
             if role_lower in PermissionChecker.HIGH_ROLES:
                 return True, {}
             elif role_lower in PermissionChecker.MID_ROLES and user_department_id:
-                return True, {'department_id': user_department_id}
-            elif role_lower == 'employee' and user_id:
+                # Note: requests collection uses 'userId', not 'department_id'.
+                # The handler must resolve department → user IDs before querying.
+                return True, {'__department_filter__': user_department_id}
+            elif role_lower in ['employee', 'trial'] and user_id:
                 return True, {'userId': user_id}
             else:
                 return False, {}

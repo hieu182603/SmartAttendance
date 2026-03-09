@@ -99,6 +99,11 @@ TRẢ LỜI CÁC CÂU HỎI TRẠNG THÁI / KẾT QUẢ
   - **Dòng 2–3**: Thêm chi tiết liên quan (thời gian, ca làm, địa điểm, loại phép, chi nhánh… nếu có).
   - **Dòng 4 (tuỳ chọn)**: Gợi ý bước tiếp theo (mở màn hình chấm công, xem lịch làm, liên hệ HR, v.v.).
 
+GỢI Ý HÀNH ĐỘNG TIẾP THEO
+- Sau mỗi câu trả lời, **gợi ý 1-2 câu hỏi liên quan** mà người dùng có thể muốn hỏi tiếp.
+- Ví dụ: Sau khi trả lời về chấm công → gợi ý "Bạn muốn xem lịch sử chấm công tuần này không?"
+- Ví dụ: Sau khi trả lời về ngày phép → gợi ý "Bạn muốn tạo đơn xin nghỉ phép không?"
+
 TỐI ƯU HIỆU NĂNG & TRẢI NGHIỆM
 - Trả lời **trực tiếp vào câu hỏi**, tránh vòng vo hoặc nhắc lại nguyên văn câu hỏi nếu không cần thiết.
 - Khi ngữ cảnh đã rõ, **đưa thẳng kết luận và số liệu**, không cần giải thích dài dòng.
@@ -116,6 +121,72 @@ Assistant: "**✅ Hôm nay bạn đã chấm công.**\n- Check-in: **08:02 AM** 
 User: "Tháng này tôi còn bao nhiêu ngày phép?"
 Assistant: "📅 **Bạn còn 5 ngày phép** trong tháng này.\n- Đã sử dụng: 2 ngày (10/03, 15/03)\n- Tổng phép năm: 12 ngày\n\nBạn muốn tạo đơn xin nghỉ phép không?"
 """
+
+# Role-specific prompt additions for friendlier, contextual responses
+ROLE_PROMPTS = {
+    "employee": """
+THÔNG TIN VAI TRÒ: Người dùng là **Nhân viên** (Employee).
+- Xưng hô: "bạn" – thân thiện, gần gũi.
+- Phạm vi dữ liệu: Chỉ thông tin CÁ NHÂN (chấm công, ngày phép, đơn từ của chính họ).
+- Khi họ hỏi thông tin ngoài phạm vi, nhẹ nhàng giải thích và gợi ý liên hệ quản lý.
+- Gợi ý hành động phù hợp: chấm công, xem lịch làm, tạo đơn nghỉ phép, xem ngày phép còn lại.
+""",
+    "supervisor": """
+THÔNG TIN VAI TRÒ: Người dùng là **Supervisor** (Giám sát viên).
+- Xưng hô: "anh/chị" hoặc "bạn" – tôn trọng, chuyên nghiệp.
+- Phạm vi dữ liệu: Thông tin cá nhân + nhân viên trong phòng ban.
+- Có thể xem chấm công, đơn từ của nhân viên trong phòng ban.
+- Gợi ý: duyệt đơn, xem báo cáo chấm công phòng ban, kiểm tra nhân viên đi muộn.
+""",
+    "manager": """
+THÔNG TIN VAI TRÒ: Người dùng là **Manager** (Quản lý).
+- Xưng hô: "anh/chị" – tôn trọng, chuyên nghiệp.
+- Phạm vi dữ liệu: Thông tin cá nhân + toàn bộ phòng ban quản lý.
+- Có thể xem/duyệt đơn từ, xem báo cáo chấm công, thống kê nhân viên phòng ban.
+- Gợi ý: báo cáo tổng hợp, duyệt đơn chờ, xem hiệu suất nhân viên.
+""",
+    "hr_manager": """
+THÔNG TIN VAI TRÒ: Người dùng là **HR Manager** (Quản lý nhân sự).
+- Xưng hô: "anh/chị" – tôn trọng, chuyên nghiệp.
+- Phạm vi dữ liệu: TOÀN BỘ dữ liệu nhân sự, chấm công, lương, đơn từ.
+- Có thể truy cập mọi thông tin trong hệ thống.
+- Gợi ý: báo cáo nhân sự, thống kê lương, quản lý phòng ban, xem đơn từ toàn công ty.
+""",
+    "admin": """
+THÔNG TIN VAI TRÒ: Người dùng là **Admin** (Quản trị viên).
+- Xưng hô: "anh/chị" – tôn trọng, chuyên nghiệp.
+- Phạm vi dữ liệu: TOÀN BỘ dữ liệu hệ thống.
+- Có quyền truy cập và quản lý mọi thông tin.
+- Gợi ý: thống kê tổng quan, quản lý chi nhánh, báo cáo toàn hệ thống.
+""",
+    "super_admin": """
+THÔNG TIN VAI TRÒ: Người dùng là **Super Admin** (Quản trị viên cấp cao).
+- Xưng hô: "anh/chị" – tôn trọng, chuyên nghiệp.
+- Phạm vi dữ liệu: TOÀN BỘ dữ liệu hệ thống, bao gồm cấu hình.
+- Có quyền cao nhất trong hệ thống.
+- Gợi ý: thống kê tổng quan, quản lý hệ thống, báo cáo toàn diện.
+"""
+}
+
+# Suggested follow-up actions by intent type
+FOLLOW_UP_SUGGESTIONS = {
+    "attendance": "\n\n💡 **Bạn có thể hỏi thêm:**\n- \"Tuần này tôi đi làm mấy ngày?\"\n- \"Tháng này tôi có đi muộn ngày nào không?\"",
+    "employee": "\n\n💡 **Bạn có thể hỏi thêm:**\n- \"Danh sách nhân viên phòng ban\"\n- \"Tôi còn bao nhiêu ngày phép?\"",
+    "department": "\n\n💡 **Bạn có thể hỏi thêm:**\n- \"Phòng ban nào có nhiều nhân viên nhất?\"\n- \"Danh sách phòng ban đang hoạt động\"",
+    "request": "\n\n💡 **Bạn có thể hỏi thêm:**\n- \"Tôi có đơn nào đang chờ duyệt?\"\n- \"Danh sách đơn nghỉ phép của tôi\"",
+    "branch": "\n\n💡 **Bạn có thể hỏi thêm:**\n- \"Chi nhánh nào ở TP.HCM?\"\n- \"Có bao nhiêu chi nhánh đang hoạt động?\"",
+    "shift": "\n\n💡 **Bạn có thể hỏi thêm:**\n- \"Ca làm việc nào bắt đầu sớm nhất?\"\n- \"Danh sách tất cả ca làm việc\"",
+    "payroll": "\n\n💡 **Bạn có thể hỏi thêm:**\n- \"Lương trung bình của công ty\"\n- \"Tổng quỹ lương tháng này\"",
+}
+
+def _get_role_prompt(role: str) -> str:
+    """Get role-specific prompt addition"""
+    role_lower = role.lower() if role else "employee"
+    return ROLE_PROMPTS.get(role_lower, ROLE_PROMPTS["employee"])
+
+def _get_follow_up_suggestion(intent_type: str) -> str:
+    """Get follow-up suggestion based on intent type"""
+    return FOLLOW_UP_SUGGESTIONS.get(intent_type, "")
 
 
 class RAGService:
@@ -587,102 +658,43 @@ TRẢ LỜI:"""
             )
             sources = []
         
-        elif intent_type == 'employee':
-            handler = self._query_handlers.get('employee')
+        elif intent_type in ('employee', 'department', 'request', 'attendance', 'branch', 'shift', 'payroll'):
+            # Unified domain handler routing with conversation_history support
+            handler = self._query_handlers.get(intent_type)
             if handler:
+                # Map default query types per domain
+                default_query_types = {
+                    'employee': 'count',
+                    'department': 'list',
+                    'request': 'pending',
+                    'attendance': 'today',
+                    'branch': 'list',
+                    'shift': 'list',
+                    'payroll': 'total'
+                }
+                query_type = details.get('query_type', default_query_types.get(intent_type, 'list'))
+                
                 response_text = await handler.handle(
-                    details.get('query_type', 'count'),
+                    query_type,
                     message, role, department_id,
                     details.get('params', {}),
                     user_id=user_id
                 )
-                sources = self._create_db_query_sources('employee', details.get('query_type', 'count'))
+                sources = self._create_db_query_sources(intent_type, query_type)
+                
+                # Add follow-up suggestions for domain queries
+                follow_up = _get_follow_up_suggestion(intent_type)
+                if follow_up and response_text and not response_text.startswith("Xin lỗi"):
+                    response_text += follow_up
             else:
-                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về nhân viên lúc này."
-                sources = []
-        
-        elif intent_type == 'department':
-            handler = self._query_handlers.get('department')
-            if handler:
-                response_text = await handler.handle(
-                    details.get('query_type', 'list'),
-                    message, role, department_id,
-                    details.get('params', {}),
-                    user_id=user_id
-                )
-                sources = self._create_db_query_sources('department', details.get('query_type', 'list'))
-            else:
-                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về phòng ban lúc này."
-                sources = []
-        
-        elif intent_type == 'request':
-            handler = self._query_handlers.get('request')
-            if handler:
-                response_text = await handler.handle(
-                    details.get('query_type', 'pending'),
-                    message, role, department_id,
-                    details.get('params', {}),
-                    user_id=user_id
-                )
-                sources = self._create_db_query_sources('request', details.get('query_type', 'pending'))
-            else:
-                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về đơn từ lúc này."
-                sources = []
-        
-        elif intent_type == 'attendance':
-            handler = self._query_handlers.get('attendance')
-            if handler:
-                response_text = await handler.handle(
-                    details.get('query_type', 'today'),
-                    message, role, department_id,
-                    details.get('params', {}),
-                    user_id=user_id
-                )
-                sources = self._create_db_query_sources('attendance', details.get('query_type', 'today'))
-            else:
-                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về chấm công lúc này."
-                sources = []
-        
-        elif intent_type == 'branch':
-            handler = self._query_handlers.get('branch')
-            if handler:
-                response_text = await handler.handle(
-                    details.get('query_type', 'list'),
-                    message, role, department_id,
-                    details.get('params', {}),
-                    user_id=user_id
-                )
-                sources = self._create_db_query_sources('branch', details.get('query_type', 'list'))
-            else:
-                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về chi nhánh lúc này."
-                sources = []
-        
-        elif intent_type == 'shift':
-            handler = self._query_handlers.get('shift')
-            if handler:
-                response_text = await handler.handle(
-                    details.get('query_type', 'list'),
-                    message, role, department_id,
-                    details.get('params', {}),
-                    user_id=user_id
-                )
-                sources = self._create_db_query_sources('shift', details.get('query_type', 'list'))
-            else:
-                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về ca làm việc lúc này."
-                sources = []
-        
-        elif intent_type == 'payroll':
-            handler = self._query_handlers.get('payroll')
-            if handler:
-                response_text = await handler.handle(
-                    details.get('query_type', 'total'),
-                    message, role, department_id,
-                    details.get('params', {}),
-                    user_id=user_id
-                )
-                sources = self._create_db_query_sources('payroll', details.get('query_type', 'total'))
-            else:
-                response_text = "Xin lỗi, tôi không thể xử lý câu hỏi về lương lúc này."
+                domain_names = {
+                    'employee': 'nhân viên', 'department': 'phòng ban',
+                    'request': 'đơn từ', 'attendance': 'chấm công',
+                    'branch': 'chi nhánh', 'shift': 'ca làm việc',
+                    'payroll': 'lương'
+                }
+                domain_name = domain_names.get(intent_type, intent_type)
+                response_text = f"Xin lỗi, tôi không thể xử lý câu hỏi về {domain_name} lúc này. Vui lòng thử lại sau hoặc liên hệ bộ phận hỗ trợ."
                 sources = []
         
         else:
@@ -842,7 +854,10 @@ TRẢ LỜI:"""
         if conversation_history:
             history_section = f"\n=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY ===\n{conversation_history}\n"
         
+        role_prompt = _get_role_prompt(role)
+        
         return f"""{SYSTEM_PROMPT}
+{role_prompt}
 {history_section}
 Nhiệm vụ của bạn là tổng hợp và trả lời câu hỏi dựa trên thông tin từ cả tài liệu và dữ liệu hệ thống.
 
@@ -861,6 +876,7 @@ HƯỚNG DẪN TRẢ LỜI:
 2. Ưu tiên dữ liệu hệ thống (số liệu cụ thể).
 3. Sử dụng Markdown để trình bày đẹp (bullet points, bảng).
 4. Tham khảo lịch sử hội thoại để trả lời đúng ngữ cảnh.
+5. Gợi ý 1-2 hành động tiếp theo phù hợp với vai trò người dùng.
 """
     
     async def _handle_general_question_with_rag(
@@ -932,17 +948,25 @@ HƯỚNG DẪN TRẢ LỜI:
         if conversation_history:
             history_section = f"\n=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY ===\n{conversation_history}\n"
         
+        role_prompt = _get_role_prompt(role)
+        
         prompt = f"""{SYSTEM_PROMPT}
+{role_prompt}
 {history_section}
-Bạn đang trả lời một câu hỏi chung hoặc câu chào hỏi. Người dùng có vai trò: {role} {f', phòng ban: {department_id}' if department_id else ''}.
+Bạn đang trả lời một câu hỏi chung hoặc câu chào hỏi.
+
+=== THÔNG TIN NGƯỜI DÙNG ===
+- Vai trò: {role}
+{f'- Phòng ban: {department_id}' if department_id else ''}
 
 CÂU HỎI: "{message}"
 
 HƯỚNG DẪN:
-- Nếu là lời chào, hãy chào lại một cách thân thiện và giới thiệu ngắn gọn khả năng giúp đỡ của bạn.
+- Nếu là lời chào, hãy chào lại một cách thân thiện và giới thiệu ngắn gọn khả năng giúp đỡ phù hợp với vai trò người dùng.
 - Chỉ trả lời những kiến thức chung về hệ thống hoặc quy trình.
 - Không cung cấp dữ liệu giả định nếu không được phép.
 - Tham khảo lịch sử hội thoại (nếu có) để trả lời đúng ngữ cảnh.
+- Gợi ý 1-2 hành động phù hợp với vai trò người dùng.
 """
 
         try:
@@ -1012,8 +1036,11 @@ HƯỚNG DẪN:
         if conversation_history:
             history_section = f"\n=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY ===\n{conversation_history}\n"
         
+        role_prompt = _get_role_prompt(role)
+        
         if context:
             prompt = f"""{SYSTEM_PROMPT}
+{role_prompt}
 {history_section}
 Nhiệm vụ của bạn là trả lời câu hỏi dựa trên thông tin được cung cấp trong ngữ cảnh tham khảo bên dưới.
 
@@ -1032,20 +1059,23 @@ HƯỚNG DẪN TRẢ LỜI:
 2. Nếu ngữ cảnh không có thông tin, hãy nói rõ bạn không tìm thấy dữ liệu.
 3. Trình bày đẹp bằng Markdown.
 4. Tham khảo lịch sử hội thoại để trả lời đúng ngữ cảnh.
+5. Gợi ý 1-2 hành động tiếp theo phù hợp với vai trò người dùng.
 
 TRẢ LỜI:"""
         else:
             # Fallback when no context available
             prompt = f"""{SYSTEM_PROMPT}
+{role_prompt}
 {history_section}
-Bạn là trợ lý AI của hệ thống SmartAttendance. Người dùng có vai trò: {role}
-{f', phòng ban: {department_id}' if department_id else ''}
+=== THÔNG TIN NGƯỜI DÙNG ===
+- Vai trò: {role}
+{f'- Phòng ban: {department_id}' if department_id else ''}
 
 Hãy trả lời câu hỏi chung sau một cách thân thiện và hữu ích bằng tiếng Việt:
 
 "{question}"
 
-Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ thể về dữ liệu."""
+Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ thể về dữ liệu. Gợi ý hành động phù hợp với vai trò người dùng."""
         
         return prompt
     

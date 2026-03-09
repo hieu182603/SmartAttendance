@@ -1,8 +1,9 @@
 """Base query handler for RAG service"""
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
+from bson import ObjectId
 from app.services.rag.permissions import PermissionChecker
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,79 @@ class BaseQueryHandler(ABC):
         """Check if user has permission to access this collection"""
         return PermissionChecker.check(role, self.collection_name, department_id, user_id)
     
+    async def _resolve_department_user_ids(self, department_id: str) -> List[str]:
+        """
+        Resolve department ID to list of user IDs belonging to that department.
+        Used for collections (attendance, requests) that don't have department_id field.
+        
+        Args:
+            department_id: Department ObjectId string
+            
+        Returns:
+            List of user ID strings belonging to the department
+        """
+        users_collection = getattr(self.collections, 'users_collection', None)
+        if users_collection is None:
+            logger.warning("users_collection not available for department resolution")
+            return []
+        
+        try:
+            # Try to convert to ObjectId for proper matching
+            try:
+                dept_oid = ObjectId(department_id)
+            except Exception:
+                dept_oid = department_id
+            
+            # Find all active users in this department
+            users = await users_collection.find(
+                {"department": dept_oid, "isActive": True},
+                {"_id": 1}
+            ).to_list(length=None)
+            
+            user_ids = [str(u["_id"]) for u in users]
+            logger.debug(f"Resolved department {department_id} to {len(user_ids)} user IDs")
+            return user_ids
+        except Exception as e:
+            logger.error(f"Error resolving department user IDs: {str(e)}")
+            return []
+    
+    async def _resolve_department_filter(self, query: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        If query contains __department_filter__, resolve it to userId $in filter.
+        
+        Args:
+            query: Query dict that may contain __department_filter__
+            
+        Returns:
+            Updated query dict with __department_filter__ replaced by userId filter
+        """
+        dept_id = query.pop('__department_filter__', None)
+        if dept_id:
+            user_ids = await self._resolve_department_user_ids(dept_id)
+            if user_ids:
+                query['userId'] = {'$in': user_ids}
+            else:
+                # No users found in department - return impossible filter
+                query['userId'] = {'$in': []}
+        return query
+    
+    def _convert_user_id(self, user_id: str) -> Any:
+        """
+        Convert user_id string to ObjectId if valid, for proper MongoDB matching.
+        
+        Args:
+            user_id: User ID string
+            
+        Returns:
+            ObjectId or original string
+        """
+        if user_id:
+            try:
+                return ObjectId(user_id)
+            except Exception:
+                return user_id
+        return user_id
+    
     async def handle(
         self, 
         query_type: str, 
@@ -63,12 +137,19 @@ class BaseQueryHandler(ABC):
             # Check permission
             has_access, permission_filter = self.check_permission(role, department_id, user_id)
             if not has_access:
-                return f"Xin lỗi, {self.error_message}"
+                return f"Xin lỗi, {self.error_message}. Bạn có thể hỏi tôi về thông tin cá nhân của bạn thay vì thông tin chung."
             
             # Build query
             query = permission_filter.copy()
             if filters:
                 query.update(filters)
+            
+            # Resolve __department_filter__ to actual userId $in filter
+            query = await self._resolve_department_filter(query)
+            
+            # Convert userId string to ObjectId for proper matching
+            if 'userId' in query and isinstance(query['userId'], str):
+                query['userId'] = self._convert_user_id(query['userId'])
             
             # Handle query based on type
             if query_type == 'count':
@@ -94,7 +175,7 @@ class BaseQueryHandler(ABC):
         
         except Exception as e:
             logger.error(f"Error handling {self.collection_name} query: {str(e)}")
-            return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu: {str(e)}"
+            return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu. Vui lòng thử lại sau hoặc liên hệ bộ phận hỗ trợ."
     
     async def _get_collection(self):
         """Get the collection object"""

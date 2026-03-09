@@ -2,10 +2,13 @@ import {
   SHIFT_CONFIG,
   ATTENDANCE_CONFIG,
   APP_CONFIG,
+  FACE_RECOGNITION_CONFIG,
 } from "../../config/app.config.js";
 import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { AttendanceModel } from "./attendance.model.js";
 import { BranchModel } from "../branches/branch.model.js";
+import { UserModel } from "../users/user.model.js";
+import { FaceService } from "../face/face.service.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
 import {
   emitAttendanceUpdate,
@@ -13,6 +16,15 @@ import {
 } from "../../config/socket.js";
 
 /* global Intl */
+
+// Singleton FaceService instance (avoid re-creating per request)
+let _faceServiceInstance = null;
+const getFaceService = () => {
+  if (!_faceServiceInstance) {
+    _faceServiceInstance = new FaceService();
+  }
+  return _faceServiceInstance;
+};
 
 // ============================================================================
 // CONSTANTS
@@ -544,11 +556,10 @@ export const canCheckInEarly = (currentTime, shiftInfo) => {
       earliestTime: `${earliestHour}:${earliestMin
         .toString()
         .padStart(2, "0")}`,
-      message: `Chưa đến giờ chấm công (${
-        shiftInfo.shiftName
-      }). Vui lòng chấm công sau ${earliestHour}:${earliestMin
-        .toString()
-        .padStart(2, "0")}.`,
+      message: `Chưa đến giờ chấm công (${shiftInfo.shiftName
+        }). Vui lòng chấm công sau ${earliestHour}:${earliestMin
+          .toString()
+          .padStart(2, "0")}.`,
     };
   }
 
@@ -795,61 +806,58 @@ export const processCheckIn = async (
       return { success: false, data: null, error: branchResult.message };
     }
 
-    // Early guard: reject if face verification is required but no photo provided
-    if (ATTENDANCE_CONFIG.REQUIRE_FACE_VERIFICATION && !photoFile) {
-      try {
-        const { UserModel } = await import("../users/user.model.js");
-        const { FACE_RECOGNITION_CONFIG } = await import("../../config/app.config.js");
-
-        if (FACE_RECOGNITION_CONFIG.ENABLED) {
-          const user = await UserModel.findById(userId).select("faceData");
-          if (user?.faceData?.isRegistered) {
-            return {
-              success: false,
-              data: null,
-              error: "Yêu cầu cung cấp ảnh để xác thực khuôn mặt. Vui lòng chụp ảnh và thử lại.",
-              code: "FACE_VERIFICATION_REQUIRED",
-            };
-          }
-        }
-      } catch (error) {
-        // If we can't check user face data, proceed with GPS-only for safety
-        console.warn(`[attendance] Could not check user face data: ${error.message}`);
-      }
-    }
-
-    // Face verification (if enabled and user has registered face)
+    // ── Face verification (optimized: static imports, single DB query, fast verify) ──
     let faceVerified = false;
-    if (photoFile) {
+    let faceSimilarity = null;
+    const shouldAutoVerify = FACE_RECOGNITION_CONFIG.ENABLED && FACE_RECOGNITION_CONFIG.AUTO_VERIFY_WHEN_REGISTERED;
+    const requireFaceVerification = ATTENDANCE_CONFIG.REQUIRE_FACE_VERIFICATION;
+
+    if (shouldAutoVerify || requireFaceVerification) {
       try {
-        const { FaceService } = await import("../face/face.service.js");
-        const { FACE_RECOGNITION_CONFIG, ATTENDANCE_CONFIG } = await import("../../config/app.config.js");
-        const { UserModel } = await import("../users/user.model.js");
-        
-        const user = await UserModel.findById(userId).select("faceData");
-        
-        if (user?.faceData?.isRegistered && FACE_RECOGNITION_CONFIG.ENABLED) {
-          const faceService = new FaceService();
-          const result = await faceService.verifyUserFace(userId, photoFile.buffer);
-          faceVerified = result.match;
-          
-          if (!faceVerified && ATTENDANCE_CONFIG.REQUIRE_FACE_VERIFICATION) {
-            return {
-              success: false,
-              data: null,
-              error: `Xác thực khuôn mặt thất bại (Độ tương đồng: ${(result.similarity * 100).toFixed(1)}%). Vui lòng thử lại hoặc liên hệ quản trị viên.`,
-              code: "FACE_VERIFICATION_FAILED",
-              similarity: result.similarity,
-            };
-          }
-          
-          // Log face verification attempt
-          if (!faceVerified) {
-            console.warn(`[attendance] Face verification failed for user ${userId}, similarity: ${result.similarity}, proceeding with GPS-only`);
+        // Single DB query for user face data (avoid duplicate queries)
+        const user = await UserModel.findById(userId).select("faceData").lean();
+        const hasRegisteredFace = user?.faceData?.isRegistered && user?.faceData?.embeddings?.length > 0;
+
+        if (hasRegisteredFace) {
+          if (!photoFile) {
+            // No photo provided but face is registered
+            if (requireFaceVerification) {
+              return {
+                success: false,
+                data: null,
+                error: "Yêu cầu cung cấp ảnh để xác thực khuôn mặt. Vui lòng chụp ảnh và thử lại.",
+                code: "FACE_VERIFICATION_REQUIRED",
+              };
+            }
+            // Auto-verify mode: no photo → skip face verification, proceed GPS-only
+          } else {
+            // Photo provided + face registered → verify using optimized method
+            const faceService = getFaceService();
+            const result = await faceService.verifyUserFaceOptimized(
+              userId,
+              photoFile.buffer,
+              user.faceData
+            );
+            faceVerified = result.match;
+            faceSimilarity = result.similarity;
+
+            if (!faceVerified) {
+              if (requireFaceVerification) {
+                return {
+                  success: false,
+                  data: null,
+                  error: `Xác thực khuôn mặt thất bại (Độ tương đồng: ${(result.similarity * 100).toFixed(1)}%). Vui lòng thử lại hoặc liên hệ quản trị viên.`,
+                  code: "FACE_VERIFICATION_FAILED",
+                  similarity: result.similarity,
+                };
+              }
+              // Auto-verify mode: verification failed → log warning, proceed GPS-only
+              console.warn(`[attendance] Face verification failed for user ${userId}, similarity: ${result.similarity}, proceeding with GPS-only`);
+            }
           }
         }
       } catch (error) {
-        if (ATTENDANCE_CONFIG.REQUIRE_FACE_VERIFICATION) {
+        if (requireFaceVerification) {
           return {
             success: false,
             data: null,
@@ -857,8 +865,8 @@ export const processCheckIn = async (
             code: "FACE_VERIFICATION_ERROR",
           };
         }
-        // Log warning and proceed with GPS-only (graceful degradation)
-        console.warn(`[attendance] Face verification failed, proceeding with GPS-only: ${error.message}`);
+        // Graceful degradation: proceed with GPS-only
+        console.warn(`[attendance] Face verification error, proceeding with GPS-only: ${error.message}`);
       }
     }
 
@@ -1022,6 +1030,8 @@ export const processCheckIn = async (
         shiftName: shiftInfo.shiftName,
         shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
         status: attendance.status,
+        faceVerified,
+        ...(faceSimilarity !== null && { faceSimilarity }),
       },
       error: null,
       message,
@@ -1101,6 +1111,37 @@ export const processCheckOut = async (
         error: `Không thể check-out vào ${dayName}. Hệ thống chỉ cho phép chấm công từ Thứ Hai đến Thứ Sáu.`,
         code: "WEEKEND_NOT_ALLOWED",
       };
+    }
+
+    // ── Face verification for check-out (optimized, optional) ──
+    let faceVerified = false;
+    let faceSimilarity = null;
+    const shouldAutoVerify = FACE_RECOGNITION_CONFIG.ENABLED && FACE_RECOGNITION_CONFIG.AUTO_VERIFY_WHEN_REGISTERED;
+
+    if (shouldAutoVerify && photoFile) {
+      try {
+        const user = await UserModel.findById(userId).select("faceData").lean();
+        const hasRegisteredFace = user?.faceData?.isRegistered && user?.faceData?.embeddings?.length > 0;
+
+        if (hasRegisteredFace) {
+          const faceService = getFaceService();
+          const result = await faceService.verifyUserFaceOptimized(
+            userId,
+            photoFile.buffer,
+            user.faceData
+          );
+          faceVerified = result.match;
+          faceSimilarity = result.similarity;
+
+          if (!faceVerified) {
+            // Check-out face verification is informational only (not blocking)
+            console.warn(`[attendance] Check-out face verification failed for user ${userId}, similarity: ${result.similarity}`);
+          }
+        }
+      } catch (error) {
+        // Check-out face verification failure is non-blocking
+        console.warn(`[attendance] Check-out face verification error: ${error.message}`);
+      }
     }
 
     // Find attendance record
@@ -1241,8 +1282,8 @@ export const processCheckOut = async (
 
     const workHours = attendance.workHours
       ? `${Math.floor(attendance.workHours)}h ${Math.round(
-          (attendance.workHours % 1) * 60
-        )}m`
+        (attendance.workHours % 1) * 60
+      )}m`
       : "0h";
 
     // Create message
@@ -1275,6 +1316,8 @@ export const processCheckOut = async (
         minutesOvertime: checkOutInfo.minutesOvertime,
         approvalStatus: attendance.approvalStatus,
         requiresApproval: attendance.approvalStatus === "PENDING",
+        faceVerified,
+        ...(faceSimilarity !== null && { faceSimilarity }),
       },
       error: null,
       message,

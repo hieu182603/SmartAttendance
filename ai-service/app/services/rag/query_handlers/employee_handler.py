@@ -165,13 +165,23 @@ class EmployeeQueryHandler(BaseQueryHandler):
 
             return await self._handle_self_leave_balance(user_id)
 
-        # 2) Các truy vấn nhân sự khác: chỉ HR/Manager/Admin được phép
-        allowed_roles = ["hr_manager", "manager", "admin", "super_admin"]
+        # 2) Nhân viên hỏi thông tin CÁ NHÂN (profile, vị trí, email...)
+        self_info_types = ["self_info", "my_info", "my_profile"]
+        if query_type in self_info_types or (role_lower == "employee" and query_type in ["detail", "info"]):
+            if not user_id:
+                return "Xin lỗi, tôi không xác định được tài khoản của bạn. Vui lòng đăng nhập lại và thử lại."
+            return await self._handle_self_info(user_id)
+
+        # 3) Các truy vấn nhân sự khác: chỉ HR/Manager/Admin/Supervisor được phép
+        allowed_roles = ["hr_manager", "manager", "admin", "super_admin", "supervisor"]
 
         if role_lower not in allowed_roles:
             return (
-                "Xin lỗi, bạn không có quyền truy cập thông tin chi tiết về nhân viên. "
-                "Chỉ HR, Quản lý hoặc Admin mới có thể xem các thống kê này."
+                "Xin lỗi, bạn không có quyền truy cập thông tin chi tiết về nhân viên khác. 🔒\n\n"
+                "💡 **Bạn có thể hỏi:**\n"
+                "- \"Thông tin cá nhân của tôi\"\n"
+                "- \"Tôi còn bao nhiêu ngày phép?\"\n"
+                "- \"Hôm nay tôi đã chấm công chưa?\""
             )
 
         try:
@@ -198,6 +208,63 @@ class EmployeeQueryHandler(BaseQueryHandler):
         except Exception as e:
             logger.error(f"Error handling employee query: {str(e)}")
             return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu: {str(e)}"
+
+    async def _handle_self_info(self, user_id: str) -> str:
+        """
+        Trả lời câu hỏi về thông tin cá nhân của nhân viên hiện tại.
+        """
+        collection = await self._get_collection()
+        if collection is None:
+            return "Xin lỗi, tôi không truy cập được dữ liệu để xem thông tin của bạn."
+
+        try:
+            user = await collection.find_one({"_id": ObjectId(user_id)})
+        except Exception as e:
+            logger.error(f"Error fetching user for self_info: {str(e)}")
+            return "Xin lỗi, tôi gặp lỗi khi lấy thông tin cá nhân của bạn."
+
+        if not user:
+            return "Xin lỗi, tôi không tìm thấy tài khoản của bạn trong hệ thống."
+
+        name = user.get("name", "N/A")
+        email = user.get("email", "N/A")
+        position = user.get("position", "N/A")
+        phone = user.get("phone", "N/A")
+        role = user.get("role", "N/A")
+        is_active = "Đang hoạt động ✅" if user.get("isActive", False) else "Không hoạt động ❌"
+
+        role_names = {
+            "EMPLOYEE": "Nhân viên",
+            "SUPERVISOR": "Supervisor",
+            "MANAGER": "Quản lý",
+            "HR_MANAGER": "HR Manager",
+            "ADMIN": "Admin",
+            "SUPER_ADMIN": "Super Admin"
+        }
+        role_display = role_names.get(role, role)
+
+        lines = [
+            f"👤 **Thông tin cá nhân của bạn:**",
+            "",
+            f"- **Họ tên:** {name}",
+            f"- **Email:** {email}",
+            f"- **Số điện thoại:** {phone}",
+            f"- **Vị trí:** {position}",
+            f"- **Vai trò:** {role_display}",
+            f"- **Trạng thái:** {is_active}",
+        ]
+
+        # Add department info if available
+        dept = user.get("department")
+        if dept and isinstance(dept, dict):
+            lines.append(f"- **Phòng ban:** {dept.get('name', 'N/A')}")
+        
+        # Add branch info if available
+        branch = user.get("branch")
+        if branch and isinstance(branch, dict):
+            lines.append(f"- **Chi nhánh:** {branch.get('name', 'N/A')}")
+
+        return "\n".join(lines)
 
     async def _handle_self_leave_balance(self, user_id: str) -> str:
         """
