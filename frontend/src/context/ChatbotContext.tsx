@@ -53,6 +53,8 @@ interface ChatbotProviderProps {
   children: React.ReactNode;
 }
 
+const ACTIVE_CONVERSATION_STORAGE_KEY = 'smartattendance_active_conversation_id';
+
 export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -132,6 +134,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
       setConversations([]);
       setCurrentConversation(null);
       setMessages([]);
+      localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
     }
   }, [user]);
 
@@ -141,7 +144,20 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
     try {
       setIsLoadingConversations(true);
       const response = await getConversations(user.id);
-      setConversations(response.conversations);
+      const convs = response.conversations;
+      setConversations(convs);
+
+      // Restore last active conversation from localStorage if available
+      const savedConversationId = localStorage.getItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+      if (savedConversationId && !currentConversation) {
+        const matched = convs.find(c => c.id === savedConversationId);
+        if (matched) {
+          await loadConversation(matched);
+        } else {
+          // stale ID in storage
+          localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+        }
+      }
     } catch (error) {
       const err = error as Error & { name?: string; code?: string; message?: string }
       // Only show error toast for non-network errors (network errors are expected when service is down)
@@ -160,6 +176,8 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
 
     try {
       setCurrentConversation(conversation);
+      localStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, conversation.id);
+
       const response = await getConversation(conversation.id, user.id);
       setMessages(response.messages);
     } catch (error) {
@@ -171,6 +189,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
   const createNewConversation = () => {
     setCurrentConversation(null);
     setMessages([]);
+    localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
   };
 
   const sendChatMessage = async (message: string) => {
@@ -191,7 +210,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
     try {
       const response = await sendMessage(messageToSend, currentConversation?.id, {
         userId: user.id,
-        departmentId: user.department,
+        departmentId: (user as any).departmentId ?? (user as any).department,
         role: user.role
       });
 
@@ -214,6 +233,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
           preview: response.message.substring(0, 100)
         };
         setCurrentConversation(newConv);
+        localStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, response.conversation_id);
         // Reload conversations to include the new one
         loadConversations();
       } else {
@@ -247,6 +267,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
       if (currentConversation?.id === conversationId) {
         setCurrentConversation(null);
         setMessages([]);
+        localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
       }
 
       toast.success('Conversation deleted');
