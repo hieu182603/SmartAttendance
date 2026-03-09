@@ -55,11 +55,10 @@ except Exception as e:
     # Log full exception with stack trace for debugging
     logger.error(f"❌ FAILED TO IMPORT RAG ROUTER: {rag_import_error_message}")
     logger.error(f"Full traceback:\n{traceback.format_exc()}")
-    # Raise the error to stop startup - we need to see the actual error!
-    raise
-
-    # Create fallback router that returns clear error message
-    fallback_router = APIRouter(prefix="/rag", tags=["RAG Chatbot (Unavailable)"])
+    # Do NOT crash the whole service on VPS when RAG is misconfigured.
+    # Register a fallback router that returns a clear 503 for all RAG endpoints,
+    # while keeping face recognition endpoints available.
+    fallback_router = APIRouter(prefix="/api/rag", tags=["RAG Chatbot (Unavailable)"])
 
     def rag_unavailable_response(message: str) -> JSONResponse:
         """Helper to create consistent 503 response with CORS support"""
@@ -136,7 +135,7 @@ except Exception as e:
 
     # Register fallback router
     app.include_router(fallback_router)
-    logger.warning("Fallback RAG router registered - all /rag/* endpoints will return 503 Service Unavailable")
+    logger.warning("Fallback RAG router registered - all /api/rag/* endpoints will return 503 Service Unavailable")
 
 # Root endpoint
 @app.get("/")
