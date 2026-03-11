@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, X, Minimize2, Send, Loader2 } from 'lucide-react';
+import { Bot, X, Minimize2, Send, Loader2, Sparkles, MessageSquare, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useChatbot } from '@/context/ChatbotContext';
 import { useAuth } from '@/context/AuthContext';
 import { ChatMessage } from './ChatMessage';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Card } from '../ui/card';
-import { Badge } from '../ui/badge';
 import { getRoleName, getRoleScope } from '@/utils/roles';
 
 // Quick suggestion chips based on user role
@@ -51,7 +49,7 @@ const ROLE_SUGGESTIONS: Record<string, string[]> = {
   ],
 };
 
-interface FloatingChatWidgetProps {}
+interface FloatingChatWidgetProps { }
 
 export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
   const { t } = useTranslation(['dashboard', 'common']);
@@ -106,7 +104,6 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
       const userName = user?.name || t('common:there', 'there');
       const welcomeMessage = t('dashboard:chatbot.welcomeWithName', 'Hi {{name}}! I\'m your AI assistant. What would you like to know?', { name: userName });
 
-      // Add welcome message as assistant message directly (don't call API)
       setMessages([{
         role: 'assistant',
         content: welcomeMessage,
@@ -122,7 +119,6 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
     const message = inputValue.trim();
     setInputValue('');
 
-    // Reset unread count when opening chat
     if (!isOpen) {
       setIsOpen(true);
       setUnreadCount(0);
@@ -155,6 +151,10 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
     setIsMinimized(false);
   };
 
+  const handleNewConversation = () => {
+    createNewConversation();
+  };
+
   const handleSuggestionClick = async (suggestion: string) => {
     if (isLoading) return;
     setInputValue('');
@@ -172,85 +172,92 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
   return (
     <>
       {/* Chat Bubble Button */}
-      <motion.div
-        className="fixed bottom-6 right-6 z-50"
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      >
+      <div className="fixed bottom-6 right-6 z-50">
         <div
           title={
             isChatbotAvailable
               ? t('dashboard:floatingWidget.tooltip', 'Open AI Assistant')
               : t('dashboard:floatingWidget.disabledTooltip', 'AI Assistant is currently unavailable')
           }
+          className="relative group"
         >
           <Button
             onClick={handleToggleChat}
             disabled={!isChatbotAvailable}
-            className={`relative h-14 w-14 rounded-full shadow-2xl transition-all duration-200 ${
-              isChatbotAvailable
-                ? 'bg-[var(--primary)] hover:bg-[var(--primary)]/90 hover:shadow-3xl'
-                : 'bg-gray-400 cursor-not-allowed opacity-50'
-            }`}
+            className={`relative h-14 w-14 rounded-full shadow-lg transition-all duration-200 border-0 ${isChatbotAvailable
+              ? 'bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 hover:shadow-xl hover:shadow-violet-500/25 hover:scale-105 active:scale-95'
+              : 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed opacity-50'
+              }`}
             aria-label={
               isChatbotAvailable
                 ? t('dashboard:floatingWidget.tooltip', 'Open AI Assistant')
                 : t('dashboard:floatingWidget.disabledTooltip', 'AI Assistant is currently unavailable')
             }
           >
-          <Bot className="h-6 w-6 text-white" />
-          {unreadCount > 0 && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-medium"
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </motion.div>
-          )}
+            {isOpen ? (
+              <MessageSquare className="h-6 w-6 text-white" />
+            ) : (
+              <Bot className="h-6 w-6 text-white" />
+            )}
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold shadow-sm">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </Button>
         </div>
-      </motion.div>
+      </div>
 
       {/* Chat Window */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
             className="fixed bottom-24 right-6 z-40"
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 12, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            exit={{ opacity: 0, y: 12, scale: 0.97 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
           >
-            <Card className="w-[400px] max-h-[calc(100vh-10rem)] h-[550px] bg-[var(--surface)] border-[var(--border)] shadow-2xl backdrop-blur-sm flex flex-col overflow-hidden rounded-2xl">
+            <div className="w-[400px] max-h-[calc(100vh-10rem)] h-[560px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl shadow-slate-900/10 dark:shadow-black/30 flex flex-col overflow-hidden rounded-2xl">
+
               {/* Header */}
-              <div className="flex-none flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--surface)]">
+              <div className="flex-none flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[var(--primary)]/10 flex items-center justify-center">
-                    <Bot className="w-5 h-5 text-[var(--primary)]" />
+                  <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[var(--text-main)]">
-                      {t('dashboard:floatingWidget.title', 'AI Assistant')}
+                    <h3 className="font-semibold text-white text-sm">
+                      SmartBot
                     </h3>
-                    {user?.role && (
-                      <p className="text-xs text-[var(--text-sub)]">
-                        {t('dashboard:floatingWidget.roleInfo', 'You can view: {{scope}}', {
+                    <p className="text-[11px] text-white/70">
+                      {user?.role ? (
+                        t('dashboard:floatingWidget.roleInfo', 'You can view: {{scope}}', {
                           scope: userRoleScope === 'all' ? t('common:roles.all', 'all data') :
-                                userRoleScope === 'department' ? t('common:roles.department', 'department data') :
-                                t('common:roles.own', 'your own data')
-                        })}
-                      </p>
-                    )}
+                            userRoleScope === 'department' ? t('common:roles.department', 'department data') :
+                              t('common:roles.own', 'your own data')
+                        })
+                      ) : (
+                        t('dashboard:floatingWidget.subtitle', 'AI-powered assistant')
+                      )}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleNewConversation}
+                    className="h-8 w-8 p-0 text-white/70 hover:text-white hover:bg-white/15 rounded-lg"
+                    title={t('dashboard:floatingWidget.newChat', 'New conversation')}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleMinimize}
-                    className="h-8 w-8 p-0 hover:bg-[var(--shell)]"
+                    className="h-8 w-8 p-0 text-white/70 hover:text-white hover:bg-white/15 rounded-lg"
                     aria-label={t('dashboard:floatingWidget.minimize', 'Minimize')}
                   >
                     <Minimize2 className="h-4 w-4" />
@@ -259,7 +266,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
                     variant="ghost"
                     size="sm"
                     onClick={handleClose}
-                    className="h-8 w-8 p-0 hover:bg-[var(--shell)]"
+                    className="h-8 w-8 p-0 text-white/70 hover:text-white hover:bg-white/15 rounded-lg"
                     aria-label={t('dashboard:floatingWidget.close', 'Close')}
                   >
                     <X className="h-4 w-4" />
@@ -267,26 +274,32 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
                 </div>
               </div>
 
-              {/* Messages Area - scrollable, takes remaining space */}
+              {/* Messages Area */}
               {!isMinimized && (
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50 dark:bg-slate-900/50">
                   {messages.length === 0 ? (
-                    <div className="text-center py-6">
-                      <Bot className="h-12 w-12 text-[var(--text-sub)] mx-auto mb-3" />
+                    <div className="h-full flex flex-col items-center justify-center text-center px-4">
                       {isChatbotAvailable ? (
                         <>
-                          <p className="text-[var(--text-sub)] mb-4">
-                            {t('dashboard:chatbot.welcome', 'Hi! I\'m your AI assistant. How can I help you today?')}
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900/30 dark:to-violet-900/30 flex items-center justify-center mb-4">
+                            <Bot className="h-8 w-8 text-indigo-500 dark:text-indigo-400" />
+                          </div>
+                          <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                            {t('dashboard:chatbot.welcomeTitle', 'How can I help you?')}
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 max-w-[260px]">
+                            {t('dashboard:chatbot.welcomeDesc', 'Ask about attendance, leave, payroll, or any HR-related topic.')}
                           </p>
                           {/* Suggestion chips */}
-                          <div className="flex flex-wrap gap-2 justify-center px-2">
+                          <div className="flex flex-col gap-2 w-full max-w-[300px]">
                             {suggestions.slice(0, 4).map((suggestion, idx) => (
                               <button
                                 key={idx}
                                 onClick={() => handleSuggestionClick(suggestion)}
                                 disabled={isLoading}
-                                className="text-xs px-3 py-1.5 rounded-full border border-[var(--border)] bg-[var(--shell)] text-[var(--text-main)] hover:bg-[var(--primary)] hover:text-white hover:border-[var(--primary)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-xs text-left px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed group"
                               >
+                                <span className="text-indigo-400 group-hover:text-indigo-500 mr-1.5">→</span>
                                 {suggestion}
                               </button>
                             ))}
@@ -294,95 +307,102 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
                         </>
                       ) : (
                         <div className="space-y-2">
-                          <p className="text-[var(--text-sub)] font-medium">
+                          <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
+                            <Bot className="h-7 w-7 text-slate-400" />
+                          </div>
+                          <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
                             {t('dashboard:chatbot.unavailable', 'AI Assistant Unavailable')}
                           </p>
-                          <p className="text-[var(--text-sub)] text-sm">
+                          <p className="text-slate-400 dark:text-slate-500 text-xs">
                             {t('dashboard:chatbot.unavailableMessage', 'The AI assistant is currently not configured or disabled. Please contact your administrator.')}
                           </p>
                         </div>
                       )}
                     </div>
                   ) : (
-                    messages.map((message, index) => (
-                      <ChatMessage
-                        key={index}
-                        message={message}
-                      />
-                    ))
-                  )}
+                    <>
+                      {messages.map((message, index) => (
+                        <ChatMessage
+                          key={index}
+                          message={message}
+                        />
+                      ))}
 
-                  {/* Typing indicator */}
-                  {isLoading && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                        <Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" />
-                      </div>
-                      <div className="bg-[var(--shell)] rounded-lg px-3 py-2">
-                        <p className="text-sm text-[var(--text-sub)]">
-                          {t('dashboard:floatingWidget.typing', 'AI is thinking...')}
-                        </p>
-                      </div>
-                    </div>
+                      {/* Typing indicator */}
+                      {isLoading && (
+                        <div className="flex items-start gap-2.5 mb-4">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0 mt-1">
+                            <Bot className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/50 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:0ms]"></span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:150ms]"></span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce [animation-delay:300ms]"></span>
+                              </div>
+                              <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">
+                                {t('dashboard:floatingWidget.typing', 'Đang suy nghĩ...')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
-
                   <div ref={messagesEndRef} />
                 </div>
               )}
 
-              {/* Input Area - fixed at bottom */}
+              {/* Input Area */}
               {!isMinimized && isChatbotAvailable && (
-                <div className="flex-none p-4 border-t border-[var(--border)] bg-[var(--surface)]">
-                  <div className="flex items-center gap-2 bg-[var(--shell)] border border-[var(--border)] rounded-full p-1 pr-1.5 focus-within:ring-1 focus-within:ring-[var(--primary)] focus-within:border-[var(--primary)] transition-all">
+                <div className="flex-none p-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 pl-1.5">
                     <Input
                       ref={inputRef}
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      placeholder={t('dashboard:floatingWidget.placeholder', 'Type your message...')}
-                      className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-[var(--text-main)] placeholder-[var(--text-sub)] px-4 h-10"
+                      placeholder={t('dashboard:floatingWidget.placeholder', 'Nhập tin nhắn...')}
+                      className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 px-2.5 h-9"
                       disabled={isLoading}
                     />
                     <Button
                       onClick={handleSendMessage}
                       disabled={!inputValue.trim() || isLoading}
                       size="sm"
-                      className="h-9 w-9 rounded-full p-0 bg-[var(--primary)] hover:bg-[var(--primary)]/90 shrink-0 transition-transform active:scale-95"
+                      className="h-8 w-8 rounded-lg p-0 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-slate-600 dark:disabled:to-slate-600 shrink-0 transition-all shadow-sm"
                       aria-label={t('dashboard:floatingWidget.send', 'Send')}
                     >
-                      <Send className="h-4 w-4 ml-0.5" />
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 text-white animate-spin" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5 text-white ml-0.5" />
+                      )}
                     </Button>
-                  </div>
-                  <div className="text-center mt-2">
-                    <p className="text-[10px] text-[var(--text-sub)]">
-                      {t('common:pressEnter', 'Press Enter to send, Shift+Enter for new line')}
-                    </p>
                   </div>
                 </div>
               )}
 
               {/* Chat disabled message */}
               {!isMinimized && !isChatbotAvailable && (
-                <div className="flex-none p-3 border-t border-[var(--border)]">
+                <div className="flex-none p-3 border-t border-slate-100 dark:border-slate-800">
                   <div className="text-center py-2">
-                    <p className="text-[var(--text-sub)] text-sm">
+                    <p className="text-slate-400 dark:text-slate-500 text-xs">
                       {t('dashboard:chatbot.inputDisabled', 'Chat input is disabled')}
                     </p>
                   </div>
                 </div>
               )}
-            </Card>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Backdrop for mobile */}
       {isOpen && (
-        <motion.div
+        <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 lg:hidden"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
           onClick={handleClose}
         />
       )}

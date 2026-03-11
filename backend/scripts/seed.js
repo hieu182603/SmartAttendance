@@ -517,11 +517,6 @@ async function seed() {
                 const dayOfWeek = date.getDay();
                 if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
-                // Bỏ qua các ngày từ 4/12/2025 trở đi (không tạo attendance)
-                const december4 = new Date(2025, 11, 4); // 4/12/2025 (index 11 = tháng 12)
-                december4.setHours(0, 0, 0, 0);
-                if (date >= december4) continue;
-
                 // Một số nhân viên có thể nghỉ (10% chance)
                 for (const employee of employeeUsers) {
                     if (Math.random() < 0.1) continue; // 10% nghỉ

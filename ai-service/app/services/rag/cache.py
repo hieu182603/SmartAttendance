@@ -87,11 +87,25 @@ class RAGCache:
     
     # =========================================================================
     # Database Query Cache
+    #
+    # WARNING: This cache does NOT include user_id or role in the cache key.
+    # Therefore, it MUST NOT be used for queries that return user-specific data
+    # (e.g., personal attendance, leave balance, personal requests).
+    # It is safe to use ONLY for global/aggregate queries that return the same
+    # result regardless of which user is asking (e.g., total employee count,
+    # department list).
+    #
+    # If you plan to cache user-specific DB results in the future, you MUST
+    # include user_id and role in the cache key to prevent data leakage
+    # between different users.
     # =========================================================================
     
     def get_db_result(self, query_type: str, params: dict = None) -> Optional[Any]:
         """
         Get cached database query result
+        
+        WARNING: Cache key does not include user_id/role. Do NOT use for
+        user-specific queries. Only use for global/aggregate data.
         
         Args:
             query_type: Type of query (e.g., 'employee_count', 'department_list')
@@ -115,9 +129,14 @@ class RAGCache:
         """
         Cache a database query result
         
+        WARNING: Cache key does not include user_id/role. Do NOT cache
+        user-specific data here. Only cache global/aggregate results.
+        If caching user-specific data is needed in the future, add
+        user_id and role to the cache key.
+        
         Args:
             query_type: Type of query
-            params: Query parameters
+            params: Query parameters (should NOT contain user-specific filters)
             result: Result to cache
         """
         if not self._enabled:

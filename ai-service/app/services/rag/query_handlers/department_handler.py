@@ -74,8 +74,13 @@ class DepartmentQueryHandler(BaseQueryHandler):
             {
                 "$lookup": {
                     "from": "users",
-                    "localField": "_id",
-                    "foreignField": "department",
+                    "let": {"dept_id": "$_id"},
+                    "pipeline": [
+                        {"$match": {
+                            "$expr": {"$eq": ["$department", "$$dept_id"]},
+                            "isActive": True
+                        }}
+                    ],
                     "as": "employees"
                 }
             },
@@ -93,7 +98,7 @@ class DepartmentQueryHandler(BaseQueryHandler):
         if not results:
             return "Không tìm thấy thông tin phù hợp."
         
-        response = f"🏢 **Phòng ban theo số nhân viên:**\n\n"
+        response = f"🏢 **Phòng ban theo số nhân viên (đang hoạt động):**\n\n"
         
         for item in results[:15]:
             response += f"🔹 **{item['name']}**: {item['employee_count']} nhân viên\n"

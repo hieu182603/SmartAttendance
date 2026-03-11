@@ -1,6 +1,7 @@
 """Employee query handler"""
 import logging
 from typing import Dict, Any
+from datetime import datetime
 from bson import ObjectId
 from app.services.rag.query_handlers.base import BaseQueryHandler
 from app.services.rag.permissions import PermissionChecker
@@ -153,26 +154,47 @@ class EmployeeQueryHandler(BaseQueryHandler):
 
         role_lower = role.lower() if role else ""
 
-        # 1) Trường hợp đặc biệt: nhân viên hỏi về NGÀY PHÉP CỦA CHÍNH MÌNH
+        # 1) Trường hợp: bất kỳ ai hỏi về NGÀY PHÉP CỦA CHÍNH MÌNH
+        #    (Comment 9: bỏ restriction role_lower != "employee", cho phép tất cả role xem phép của mình)
         if query_type == "self_leave_balance":
-            if role_lower != "employee":
-                return (
-                    "Câu hỏi về số ngày phép còn lại hiện chỉ hỗ trợ cho nhân viên hỏi về **tài khoản của chính mình**. "
-                    "Vui lòng dùng màn hình HR nếu bạn muốn xem phép của người khác."
-                )
             if not user_id:
                 return "Xin lỗi, tôi không xác định được tài khoản của bạn để xem ngày phép. Vui lòng đăng nhập lại và thử lại."
-
             return await self._handle_self_leave_balance(user_id)
 
-        # 2) Nhân viên hỏi thông tin CÁ NHÂN (profile, vị trí, email...)
+        # 2) HR/Admin/Manager xem ngày phép của nhân viên khác theo tên (Comment 9)
+        if query_type == "employee_leave_balance":
+            allowed_roles = ["hr_manager", "manager", "admin", "super_admin"]
+            if role_lower not in allowed_roles:
+                return "Xin lỗi, bạn không có quyền xem ngày phép của nhân viên khác. 🔒"
+            employee_name = (filters or {}).get('employee_name', '')
+            if not employee_name:
+                return "Vui lòng cung cấp tên nhân viên cần xem ngày phép."
+            employee = await self._resolve_employee_by_name(employee_name)
+            if not employee:
+                return f"Xin lỗi, tôi không tìm thấy nhân viên nào tên **{employee_name}** trong hệ thống."
+            return await self._handle_self_leave_balance(str(employee['_id']), display_name=employee.get('name', employee_name))
+
+        # 3) Truy vấn thông tin nhân viên theo tên (Comment 2: detail_by_name)
+        if query_type == "detail_by_name":
+            allowed_roles = ["hr_manager", "manager", "admin", "super_admin", "supervisor"]
+            if role_lower not in allowed_roles:
+                return "Xin lỗi, bạn không có quyền xem thông tin nhân viên khác. 🔒"
+            employee_name = (filters or {}).get('employee_name', '')
+            if not employee_name:
+                return "Vui lòng cung cấp tên nhân viên cần xem thông tin."
+            employee = await self._resolve_employee_by_name(employee_name)
+            if not employee:
+                return f"Xin lỗi, tôi không tìm thấy nhân viên nào tên **{employee_name}** trong hệ thống."
+            return await self._format_employee_detail(employee)
+
+        # 4) Nhân viên hỏi thông tin CÁ NHÂN (profile, vị trí, email...)
         self_info_types = ["self_info", "my_info", "my_profile"]
         if query_type in self_info_types or (role_lower == "employee" and query_type in ["detail", "info"]):
             if not user_id:
                 return "Xin lỗi, tôi không xác định được tài khoản của bạn. Vui lòng đăng nhập lại và thử lại."
             return await self._handle_self_info(user_id)
 
-        # 3) Các truy vấn nhân sự khác: chỉ HR/Manager/Admin/Supervisor được phép
+        # 5) Các truy vấn nhân sự khác: chỉ HR/Manager/Admin/Supervisor được phép
         allowed_roles = ["hr_manager", "manager", "admin", "super_admin", "supervisor"]
 
         if role_lower not in allowed_roles:
@@ -197,6 +219,8 @@ class EmployeeQueryHandler(BaseQueryHandler):
                 return await self._handle_count(query)
             elif query_type == 'list':
                 return await self._handle_list(query)
+            elif query_type == 'recently_joined':
+                return await self._handle_recently_joined(query)
             elif query_type == 'by_department':
                 return await self._handle_by_department(query)
             elif query_type == 'by_role':
@@ -266,28 +290,35 @@ class EmployeeQueryHandler(BaseQueryHandler):
 
         return "\n".join(lines)
 
-    async def _handle_self_leave_balance(self, user_id: str) -> str:
+    async def _handle_self_leave_balance(self, user_id: str, display_name: str = None) -> str:
         """
-        Trả lời câu hỏi: \"Tôi còn bao nhiêu ngày phép?\" cho nhân viên hiện tại.
+        Trả lời câu hỏi: "Tôi còn bao nhiêu ngày phép?" cho nhân viên hiện tại,
+        hoặc "Ngày phép của [tên]" cho HR/Admin/Manager.
 
         Quy tắc:
         - Đọc trực tiếp field leaveBalance trên collection users.
         - Không tự tính lại, giả định HR đã cập nhật đúng.
+        
+        Args:
+            user_id: ID of the user to check
+            display_name: Optional name to display (for viewing other employee's leave)
         """
         collection = await self._get_collection()
         if collection is None:
-            return "Xin lỗi, tôi không truy cập được dữ liệu nhân viên để xem ngày phép của bạn."
+            return "Xin lỗi, tôi không truy cập được dữ liệu nhân viên để xem ngày phép."
 
         try:
             user = await collection.find_one({"_id": ObjectId(user_id)})
         except Exception as e:
-            logger.error(f"Error fetching user for self_leave_balance: {str(e)}")
-            return "Xin lỗi, tôi gặp lỗi khi lấy thông tin ngày phép của bạn."
+            logger.error(f"Error fetching user for leave_balance: {str(e)}")
+            return "Xin lỗi, tôi gặp lỗi khi lấy thông tin ngày phép."
 
         if not user:
-            return "Xin lỗi, tôi không tìm thấy tài khoản của bạn trong hệ thống."
+            return "Xin lỗi, tôi không tìm thấy tài khoản trong hệ thống."
 
         lb = user.get("leaveBalance") or {}
+        name = display_name or user.get("name", "bạn")
+        is_self = display_name is None
 
         def _extract_type(data, key):
             t = data.get(key) or {}
@@ -305,18 +336,62 @@ class EmployeeQueryHandler(BaseQueryHandler):
         maternity = _extract_type(lb, "maternity")
 
         # Dòng kết luận ngắn gọn theo style SYSTEM_PROMPT
-        summary = f"**✅ Bạn hiện còn {annual['remaining']} / {annual['total']} ngày phép năm.**"
+        if is_self:
+            summary = f"**✅ Bạn hiện còn {annual['remaining']} / {annual['total']} ngày phép năm.**"
+        else:
+            summary = f"**✅ {name} hiện còn {annual['remaining']} / {annual['total']} ngày phép năm.**"
 
+        subject = "bạn" if is_self else name
         lines = [
             summary,
             "",
-            "📅 **Chi tiết số ngày phép của bạn:**",
+            f"📅 **Chi tiết số ngày phép của {subject}:**",
             f"- Phép năm: **còn {annual['remaining']} / {annual['total']} ngày**, chờ duyệt: {annual['pending']} ngày",
             f"- Nghỉ ốm: còn {sick['remaining']} / {sick['total']} ngày, chờ duyệt: {sick['pending']} ngày",
             f"- Nghỉ không lương: còn {unpaid['remaining']} / {unpaid['total']} ngày, chờ duyệt: {unpaid['pending']} ngày",
             f"- Nghỉ bù: còn {compensatory['remaining']} / {compensatory['total']} ngày, chờ duyệt: {compensatory['pending']} ngày",
             f"- Nghỉ thai sản: còn {maternity['remaining']} / {maternity['total']} ngày, chờ duyệt: {maternity['pending']} ngày",
         ]
+
+        return "\n".join(lines)
+    
+    async def _format_employee_detail(self, employee: Dict[str, Any]) -> str:
+        """Format detailed employee information (Comment 2: detail_by_name)"""
+        name = employee.get("name", "N/A")
+        email = employee.get("email", "N/A")
+        position = employee.get("position", "N/A")
+        phone = employee.get("phone", "N/A")
+        role = employee.get("role", "N/A")
+        is_active = "Đang hoạt động ✅" if employee.get("isActive", False) else "Không hoạt động ❌"
+
+        role_names = {
+            "EMPLOYEE": "Nhân viên",
+            "SUPERVISOR": "Supervisor",
+            "MANAGER": "Quản lý",
+            "HR_MANAGER": "HR Manager",
+            "ADMIN": "Admin",
+            "SUPER_ADMIN": "Super Admin"
+        }
+        role_display = role_names.get(role, role)
+
+        lines = [
+            f"👤 **Thông tin nhân viên: {name}**",
+            "",
+            f"- **Họ tên:** {name}",
+            f"- **Email:** {email}",
+            f"- **Số điện thoại:** {phone}",
+            f"- **Vị trí:** {position}",
+            f"- **Vai trò:** {role_display}",
+            f"- **Trạng thái:** {is_active}",
+        ]
+
+        # Leave balance summary
+        lb = employee.get("leaveBalance") or {}
+        annual = lb.get("annual") or {}
+        remaining = annual.get("remaining", 0)
+        total = annual.get("total", 0)
+        if total > 0:
+            lines.append(f"- **Phép năm còn lại:** {remaining} / {total} ngày")
 
         return "\n".join(lines)
     
@@ -348,6 +423,49 @@ class EmployeeQueryHandler(BaseQueryHandler):
             ]
         except Exception:
             return []
+    
+    async def _handle_recently_joined(self, query: Dict[str, Any]) -> str:
+        """Handle recently joined employees query"""
+        collection = await self._get_collection()
+        if collection is None:
+            return f"Xin lỗi, {self.error_message}"
+        
+        if "isActive" not in query:
+            query["isActive"] = True
+        
+        pipeline = [
+            {"$match": query},
+            {"$sort": {"createdAt": -1}},
+            {"$limit": 10},
+            {"$lookup": {
+                "from": "departments",
+                "localField": "department",
+                "foreignField": "_id",
+                "as": "dept_info"
+            }},
+            {"$unwind": {"path": "$dept_info", "preserveNullAndEmptyArrays": True}},
+        ]
+        
+        employees = await collection.aggregate(pipeline).to_list(length=None)
+        
+        if not employees:
+            return "Không tìm thấy nhân viên nào."
+        
+        response = "👥 **Nhân viên mới gia nhập gần đây:**\n\n"
+        
+        for i, emp in enumerate(employees, 1):
+            name = emp.get("name", "N/A")
+            position = emp.get("position", "N/A")
+            dept_name = emp.get("dept_info", {}).get("name", "N/A") if emp.get("dept_info") else "N/A"
+            created = emp.get("createdAt")
+            if isinstance(created, datetime):
+                created_str = created.strftime("%d/%m/%Y")
+            else:
+                created_str = str(created) if created else "N/A"
+            
+            response += f"- **{name}** | {position} | 🏢 {dept_name} | 📅 Ngày vào: {created_str}\n"
+        
+        return response
     
     async def _format_item(self, item: Dict[str, Any], index: int) -> str:
         """Format employee item"""

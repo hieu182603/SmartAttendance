@@ -208,11 +208,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
     setIsLoading(true);
 
     try {
-      const response = await sendMessage(messageToSend, currentConversation?.id, {
-        userId: user.id,
-        departmentId: (user as any).departmentId ?? (user as any).department,
-        role: user.role
-      });
+      const response = await sendMessage(messageToSend, currentConversation?.id);
 
       // Add assistant message
       const assistantMessage: ChatMessage = {

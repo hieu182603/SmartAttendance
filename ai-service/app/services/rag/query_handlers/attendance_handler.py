@@ -1,7 +1,8 @@
 """Attendance query handler"""
 import logging
+import re
 from typing import Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 from app.services.rag.query_handlers.base import BaseQueryHandler
 
@@ -34,8 +35,8 @@ class AttendanceQueryHandler(BaseQueryHandler):
             except Exception:
                 query.setdefault("userId", user_id)
         
-        today = datetime.now()
-        today_start = datetime(today.year, today.month, today.day)
+        today = datetime.now(timezone.utc)
+        today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
         today_end = today_start + timedelta(days=1)
         query["date"] = {"$gte": today_start, "$lt": today_end}
         
@@ -116,36 +117,36 @@ class AttendanceQueryHandler(BaseQueryHandler):
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
 
-        today = datetime.now()
+        today = datetime.now(timezone.utc)
 
         # Xác định khoảng thời gian
         if range_value == "last_month":
             # Tháng trước
             if today.month == 1:
-                start = datetime(today.year - 1, 12, 1)
-                end = datetime(today.year, 1, 1)
+                start = datetime(today.year - 1, 12, 1, tzinfo=timezone.utc)
+                end = datetime(today.year, 1, 1, tzinfo=timezone.utc)
             else:
-                start = datetime(today.year, today.month - 1, 1)
-                end = datetime(today.year, today.month, 1)
+                start = datetime(today.year, today.month - 1, 1, tzinfo=timezone.utc)
+                end = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
             range_label = "tháng trước"
         elif range_value == "last_week":
             # Tuần trước (Thứ 2–Chủ nhật)
             weekday = today.weekday()  # 0 = Monday
-            this_week_start = datetime(today.year, today.month, today.day) - timedelta(days=weekday)
+            this_week_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(days=weekday)
             start = this_week_start - timedelta(days=7)
             end = this_week_start
             range_label = "tuần trước"
         elif range_value == "month":
-            start = datetime(today.year, today.month, 1)
+            start = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
             if today.month == 12:
-                end = datetime(today.year + 1, 1, 1)
+                end = datetime(today.year + 1, 1, 1, tzinfo=timezone.utc)
             else:
-                end = datetime(today.year, today.month + 1, 1)
+                end = datetime(today.year, today.month + 1, 1, tzinfo=timezone.utc)
             range_label = "tháng này"
         else:
             # Mặc định: tuần hiện tại (Thứ 2–Chủ nhật)
             weekday = today.weekday()  # 0 = Monday
-            start = datetime(today.year, today.month, today.day) - timedelta(days=weekday)
+            start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(days=weekday)
             end = start + timedelta(days=7)
             range_label = "tuần này"
 
@@ -259,46 +260,65 @@ class AttendanceQueryHandler(BaseQueryHandler):
         return "\n".join(response_lines)
     
     async def _handle_today(self, query: Dict[str, Any]) -> str:
-        """Handle today's attendance"""
+        """Handle today's attendance with user names via $lookup"""
         collection = await self._get_collection()
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        today = datetime.now()
-        today_start = datetime(today.year, today.month, today.day)
+        today = datetime.now(timezone.utc)
+        today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
         today_end = today_start + timedelta(days=1)
         
         # Base query for today's records
         query["date"] = {"$gte": today_start, "$lt": today_end}
         
-        # Calculate totals
+        # Count totals (all statuses)
         total_records = await collection.count_documents(query)
-        
-        # Query specific to people who actually came to work (present or late)
         present_query = query.copy()
         present_query["status"] = {"$in": ["present", "late"]}
         present_count = await collection.count_documents(present_query)
         
-        # Get up to 20 present/late records for listing details
-        records = await collection.find(present_query).limit(20).to_list(length=None)
+        # Pipeline for list: only show present/late employees
+        list_query = query.copy()
+        list_query["status"] = {"$in": ["present", "late"]}
         
-        response = f"📅 **Chấm công hôm nay:**\n\n"
+        pipeline = [
+            {"$match": list_query},
+            {"$lookup": {
+                "from": "users",
+                "localField": "userId",
+                "foreignField": "_id",
+                "as": "user_info"
+            }},
+            {"$unwind": {"path": "$user_info", "preserveNullAndEmptyArrays": True}},
+            {"$sort": {"status": 1, "checkIn": 1}},
+            {"$limit": 20}
+        ]
+        
+        records = await collection.aggregate(pipeline).to_list(length=None)
+        
+        response = f"📅 **Danh sách chấm công hôm nay:**\n\n"
         response += f"✅ **Số người đã điểm danh (có mặt/đi muộn):** {present_count} / {total_records} nhân viên\n"
         
         if records:
-            response += "\n**🔍 Danh sách điểm danh mới nhất:**\n"
+            response += "\n**🔍 Danh sách nhân viên đã đi làm:**\n\n"
             for r in records[:10]:
                 status = r.get("status", "N/A")
-                check_in = str(r.get("checkIn", "")) if r.get("checkIn") else "N/A"
-                # Get the user name from the attendance record if populate happened, else we might need user_id
-                user_id = str(r.get("user", "Unknown User"))
-                # Sometimes user is populated as an object by the pipeline, sometimes not. Let's just keep it simple.
-                # Since we don't have populate here in motor, we just show status
+                check_in = r.get("checkIn")
+                if isinstance(check_in, datetime):
+                    check_in_str = check_in.strftime("%H:%M")
+                else:
+                    check_in_str = str(check_in) if check_in else "N/A"
                 
-                # Map status to emoji/text
+                # Get user name from $lookup result
+                user_name = r.get("user_info", {}).get("name", "N/A") if r.get("user_info") else "N/A"
+                
                 status_map = {"present": "✅ Có mặt", "late": "⏰ Đi muộn"}
                 status_display = status_map.get(status, status)
-                response += f"🔹 **{status_display}** | 🕒 Check-in: *{check_in}*\n"
+                response += f"- **{user_name}** | {status_display} | 🕒 Check-in: *{check_in_str}*\n"
+            
+            if present_count > 10:
+                response += f"\n*... và {present_count - 10} nhân viên khác*\n"
         
         return response
     
@@ -312,10 +332,16 @@ class AttendanceQueryHandler(BaseQueryHandler):
         return f"📊 **Thống kê chấm công:**\n\n🔹 **Tổng số bản ghi:** {count} bản ghi"
     
     async def _handle_by_status(self, query: Dict[str, Any], filters: Dict[str, Any] = None) -> str:
-        """Handle attendance by status"""
+        """Handle attendance by status with user names via $lookup — filtered to today (UTC)"""
         collection = await self._get_collection()
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
+        
+        # Add date filter for today (UTC) to avoid counting entire history
+        today = datetime.now(timezone.utc)
+        today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+        today_end = today_start + timedelta(days=1)
+        query["date"] = {"$gte": today_start, "$lt": today_end}
         
         status = filters.get('status', 'present') if filters else 'present'
         query["status"] = status
@@ -332,15 +358,48 @@ class AttendanceQueryHandler(BaseQueryHandler):
         }
         
         status_name = status_names.get(status, status)
-        return f"📊 **Thống kê theo trạng thái:**\n\n🔹 **Số người {status_name}:** {count} nhân viên"
+        response = f"📊 **Thống kê theo trạng thái hôm nay:**\n\n"
+        response += f"🔹 **Số người {status_name} hôm nay:** {count} nhân viên\n"
+        
+        # Show list of employees with names
+        if count > 0:
+            pipeline = self._build_lookup_user_pipeline(query, limit=10)
+            records = await collection.aggregate(pipeline).to_list(length=None)
+            if records:
+                response += "\n**Danh sách:**\n\n"
+                for i, r in enumerate(records[:10], 1):
+                    user_name = r.get("user_info", {}).get("name", "N/A") if r.get("user_info") else "N/A"
+                    check_in = r.get("checkIn")
+                    if isinstance(check_in, datetime):
+                        check_in_str = check_in.strftime("%H:%M")
+                    else:
+                        check_in_str = str(check_in) if check_in else "N/A"
+                    response += f"{i}. **{user_name}** | Check-in: {check_in_str}\n"
+                if count > 10:
+                    response += f"\n*... và {count - 10} nhân viên khác*\n"
+        
+        return response
     
     async def _handle_list(self, query: Dict[str, Any]) -> str:
-        """Handle attendance list"""
+        """Handle attendance list with user names via $lookup"""
         collection = await self._get_collection()
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        records = await collection.find(query).limit(20).to_list(length=None)
+        pipeline = [
+            {"$match": query},
+            {"$lookup": {
+                "from": "users",
+                "localField": "userId",
+                "foreignField": "_id",
+                "as": "user_info"
+            }},
+            {"$unwind": {"path": "$user_info", "preserveNullAndEmptyArrays": True}},
+            {"$sort": {"date": -1}},
+            {"$limit": 20}
+        ]
+        
+        records = await collection.aggregate(pipeline).to_list(length=None)
         
         if not records:
             return "Không tìm thấy bản ghi chấm công nào."
@@ -348,12 +407,45 @@ class AttendanceQueryHandler(BaseQueryHandler):
         response = f"📋 **Danh sách chấm công:**\n\n"
         
         for i, r in enumerate(records[:10], 1):
+            user_name = r.get("user_info", {}).get("name", "N/A") if r.get("user_info") else "N/A"
             date = r.get("date", "N/A")
+            if isinstance(date, datetime):
+                date = date.strftime("%d/%m/%Y")
             status = r.get("status", "N/A")
-            check_in = str(r.get("checkIn", "")) if r.get("checkIn") else "N/A"
-            response += f"**{i}.** Ngày: {date}, Trạng thái: {status}, Check-in: {check_in}\n"
+            status_map = {"present": "✅ Có mặt", "late": "⏰ Đi muộn", "absent": "❌ Vắng", "on_leave": "🔵 Nghỉ phép"}
+            status_display = status_map.get(status, status)
+            check_in = r.get("checkIn")
+            if isinstance(check_in, datetime):
+                check_in_str = check_in.strftime("%H:%M")
+            else:
+                check_in_str = str(check_in) if check_in else "N/A"
+            response += f"- **{user_name}** | {status_display} | Ngày: {date} | Check-in: {check_in_str}\n"
+        
+        if len(records) > 10:
+            response += f"\n*... và {len(records) - 10} bản ghi khác*\n"
         
         return response
+    
+    async def handle(
+        self, 
+        query_type: str, 
+        message: str, 
+        role: str, 
+        department_id: str = None,
+        filters: Dict[str, Any] = None,
+        user_id: str = None
+    ) -> str:
+        """Handle attendance query with employee_name param support (Comment 2)"""
+        # If filters contain employee_name, resolve it to userId first
+        if filters and 'employee_name' in filters:
+            employee_name = filters.pop('employee_name')
+            employee = await self._resolve_employee_by_name(employee_name)
+            if employee:
+                filters['userId'] = employee['_id']
+            else:
+                return f"Xin lỗi, tôi không tìm thấy nhân viên nào tên **{employee_name}** trong hệ thống."
+        
+        return await super().handle(query_type, message, role, department_id, filters, user_id)
     
     async def _format_item(self, item: Dict[str, Any], index: int) -> str:
         """Format attendance item"""

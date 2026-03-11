@@ -37,16 +37,17 @@ class BaseQueryHandler(ABC):
         """Check if user has permission to access this collection"""
         return PermissionChecker.check(role, self.collection_name, department_id, user_id)
     
-    async def _resolve_department_user_ids(self, department_id: str) -> List[str]:
+    async def _resolve_department_user_ids(self, department_id: str) -> List[Any]:
         """
-        Resolve department ID to list of user IDs belonging to that department.
+        Resolve department ID to list of user ObjectIds belonging to that department.
         Used for collections (attendance, requests) that don't have department_id field.
         
         Args:
             department_id: Department ObjectId string
             
         Returns:
-            List of user ID strings belonging to the department
+            List of ObjectId instances belonging to the department.
+            Returns ObjectId (not str) so that $in queries match MongoDB ObjectId fields correctly.
         """
         users_collection = getattr(self.collections, 'users_collection', None)
         if users_collection is None:
@@ -66,7 +67,8 @@ class BaseQueryHandler(ABC):
                 {"_id": 1}
             ).to_list(length=None)
             
-            user_ids = [str(u["_id"]) for u in users]
+            # Return ObjectId list (not str) for proper MongoDB $in matching
+            user_ids = [u["_id"] for u in users]
             logger.debug(f"Resolved department {department_id} to {len(user_ids)} user IDs")
             return user_ids
         except Exception as e:
@@ -127,7 +129,7 @@ class BaseQueryHandler(ABC):
             message: Original message from user
             role: User role
             department_id: User's department ID
-            filters: Additional filters
+            filters: Additional filters (may contain special keys like __range__, __absence_only__)
             user_id: User ID for employee-level filtering
             
         Returns:
@@ -139,10 +141,19 @@ class BaseQueryHandler(ABC):
             if not has_access:
                 return f"Xin lỗi, {self.error_message}. Bạn có thể hỏi tôi về thông tin cá nhân của bạn thay vì thông tin chung."
             
-            # Build query
+            # Build query - separate special params from MongoDB filters
             query = permission_filter.copy()
+            special_params = {}
             if filters:
-                query.update(filters)
+                for key, value in filters.items():
+                    if key.startswith('__') and key.endswith('__'):
+                        # Special params (e.g., __range__, __absence_only__)
+                        special_params[key] = value
+                    else:
+                        query[key] = value
+            
+            # Re-inject special params into query for handlers that expect them
+            query.update(special_params)
             
             # Resolve __department_filter__ to actual userId $in filter
             query = await self._resolve_department_filter(query)
@@ -170,12 +181,70 @@ class BaseQueryHandler(ABC):
                 return await self._handle_status_today(query, user_id)
             elif query_type == 'with_employees':
                 return await self._handle_with_employees(query)
+            elif query_type == 'by_city':
+                return await self._handle_by_city(query)
+            elif query_type == 'total':
+                return await self._handle_total(query)
+            elif query_type == 'average':
+                return await self._handle_average(query)
             else:
                 return await self._handle_custom(query_type, query, message)
         
         except Exception as e:
             logger.error(f"Error handling {self.collection_name} query: {str(e)}")
             return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu. Vui lòng thử lại sau hoặc liên hệ bộ phận hỗ trợ."
+    
+    async def _resolve_employee_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """
+        Find an employee by name using case-insensitive regex matching.
+        
+        Args:
+            name: Employee name (or partial name) to search for
+            
+        Returns:
+            User document dict if found, None otherwise
+        """
+        users_collection = getattr(self.collections, 'users_collection', None)
+        if users_collection is None:
+            logger.warning("users_collection not available for employee name resolution")
+            return None
+        
+        try:
+            user = await users_collection.find_one(
+                {"name": {"$regex": name, "$options": "i"}, "isActive": True}
+            )
+            if user:
+                logger.debug(f"Resolved employee name '{name}' to userId: {user['_id']}")
+            else:
+                logger.debug(f"No employee found with name matching: '{name}'")
+            return user
+        except Exception as e:
+            logger.error(f"Error resolving employee by name: {str(e)}")
+            return None
+    
+    def _build_lookup_user_pipeline(self, match_query: Dict[str, Any], limit: int = 20) -> list:
+        """
+        Build a standard aggregation pipeline that joins with users collection
+        to include user names in the result.
+        
+        Args:
+            match_query: The $match stage query
+            limit: Maximum number of results
+            
+        Returns:
+            Aggregation pipeline list
+        """
+        return [
+            {"$match": match_query},
+            {"$lookup": {
+                "from": "users",
+                "localField": "userId",
+                "foreignField": "_id",
+                "as": "user_info"
+            }},
+            {"$unwind": {"path": "$user_info", "preserveNullAndEmptyArrays": True}},
+            {"$limit": limit}
+        ]
     
     async def _get_collection(self):
         """Get the collection object"""
@@ -187,7 +256,9 @@ class BaseQueryHandler(ABC):
             "attendance": "attendance_collection",
             "requests": "requests_collection",
             "shifts": "shifts_collection",
-            "payroll": "payroll_collection"
+            "payroll": "payroll_collection",
+            "employeeschedules": "employeeschedules_collection",
+            "employeeshiftassignments": "employeeshiftassignments_collection"
         }
         attr_name = collection_map.get(self.collection_name)
         if attr_name:
@@ -251,6 +322,18 @@ class BaseQueryHandler(ABC):
     async def _handle_with_employees(self, query: Dict[str, Any]) -> str:
         """Handle with_employees query (for departments)"""
         return "Chức năng đang được phát triển"
+    
+    async def _handle_by_city(self, query: Dict[str, Any]) -> str:
+        """Handle by_city query - override in subclasses"""
+        return "Xin lỗi, tôi chưa hỗ trợ truy vấn theo thành phố cho loại dữ liệu này."
+    
+    async def _handle_total(self, query: Dict[str, Any]) -> str:
+        """Handle total aggregation query - override in subclasses"""
+        return await self._handle_count(query)
+    
+    async def _handle_average(self, query: Dict[str, Any]) -> str:
+        """Handle average aggregation query - override in subclasses"""
+        return "Xin lỗi, tôi chưa hỗ trợ tính trung bình cho loại dữ liệu này."
     
     async def _handle_custom(
         self, 
