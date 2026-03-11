@@ -355,9 +355,7 @@ export const getAllRequests = async (req, res) => {
       RequestModel.countDocuments(query)
     ])
 
-    const filteredDocs = docs
-
-    const data = filteredDocs.map((doc) => ({
+    const data = docs.map((doc) => ({
       id: doc._id.toString(),
       employeeId: doc.userId?._id?.toString(),
       employeeName: doc.userId?.name || 'N/A',
@@ -384,7 +382,7 @@ export const getAllRequests = async (req, res) => {
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: filteredDocs.length,
+        total,
         totalPages: Math.ceil(total / parseInt(limit))
       }
     })
@@ -415,7 +413,7 @@ export const approveRequest = async (req, res) => {
     // For SUPERVISOR, check if the request is from someone in their department and appropriate role
     if (approverRole === 'SUPERVISOR') {
       if (!approver.department || !request.userId.department ||
-          approver.department.toString() !== request.userId.department.toString()) {
+        approver.department.toString() !== request.userId.department.toString()) {
         return res.status(403).json({ message: 'Bạn chỉ có thể phê duyệt yêu cầu từ nhân viên trong phòng ban của mình' })
       }
       if (!['EMPLOYEE', 'SUPERVISOR'].includes(request.userId.role)) {

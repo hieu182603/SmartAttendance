@@ -16,7 +16,8 @@ torchvision>=0.15.0
 scikit-image>=0.22.0
 
 # LangChain & RAG
-langchain>=0.1.0
+# Pin langchain to a compatible version for langchain.chains import used in rag_service.py
+langchain==0.1.16
 langchain-google-genai>=1.0.0
 langchain-mongodb>=0.1.0
 langchain-community>=0.0.20

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { UserModel } from "../users/user.model.js";
 import { OtpModel } from "../otp/otp.model.js";
 import { generateTokenFromUser } from "../../utils/jwt.util.js";
@@ -104,7 +105,19 @@ export class AuthService {
             throw new Error("OTP expired. Please request a new OTP.");
         }
 
-        if (otpRecord.code !== otp.trim()) {
+        // Kiểm tra số lần thử OTP
+        if (otpRecord.attempts >= 5) {
+            await OtpModel.deleteMany({ email });
+            throw new Error("Too many failed attempts. Please request a new OTP.");
+        }
+
+        // So sánh OTP bằng constant-time comparison để tránh timing attack
+        const otpBuffer = Buffer.from(otpRecord.code);
+        const inputBuffer = Buffer.from(otp.trim());
+        if (otpBuffer.length !== inputBuffer.length || !crypto.timingSafeEqual(otpBuffer, inputBuffer)) {
+            // Tăng số lần thử sai
+            otpRecord.attempts = (otpRecord.attempts || 0) + 1;
+            await otpRecord.save();
             throw new Error("Invalid OTP");
         }
 
@@ -136,6 +149,9 @@ export class AuthService {
 
         const otpCode = generateOTP();
         const otpExpires = generateOTPExpiry();
+
+        // Xóa các OTP verify_email cũ trước khi tạo mới
+        await OtpModel.deleteMany({ email, purpose: 'verify_email' });
 
         await OtpModel.create({
             userId: user._id,
@@ -253,7 +269,19 @@ export class AuthService {
             throw new Error("OTP expired. Please request a new OTP.");
         }
 
-        if (otpRecord.code !== otp.trim()) {
+        // Kiểm tra số lần thử OTP
+        if (otpRecord.attempts >= 5) {
+            await OtpModel.deleteMany({ email, purpose: "forgot_password" });
+            throw new Error("Too many failed attempts. Please request a new OTP.");
+        }
+
+        // So sánh OTP bằng constant-time comparison để tránh timing attack
+        const otpBuffer = Buffer.from(otpRecord.code);
+        const inputBuffer = Buffer.from(otp.trim());
+        if (otpBuffer.length !== inputBuffer.length || !crypto.timingSafeEqual(otpBuffer, inputBuffer)) {
+            // Tăng số lần thử sai
+            otpRecord.attempts = (otpRecord.attempts || 0) + 1;
+            await otpRecord.save();
             throw new Error("Invalid OTP");
         }
 
