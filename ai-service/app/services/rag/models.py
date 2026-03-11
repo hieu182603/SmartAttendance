@@ -134,6 +134,38 @@ COLLECTION_SCHEMAS = {
             "status": "Trạng thái",
             "createdAt": "Ngày tạo"
         }
+    },
+    "employeeschedules": {
+        "description": "Lịch làm việc nhân viên",
+        "fields": {
+            "userId": "ID nhân viên (ObjectId)",
+            "date": "Ngày làm việc",
+            "shiftId": "ID ca làm việc (ObjectId)",
+            "shiftName": "Tên ca (denormalized)",
+            "startTime": "Giờ bắt đầu (HH:mm)",
+            "endTime": "Giờ kết thúc (HH:mm)",
+            "status": "Trạng thái (scheduled, completed, missed, off)",
+            "location": "Địa điểm làm việc",
+            "team": "Nhóm/tổ",
+            "notes": "Ghi chú",
+            "attendanceId": "ID chấm công liên kết (ObjectId)",
+            "leaveRequestId": "ID đơn nghỉ phép liên kết (ObjectId)"
+        }
+    },
+    "employeeshiftassignments": {
+        "description": "Phân ca làm việc cho nhân viên",
+        "fields": {
+            "userId": "ID nhân viên (ObjectId)",
+            "shiftId": "ID ca làm việc (ObjectId)",
+            "pattern": "Mẫu lịch (all, weekdays, weekends, custom, specific)",
+            "daysOfWeek": "Các ngày trong tuần (0-6, cho pattern custom)",
+            "specificDates": "Các ngày cụ thể (cho pattern specific)",
+            "effectiveFrom": "Ngày bắt đầu hiệu lực",
+            "effectiveTo": "Ngày kết thúc hiệu lực",
+            "priority": "Độ ưu tiên",
+            "isActive": "Trạng thái hoạt động (true/false)",
+            "notes": "Ghi chú"
+        }
     }
 }
 

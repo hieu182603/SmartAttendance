@@ -54,13 +54,17 @@ from app.services.rag.query_generators.dynamic_query import (
     DynamicQueryExecutor,
     DynamicQueryResultFormatter
 )
-from app.services.rag.query_handlers.employee_handler import EmployeeQueryHandler
-from app.services.rag.query_handlers.department_handler import DepartmentQueryHandler
-from app.services.rag.query_handlers.attendance_handler import AttendanceQueryHandler
-from app.services.rag.query_handlers.request_handler import RequestQueryHandler
-from app.services.rag.query_handlers.branch_handler import BranchQueryHandler
-from app.services.rag.query_handlers.shift_handler import ShiftQueryHandler
-from app.services.rag.query_handlers.payroll_handler import PayrollQueryHandler
+from app.services.rag.query_handlers import (
+    EmployeeQueryHandler,
+    DepartmentQueryHandler,
+    AttendanceQueryHandler,
+    RequestQueryHandler,
+    BranchQueryHandler,
+    ShiftQueryHandler,
+    PayrollQueryHandler,
+    ScheduleQueryHandler,
+    ShiftAssignmentQueryHandler
+)
 from app.services.rag.conversations import ConversationManager
 from app.services.rag.documents import DocumentManager
 from app.services.rag.cache import get_rag_cache, RAGCache
@@ -327,10 +331,12 @@ class RAGService:
             self.users_collection = main_db["users"]
             self.departments_collection = main_db["departments"]
             self.branches_collection = main_db["branches"]
-            self.attendance_collection = main_db["attendance"]
+            self.attendance_collection = main_db["attendances"]  # Mongoose pluralizes model name
             self.requests_collection = main_db["requests"]
             self.shifts_collection = main_db["shifts"]
-            self.payroll_collection = main_db["payroll"]
+            self.payroll_collection = main_db["payrollrecords"]  # Mongoose lowercases 'PayrollRecords' → 'payrollrecords'
+            self.employeeschedules_collection = main_db["employeeschedules"]
+            self.employeeshiftassignments_collection = main_db["employeeshiftassignments"]
             
             logger.info("Successfully connected to main MongoDB database. All collections initialized.")
         except Exception as e:
@@ -357,7 +363,9 @@ class RAGService:
             'request': RequestQueryHandler(collections),
             'branch': BranchQueryHandler(collections),
             'shift': ShiftQueryHandler(collections),
-            'payroll': PayrollQueryHandler(collections)
+            'payroll': PayrollQueryHandler(collections),
+            'schedule': ScheduleQueryHandler(collections),
+            'shift_assignment': ShiftAssignmentQueryHandler(collections)
         }
     
     def _get_collections_object(self):
@@ -373,6 +381,8 @@ class RAGService:
         collections.requests_collection = self.requests_collection
         collections.shifts_collection = self.shifts_collection
         collections.payroll_collection = self.payroll_collection
+        collections.employeeschedules_collection = self.employeeschedules_collection
+        collections.employeeshiftassignments_collection = self.employeeshiftassignments_collection
         return collections
     
     def _create_qa_chain(self):
@@ -538,6 +548,198 @@ TRẢ LỜI:"""
         
         return False
     
+    def _validate_query_type(
+        self,
+        message: str,
+        intent_type: str,
+        query_type: str
+    ) -> str:
+        """
+        Validate and override query_type when personal context is detected
+        but query_type is for general/aggregate queries.
+        
+        This catches cases where LLM returns 'today' (general stats) but the
+        user is asking about their own attendance ('tôi chấm công lúc mấy giờ').
+        
+        Args:
+            message: User message
+            intent_type: Detected intent type
+            query_type: Current query_type (from LLM or regex)
+            
+        Returns:
+            Corrected query_type
+        """
+        message_lower = message.lower()
+        
+        # Phrases where "tôi" means "tell me" (request phrase), NOT personal data
+        non_personal_phrases = [
+            'cho tôi', 'giúp tôi', 'cho tôi biết', 'cho tôi xem',
+            'giúp tôi xem', 'nói cho tôi', 'cho tôi hỏi',
+        ]
+        
+        # Remove non-personal phrases before checking for personal keywords
+        cleaned_message = message_lower
+        for phrase in non_personal_phrases:
+            cleaned_message = cleaned_message.replace(phrase, '')
+        
+        # True personal keywords: "của tôi", "tôi đã", "tôi có", standalone "mình"
+        personal_keywords = ['của tôi', 'cá nhân']
+        personal_patterns = [
+            r'\btôi\s+(đã|đang|có|còn|chưa|được|bị|vừa|mới|sẽ)',
+            r'\bmình\s+(đã|đang|có|còn|chưa|được|bị|vừa|mới|sẽ)',
+        ]
+        
+        is_personal = any(k in cleaned_message for k in personal_keywords)
+        if not is_personal:
+            import re as _re
+            is_personal = any(_re.search(p, cleaned_message) for p in personal_patterns)
+        
+        # Also skip override if asking about "nhân viên" (general aggregation)
+        aggregate_keywords = ['nhân viên', 'người', 'ai', 'danh sách', 'thống kê', 'báo cáo']
+        is_aggregate = any(k in message_lower for k in aggregate_keywords)
+        
+        if not is_personal or is_aggregate:
+            return query_type
+        
+        # Attendance: personal question should use status_today or history_range
+        if intent_type == 'attendance':
+            if query_type in ('today', 'count', 'by_status'):
+                # Check if it's a history question
+                history_keywords = ['tuần', 'tháng', 'lịch sử', 'week', 'month']
+                if any(k in message_lower for k in history_keywords):
+                    logger.info(f"Query type override: '{query_type}' -> 'history_range' (personal history context)")
+                    return 'history_range'
+                logger.info(f"Query type override: '{query_type}' -> 'status_today' (personal context detected)")
+                return 'status_today'
+        
+        # Employee: personal question should use self_info or self_leave_balance
+        elif intent_type == 'employee':
+            if query_type in ('count', 'list', 'by_department', 'by_role'):
+                leave_keywords = ['phép', 'nghỉ', 'leave', 'ngày phép']
+                if any(k in message_lower for k in leave_keywords):
+                    logger.info(f"Query type override: '{query_type}' -> 'self_leave_balance' (personal leave context)")
+                    return 'self_leave_balance'
+                logger.info(f"Query type override: '{query_type}' -> 'self_info' (personal context detected)")
+                return 'self_info'
+        
+        # Request: personal question should filter by user
+        # (no override needed - handler already filters by userId for employees)
+        
+        return query_type
+    
+    def _infer_query_type_from_message(
+        self,
+        message: str,
+        intent_type: str
+    ) -> str:
+        """
+        Infer the best query_type from message keywords when intent detection
+        didn't provide one (e.g., LLM fallback returned intent but no query_type).
+        
+        Args:
+            message: User message
+            intent_type: Detected intent type
+            
+        Returns:
+            Inferred query_type string
+        """
+        message_lower = message.lower()
+        
+        # Common keyword patterns for query types
+        count_keywords = ['bao nhiêu', 'số lượng', 'tổng số', 'đếm', 'count', 'how many', 'tổng cộng']
+        list_keywords = ['danh sách', 'liệt kê', 'list', 'xem', 'cho xem', 'những', 'các', 'tất cả']
+        self_keywords = ['của tôi', 'tôi', 'my', 'cá nhân', 'bản thân']
+        status_keywords = ['trạng thái', 'status', 'đi muộn', 'vắng', 'late', 'absent']
+        pending_keywords = ['chờ duyệt', 'pending', 'đang chờ']
+        today_keywords = ['hôm nay', 'today', 'nay']
+        history_keywords = ['tuần', 'tháng', 'lịch sử', 'history', 'week', 'month']
+        total_keywords = ['tổng', 'total', 'quỹ']
+        average_keywords = ['trung bình', 'average', 'bình quân', 'tb']
+        
+        # Intent-specific inference
+        if intent_type == 'employee':
+            if any(k in message_lower for k in self_keywords):
+                if 'phép' in message_lower or 'nghỉ' in message_lower:
+                    return 'self_leave_balance'
+                return 'self_info'
+            if any(k in message_lower for k in count_keywords):
+                return 'count'
+            if any(k in message_lower for k in list_keywords):
+                return 'list'
+            return 'count'
+        
+        elif intent_type == 'department':
+            if any(k in message_lower for k in count_keywords):
+                return 'count'
+            if 'nhân viên' in message_lower:
+                return 'with_employees'
+            if any(k in message_lower for k in list_keywords):
+                return 'list'
+            return 'list'
+        
+        elif intent_type == 'attendance':
+            if any(k in message_lower for k in self_keywords):
+                if any(k in message_lower for k in today_keywords):
+                    return 'status_today'
+                if any(k in message_lower for k in history_keywords):
+                    return 'history_range'
+                return 'status_today'
+            if any(k in message_lower for k in status_keywords):
+                return 'by_status'
+            if any(k in message_lower for k in today_keywords):
+                return 'today'
+            if any(k in message_lower for k in history_keywords):
+                return 'history_range'
+            if any(k in message_lower for k in count_keywords):
+                return 'today'
+            return 'today'
+        
+        elif intent_type == 'request':
+            if any(k in message_lower for k in pending_keywords):
+                return 'pending'
+            if any(k in message_lower for k in count_keywords):
+                return 'count'
+            if any(k in message_lower for k in list_keywords):
+                return 'list'
+            return 'pending'
+        
+        elif intent_type == 'branch':
+            if any(k in message_lower for k in count_keywords):
+                return 'count'
+            if 'thành phố' in message_lower or 'city' in message_lower:
+                return 'by_city'
+            if any(k in message_lower for k in list_keywords):
+                return 'list'
+            return 'list'
+        
+        elif intent_type == 'shift':
+            if any(k in message_lower for k in count_keywords):
+                return 'count'
+            return 'list'
+        
+        elif intent_type == 'payroll':
+            if any(k in message_lower for k in total_keywords):
+                return 'total'
+            if any(k in message_lower for k in average_keywords):
+                return 'average'
+            if any(k in message_lower for k in count_keywords):
+                return 'count'
+            if any(k in message_lower for k in list_keywords):
+                return 'list'
+            return 'total'
+        
+        # Default fallback per domain
+        defaults = {
+            'employee': 'count',
+            'department': 'list',
+            'request': 'pending',
+            'attendance': 'today',
+            'branch': 'list',
+            'shift': 'list',
+            'payroll': 'total'
+        }
+        return defaults.get(intent_type, 'list')
+    
     def _format_conversation_history(
         self,
         messages: List[Dict[str, Any]],
@@ -658,29 +860,45 @@ TRẢ LỜI:"""
             )
             sources = []
         
-        elif intent_type in ('employee', 'department', 'request', 'attendance', 'branch', 'shift', 'payroll'):
+        elif intent_type in ('employee', 'department', 'request', 'attendance', 'branch', 'shift', 'payroll', 'schedule', 'shift_assignment'):
             # Unified domain handler routing with conversation_history support
             handler = self._query_handlers.get(intent_type)
             if handler:
-                # Map default query types per domain
-                default_query_types = {
-                    'employee': 'count',
-                    'department': 'list',
-                    'request': 'pending',
-                    'attendance': 'today',
-                    'branch': 'list',
-                    'shift': 'list',
-                    'payroll': 'total'
-                }
-                query_type = details.get('query_type', default_query_types.get(intent_type, 'list'))
+                # Smart query_type resolution:
+                # 1. Use query_type from intent details (regex or LLM)
+                # 2. If missing, try to infer from message keywords
+                # 3. Last resort: use domain default
+                query_type = details.get('query_type', '')
+                if not query_type:
+                    query_type = self._infer_query_type_from_message(message, intent_type)
+                
+                # Validate & override: detect personal context mismatch
+                # E.g., LLM returns "today" but message contains "tôi" → should be "status_today"
+                query_type = self._validate_query_type(message, intent_type, query_type)
+                
+                params = details.get('params', {})
                 
                 response_text = await handler.handle(
                     query_type,
                     message, role, department_id,
-                    details.get('params', {}),
+                    params,
                     user_id=user_id
                 )
                 sources = self._create_db_query_sources(intent_type, query_type)
+                
+                # Smart fallback: if handler returned error/empty, try dynamic query
+                if response_text and (
+                    response_text.startswith("Xin lỗi, tôi chưa hiểu") or
+                    response_text == "Không có dữ liệu phù hợp." or
+                    response_text.startswith("Chức năng đang được phát triển")
+                ):
+                    logger.info(f"Domain handler returned fallback response, trying dynamic query for: '{message}'")
+                    dynamic_response = await self._handle_dynamic_query(
+                        message, role, user_id, department_id
+                    )
+                    if dynamic_response and not dynamic_response.startswith("Xin lỗi"):
+                        response_text = dynamic_response
+                        sources = self._create_db_query_sources('dynamic', 'query')
                 
                 # Add follow-up suggestions for domain queries
                 follow_up = _get_follow_up_suggestion(intent_type)
@@ -1309,13 +1527,15 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
         }
         
         collection_map = {
-            "users": self.users_collection,
-            "departments": self.departments_collection,
-            "branches": self.branches_collection,
-            "attendance": self.attendance_collection,
-            "requests": self.requests_collection,
-            "shifts": self.shifts_collection,
-            "payroll": self.payroll_collection
+            "users": self.users_collection,            # Mongoose plural: users
+            "departments": self.departments_collection,# Mongoose plural: departments
+            "branches": self.branches_collection,      # Mongoose plural: branches
+            "attendance": self.attendance_collection,  # Mongoose plural: attendances
+            "requests": self.requests_collection,      # Mongoose plural: requests
+            "shifts": self.shifts_collection,          # Mongoose plural: shifts
+            "payroll": self.payroll_collection,        # Mongoose schema collection: payrollRecords
+            "employeeschedules": self.employeeschedules_collection,
+            "employeeshiftassignments": self.employeeshiftassignments_collection
         }
         
         for collection_name in collection_names:
@@ -1361,7 +1581,7 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
         return results
     
     async def health_check(self) -> Dict[str, Any]:
-        """Health check for RAG service"""
+        """Health check for RAG service with collection verification"""
         health_status = {
             "status": "healthy",
             "timestamp": datetime.now(timezone.utc),
@@ -1380,4 +1600,40 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
         health_status["components"]["embeddings"] = "configured"
         health_status["components"]["llm"] = "configured"
         
+        # Comment 1: Verify collections exist and have data
+        if self.main_mongodb_client:
+            collection_checks = {
+                "users": self.users_collection,
+                "departments": self.departments_collection,
+                "branches": self.branches_collection,
+                "attendances": self.attendance_collection,
+                "requests": self.requests_collection,
+                "shifts": self.shifts_collection,
+                "payrollrecords": self.payroll_collection,
+                "employeeschedules": getattr(self, 'employeeschedules_collection', None),
+                "employeeshiftassignments": getattr(self, 'employeeshiftassignments_collection', None),
+            }
+            
+            collections_status = {}
+            for name, coll in collection_checks.items():
+                if coll is not None:
+                    try:
+                        doc = await coll.find_one({})
+                        collections_status[name] = "ok" if doc is not None else "empty"
+                    except Exception as e:
+                        collections_status[name] = f"error: {str(e)}"
+                else:
+                    collections_status[name] = "not_initialized"
+            
+            health_status["components"]["collections"] = collections_status
+            
+            # Flag unhealthy if critical collections are empty or errored
+            critical = ["users", "attendances", "payrollrecords"]
+            for c in critical:
+                status = collections_status.get(c, "missing")
+                if status not in ("ok",):
+                    health_status["status"] = "degraded"
+                    logger.warning(f"Collection '{c}' status: {status}")
+        
         return health_status
+

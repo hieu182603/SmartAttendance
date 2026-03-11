@@ -36,27 +36,20 @@ export interface ConversationsResponse {
 }
 
 /**
- * Send a message to the RAG chatbot
+ * Send a message to the RAG chatbot.
+ * 
+ * Authentication (user_id, department_id, role) is handled automatically
+ * via JWT token in the Authorization header (set by the api interceptor).
+ * The backend extracts user context from the JWT token, so we only need
+ * to send the message content and optional conversation_id.
  */
 export const sendMessage = async (
   message: string,
-  conversationId?: string,
-  userContext?: {
-    userId: string;
-    departmentId?: string;
-    role: string;
-  }
+  conversationId?: string
 ): Promise<ChatbotResponse> => {
-  if (!userContext?.userId) {
-    throw new Error('User context with userId is required for RAG chatbot');
-  }
-
   const response = await api.post<ChatbotResponse>('/rag/chat', {
     message: message.trim(),
-    conversation_id: conversationId,
-    user_id: userContext.userId,
-    department_id: userContext.departmentId,
-    role: userContext.role
+    conversation_id: conversationId
   });
 
   return response.data;

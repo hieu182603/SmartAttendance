@@ -8,6 +8,8 @@ from .request_handler import RequestQueryHandler
 from .branch_handler import BranchQueryHandler
 from .shift_handler import ShiftQueryHandler
 from .payroll_handler import PayrollQueryHandler
+from .schedule_handler import ScheduleQueryHandler
+from .shift_assignment_handler import ShiftAssignmentQueryHandler
 
 __all__ = [
     "BaseQueryHandler",
@@ -17,6 +19,8 @@ __all__ = [
     "RequestQueryHandler",
     "BranchQueryHandler",
     "ShiftQueryHandler",
-    "PayrollQueryHandler"
+    "PayrollQueryHandler",
+    "ScheduleQueryHandler",
+    "ShiftAssignmentQueryHandler"
 ]
 

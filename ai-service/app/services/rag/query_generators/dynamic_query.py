@@ -2,7 +2,9 @@
 
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from bson import ObjectId
+from bson.errors import InvalidId
 from app.services.rag.models import COLLECTION_SCHEMAS
 from app.services.rag.permissions import PermissionChecker
 
@@ -102,9 +104,10 @@ class DynamicQueryGenerator:
 ## Output Format (JSON):
 ```json
 {{
-  "collection": "tên collection",
+  "collection": "tên collection chính",
   "filter": {{...}},
-  "aggregation": "none" | "count" | "sum" | "average" | "group_by",
+  "aggregation": "none" | "count" | "sum" | "average" | "group_by" | "pipeline",
+  "aggregation_pipeline": [ ... ], // Chỉ dùng khi aggregation="pipeline" (ví dụ: query nhiều bảng bằng $lookup)
   "group_by_field": "field để group" | null,
   "sort": {{"field": -1 hoặc 1}},
   "limit": 10,
@@ -159,8 +162,22 @@ class DynamicQueryExecutor:
         "attendance": "attendance_collection",
         "requests": "requests_collection",
         "shifts": "shifts_collection",
-        "payroll": "payroll_collection"
+        "payroll": "payroll_collection",
+        "employeeschedule": "employeeschedules_collection",
+        "employeeschedules": "employeeschedules_collection",
+        "employeeshiftassignment": "employeeshiftassignments_collection",
+        "employeeshiftassignments": "employeeshiftassignments_collection"
     }
+    
+    @staticmethod
+    def _to_object_id(val: Any) -> Any:
+        """Helper to convert string to ObjectId if valid"""
+        if isinstance(val, str) and len(val) == 24:
+            try:
+                return ObjectId(val)
+            except InvalidId:
+                return val
+        return val
     
     def __init__(self, collections: Dict[str, Any]):
         """
@@ -171,7 +188,76 @@ class DynamicQueryExecutor:
         """
         self.collections = collections
     
-    def _enforce_rbac(
+    def _sanitize_filter(self, filter_query: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Sanitize MongoDB filter to prevent NoSQL injection (Comment 4)
+        """
+        if not filter_query or not isinstance(filter_query, dict):
+            return {}
+            
+        sanitized = {}
+        # List of allowed operators to prevent arbitrary execution
+        allowed_operators = {
+            '$eq', '$gt', '$gte', '$in', '$lt', '$lte', '$ne', '$nin',
+            '$and', '$or', '$not', '$nor', '$exists', '$type',
+            '$regex', '$options', '$all', '$elemMatch', '$size'
+        }
+        
+        # Disallowed operators (evaluation, execution, aggregation in find)
+        disallowed_operators = {
+            '$where', '$expr', '$jsonSchema', '$text', '$function',
+            '$accumulator', '$map', '$reduce'
+        }
+        
+        for key, value in filter_query.items():
+            if key.startswith('$'):
+                if key in disallowed_operators:
+                    logger.warning(f"Blocked disallowed MongoDB operator: {key}")
+                    continue  # Skip disallowed operators
+                if key not in allowed_operators:
+                    logger.warning(f"Operator {key} not in allowed list, but preserving.")
+                    
+            if isinstance(value, dict):
+                sanitized_val = self._sanitize_filter(value)
+                if sanitized_val or not value: # keep empty dict if it was empty, else if it has sanitized contents
+                    sanitized[key] = sanitized_val
+            elif isinstance(value, list) and key in ['$and', '$or', '$nor']:
+                # For logical operators with list of conditions
+                sanitized_list = []
+                for item in value:
+                    if isinstance(item, dict):
+                        s_item = self._sanitize_filter(item)
+                        if s_item:
+                            sanitized_list.append(s_item)
+                if sanitized_list:
+                    sanitized[key] = sanitized_list
+            else:
+                # Convert common ID fields to ObjectId for MongoDB compatibility
+                id_fields = ['_id', 'userId', 'user_id', 'department_id', 'branch_id', 'department', 'branch']
+                if key in id_fields:
+                    sanitized[key] = self._to_object_id(value)
+                else:
+                    sanitized[key] = value
+                
+        return sanitized
+    
+    async def _resolve_department_user_ids(self, department_id: str) -> List[ObjectId]:
+        """Resolve department ID to list of user ObjectIds"""
+        users_col = getattr(self.collections, 'users_collection', None)
+        if users_col is None:
+            return []
+        
+        try:
+            dept_oid = self._to_object_id(department_id)
+            # Match the actual DB schema: 'department' field
+            cursor = users_col.find({"department": dept_oid, "isActive": True}, {"_id": 1})
+            users = await cursor.to_list(length=None)
+            return [u["_id"] for u in users]
+        except Exception as e:
+            logger.error(f"Error resolving department users: {str(e)}")
+            return []
+
+    async def _enforce_rbac(
         self,
         collection_name: str,
         filter_query: Dict[str, Any],
@@ -182,59 +268,38 @@ class DynamicQueryExecutor:
         """
         Enforce RBAC by checking permissions and injecting required filters
         
-        Args:
-            collection_name: Target collection name
-            filter_query: LLM-generated filter query
-            role: User role
-            user_id: Current user ID
-            department_id: User's department ID
-            
         Returns:
             Tuple of (is_allowed, enforced_filter, error_message)
         """
         role_lower = role.lower() if role else ""
         collection_lower = collection_name.lower() if collection_name else ""
         
-        # Check if role is allowed to access this collection
+        # Check permissions and get base filter from PermissionChecker
         has_access, permission_filter = PermissionChecker.check(
-            role_lower, collection_lower, department_id
+            role_lower, collection_lower, department_id, user_id
         )
         
         if not has_access:
-            # Special handling for employees - they can access their own data
-            if role_lower == "employee" and user_id:
-                # Allow employees to access only their own data
-                pass
-            else:
-                return False, {}, f"Bạn không có quyền truy cập dữ liệu {collection_name}"
+            return False, {}, f"Bạn không có quyền truy cập dữ liệu {collection_name}"
         
-        # Create enforced filter by intersecting LLM filter with RBAC rules
+        # Merge LLM filter with RBAC filter
         enforced_filter = filter_query.copy() if filter_query else {}
         
-        # RBAC enforcement based on role
-        if role_lower == "employee" and user_id:
-            # Employees can ONLY see their own data
-            if collection_lower in ["attendance", "requests", "payroll"]:
-                enforced_filter["userId"] = user_id
-            elif collection_lower == "users":
-                # Employees can only see their own user record
-                enforced_filter["_id"] = user_id
-            # departments, branches, shifts - employees can read these (read-only info)
+        # Apply permission filter (intersecting with LLM filter)
+        for key, value in permission_filter.items():
+            if key == '__department_filter__':
+                # Special handling for department-level access on user-based collections
+                user_ids = await self._resolve_department_user_ids(value)
+                enforced_filter['userId'] = {'$in': user_ids}
+            else:
+                # Direct field filter
+                enforced_filter[key] = self._to_object_id(value)
         
-        elif role_lower in ["manager", "supervisor"] and department_id:
-            # Manager/supervisor can see data from their department
-            if collection_lower in ["attendance", "requests"]:
-                enforced_filter["department_id"] = department_id
-            elif collection_lower == "users":
-                enforced_filter["department"] = department_id
-            elif collection_lower == "payroll":
-                # Only HR/admin can access payroll
-                return False, {}, "Bạn không có quyền truy cập dữ liệu lương"
-        
-        elif role_lower not in PermissionChecker.HIGH_ROLES:
-            # Unknown role - deny access to sensitive collections
-            if collection_lower in ["payroll", "users"]:
-                return False, {}, f"Bạn không có quyền truy cập dữ liệu {collection_name}"
+        # Ensure common IDs in the final filter are ObjectIds
+        id_fields = ['_id', 'userId', 'user_id', 'department_id', 'branch_id', 'department', 'branch']
+        for key in list(enforced_filter.keys()):
+            if key in id_fields and isinstance(enforced_filter[key], str):
+                enforced_filter[key] = self._to_object_id(enforced_filter[key])
         
         return True, enforced_filter, None
     
@@ -247,24 +312,14 @@ class DynamicQueryExecutor:
     ) -> Dict[str, Any]:
         """
         Execute the generated MongoDB query safely with RBAC enforcement
-        
-        Args:
-            query_data: Query data from DynamicQueryGenerator
-            role: User role for permission checks
-            user_id: Current user ID for RBAC enforcement
-            department_id: User's department ID for RBAC enforcement
-            
-        Returns:
-            Dict with query results
         """
         collection_name = query_data.get("collection")
-        filter_query = query_data.get("filter", {})
+        raw_filter = query_data.get("filter", {})
         aggregation = query_data.get("aggregation", "none")
         group_by = query_data.get("group_by_field")
         sort = query_data.get("sort", {"_id": -1})
-        limit = query_data.get("limit", 10)
+        limit = min(query_data.get("limit", 10), 50)
         
-        # Get collection
         collection_name_lower = collection_name.lower() if collection_name else ""
         collection_attr = self.COLLECTION_MAP.get(collection_name_lower)
         
@@ -275,45 +330,92 @@ class DynamicQueryExecutor:
         
         if collection is None:
             return {"error": f"Collection '{collection_name}' không khả dụng"}
-        
-        # Enforce RBAC - check permissions and inject required filters
-        is_allowed, enforced_filter, error_msg = self._enforce_rbac(
-            collection_name, filter_query, role, user_id, department_id
+            
+        sanitized_filter = self._sanitize_filter(raw_filter)
+        is_allowed, enforced_filter, error_msg = await self._enforce_rbac(
+            collection_name, sanitized_filter, role, user_id, department_id
         )
         
         if not is_allowed:
             return {"error": error_msg}
         
-        # Use the enforced filter instead of the LLM-generated one
         filter_query = enforced_filter
         
         try:
-            # Execute query based on aggregation type
             if aggregation == "none":
                 return await self._execute_find(collection, filter_query, sort, limit, query_data)
-            
             elif aggregation == "count":
                 return await self._execute_count(collection, filter_query, query_data)
-            
             elif aggregation == "sum":
                 return await self._execute_sum(collection, filter_query, group_by, query_data)
-            
             elif aggregation == "average":
                 return await self._execute_average(collection, filter_query, group_by, query_data)
-            
             elif aggregation == "group_by":
                 return await self._execute_group_by(collection, filter_query, group_by, query_data)
-            
             elif aggregation == "count_by_branch_city":
                 return await self._execute_count_by_branch_city(filter_query, query_data)
-            
+            elif aggregation == "pipeline":
+                return await self._execute_pipeline(collection, filter_query, query_data, limit)
             else:
                 return {"error": f"Aggregation type '{aggregation}' không được hỗ trợ"}
-        
         except Exception as e:
             logger.error(f"Error executing dynamic query: {str(e)}")
             return {"error": f"Lỗi khi thực thi truy vấn: {str(e)}"}
     
+    async def _execute_pipeline(
+        self,
+        collection,
+        filter_query: Dict[str, Any],
+        query_data: Dict[str, Any],
+        limit: int
+    ) -> Dict[str, Any]:
+        """Execute a raw aggregation pipeline"""
+        pipeline = query_data.get("aggregation_pipeline", [])
+        
+        if not isinstance(pipeline, list):
+            return {"error": "aggregation_pipeline phải là một danh sách các stages"}
+            
+        if filter_query:
+            pipeline.insert(0, {"$match": filter_query})
+            
+        has_limit = any(stage.get("$limit") for stage in pipeline if isinstance(stage, dict))
+        if not has_limit:
+            pipeline.append({"$limit": limit})
+        else:
+            for stage in pipeline:
+                if isinstance(stage, dict) and "$limit" in stage:
+                    stage["$limit"] = min(stage["$limit"], 50)
+                    
+        try:
+            results = await collection.aggregate(pipeline).to_list(length=None)
+            
+            formatted_results = []
+            for doc in results:
+                formatted_doc = {}
+                for key, value in doc.items():
+                    if key not in ['_id', '__v'] and not key.startswith('createdAt') or key == '_id':
+                        if key == '_id':
+                            formatted_doc['id'] = str(value)
+                        elif hasattr(value, 'isoformat'):
+                            formatted_doc[key] = value.strftime('%Y-%m-%d')
+                        elif isinstance(value, dict):
+                            if 'name' in value:
+                                formatted_doc[key] = value['name']
+                            else:
+                                continue
+                        else:
+                            formatted_doc[key] = value
+                formatted_results.append(formatted_doc)
+                
+            return {
+                "count": len(formatted_results),
+                "results": formatted_results,
+                "explanation": query_data.get("explanation", "Truy vấn nhiều bảng kết hợp")
+            }
+        except Exception as e:
+            logger.error(f"Pipeline execution error: {str(e)}")
+            return {"error": f"Lỗi thực thi pipeline: {str(e)}"}
+
     async def _execute_find(
         self, 
         collection, 
@@ -326,7 +428,6 @@ class DynamicQueryExecutor:
         cursor = collection.find(filter_query).sort(sort).limit(limit)
         results = await cursor.to_list(length=None)
         
-        # Format results
         formatted_results = []
         for doc in results:
             formatted_doc = {}
@@ -337,7 +438,7 @@ class DynamicQueryExecutor:
                     elif hasattr(value, 'isoformat'):
                         formatted_doc[key] = value.strftime('%Y-%m-%d')
                     elif isinstance(value, dict):
-                        continue  # Skip complex nested objects
+                        continue
                     else:
                         formatted_doc[key] = value
             formatted_results.append(formatted_doc)
@@ -348,135 +449,46 @@ class DynamicQueryExecutor:
             "explanation": query_data.get("explanation", "")
         }
     
-    async def _execute_count(
-        self, 
-        collection, 
-        filter_query: Dict[str, Any],
-        query_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Execute count query"""
+    async def _execute_count(self, collection, filter_query, query_data) -> Dict[str, Any]:
         count = await collection.count_documents(filter_query)
-        return {
-            "count": count,
-            "explanation": query_data.get("explanation", "")
-        }
+        return {"count": count, "explanation": query_data.get("explanation", "")}
     
-    async def _execute_sum(
-        self, 
-        collection, 
-        filter_query: Dict[str, Any],
-        group_by: str,
-        query_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Execute sum aggregation"""
+    async def _execute_sum(self, collection, filter_query, group_by, query_data) -> Dict[str, Any]:
         field = group_by.replace("_sum", "") if group_by else "baseSalary"
-        pipeline = [
-            {"$match": filter_query},
-            {"$group": {"_id": None, "total": {"$sum": f"${field}"}}}
-        ]
+        pipeline = [{"$match": filter_query}, {"$group": {"_id": None, "total": {"$sum": f"${field}"}}}]
         results = await collection.aggregate(pipeline).to_list(length=None)
         total = results[0]['total'] if results else 0
-        
-        return {
-            "sum": total,
-            "field": field,
-            "explanation": query_data.get("explanation", "")
-        }
+        return {"sum": total, "field": field, "explanation": query_data.get("explanation", "")}
     
-    async def _execute_average(
-        self, 
-        collection, 
-        filter_query: Dict[str, Any],
-        group_by: str,
-        query_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Execute average aggregation"""
+    async def _execute_average(self, collection, filter_query, group_by, query_data) -> Dict[str, Any]:
         field = group_by.replace("_avg", "") if group_by else "baseSalary"
-        pipeline = [
-            {"$match": filter_query},
-            {"$group": {"_id": None, "avg": {"$avg": f"${field}"}}}
-        ]
+        pipeline = [{"$match": filter_query}, {"$group": {"_id": None, "avg": {"$avg": f"${field}"}}}]
         results = await collection.aggregate(pipeline).to_list(length=None)
         avg = results[0]['avg'] if results else 0
-        
-        return {
-            "average": round(avg, 2),
-            "field": field,
-            "explanation": query_data.get("explanation", "")
-        }
+        return {"average": round(avg, 2), "field": field, "explanation": query_data.get("explanation", "")}
     
-    async def _execute_group_by(
-        self, 
-        collection, 
-        filter_query: Dict[str, Any],
-        group_by: str,
-        query_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Execute group by aggregation"""
+    async def _execute_group_by(self, collection, filter_query, group_by, query_data) -> Dict[str, Any]:
         field = group_by or "status"
-        pipeline = [
-            {"$match": filter_query},
-            {"$group": {"_id": f"${field}", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 20}
-        ]
+        pipeline = [{"$match": filter_query}, {"$group": {"_id": f"${field}", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}, {"$limit": 20}]
         results = await collection.aggregate(pipeline).to_list(length=None)
         grouped = [{"value": r['_id'], "count": r['count']} for r in results]
-        
-        return {
-            "grouped": grouped,
-            "group_by": field,
-            "explanation": query_data.get("explanation", "")
-        }
+        return {"grouped": grouped, "group_by": field, "explanation": query_data.get("explanation", "")}
     
-    async def _execute_count_by_branch_city(
-        self, 
-        filter_query: Dict[str, Any],
-        query_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Execute count employees by branch city"""
-        # This requires special handling with branches and users collections
+    async def _execute_count_by_branch_city(self, filter_query, query_data) -> Dict[str, Any]:
         special_handling = query_data.get("special_handling", {})
         city = special_handling.get("city", "")
-        
-        # Try to get city from filter
         if not city and "filter" in query_data:
             city_filter = query_data.get("filter", {})
             city = city_filter.get("city") or city_filter.get("branches.city", "")
-        
         branches_collection = getattr(self.collections, "branches_collection", None)
         users_collection = getattr(self.collections, "users_collection", None)
-        
-        if city and branches_collection and users_collection:
-            # Find branch IDs with matching city
-            branches = await branches_collection.find(
-                {"city": {"$regex": city, "$options": "i"}, "status": "active"}
-            ).to_list(length=None)
-            
+        if city and branches_collection is not None and users_collection is not None:
+            branches = await branches_collection.find({"city": {"$regex": city, "$options": "i"}, "status": "active"}).to_list(length=None)
             branch_ids = [b['_id'] for b in branches]
-            
             if branch_ids:
-                count = await users_collection.count_documents({
-                    "branch": {"$in": branch_ids},
-                    "isActive": True
-                })
-                return {
-                    "count": count,
-                    "city": city,
-                    "branch_count": len(branches),
-                    "explanation": query_data.get("explanation", "")
-                }
-            else:
-                return {
-                    "count": 0,
-                    "city": city,
-                    "explanation": f"Không tìm thấy chi nhánh nào ở {city}"
-                }
-        else:
-            return {
-                "count": 0,
-                "explanation": "Không thể xác định thành phố hoặc collection không khả dụng"
-            }
+                count = await users_collection.count_documents({"branch": {"$in": branch_ids}, "isActive": True})
+                return {"count": count, "city": city, "branch_count": len(branches), "explanation": query_data.get("explanation", "")}
+        return {"count": 0, "explanation": f"Không tìm thấy dữ liệu cho {city}"}
 
 
 class DynamicQueryResultFormatter:
@@ -484,140 +496,71 @@ class DynamicQueryResultFormatter:
     
     @staticmethod
     def format(result: Dict[str, Any], original_query: str) -> str:
-        """
-        Format the query result into a natural language response
-        """
-        if "error" in result:
-            return f"Xin lỗi, {result['error']}"
-        
-        explanation = result.get("explanation", "")
-        
-        # Handle count results
-        if "count" in result and "results" not in result:
-            return DynamicQueryResultFormatter._format_count(result)
-        
-        # Handle sum results
-        if "sum" in result:
-            return DynamicQueryResultFormatter._format_sum(result)
-        
-        # Handle average results
-        if "average" in result:
-            return DynamicQueryResultFormatter._format_average(result)
-        
-        # Handle grouped results
-        if "grouped" in result:
-            return DynamicQueryResultFormatter._format_grouped(result)
-        
-        # Handle list results
-        if "results" in result:
-            return DynamicQueryResultFormatter._format_list(result)
-        
+        if "error" in result: return f"Xin lỗi, {result['error']}"
+        if "count" in result and "results" not in result: return DynamicQueryResultFormatter._format_count(result)
+        if "sum" in result: return DynamicQueryResultFormatter._format_sum(result)
+        if "average" in result: return DynamicQueryResultFormatter._format_average(result)
+        if "grouped" in result: return DynamicQueryResultFormatter._format_grouped(result)
+        if "results" in result: return DynamicQueryResultFormatter._format_list(result)
         return "Không có kết quả phù hợp."
     
     @staticmethod
     def _format_count(result: Dict[str, Any]) -> str:
-        """Format count result"""
         count = result["count"]
         city = result.get("city", "")
-        
         response = f"📊 **{result.get('explanation', 'Thống kê kết quả')}**\n\n"
-        
         if city:
             response += f"📍 **Thành phố:** {city}\n"
-            if result.get("branch_count"):
-                response += f"🏢 **Số chi nhánh:** {result['branch_count']}\n"
-        
-        response += f"👥 **Tổng cộng:** {count} nhân viên" if count == 1 else f"👥 **Tổng cộng:** {count}"
-        
+            if result.get("branch_count"): response += f"🏢 **Số chi nhánh:** {result['branch_count']}\n"
+        response += f"👥 **Tổng cộng:** {count}"
         return response
     
     @staticmethod
     def _format_sum(result: Dict[str, Any]) -> str:
-        """Format sum result"""
         total = result["sum"]
         is_salary = result.get("field") in ["baseSalary", "salary", "netSalary", "grossSalary"]
-        
         response = f"💰 **{result.get('explanation', 'Tổng cộng')}**\n\n"
-        
-        if is_salary:
-            response += f"💵 **Tổng số:** {total:,.0f} VNĐ"
-        else:
-            response += f"📈 **Tổng số:** {total:,.2f}"
-        
+        if is_salary: response += f"💵 **Tổng số:** {total:,.0f} VNĐ"
+        else: response += f"📈 **Tổng số:** {total:,.2f}"
         return response
     
     @staticmethod
     def _format_average(result: Dict[str, Any]) -> str:
-        """Format average result"""
         avg = result["average"]
         is_salary = result.get("field") in ["baseSalary", "salary", "netSalary", "grossSalary"]
-        
         response = f"📊 **{result.get('explanation', 'Kết quả trung bình')}**\n\n"
-        
-        if is_salary:
-            response += f"💵 **Trung bình:** {avg:,.0f} VNĐ"
-        else:
-            response += f"📉 **Trung bình:** {avg:,.2f}"
-        
+        if is_salary: response += f"💵 **Trung bình:** {avg:,.0f} VNĐ"
+        else: response += f"📉 **Trung bình:** {avg:,.2f}"
         return response
     
     @staticmethod
     def _format_grouped(result: Dict[str, Any]) -> str:
-        """Format grouped result"""
         grouped = result["grouped"]
         response = f"📊 **{result.get('explanation', 'Thống kê chi tiết')}**\n\n"
-        
-        for item in grouped[:10]:
-            response += f"🔹 **{item['value']}**: {item['count']}\n"
-        
+        for item in grouped[:10]: response += f"🔹 **{item['value']}**: {item['count']}\n"
         return response
     
     @staticmethod
     def _format_list(result: Dict[str, Any]) -> str:
-        """Format list result"""
         results = result["results"]
         response = f"📋 **{result.get('explanation', 'Danh sách kết quả')}**\n\n"
         response += f"🔍 **Tìm thấy:** {len(results)} bản ghi phù hợp\n\n"
-        
-        if len(results) == 0:
-            response += "❌ Không có dữ liệu phù hợp."
-        else:
-            for i, doc in enumerate(results[:10], 1):
-                response += f"**{i}.** "
-                important_fields = []
-                
-                # Priority mapping for field names to Vietnamese labels
-                label_map = {
-                    "name": "Họ tên",
-                    "email": "Email",
-                    "position": "Chức vụ",
-                    "role": "Vai trò",
-                    "status": "Trạng thái",
-                    "type": "Loại",
-                    "city": "Thành phố",
-                    "code": "Mã"
-                }
-                
-                for field, label in label_map.items():
-                    if field in doc:
-                        val = doc[field]
-                        if isinstance(val, bool):
-                            if field == "isActive":
-                                val = "✅ Hoạt động" if val else "❌ Không hoạt động"
-                            else:
-                                val = "Có" if val else "Không"
-                        important_fields.append(f"{label}: *{val}*")
-                
-                if important_fields:
-                    response += " | ".join(important_fields)
-                else:
-                    keys = [k for k in doc.keys() if k != 'id'][:3]
-                    vals = [str(doc[k]) for k in keys]
-                    response += " | ".join(vals)
-                response += "\n"
-            
-            if len(results) > 10:
-                response += f"\n*... và {len(results) - 10} kết quả khác*"
-        
+        if not results: return response + "❌ Không có dữ liệu phù hợp."
+        label_map = {"name": "Họ tên", "email": "Email", "position": "Chức vụ", "role": "Vai trò", "department": "Phòng ban", "branch": "Chi nhánh", "status": "Trạng thái", "date": "Ngày", "checkInTime": "Giờ vào", "checkOutTime": "Giờ ra"}
+        all_keys = []
+        for doc in results[:20]:
+            for k in doc.keys():
+                if k not in all_keys and k != 'id' and not isinstance(doc[k], (dict, list)): all_keys.append(k)
+        columns = [k for k in all_keys if k in label_map] + [k for k in all_keys if k not in label_map]
+        columns = columns[:6]
+        headers = [label_map.get(k, k.capitalize()) for k in columns]
+        response += "| " + " | ".join(headers) + " |\n"
+        response += "|" + "|".join(["---" for _ in columns]) + "|\n"
+        for doc in results[:20]:
+            row = []
+            for k in columns:
+                val = doc.get(k, "-")
+                if isinstance(val, (int, float)) and ("Salary" in k or val > 1000): val = f"{val:,.0f}"
+                row.append(str(val).replace("|", "\\|").replace("\n", " "))
+            response += "| " + " | ".join(row) + " |\n"
         return response
-

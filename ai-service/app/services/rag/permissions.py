@@ -111,15 +111,26 @@ class PermissionChecker:
     
     @staticmethod
     def get_allowed_roles_for_collection(collection: str) -> list:
-        """Get list of roles that can access a collection"""
+        """Get list of roles that can access a collection.
+        
+        Note on access levels:
+        - **Full access** (admin/hr_manager/super_admin): Can view ALL data in the collection.
+        - **Department access** (manager/supervisor): Can view data within their department.
+        - **Self-only access** (employee): Can ONLY view their own personal data.
+          For 'attendance' and 'requests', employees are included because they can
+          view their own attendance/requests. The actual filtering to self-only data
+          is enforced by PermissionChecker.check() which adds userId filters.
+        """
         restrictions = {
             'users': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor'],
             'departments': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
             'branches': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
-            'attendance': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor'],
-            'requests': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor'],
+            'attendance': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
+            'requests': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
             'shifts': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
-            'payroll': ['super_admin', 'admin', 'hr_manager']
+            'payroll': ['super_admin', 'admin', 'hr_manager'],
+            'employeeschedules': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
+            'employeeshiftassignments': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
         }
         return restrictions.get(collection, [])
 
