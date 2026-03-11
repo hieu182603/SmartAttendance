@@ -13,8 +13,6 @@ cd backend && yarn dev
 cd frontend && yarn dev
 
 # Terminal 3 - AI Service
-    python -m venv venv
-   .\venv\Scripts\Activate.ps1
-   pip install -r requirements.txt
+.\venv\Scripts\python run.py    
    set DEV_MODE=true
    python run.py

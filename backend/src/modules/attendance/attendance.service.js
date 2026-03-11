@@ -713,10 +713,11 @@ export const validateWorkHours = (hoursWorked, shiftInfo) => {
 
   if (minutesWorked < MIN_WORK_MINUTES) {
     const remainingMinutes = MIN_WORK_MINUTES - minutesWorked;
+    const roundedRemaining = Math.ceil(remainingMinutes);
     const timeStr =
-      remainingMinutes >= 60
-        ? `${Math.floor(remainingMinutes / 60)} giờ ${remainingMinutes % 60} phút`
-        : `${remainingMinutes} phút`;
+      roundedRemaining >= 60
+        ? `${Math.floor(roundedRemaining / 60)} giờ ${roundedRemaining % 60} phút`
+        : `${roundedRemaining} phút`;
 
     return {
       valid: false,
@@ -777,7 +778,10 @@ export const calculateWorkCredit = (hoursWorked, shiftInfo) => {
  * @param {number} latitude - Vĩ độ
  * @param {number} longitude - Kinh độ
  * @param {number} accuracy - Độ chính xác GPS
- * @param {Buffer|null} photoFile - Photo buffer
+ * @param {Buffer|null} photoFile - Raw image Buffer (already extracted from Multer
+ *   file object by the controller via `req.file.buffer`). Pass directly to
+ *   `verifyUserFaceOptimized()` and Cloudinary upload helpers — do NOT access
+ *   `.buffer` again as that would yield an ArrayBuffer instead of a Buffer.
  * @returns {Promise<Object>} { success, data, error }
  */
 export const processCheckIn = async (
@@ -832,10 +836,11 @@ export const processCheckIn = async (
             // Auto-verify mode: no photo → skip face verification, proceed GPS-only
           } else {
             // Photo provided + face registered → verify using optimized method
+            // NOTE: photoFile is already a raw Buffer (extracted by controller via req.file.buffer)
             const faceService = getFaceService();
             const result = await faceService.verifyUserFaceOptimized(
               userId,
-              photoFile.buffer,
+              photoFile,
               user.faceData
             );
             faceVerified = result.match;
@@ -963,7 +968,7 @@ export const processCheckIn = async (
       }
     }
 
-    const attendance = await AttendanceModel.findOneAndUpdate(
+    const rawResult = await AttendanceModel.findOneAndUpdate(
       { userId, date: dateOnly },
       {
         $setOnInsert: {
@@ -981,11 +986,14 @@ export const processCheckIn = async (
         upsert: true,
         new: true,
         setDefaultsOnInsert: true,
+        rawResult: true,
       }
     );
 
-    // If checkIn already exists and is earlier than now, user already checked in
-    if (attendance.checkIn && attendance.checkIn.getTime() < now.getTime()) {
+    const attendance = rawResult.value;
+
+    // If updatedExisting is true, the document already existed → user already checked in
+    if (rawResult.lastErrorObject?.updatedExisting) {
       return {
         success: false,
         data: null,
@@ -1058,7 +1066,10 @@ export const processCheckIn = async (
  * @param {number} latitude - Vĩ độ
  * @param {number} longitude - Kinh độ
  * @param {number} accuracy - Độ chính xác GPS
- * @param {Buffer|null} photoFile - Photo buffer
+ * @param {Buffer|null} photoFile - Raw image Buffer (already extracted from Multer
+ *   file object by the controller via `req.file.buffer`). Pass directly to
+ *   `verifyUserFaceOptimized()` and Cloudinary upload helpers — do NOT access
+ *   `.buffer` again as that would yield an ArrayBuffer instead of a Buffer.
  * @param {string|null} earlyCheckoutReason - Lý do check-out sớm (nếu < 30 phút)
  * @returns {Promise<Object>} { success, data, error }
  */
@@ -1124,10 +1135,11 @@ export const processCheckOut = async (
         const hasRegisteredFace = user?.faceData?.isRegistered && user?.faceData?.embeddings?.length > 0;
 
         if (hasRegisteredFace) {
+          // NOTE: photoFile is already a raw Buffer (extracted by controller via req.file.buffer)
           const faceService = getFaceService();
           const result = await faceService.verifyUserFaceOptimized(
             userId,
-            photoFile.buffer,
+            photoFile,
             user.faceData
           );
           faceVerified = result.match;

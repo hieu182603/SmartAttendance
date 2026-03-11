@@ -158,6 +158,11 @@ export const getAttendanceHistory = async (req, res) => {
 /**
  * POST /attendance/checkin
  * Chấm công vào (Check-in)
+ *
+ * `req.file` is a Multer file object (memory storage) whose `.buffer` property
+ * holds the raw image bytes. We extract `photoFile?.buffer` here so the service
+ * layer always receives a plain `Buffer` (or `null`) — never the full Multer
+ * object. The service must NOT call `.buffer` again on this value.
  */
 export const checkIn = async (req, res) => {
   try {
@@ -204,6 +209,9 @@ export const checkIn = async (req, res) => {
 /**
  * POST /attendance/checkout
  * Check-out (chấm công ra)
+ *
+ * Same as checkIn — `photoFile?.buffer` extracts the raw `Buffer` from the
+ * Multer file object so the service receives a plain `Buffer` (or `null`).
  */
 export const checkOut = async (req, res) => {
   try {
@@ -993,6 +1001,38 @@ export const approveEarlyCheckout = async (req, res) => {
       emitAttendanceUpdateToAdmins(attendanceData);
     } catch (socketError) {
       console.error("[attendance] Error emitting approval update:", socketError);
+    }
+
+    // Gửi notification cho nhân viên
+    try {
+      const { NotificationService } = await import("../notifications/notification.service.js");
+      const { UserModel } = await import("../users/user.model.js");
+      const approver = await UserModel.findById(approverId).select("name").lean();
+      const isApproved = approvalStatus === "APPROVED";
+      const dateStr = attendance.date
+        ? new Date(attendance.date).toLocaleDateString("vi-VN")
+        : "";
+
+      await NotificationService.createNotification({
+        userId: attendance.userId,
+        type: isApproved ? "request_approved" : "request_rejected",
+        title: isApproved
+          ? "Yêu cầu check-out sớm đã được chấp nhận"
+          : "Yêu cầu check-out sớm đã bị từ chối",
+        message: isApproved
+          ? `Yêu cầu check-out sớm ngày ${dateStr} đã được ${approver?.name || "Quản lý"} chấp nhận.${notes ? ` Nhận xét: ${notes}` : ""}`
+          : `Yêu cầu check-out sớm ngày ${dateStr} đã bị ${approver?.name || "Quản lý"} từ chối.${notes ? ` Lý do: ${notes}` : ""}`,
+        relatedEntityType: "attendance",
+        relatedEntityId: attendance._id,
+        metadata: {
+          approvalStatus,
+          approverName: approver?.name,
+          date: attendance.date,
+          notes,
+        },
+      });
+    } catch (notifError) {
+      console.error("[attendance] notification error:", notifError);
     }
 
     const updated = await AttendanceModel.findById(id)

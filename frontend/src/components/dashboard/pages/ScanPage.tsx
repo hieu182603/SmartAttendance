@@ -212,12 +212,16 @@ const ScanPage: React.FC = () => {
   const [showFaceRegistrationPrompt, setShowFaceRegistrationPrompt] = useState(false);
   const navigate = useNavigate();
   const [earlyCheckoutError, setEarlyCheckoutError] = useState<CheckInError | null>(null);
+  const lastCheckoutPhotoRef = useRef<string | null>(null);
 
   // Face detection for scan
   const faceDetection = useScanFaceDetection();
   const voiceFeedback = useVoiceFeedback();
   const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
   const [autoCaptureTriggered, setAutoCaptureTriggered] = useState(false);
+  
+  // UX flow: user must press Check In / Check Out before auto-capture activates
+  const [activeAction, setActiveAction] = useState<'idle' | 'checkin' | 'checkout'>('idle');
   const autoCaptureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastVoiceStatusRef = useRef<ScanDetectionStatus | null>(null);
 
@@ -562,6 +566,11 @@ const ScanPage: React.FC = () => {
           checkInTime: now,
           canCheckOut: false,
         }));
+        
+        // Reset action state after successful check-in
+        setActiveAction('idle');
+        setAutoCaptureTriggered(false);
+        faceDetection.resetConsecutiveFrames();
 
         if (response.data.data) {
           const { distance, location } = response.data.data;
@@ -577,8 +586,11 @@ const ScanPage: React.FC = () => {
         }
 
         toast.success(
-          response.data.message || t("dashboard:scan.toasts.checkInSuccess")
+          (response.data.message || t("dashboard:scan.toasts.checkInSuccess")) + " 🎉 Chúc bạn một ngày làm việc thật năng suất!"
         );
+
+        // Voice: chúc ngày làm việc năng suất
+        voiceFeedback.speakMessage("Chấm công thành công! Chúc bạn một ngày làm việc thật năng suất!");
       }
     } catch (error) {
       console.error("Check-in error:", error);
@@ -603,6 +615,7 @@ const ScanPage: React.FC = () => {
             },
           },
         });
+        voiceFeedback.speakMessage("Xác thực khuôn mặt thất bại. Khuôn mặt không khớp, vui lòng thử lại.");
         return;
       }
       
@@ -610,25 +623,31 @@ const ScanPage: React.FC = () => {
         toast.error("Lỗi xác thực khuôn mặt", {
           description: "Hệ thống không thể xác thực khuôn mặt. Vui lòng thử lại.",
         });
+        voiceFeedback.speakMessage("Lỗi xác thực khuôn mặt. Vui lòng thử lại.");
         return;
       }
       
       if (err.response?.data?.code === "ALREADY_CHECKED_IN") {
         toast.info(errorMessage);
         setState((prev) => ({ ...prev, hasCheckedIn: true }));
+        setActiveAction('idle');
+        voiceFeedback.speakMessage("Bạn đã chấm công vào hôm nay rồi.");
       } else if (err.response?.data?.code === "TOO_EARLY") {
         toast.warning(errorMessage);
+        voiceFeedback.speakMessage("Chưa đến giờ chấm công. Vui lòng quay lại sau.");
       } else if (err.response?.data?.code === "ON_LEAVE") {
         toast.error(errorMessage, {
           duration: 5000,
         });
+        voiceFeedback.speakMessage("Bạn đang trong thời gian nghỉ phép, không thể chấm công.");
       } else {
         toast.error(errorMessage);
+        voiceFeedback.speakMessage("Chấm công thất bại. Vui lòng thử lại.");
       }
     } finally {
       setState((prev) => ({ ...prev, isProcessing: false }));
     }
-  }, [locationData, capturePhoto, createFormData, t]);
+  }, [locationData, capturePhoto, createFormData, t, voiceFeedback]);
 
   const handleCheckOut = useCallback(async (reason?: EarlyCheckoutReason) => {
     if (!locationData) return;
@@ -636,12 +655,15 @@ const ScanPage: React.FC = () => {
     setState((prev) => ({ ...prev, isProcessing: true }));
 
     try {
-      const photoData = capturePhoto();
+      // Thử capture photo mới, nếu fail thì dùng photo đã lưu từ lần trước
+      const photoData = capturePhoto() || lastCheckoutPhotoRef.current;
       if (!photoData) {
         throw new Error(t("dashboard:scan.errors.captureFailed"));
       }
+      // Lưu photo để dùng lại khi retry với lý do
+      lastCheckoutPhotoRef.current = photoData;
 
-      const formData = createFormData(photoData, locationData, "checkout", reason || undefined);
+      const formData = createFormData(photoData, locationData, "checkout", reason ?? undefined);
       const response = await api.post<CheckInResponse>(
         "/attendance/checkout",
         formData,
@@ -654,6 +676,13 @@ const ScanPage: React.FC = () => {
         setState((prev) => ({ ...prev, hasCheckedOut: true }));
         setShowEarlyCheckoutModal(false);
         setEarlyCheckoutReason(null);
+        setEarlyCheckoutError(null);
+        lastCheckoutPhotoRef.current = null;
+        
+        // Reset action state after successful check-out
+        setActiveAction('idle');
+        setAutoCaptureTriggered(false);
+        faceDetection.resetConsecutiveFrames();
 
         if (response.data.data) {
           const { distance, location, approvalStatus, requiresApproval } = response.data.data;
@@ -679,6 +708,9 @@ const ScanPage: React.FC = () => {
         toast.success(
           response.data.message || t("dashboard:scan.toasts.checkOutSuccess")
         );
+
+        // Voice: chào tạm biệt
+        voiceFeedback.speakMessage("Check-out thành công! Tạm biệt, hẹn gặp lại bạn ngày mai!");
       }
     } catch (error) {
       console.error("Check-out error:", error);
@@ -690,9 +722,12 @@ const ScanPage: React.FC = () => {
 
       if (err.response?.data?.code === "NOT_CHECKED_IN") {
         toast.warning(errorMessage);
+        voiceFeedback.speakMessage("Bạn chưa chấm công vào. Vui lòng chấm công vào trước.");
       } else if (err.response?.data?.code === "ALREADY_CHECKED_OUT") {
         toast.info(errorMessage);
         setState((prev) => ({ ...prev, hasCheckedOut: true }));
+        setActiveAction('idle');
+        voiceFeedback.speakMessage("Bạn đã check-out hôm nay rồi.");
       } else if (err.response?.data?.code === "INSUFFICIENT_WORK_HOURS") {
         // ⚠️ MỚI: Kiểm tra nếu cần lý do
         const errorData = err.response?.data?.data;
@@ -700,20 +735,24 @@ const ScanPage: React.FC = () => {
           // Hiển thị modal để chọn lý do
           setEarlyCheckoutError(err);
           setShowEarlyCheckoutModal(true);
+          voiceFeedback.speakMessage("Bạn chưa làm đủ thời gian. Vui lòng chọn lý do check-out sớm.");
         } else {
           toast.warning(errorMessage);
+          voiceFeedback.speakMessage("Bạn chưa làm đủ thời gian tối thiểu để check-out.");
         }
       } else if (err.response?.data?.code === "ON_LEAVE") {
         toast.error(errorMessage, {
           duration: 5000,
         });
+        voiceFeedback.speakMessage("Bạn đang trong thời gian nghỉ phép, không thể check-out.");
       } else {
         toast.error(errorMessage);
+        voiceFeedback.speakMessage("Check-out thất bại. Vui lòng thử lại.");
       }
     } finally {
       setState((prev) => ({ ...prev, isProcessing: false }));
     }
-  }, [locationData, capturePhoto, createFormData, t]);
+  }, [locationData, capturePhoto, createFormData, t, voiceFeedback]);
 
   // ==========================================================================
   // EFFECTS
@@ -901,9 +940,9 @@ const ScanPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCameraReady, faceDetection.modelReady, faceStatus?.isRegistered]);
 
-  // Voice feedback based on detection status changes
+  // Voice feedback based on detection status changes (only when user has chosen an action)
   useEffect(() => {
-    if (!faceStatus?.isRegistered) return;
+    if (!faceStatus?.isRegistered || activeAction === 'idle') return;
     const status = faceDetection.detectionStatus;
     if (status === lastVoiceStatusRef.current) return;
     lastVoiceStatusRef.current = status;
@@ -924,9 +963,10 @@ const ScanPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [faceDetection.detectionStatus, faceStatus?.isRegistered]);
 
-  // Auto-capture: when face quality is good for enough consecutive frames
+  // Auto-capture: only activates AFTER user presses Check In or Check Out
   useEffect(() => {
     if (
+      activeAction === 'idle' ||
       !autoCaptureEnabled ||
       autoCaptureTriggered ||
       isProcessing ||
@@ -939,12 +979,6 @@ const ScanPage: React.FC = () => {
       return;
     }
 
-    // Determine which action to auto-trigger
-    const shouldCheckIn = !hasCheckedIn && !hasCheckedOut;
-    const shouldCheckOut = hasCheckedIn && !hasCheckedOut;
-
-    if (!shouldCheckIn && !shouldCheckOut) return;
-
     // Set a small delay before auto-capture to avoid accidental triggers
     if (autoCaptureTimeoutRef.current) {
       clearTimeout(autoCaptureTimeoutRef.current);
@@ -954,10 +988,10 @@ const ScanPage: React.FC = () => {
       // Re-check conditions
       if (faceDetection.canAutoCapture && !isProcessing) {
         setAutoCaptureTriggered(true);
-        if (shouldCheckIn) {
+        if (activeAction === 'checkin') {
           voiceFeedback.speakMessage("Đang chấm công vào");
           handleCheckIn();
-        } else if (shouldCheckOut) {
+        } else if (activeAction === 'checkout') {
           voiceFeedback.speakMessage("Đang chấm công ra");
           handleCheckOut();
         }
@@ -971,12 +1005,11 @@ const ScanPage: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    activeAction,
     faceDetection.canAutoCapture,
     autoCaptureEnabled,
     autoCaptureTriggered,
     isProcessing,
-    hasCheckedIn,
-    hasCheckedOut,
     locationData,
     permissions.camera,
     permissions.location,
@@ -1336,8 +1369,8 @@ const ScanPage: React.FC = () => {
                   {detectionStatusConfig.label}
                 </div>
               )}
-              {/* Auto-capture progress indicator (bottom-center) */}
-              {isCameraReady && faceStatus?.isRegistered && autoCaptureEnabled && faceDetection.detectionStatus === "good" && !autoCaptureTriggered && !isProcessing && (
+              {/* Auto-capture progress indicator (bottom-center) - only when user has chosen an action */}
+              {isCameraReady && faceStatus?.isRegistered && activeAction !== 'idle' && autoCaptureEnabled && faceDetection.detectionStatus === "good" && !autoCaptureTriggered && !isProcessing && (
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20">
                   <div className="flex items-center gap-2 rounded-full bg-green-100/90 dark:bg-green-900/70 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300 shadow-lg backdrop-blur-sm">
                     <div className="flex gap-0.5">
@@ -1490,8 +1523,8 @@ const ScanPage: React.FC = () => {
             ) : null}
           </div>
 
-          {/* Face Detection Hint (when registered but face not detected) */}
-          {faceStatus?.isRegistered && faceDetection.modelReady && !autoCaptureEnabled && faceDetection.detectionStatus !== "good" && !hasCheckedIn && !hasCheckedOut && (
+          {/* Face Detection Hint (when registered but face not detected, only during active action) */}
+          {faceStatus?.isRegistered && faceDetection.modelReady && activeAction !== 'idle' && !autoCaptureEnabled && faceDetection.detectionStatus !== "good" && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <p>{faceDetection.statusMessage}</p>
@@ -1499,85 +1532,128 @@ const ScanPage: React.FC = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={handleCheckIn}
-              disabled={
-                isProcessing ||
-                !permissions.camera ||
-                !permissions.location ||
-                !locationData ||
-                hasCheckedIn ||
-                (faceStatus?.isRegistered && faceDetection.modelReady && faceDetection.detectionStatus !== "good" && !autoCaptureEnabled)
-              }
-              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isProcessing && !hasCheckedIn ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("dashboard:scan.buttons.processing")}
-                </>
-              ) : hasCheckedIn ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  {t("dashboard:scan.buttons.checkedIn")}
-                </>
-              ) : (
-                <>
-                  <Camera className="h-4 w-4" />
-                  {t("dashboard:scan.buttons.checkIn")}
-                </>
-              )}
-            </button>
+          {activeAction === 'idle' ? (
+            <>
+              {/* Idle state: show Check In / Check Out buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAction('checkin');
+                    setAutoCaptureTriggered(false);
+                    faceDetection.resetConsecutiveFrames();
+                  }}
+                  disabled={
+                    isProcessing ||
+                    !permissions.camera ||
+                    !permissions.location ||
+                    !locationData ||
+                    hasCheckedIn
+                  }
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {hasCheckedIn ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      {t("dashboard:scan.buttons.checkedIn")}
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="h-4 w-4" />
+                      {t("dashboard:scan.buttons.checkIn")}
+                    </>
+                  )}
+                </button>
 
-            <button
-              type="button"
-              onClick={() => handleCheckOut()}
-              disabled={
-                isProcessing ||
-                !permissions.camera ||
-                !permissions.location ||
-                !locationData ||
-                !hasCheckedIn ||
-                hasCheckedOut ||
-                (faceStatus?.isRegistered && faceDetection.modelReady && faceDetection.detectionStatus !== "good" && !autoCaptureEnabled)
-              }
-              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={
-                !canCheckOut && hasCheckedIn && !hasCheckedOut && checkInTime
-                  ? `Cần làm việc ít nhất ${MIN_WORK_MINUTES} phút`
-                  : ""
-              }
-            >
-              {isProcessing && hasCheckedIn && !hasCheckedOut ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("dashboard:scan.buttons.processing")}
-                </>
-              ) : hasCheckedOut ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  {t("dashboard:scan.buttons.checkedOut")}
-                </>
-              ) : (
-                <>
-                  <Camera className="h-4 w-4" />
-                  {t("dashboard:scan.buttons.checkOut")}
-                </>
-              )}
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAction('checkout');
+                    setAutoCaptureTriggered(false);
+                    faceDetection.resetConsecutiveFrames();
+                  }}
+                  disabled={
+                    isProcessing ||
+                    !permissions.camera ||
+                    !permissions.location ||
+                    !locationData ||
+                    !hasCheckedIn ||
+                    hasCheckedOut
+                  }
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    !canCheckOut && hasCheckedIn && !hasCheckedOut && checkInTime
+                      ? `Cần làm việc ít nhất ${MIN_WORK_MINUTES} phút`
+                      : ""
+                  }
+                >
+                  {hasCheckedOut ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      {t("dashboard:scan.buttons.checkedOut")}
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="h-4 w-4" />
+                      {t("dashboard:scan.buttons.checkOut")}
+                    </>
+                  )}
+                </button>
+              </div>
 
-          {/* Auto-capture info */}
-          {faceStatus?.isRegistered && autoCaptureEnabled && !hasCheckedOut && (
-            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
-              <Scan className="h-4 w-4 flex-shrink-0" />
-              <p>
-                <strong>Chế độ tự động:</strong> Hệ thống sẽ tự động chấm công khi nhận diện được khuôn mặt của bạn. 
-                {!hasCheckedIn ? " Đưa mặt vào camera để check-in." : " Đưa mặt vào camera để check-out."}
-              </p>
-            </div>
+              {/* Idle hint */}
+              {faceStatus?.isRegistered && !hasCheckedOut && (
+                <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                  <Scan className="h-4 w-4 flex-shrink-0" />
+                  <p>
+                    {!hasCheckedIn
+                      ? "Bấm nút Check In để bắt đầu chấm công. Hệ thống sẽ tự động nhận diện khuôn mặt và chụp ảnh."
+                      : "Bấm nút Check Out để bắt đầu check-out. Hệ thống sẽ tự động nhận diện khuôn mặt và chụp ảnh."}
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Active state: show action info + cancel button */}
+              <div className="space-y-3">
+                <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm font-medium ${
+                  activeAction === 'checkin'
+                    ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                    : "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                }`}>
+                  {isProcessing ? (
+                    <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                  ) : (
+                    <Scan className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <p className="flex-1">
+                    {isProcessing
+                      ? "Đang xác thực khuôn mặt..."
+                      : activeAction === 'checkin'
+                        ? "Đang nhận diện khuôn mặt để Check In... Hãy giữ khuôn mặt ổn định trong khung hình."
+                        : "Đang nhận diện khuôn mặt để Check Out... Hãy giữ khuôn mặt ổn định trong khung hình."}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAction('idle');
+                    setAutoCaptureTriggered(false);
+                    faceDetection.resetConsecutiveFrames();
+                    if (autoCaptureTimeoutRef.current) {
+                      clearTimeout(autoCaptureTimeoutRef.current);
+                    }
+                  }}
+                  disabled={isProcessing}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--shell)] px-6 py-3 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <X className="h-4 w-4" />
+                  Hủy
+                </button>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

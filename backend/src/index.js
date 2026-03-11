@@ -77,16 +77,25 @@ app.use("/api/notifications", notificationRouter);
 app.use("/api/face", faceRouter);
 app.use("/api/logs", logRouter);
 
-// Error handler
-app.use((err, _req, res, _next) => {
-  res.status(err.status || 500).json({
-    message: err.message || "Internal server error",
-  });
+// 404 fallback — must be registered BEFORE the error handler so unmatched
+// routes get a clear 404 instead of falling through to the error handler.
+app.use((_req, res, _next) => {
+  res.status(404).json({ message: "Route not found" });
 });
 
-// 404 fallback
-app.use((_req, res) => {
-  res.status(404).json({ message: "Route not found" });
+// Global error handler (Express 5 requires all 4 parameters to recognise this
+// as an error-handling middleware).
+app.use((err, _req, res, _next) => {
+  // If headers were already sent (e.g. streaming response), delegate to the
+  // default Express error handler to close the connection properly.
+  if (res.headersSent) {
+    return _next(err);
+  }
+
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    message: err.message || "Internal server error",
+  });
 });
 
 // Server start

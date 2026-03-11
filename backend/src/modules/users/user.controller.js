@@ -29,7 +29,7 @@ const updateUserByAdminSchema = z.object({
       z.literal(""),
     ])
     .optional(),
-  role: z.enum(["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"]).optional(),
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "SUPERVISOR", "EMPLOYEE"]).optional(),
   department: z.string().optional(),
   position: z.string().optional(),
   branch: z.string().optional(),
@@ -54,7 +54,7 @@ const createUserByAdminSchema = z.object({
   email: z.string().email("Email không hợp lệ").min(1, "Email không được để trống"),
   password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự").max(100, "Mật khẩu không được vượt quá 100 ký tự"),
   name: z.string().min(2, "Tên phải có ít nhất 2 ký tự").max(100, "Tên không được vượt quá 100 ký tự"),
-  role: z.enum(["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "EMPLOYEE"], {
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER", "SUPERVISOR", "EMPLOYEE"], {
     errorMap: () => ({ message: "Role không hợp lệ" }),
   }),
   department: z.string().optional(),
@@ -504,17 +504,17 @@ export class UserController {
         });
       }
 
-        // Lấy URL từ Cloudinary (được set trong custom CloudinaryStorage)
-        // Thứ tự ưu tiên: location (secure_url), metadata.url, secure_url, path
-        const avatarUrl =
-          req.file?.location ||
-          req.file?.metadata?.url ||
-          req.file?.secure_url ||
-          req.file?.path;
+      // Lấy URL từ Cloudinary (được set trong custom CloudinaryStorage)
+      // Thứ tự ưu tiên: location (secure_url), metadata.url, secure_url, path
+      const avatarUrl =
+        req.file?.location ||
+        req.file?.metadata?.url ||
+        req.file?.secure_url ||
+        req.file?.path;
 
-        if (!avatarUrl) {
-          return res.status(500).json({ message: "Không lấy được URL ảnh sau khi upload" });
-        }
+      if (!avatarUrl) {
+        return res.status(500).json({ message: "Không lấy được URL ảnh sau khi upload" });
+      }
 
       const updatedUser = await UserService.updateAvatar(userId, avatarUrl);
 

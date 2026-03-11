@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -56,15 +56,8 @@ export default function VerifyOtp() {
     }
   }, [countdown])
 
-  // Auto-submit when OTP is complete (only if valid)
-  useEffect(() => {
-    if (otp.length === 6 && !validateOtp(otp)) {
-      handleVerify()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [otp])
-
-  const handleVerify = async () => {
+  // Auto-submit when OTP is complete (only if valid and not already loading)
+  const handleVerify = useCallback(async () => {
     // Validate OTP
     const otpError = validateOtp(otp)
     if (otpError) {
@@ -72,7 +65,7 @@ export default function VerifyOtp() {
       toast.error(otpError)
       return
     }
-    
+
     setIsLoading(true)
     setError(undefined)
 
@@ -94,7 +87,7 @@ export default function VerifyOtp() {
           setToken(data.token)
           if (data?.user) setUser(data.user)
           toast.success(t('auth:verifyOtp.success'))
-          const redirectPath = data?.user?.role 
+          const redirectPath = data?.user?.role
             ? getRoleBasePath(data.user.role as UserRoleType)
             : '/employee'
           setTimeout(() => navigate(redirectPath), 1000)
@@ -114,7 +107,14 @@ export default function VerifyOtp() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [otp, email, purpose, t, navigate, setToken, setUser])
+
+  // Auto-submit when OTP is complete (only if valid and not already loading)
+  useEffect(() => {
+    if (otp.length === 6 && !validateOtp(otp) && !isLoading) {
+      handleVerify()
+    }
+  }, [otp, isLoading, handleVerify])
 
   const handleResendOTP = async () => {
     if (!canResend) return
@@ -135,8 +135,8 @@ export default function VerifyOtp() {
   }
 
   return (
-    <AuthLayout 
-      title={t('auth:verifyOtp.title')} 
+    <AuthLayout
+      title={t('auth:verifyOtp.title')}
       subtitle={`${t('auth:verifyOtp.subtitle')} ${email}`}
     >
       <motion.div
