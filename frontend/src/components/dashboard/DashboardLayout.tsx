@@ -375,7 +375,10 @@ const DashboardLayout: React.FC = () => {
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
       />
-      <FloatingChatWidget />
+      {/* Hide chatbot on scan and face registration pages to avoid camera/GPS interference */}
+      {!location.pathname.endsWith('/scan') && !location.pathname.endsWith('/face-registration') && (
+        <FloatingChatWidget />
+      )}
     </div>
   );
 };
