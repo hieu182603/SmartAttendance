@@ -4,7 +4,12 @@ import re
 from typing import Dict, Any
 from datetime import datetime, timedelta, timezone
 from bson import ObjectId
-from app.services.rag.query_handlers.base import BaseQueryHandler
+from app.services.rag.query_handlers.base import (
+    BaseQueryHandler,
+    get_today_range,
+    get_date_range_for_period,
+    VN_TZ
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,19 +33,29 @@ class AttendanceQueryHandler(BaseQueryHandler):
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        # Giới hạn theo user nếu có - convert to ObjectId for proper matching
+        # Force override userId for personal queries (Comment 2: don't use setdefault)
         if user_id:
-            try:
-                query.setdefault("userId", ObjectId(user_id))
-            except Exception:
-                query.setdefault("userId", user_id)
+            query["userId"] = self._convert_user_id(user_id)
         
-        today = datetime.now(timezone.utc)
-        today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
-        today_end = today_start + timedelta(days=1)
+        # Use Vietnam timezone (UTC+7) for "today" calculation (Comment 1)
+        today_start, today_end = get_today_range(tz_offset_hours=7)
         query["date"] = {"$gte": today_start, "$lt": today_end}
         
-        records = await collection.find(query).sort("checkIn", 1).limit(3).to_list(length=None)
+        # Use aggregation pipeline with $lookup to branches for location name (Comment 4)
+        pipeline = [
+            {"$match": query},
+            {"$lookup": {
+                "from": "branches",
+                "localField": "locationId",
+                "foreignField": "_id",
+                "as": "branch_info"
+            }},
+            {"$unwind": {"path": "$branch_info", "preserveNullAndEmptyArrays": True}},
+            {"$sort": {"checkIn": 1}},
+            {"$limit": 3}
+        ]
+        
+        records = await collection.aggregate(pipeline).to_list(length=None)
         
         if not records:
             return (
@@ -54,11 +69,18 @@ class AttendanceQueryHandler(BaseQueryHandler):
         first = records[0]
         check_in = first.get("checkIn")
         status = first.get("status", "present")
-        location = first.get("locationName") or first.get("location") or ""
         
-        # Format thời gian HH:MM nếu là datetime
+        # Get location name from $lookup result (Comment 4)
+        location = first.get("branch_info", {}).get("name", "") if first.get("branch_info") else ""
+        
+        # Format thời gian HH:MM nếu là datetime (hiển thị theo giờ Việt Nam).
+        # MongoDB driver trả về datetime *naive* (không có tzinfo) nhưng mặc định là UTC,
+        # nên cần gắn tz UTC rồi convert sang VN_TZ để tránh lệch giờ.
         if isinstance(check_in, datetime):
-            check_in_str = check_in.strftime("%H:%M")
+            if check_in.tzinfo is None:
+                check_in = check_in.replace(tzinfo=timezone.utc)
+            local_check_in = check_in.astimezone(VN_TZ)
+            check_in_str = local_check_in.strftime("%H:%M")
         else:
             check_in_str = str(check_in) if check_in else "N/A"
         
@@ -83,7 +105,8 @@ class AttendanceQueryHandler(BaseQueryHandler):
         self,
         query_type: str,
         query: Dict[str, Any],
-        message: str
+        message: str,
+        user_id: str = None
     ) -> str:
         """
         Handle custom attendance query types.
@@ -92,16 +115,17 @@ class AttendanceQueryHandler(BaseQueryHandler):
             # Khoảng thời gian được IntentDetector truyền vào qua khóa đặc biệt __range__
             range_value = query.pop("__range__", "week")
             absence_only = query.pop("__absence_only__", False)
-            return await self._handle_history_range(query, range_value, absence_only)
+            return await self._handle_history_range(query, range_value, absence_only, user_id=user_id)
 
         # Fallback về behavior mặc định
-        return await super()._handle_custom(query_type, query, message)
+        return await super()._handle_custom(query_type, query, message, user_id=user_id)
 
     async def _handle_history_range(
         self,
         query: Dict[str, Any],
         range_value: str = "week",
         absence_only: bool = False,
+        user_id: str = None,
     ) -> str:
         """
         Thống kê ngày công / ngày nghỉ của user trong khoảng thời gian.
@@ -117,52 +141,27 @@ class AttendanceQueryHandler(BaseQueryHandler):
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
 
-        today = datetime.now(timezone.utc)
+        # Inject user's own userId for personal history queries (Comment 7)
+        if user_id:
+            query["userId"] = self._convert_user_id(user_id)
 
-        # Xác định khoảng thời gian
-        if range_value == "last_month":
-            # Tháng trước
-            if today.month == 1:
-                start = datetime(today.year - 1, 12, 1, tzinfo=timezone.utc)
-                end = datetime(today.year, 1, 1, tzinfo=timezone.utc)
-            else:
-                start = datetime(today.year, today.month - 1, 1, tzinfo=timezone.utc)
-                end = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
-            range_label = "tháng trước"
-        elif range_value == "last_week":
-            # Tuần trước (Thứ 2–Chủ nhật)
-            weekday = today.weekday()  # 0 = Monday
-            this_week_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(days=weekday)
-            start = this_week_start - timedelta(days=7)
-            end = this_week_start
-            range_label = "tuần trước"
-        elif range_value == "month":
-            start = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
-            if today.month == 12:
-                end = datetime(today.year + 1, 1, 1, tzinfo=timezone.utc)
-            else:
-                end = datetime(today.year, today.month + 1, 1, tzinfo=timezone.utc)
-            range_label = "tháng này"
-        else:
-            # Mặc định: tuần hiện tại (Thứ 2–Chủ nhật)
-            weekday = today.weekday()  # 0 = Monday
-            start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(days=weekday)
-            end = start + timedelta(days=7)
-            range_label = "tuần này"
+        # Use shared utility for date range calculation with Vietnam timezone (Comment 1)
+        start, end, range_label = get_date_range_for_period(range_value, tz_offset_hours=7)
 
         if absence_only:
             return await self._handle_absence_count(query, start, end, range_label)
 
-        # --- Ngày công (workCredit > 0) ---
+        # --- Ngày đi làm: dựa trên trạng thái chấm công, không phụ thuộc workCredit ---
+        # Xem các bản ghi trong khoảng thời gian với status không phải nghỉ/vắng.
         query["date"] = {"$gte": start, "$lt": end}
-        query["workCredit"] = {"$gt": 0}
+        query["status"] = {"$nin": ["absent", "on_leave"]}
 
         records = await collection.find(query).to_list(length=None)
 
         if not records:
             return (
-                f"📅 Trong **{range_label}**, hệ thống **chưa ghi nhận ngày công nào** của bạn "
-                f"(workCredit > 0). Nếu bạn nghĩ đây là nhầm lẫn, hãy liên hệ bộ phận nhân sự."
+                f"📅 Trong **{range_label}**, hệ thống **chưa ghi nhận ngày đi làm nào** của bạn. "
+                f"Nếu bạn nghĩ đây là nhầm lẫn, hãy liên hệ bộ phận nhân sự."
             )
 
         total_days = len(records)
@@ -191,9 +190,9 @@ class AttendanceQueryHandler(BaseQueryHandler):
                 weekday_days += 1
 
         response_lines = [
-            f"📅 **Thống kê ngày công {range_label}:**",
+            f"📅 **Thống kê ngày đi làm {range_label}:**",
             "",
-            f"- **Tổng ngày công (workCredit > 0):** {total_days} ngày",
+            f"- **Tổng số lần chấm công (có mặt/đi làm):** {total_days} bản ghi",
         ]
 
         # Chỉ hiển thị breakdown nếu có dữ liệu thực sự
@@ -265,9 +264,8 @@ class AttendanceQueryHandler(BaseQueryHandler):
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        today = datetime.now(timezone.utc)
-        today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
-        today_end = today_start + timedelta(days=1)
+        # Use Vietnam timezone (UTC+7) for "today" calculation (Comment 1)
+        today_start, today_end = get_today_range(tz_offset_hours=7)
         
         # Base query for today's records
         query["date"] = {"$gte": today_start, "$lt": today_end}
@@ -306,7 +304,10 @@ class AttendanceQueryHandler(BaseQueryHandler):
                 status = r.get("status", "N/A")
                 check_in = r.get("checkIn")
                 if isinstance(check_in, datetime):
-                    check_in_str = check_in.strftime("%H:%M")
+                    if check_in.tzinfo is None:
+                        check_in = check_in.replace(tzinfo=timezone.utc)
+                    local_check_in = check_in.astimezone(VN_TZ)
+                    check_in_str = local_check_in.strftime("%H:%M")
                 else:
                     check_in_str = str(check_in) if check_in else "N/A"
                 
@@ -332,21 +333,41 @@ class AttendanceQueryHandler(BaseQueryHandler):
         return f"📊 **Thống kê chấm công:**\n\n🔹 **Tổng số bản ghi:** {count} bản ghi"
     
     async def _handle_by_status(self, query: Dict[str, Any], filters: Dict[str, Any] = None) -> str:
-        """Handle attendance by status with user names via $lookup — filtered to today (UTC)"""
+        """Handle attendance by status with user names via $lookup.
+        
+        Mặc định lọc theo hôm nay (VN timezone). Nếu filters/query có __range__
+        thì dùng khoảng thời gian tương ứng (week/month/last_week/last_month).
+        """
         collection = await self._get_collection()
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        # Add date filter for today (UTC) to avoid counting entire history
-        today = datetime.now(timezone.utc)
-        today_start = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
-        today_end = today_start + timedelta(days=1)
-        query["date"] = {"$gte": today_start, "$lt": today_end}
+        # Determine date range: today by default, or theo __range__ nếu có
+        range_value = None
+        if filters:
+            range_value = filters.get('__range__')
+        if not range_value:
+            range_value = query.pop('__range__', None)
+        
+        if range_value:
+            start, end, range_label = get_date_range_for_period(range_value, tz_offset_hours=7)
+        else:
+            start, end = get_today_range(tz_offset_hours=7)
+            range_label = "hôm nay"
+        
+        query["date"] = {"$gte": start, "$lt": end}
         
         status = filters.get('status', 'present') if filters else 'present'
         query["status"] = status
         
         count = await collection.count_documents(query)
+        
+        # Xác định truy vấn cá nhân (self) nếu có userId cụ thể trong query
+        # PermissionChecker cho employee/trial đã set userId = chính user đó (không phải $in list).
+        is_self_query = False
+        user_id_filter = query.get("userId")
+        if user_id_filter is not None and not isinstance(user_id_filter, dict):
+            is_self_query = True
         
         status_names = {
             "present": "đã điểm danh",
@@ -358,8 +379,22 @@ class AttendanceQueryHandler(BaseQueryHandler):
         }
         
         status_name = status_names.get(status, status)
-        response = f"📊 **Thống kê theo trạng thái hôm nay:**\n\n"
-        response += f"🔹 **Số người {status_name} hôm nay:** {count} nhân viên\n"
+        
+        # Nếu là truy vấn cá nhân (employee hỏi về chính mình) → dùng câu chữ "bạn ..."
+        if is_self_query:
+            if status == "late":
+                human_label = f"{range_label}"
+                response = f"📊 **Thống kê đi muộn của bạn {human_label}:**\n\n"
+                if count == 0:
+                    response += "✅ Trong khoảng thời gian này bạn **không có ngày nào đi muộn** được ghi nhận."
+                else:
+                    response += f"🔹 **Bạn đi muộn {count} lần trong {human_label}.**\n"
+            else:
+                response = f"📊 **Thống kê trạng thái {status_name} của bạn {range_label}:**\n\n"
+                response += f"🔹 **Số lần có trạng thái {status_name}:** {count}\n"
+        else:
+            response = f"📊 **Thống kê theo trạng thái {range_label}:**\n\n"
+            response += f"🔹 **Số người {status_name} trong {range_label}:** {count} nhân viên\n"
         
         # Show list of employees with names
         if count > 0:
@@ -371,7 +406,10 @@ class AttendanceQueryHandler(BaseQueryHandler):
                     user_name = r.get("user_info", {}).get("name", "N/A") if r.get("user_info") else "N/A"
                     check_in = r.get("checkIn")
                     if isinstance(check_in, datetime):
-                        check_in_str = check_in.strftime("%H:%M")
+                        if check_in.tzinfo is None:
+                            check_in = check_in.replace(tzinfo=timezone.utc)
+                        local_check_in = check_in.astimezone(VN_TZ)
+                        check_in_str = local_check_in.strftime("%H:%M")
                     else:
                         check_in_str = str(check_in) if check_in else "N/A"
                     response += f"{i}. **{user_name}** | Check-in: {check_in_str}\n"
@@ -416,7 +454,10 @@ class AttendanceQueryHandler(BaseQueryHandler):
             status_display = status_map.get(status, status)
             check_in = r.get("checkIn")
             if isinstance(check_in, datetime):
-                check_in_str = check_in.strftime("%H:%M")
+                if check_in.tzinfo is None:
+                    check_in = check_in.replace(tzinfo=timezone.utc)
+                local_check_in = check_in.astimezone(VN_TZ)
+                check_in_str = local_check_in.strftime("%H:%M")
             else:
                 check_in_str = str(check_in) if check_in else "N/A"
             response += f"- **{user_name}** | {status_display} | Ngày: {date} | Check-in: {check_in_str}\n"

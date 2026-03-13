@@ -1,9 +1,13 @@
 """Schedule query handler for employee work schedules"""
 import logging
 from typing import Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from bson import ObjectId
-from app.services.rag.query_handlers.base import BaseQueryHandler
+from app.services.rag.query_handlers.base import (
+    BaseQueryHandler,
+    get_today_range,
+    VN_TZ
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +24,14 @@ class ScheduleQueryHandler(BaseQueryHandler):
         return "bạn không có quyền truy cập lịch làm việc"
     
     async def _handle_today(self, query: Dict[str, Any]) -> str:
-        """Handle today's schedule query"""
+        """Handle today's schedule query with Vietnam timezone awareness"""
         collection = await self._get_collection()
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        today = datetime.now()
-        today_start = datetime(today.year, today.month, today.day)
-        today_end = today_start + timedelta(days=1)
+        # Use Vietnam timezone (UTC+7) for "today" calculation (Comment 1)
+        today_start, today_end = get_today_range(tz_offset_hours=7)
+        today = datetime.now(VN_TZ)
         query["date"] = {"$gte": today_start, "$lt": today_end}
         
         # Use $lookup to get user names
@@ -80,25 +84,31 @@ class ScheduleQueryHandler(BaseQueryHandler):
         self,
         query_type: str,
         query: Dict[str, Any],
-        message: str
+        message: str,
+        user_id: str = None
     ) -> str:
         """Handle custom schedule query types"""
         if query_type == "week":
             return await self._handle_week(query)
         elif query_type == "by_shift":
             return await self._handle_by_shift(query)
-        return await super()._handle_custom(query_type, query, message)
+        return await super()._handle_custom(query_type, query, message, user_id=user_id)
     
     async def _handle_week(self, query: Dict[str, Any]) -> str:
-        """Handle weekly schedule query"""
+        """Handle weekly schedule query with Vietnam timezone awareness"""
         collection = await self._get_collection()
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        today = datetime.now()
+        # Use Vietnam timezone (UTC+7) for week calculation (Comment 1)
+        today = datetime.now(VN_TZ)
         weekday = today.weekday()  # 0=Monday
-        week_start = datetime(today.year, today.month, today.day) - timedelta(days=weekday)
-        week_end = week_start + timedelta(days=7)
+        week_start_local = datetime(today.year, today.month, today.day, tzinfo=VN_TZ) - timedelta(days=weekday)
+        week_end_local = week_start_local + timedelta(days=7)
+        
+        # Convert to UTC for MongoDB query
+        week_start = week_start_local.astimezone(timezone.utc)
+        week_end = week_end_local.astimezone(timezone.utc)
         
         query["date"] = {"$gte": week_start, "$lt": week_end}
         
@@ -154,14 +164,13 @@ class ScheduleQueryHandler(BaseQueryHandler):
         return response
     
     async def _handle_by_shift(self, query: Dict[str, Any]) -> str:
-        """Handle schedule grouped by shift"""
+        """Handle schedule grouped by shift with Vietnam timezone awareness"""
         collection = await self._get_collection()
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
         
-        today = datetime.now()
-        today_start = datetime(today.year, today.month, today.day)
-        today_end = today_start + timedelta(days=1)
+        # Use Vietnam timezone (UTC+7) for "today" calculation (Comment 1)
+        today_start, today_end = get_today_range(tz_offset_hours=7)
         query["date"] = {"$gte": today_start, "$lt": today_end}
         
         pipeline = [

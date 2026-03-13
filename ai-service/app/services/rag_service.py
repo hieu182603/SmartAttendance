@@ -601,11 +601,16 @@ TRẢ LỜI:"""
         if not is_personal or is_aggregate:
             return query_type
         
-        # Attendance: personal question should use status_today or history_range
+        # Attendance: personal question should use status_today hoặc history_range,
+        # nhưng giữ nguyên 'by_status' nếu đã gắn khoảng thời gian (ví dụ hỏi đi muộn trong tháng).
         if intent_type == 'attendance':
+            # Nếu đã là by_status và có ngữ cảnh lịch sử (tháng/tuần), giữ nguyên.
+            history_keywords = ['tuần', 'tháng', 'lịch sử', 'week', 'month']
+            if query_type == 'by_status' and any(k in message_lower for k in history_keywords):
+                return query_type
+
             if query_type in ('today', 'count', 'by_status'):
                 # Check if it's a history question
-                history_keywords = ['tuần', 'tháng', 'lịch sử', 'week', 'month']
                 if any(k in message_lower for k in history_keywords):
                     logger.info(f"Query type override: '{query_type}' -> 'history_range' (personal history context)")
                     return 'history_range'

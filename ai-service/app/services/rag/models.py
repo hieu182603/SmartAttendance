@@ -5,6 +5,48 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+# Collection configuration mapping (Comment 11)
+# Maps logical collection names to MongoDB collection names and attribute names
+COLLECTION_CONFIG = {
+    "users": {
+        "mongo_name": "users",
+        "attr_name": "users_collection",
+    },
+    "departments": {
+        "mongo_name": "departments",
+        "attr_name": "departments_collection",
+    },
+    "branches": {
+        "mongo_name": "branches",
+        "attr_name": "branches_collection",
+    },
+    "attendance": {
+        "mongo_name": "attendances",  # Mongoose pluralizes
+        "attr_name": "attendance_collection",
+    },
+    "requests": {
+        "mongo_name": "requests",
+        "attr_name": "requests_collection",
+    },
+    "shifts": {
+        "mongo_name": "shifts",
+        "attr_name": "shifts_collection",
+    },
+    "payroll": {
+        "mongo_name": "payrollrecords",  # Mongoose lowercases PayrollRecords
+        "attr_name": "payroll_collection",
+    },
+    "employeeschedules": {
+        "mongo_name": "employeeschedules",
+        "attr_name": "employeeschedules_collection",
+    },
+    "employeeshiftassignments": {
+        "mongo_name": "employeeshiftassignments",
+        "attr_name": "employeeshiftassignments_collection",
+    },
+}
+
+
 class QueryType(Enum):
     """Query type enumeration"""
     COUNT = "count"
