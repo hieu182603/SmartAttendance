@@ -362,6 +362,37 @@ class DynamicQueryExecutor:
             logger.error(f"Error executing dynamic query: {str(e)}")
             return {"error": f"Lỗi khi thực thi truy vấn: {str(e)}"}
     
+    # Blocked pipeline stages that could cause security or performance issues (Comment 9)
+    BLOCKED_PIPELINE_STAGES = {
+        '$out',           # Writes to collection
+        '$merge',         # Writes to collection
+        '$unionWith',     # Could access unauthorized collections
+        '$collStats',     # Database statistics
+        '$indexStats',    # Index statistics
+        '$planCacheStats',# Plan cache statistics
+        '$currentOp',     # Current operations
+        '$listSessions',  # Session listing
+        '$listLocalSessions',  # Local sessions
+    }
+    
+    def _validate_pipeline_stages(self, pipeline: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Validate pipeline stages against blocked list (Comment 9).
+        
+        Args:
+            pipeline: Aggregation pipeline stages
+            
+        Returns:
+            Error message if blocked stage found, None otherwise
+        """
+        for stage in pipeline:
+            if isinstance(stage, dict):
+                for key in stage:
+                    if key in self.BLOCKED_PIPELINE_STAGES:
+                        logger.warning(f"Blocked pipeline stage attempted: {key}")
+                        return f"Pipeline stage '{key}' is not allowed for security reasons"
+        return None
+    
     async def _execute_pipeline(
         self,
         collection,
@@ -369,11 +400,16 @@ class DynamicQueryExecutor:
         query_data: Dict[str, Any],
         limit: int
     ) -> Dict[str, Any]:
-        """Execute a raw aggregation pipeline"""
+        """Execute a raw aggregation pipeline with stage validation"""
         pipeline = query_data.get("aggregation_pipeline", [])
         
         if not isinstance(pipeline, list):
             return {"error": "aggregation_pipeline phải là một danh sách các stages"}
+        
+        # Validate pipeline stages against blocked list (Comment 9)
+        validation_error = self._validate_pipeline_stages(pipeline)
+        if validation_error:
+            return {"error": validation_error}
             
         if filter_query:
             pipeline.insert(0, {"$match": filter_query})

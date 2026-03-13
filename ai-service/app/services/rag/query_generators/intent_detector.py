@@ -236,6 +236,9 @@ class IntentDetector:
         r"tôi.*mấy ngày phép",
         r"xem.*ngày phép",
         r"check.*ngày phép",
+        # Câu hỏi về "nghỉ không lương" nhưng vẫn là hỏi số ngày nghỉ, không phải lương
+        r"tôi.*(có|còn).*bao nhiêu.*ngày.*nghỉ.*không lương",
+        r"bao nhiêu.*ngày.*nghỉ.*không lương.*của tôi",
     ]
     
     # Department query patterns
@@ -348,6 +351,10 @@ class IntentDetector:
         r"hôm nay.*tôi.*có.*đi làm",
         r"tôi.*đến.*công ty.*chưa",
         r"tôi.*có mặt.*chưa",
+        # Comment 6: Add personal attendance time patterns
+        r"tôi.*điểm danh.*lúc mấy",
+        r"tôi.*điểm danh.*mấy giờ",
+        r"giờ.*điểm danh.*của tôi",
     ]
 
     # Câu hỏi dạng "tuần này / tháng này tôi đi làm mấy ngày"
@@ -399,6 +406,11 @@ class IntentDetector:
         r"hôm nay.*ai.*vắng",
         r"tình hình.*chấm công.*hôm nay",
         r"hôm nay.*tình hình.*đi làm",
+        # Comment 6: Add standalone điểm danh patterns without "tôi"
+        r"điểm danh.*hôm nay",
+        r"tình hình.*điểm danh",
+        r"xem.*điểm danh",
+        r"kiểm tra.*điểm danh",
     ]
     
     ATTENDANCE_COUNT_PATTERNS = [
@@ -417,6 +429,9 @@ class IntentDetector:
         r"nhân viên.*đi làm.*đầy đủ",
         r"tháng này.*nhân viên.*đi làm",
         r"tuần này.*nhân viên.*đi làm",
+        # Comment 6: Add điểm danh count patterns
+        r"bao nhiêu.*người.*điểm danh",
+        r"bao nhiêu.*nhân viên.*điểm danh",
     ]
     
     # NOTE: Patterns with "tôi" (personal) are now handled by
@@ -695,6 +710,12 @@ class IntentDetector:
         """Detect attendance-related queries"""
         message_lower = message.lower().strip()
         
+        # Special case: cá nhân hỏi đi muộn theo khoảng thời gian
+        # Ví dụ: "tháng này tôi có đi muộn ngày nào không?"
+        if 'đi muộn' in message_lower and ('tháng' in message_lower or 'tuần' in message_lower):
+            range_val = cls._detect_time_range(message_lower)
+            return True, 'by_status', {'status': 'late', '__range__': range_val}
+        
         # Check self-status patterns trước: "hôm nay tôi đã chấm công chưa"
         for pattern in cls.ATTENDANCE_SELF_STATUS_PATTERNS:
             if re.search(pattern, message_lower):
@@ -791,6 +812,12 @@ class IntentDetector:
     def is_payroll_query(cls, message: str) -> Tuple[bool, str, dict]:
         """Detect payroll-related queries"""
         message_lower = message.lower().strip()
+        
+        # Nếu câu hỏi đang nói về "nghỉ không lương" / số ngày nghỉ
+        # thì KHÔNG coi là câu hỏi về lương (payroll),
+        # để IntentDetector chuyển sang nhánh employee/self_leave_balance.
+        if "nghỉ không lương" in message_lower or "nghi khong luong" in message_lower:
+            return False, "", {}
         
         # Check personal salary patterns first
         for pattern in cls.PAYROLL_SELF_PATTERNS:

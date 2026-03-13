@@ -69,11 +69,11 @@ const userSchema = new mongoose.Schema(
         remaining: { type: Number, default: 30 },
         pending: { type: Number, default: 0 },
       },
-      // Nghỉ không lương
+      // Nghỉ không lương (giới hạn tối đa 30 ngày/năm)
       unpaid: {
-        total: { type: Number, default: 999 },
+        total: { type: Number, default: 30 },
         used: { type: Number, default: 0 },
-        remaining: { type: Number, default: 999 },
+        remaining: { type: Number, default: 30 },
         pending: { type: Number, default: 0 },
       },
       // Nghỉ bù
@@ -175,7 +175,7 @@ userSchema.methods.initializeLeaveBalance = function () {
     this.leaveBalance = {
       annual: { total: 12, used: 0, remaining: 12, pending: 0 },
       sick: { total: 30, used: 0, remaining: 30, pending: 0 },
-      unpaid: { total: 999, used: 0, remaining: 999, pending: 0 },
+      unpaid: { total: 30, used: 0, remaining: 30, pending: 0 },
       compensatory: { total: 0, used: 0, remaining: 0, pending: 0 },
       maternity: { total: 180, used: 0, remaining: 180, pending: 0 },
     };

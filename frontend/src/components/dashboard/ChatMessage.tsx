@@ -1,6 +1,6 @@
 import React from 'react';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Bot, User, Clock } from 'lucide-react';
+import { Bot, User, Clock, Sparkles } from 'lucide-react';
 import { ChatMessage as ChatMessageType } from '../../services/chatbotService';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
@@ -13,7 +13,7 @@ interface ChatMessageProps {
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   message
 }) => {
-  const { t } = useTranslation();
+  useTranslation();
 
   const formatTimestamp = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -35,24 +35,35 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   return (
     <div className={`flex gap-2.5 mb-4 w-full ${isAssistant ? 'justify-start' : 'justify-end'}`}>
       {isAssistant && (
-        <Avatar className="w-8 h-8 mt-1 shrink-0 shadow-sm">
-          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-indigo-600 text-white">
-            <Bot className="w-4 h-4" />
-          </AvatarFallback>
-        </Avatar>
+        <div className="w-10 h-10 mt-1 shrink-0 group perspective-1000">
+          <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#6366f1] via-[#a855f7] to-[#ec4899] p-0.5 shadow-lg group-hover:rotate-12 transition-transform duration-500">
+            <Avatar className="w-full h-full rounded-full bg-slate-900 border border-white/10">
+              <AvatarFallback className="bg-transparent text-white">
+                <Bot className="w-5 h-5" />
+              </AvatarFallback>
+            </Avatar>
+          </div>
+        </div>
       )}
 
       <div className={`flex flex-col max-w-[82%] ${isAssistant ? 'items-start' : 'items-end'}`}>
         {isAssistant && (
-          <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mb-1 ml-0.5">
+          <span className="text-[10px] font-black text-indigo-500/90 dark:text-indigo-400 mb-2 ml-1 flex items-center gap-1.5 uppercase tracking-[2px]">
             SmartBot
+            <div className="flex gap-0.5">
+              <Sparkles className="w-3 h-3 text-violet-400 animate-pulse" />
+            </div>
           </span>
         )}
 
-        <div className={`px-3.5 py-2.5 text-[13.5px] leading-relaxed ${isAssistant
-          ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/50 rounded-2xl rounded-tl-md shadow-sm'
-          : 'bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-2xl rounded-tr-md shadow-sm shadow-indigo-500/20'
+        <div className={`px-4 py-3.5 text-[14px] leading-relaxed relative overflow-hidden ${isAssistant
+          ? 'bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl text-slate-700 dark:text-slate-100 border border-white/40 dark:border-white/5 rounded-2.5xl rounded-tl-sm shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none'
+          : 'bg-gradient-to-br from-[#4f46e5] via-[#7c3aed] to-[#8b5cf6] text-white rounded-2.5xl rounded-tr-sm shadow-xl shadow-indigo-500/20 border border-white/10'
           }`}>
+          {/* Decorative glass highlight */}
+          {isAssistant && (
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent opacity-50" />
+          )}
           <div className={`prose prose-sm max-w-none ${isAssistant ? 'prose-slate dark:prose-invert' : 'prose-invert'} 
             prose-p:leading-relaxed prose-p:my-1
             prose-pre:bg-slate-900 prose-pre:text-slate-50 prose-pre:rounded-lg prose-pre:p-3 prose-pre:text-xs prose-pre:my-2
@@ -84,11 +95,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       </div>
 
       {!isAssistant && (
-        <Avatar className="w-8 h-8 mt-1 shrink-0 shadow-sm">
-          <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-blue-600 text-white font-bold text-xs">
-            <User className="w-4 h-4" />
-          </AvatarFallback>
-        </Avatar>
+        <div className="w-10 h-10 mt-1 shrink-0">
+          <Avatar className="w-full h-full shadow-lg border-2 border-slate-100 dark:border-slate-800 rounded-full overflow-hidden">
+            <AvatarFallback className="bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-black text-[10px] uppercase tracking-tighter">
+              <User className="w-5 h-5" />
+            </AvatarFallback>
+          </Avatar>
+        </div>
       )}
     </div>
   );

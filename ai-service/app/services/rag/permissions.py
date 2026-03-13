@@ -72,6 +72,32 @@ class PermissionChecker:
             else:
                 return False, {}
         
+        # Employee schedules collection (Comment 3)
+        elif collection == 'employeeschedules':
+            if role_lower in PermissionChecker.HIGH_ROLES:
+                return True, {}
+            elif role_lower in PermissionChecker.MID_ROLES and user_department_id:
+                # Manager/supervisor can see schedules for their department
+                return True, {'__department_filter__': user_department_id}
+            elif role_lower in ['employee', 'trial'] and user_id:
+                # Employees can only see their own schedules
+                return True, {'userId': user_id}
+            else:
+                return False, {}
+        
+        # Employee shift assignments collection (Comment 3)
+        elif collection == 'employeeshiftassignments':
+            if role_lower in PermissionChecker.HIGH_ROLES:
+                return True, {}
+            elif role_lower in PermissionChecker.MID_ROLES and user_department_id:
+                # Manager/supervisor can see shift assignments for their department
+                return True, {'__department_filter__': user_department_id}
+            elif role_lower in ['employee', 'trial'] and user_id:
+                # Employees can only see their own shift assignments
+                return True, {'userId': user_id}
+            else:
+                return False, {}
+        
         return False, {}
     
     @staticmethod

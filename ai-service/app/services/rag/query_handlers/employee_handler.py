@@ -321,6 +321,12 @@ class EmployeeQueryHandler(BaseQueryHandler):
         is_self = display_name is None
 
         def _extract_type(data, key):
+            """
+            Helper: đọc cấu trúc leaveBalance cho từng loại.
+            Trước đây frontend dùng 999/null cho một số loại để biểu thị "không giới hạn",
+            nhưng hiện tại nghiệp vụ đã chuẩn hóa lại theo số ngày cụ thể (ví dụ nghỉ không lương 30 ngày/năm).
+            Vì vậy ở chatbot sẽ hiển thị đúng theo total/remaining thực tế, KHÔNG coi 999 là vô hạn nữa.
+            """
             t = data.get(key) or {}
             return {
                 "total": t.get("total", 0),
@@ -342,15 +348,22 @@ class EmployeeQueryHandler(BaseQueryHandler):
             summary = f"**✅ {name} hiện còn {annual['remaining']} / {annual['total']} ngày phép năm.**"
 
         subject = "bạn" if is_self else name
+        # Helper format cho từng loại
+        def _format_leave_line(label: str, info: dict) -> str:
+            return (
+                f"- {label}: **còn {info['remaining']} / {info['total']} ngày**, "
+                f"chờ duyệt: {info['pending']} ngày"
+            )
+
         lines = [
             summary,
             "",
             f"📅 **Chi tiết số ngày phép của {subject}:**",
-            f"- Phép năm: **còn {annual['remaining']} / {annual['total']} ngày**, chờ duyệt: {annual['pending']} ngày",
-            f"- Nghỉ ốm: còn {sick['remaining']} / {sick['total']} ngày, chờ duyệt: {sick['pending']} ngày",
-            f"- Nghỉ không lương: còn {unpaid['remaining']} / {unpaid['total']} ngày, chờ duyệt: {unpaid['pending']} ngày",
-            f"- Nghỉ bù: còn {compensatory['remaining']} / {compensatory['total']} ngày, chờ duyệt: {compensatory['pending']} ngày",
-            f"- Nghỉ thai sản: còn {maternity['remaining']} / {maternity['total']} ngày, chờ duyệt: {maternity['pending']} ngày",
+            _format_leave_line("Phép năm", annual),
+            _format_leave_line("Nghỉ ốm", sick),
+            _format_leave_line("Nghỉ không lương", unpaid),
+            _format_leave_line("Nghỉ bù", compensatory),
+            _format_leave_line("Nghỉ thai sản", maternity),
         ]
 
         return "\n".join(lines)

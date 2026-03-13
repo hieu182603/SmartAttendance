@@ -1,12 +1,99 @@
 """Base query handler for RAG service"""
 import logging
+import re
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List, Tuple
+from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 from app.services.rag.permissions import PermissionChecker
 
 logger = logging.getLogger(__name__)
+
+# Vietnam timezone (UTC+7)
+VN_TZ = timezone(timedelta(hours=7))
+
+
+def get_today_range(tz_offset_hours: int = 7) -> Tuple[datetime, datetime]:
+    """
+    Compute "today" boundaries in UTC for a given timezone offset.
+    
+    This ensures that "today" queries match the local date in the target timezone
+    (e.g., Vietnam = UTC+7), then converts those boundaries to UTC for MongoDB queries.
+    
+    Args:
+        tz_offset_hours: Timezone offset from UTC (default: 7 for Vietnam)
+        
+    Returns:
+        Tuple of (today_start_utc, today_end_utc) as timezone-aware UTC datetimes
+    """
+    local_tz = timezone(timedelta(hours=tz_offset_hours))
+    now_local = datetime.now(local_tz)
+    
+    # Get start of today in local timezone (midnight)
+    today_start_local = datetime(
+        now_local.year, now_local.month, now_local.day,
+        tzinfo=local_tz
+    )
+    today_end_local = today_start_local + timedelta(days=1)
+    
+    # Convert to UTC for MongoDB queries
+    today_start_utc = today_start_local.astimezone(timezone.utc)
+    today_end_utc = today_end_local.astimezone(timezone.utc)
+    
+    return today_start_utc, today_end_utc
+
+
+def get_date_range_for_period(
+    range_value: str,
+    tz_offset_hours: int = 7
+) -> Tuple[datetime, datetime, str]:
+    """
+    Compute date range boundaries for common periods (week, month, last_week, last_month).
+    
+    Args:
+        range_value: One of 'week', 'month', 'last_week', 'last_month'
+        tz_offset_hours: Timezone offset from UTC (default: 7 for Vietnam)
+        
+    Returns:
+        Tuple of (start_utc, end_utc, range_label)
+    """
+    local_tz = timezone(timedelta(hours=tz_offset_hours))
+    now_local = datetime.now(local_tz)
+    today_local = datetime(now_local.year, now_local.month, now_local.day, tzinfo=local_tz)
+    
+    if range_value == "last_month":
+        if now_local.month == 1:
+            start_local = datetime(now_local.year - 1, 12, 1, tzinfo=local_tz)
+            end_local = datetime(now_local.year, 1, 1, tzinfo=local_tz)
+        else:
+            start_local = datetime(now_local.year, now_local.month - 1, 1, tzinfo=local_tz)
+            end_local = datetime(now_local.year, now_local.month, 1, tzinfo=local_tz)
+        range_label = "tháng trước"
+    elif range_value == "last_week":
+        weekday = now_local.weekday()  # 0 = Monday
+        this_week_start = today_local - timedelta(days=weekday)
+        start_local = this_week_start - timedelta(days=7)
+        end_local = this_week_start
+        range_label = "tuần trước"
+    elif range_value == "month":
+        start_local = datetime(now_local.year, now_local.month, 1, tzinfo=local_tz)
+        if now_local.month == 12:
+            end_local = datetime(now_local.year + 1, 1, 1, tzinfo=local_tz)
+        else:
+            end_local = datetime(now_local.year, now_local.month + 1, 1, tzinfo=local_tz)
+        range_label = "tháng này"
+    else:
+        # Default: current week (Monday to Sunday)
+        weekday = now_local.weekday()  # 0 = Monday
+        start_local = today_local - timedelta(days=weekday)
+        end_local = start_local + timedelta(days=7)
+        range_label = "tuần này"
+    
+    # Convert to UTC
+    start_utc = start_local.astimezone(timezone.utc)
+    end_utc = end_local.astimezone(timezone.utc)
+    
+    return start_utc, end_utc, range_label
 
 
 class BaseQueryHandler(ABC):
@@ -188,10 +275,14 @@ class BaseQueryHandler(ABC):
             elif query_type == 'average':
                 return await self._handle_average(query)
             else:
-                return await self._handle_custom(query_type, query, message)
+                return await self._handle_custom(query_type, query, message, user_id=user_id)
         
         except Exception as e:
-            logger.error(f"Error handling {self.collection_name} query: {str(e)}")
+            # Enhanced error logging with full stack trace and query parameters
+            logger.error(
+                f"Error handling {self.collection_name} query (type={query_type}, role={role}): {str(e)}",
+                exc_info=True
+            )
             return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu. Vui lòng thử lại sau hoặc liên hệ bộ phận hỗ trợ."
     
     async def _resolve_employee_by_name(self, name: str) -> Optional[Dict[str, Any]]:
@@ -210,8 +301,10 @@ class BaseQueryHandler(ABC):
             return None
         
         try:
+            # Escape regex special characters to prevent ReDoS or data leakage
+            safe_name = re.escape(name)
             user = await users_collection.find_one(
-                {"name": {"$regex": name, "$options": "i"}, "isActive": True}
+                {"name": {"$regex": safe_name, "$options": "i"}, "isActive": True}
             )
             if user:
                 logger.debug(f"Resolved employee name '{name}' to userId: {user['_id']}")
@@ -305,10 +398,8 @@ class BaseQueryHandler(ABC):
         return await self._handle_count(query)
     
     async def _handle_today(self, query: Dict[str, Any]) -> str:
-        """Handle today query"""
-        today = datetime.now()
-        today_start = datetime(today.year, today.month, today.day)
-        today_end = today_start + timedelta(days=1)
+        """Handle today query with Vietnam timezone (UTC+7) awareness"""
+        today_start, today_end = get_today_range(tz_offset_hours=7)
         query["date"] = {"$gte": today_start, "$lt": today_end}
         return await self._handle_count(query)
     
@@ -339,7 +430,8 @@ class BaseQueryHandler(ABC):
         self, 
         query_type: str, 
         query: Dict[str, Any], 
-        message: str
+        message: str,
+        user_id: str = None
     ) -> str:
         """Handle custom query types"""
         return f"Xin lỗi, tôi chưa hiểu rõ câu hỏi về {self.collection_name}."
