@@ -23,7 +23,8 @@ const employeeScheduleSchema = new mongoose.Schema(
     shiftId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Shift",
-      required: true,
+      // Cho phép null cho các ngày nghỉ (status = 'off') được tạo từ đơn nghỉ
+      required: false,
     },
 
     // Thông tin ca làm (denormalized để dễ query)

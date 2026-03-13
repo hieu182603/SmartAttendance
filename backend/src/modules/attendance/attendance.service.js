@@ -317,19 +317,33 @@ export const getDateOnly = (date = new Date()) => {
 // ============================================================================
 
 /**
- * Xác định trạng thái chấm công
+ * Xác định trạng thái chấm công (phục vụ hiển thị)
  * @param {Object} doc - Document attendance
  * @returns {string} Status: 'ontime' | 'late' | 'absent' | 'overtime' | 'weekend' | 'on_leave'
+ *
+ * Lưu ý:
+ * - Không dùng status = 'weekend' để che đi việc vắng mặt cuối tuần nữa.
+ * - UI lịch sẽ tự phân biệt ngày cuối tuần dựa trên dayOfWeek,
+ *   còn payroll dùng dayOfWeek để phân loại OT weekday/weekend.
  */
 export const deriveStatus = (doc) => {
   const dow = new Date(doc.date).getDay();
-  if (dow === 0 || dow === 6) {
-    return "weekend";
+
+  // Trạng thái nghỉ phép đã được duyệt
+  if (doc.status === "on_leave") return "on_leave";
+
+  // Không có check-in/check-out → vắng
+  if (!doc.checkIn && !doc.checkOut) {
+    return "absent";
   }
-  if (doc.status === "absent") return "absent";
+
+  // Đi muộn
   if (doc.status === "late") return "late";
+
+  // Tăng ca (trên 8h thực tế)
   if (doc.workHours && doc.workHours > 8) return "overtime";
-  if (!doc.checkIn && !doc.checkOut) return "absent";
+
+  // Mặc định: đi làm đúng giờ
   return "ontime";
 };
 
@@ -878,23 +892,9 @@ export const processCheckIn = async (
     const now = new Date();
     const dateOnly = getDateOnly(now);
 
-    // Chặn chấm công vào cuối tuần (Thứ Bảy và Chủ Nhật) nếu config không cho phép
+    // Thông tin ngày trong tuần
     const dayOfWeek = now.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-    // Kiểm tra ENABLE_WEEKEND_CHECKIN từ env hoặc mặc định false
-    const enableWeekendAttendance =
-      process.env.ENABLE_WEEKEND_CHECKIN === "true";
-
-    if (isWeekend && !enableWeekendAttendance) {
-      const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
-      return {
-        success: false,
-        data: null,
-        error: `Không thể chấm công vào ${dayName}. Hệ thống chỉ cho phép chấm công từ Thứ Hai đến Thứ Sáu.`,
-        code: "WEEKEND_NOT_ALLOWED",
-      };
-    }
 
     // Chặn chấm công nếu hôm nay đang trong thời gian nghỉ đã được duyệt
     try {
@@ -930,8 +930,28 @@ export const processCheckIn = async (
       // console.warn("[attendance] leave check failed", leaveCheckError);
     }
 
-    // Get schedule and shift info
+    // Lấy schedule trong ngày (dùng cho cả logic cuối tuần & ca làm việc)
     const schedule = await getUserSchedule(userId, dateOnly);
+
+    // Logic cuối tuần:
+    // - Nếu có ca cuối tuần (schedule && status !== 'off') → cho phép chấm công, bỏ qua env
+    // - Nếu KHÔNG có ca cuối tuần → vẫn tôn trọng env ENABLE_WEEKEND_CHECKIN (mặc định chặn)
+    if (isWeekend) {
+      const hasWeekendShift = schedule && schedule.status !== "off";
+      const weekendEnvEnabled =
+        process.env.ENABLE_WEEKEND_CHECKIN === "true";
+
+      if (!hasWeekendShift && !weekendEnvEnabled) {
+        const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
+        return {
+          success: false,
+          data: null,
+          error: `Không thể chấm công vào ${dayName}. Hệ thống chỉ cho phép chấm công từ Thứ Hai đến Thứ Sáu hoặc khi có ca làm việc được gán cuối tuần.`,
+          code: "WEEKEND_NOT_ALLOWED",
+        };
+      }
+    }
+
     const shiftInfo = await getShiftInfo(schedule);
 
     // Check if can check-in early
@@ -1107,22 +1127,9 @@ export const processCheckOut = async (
     const now = new Date();
     const dateOnly = getDateOnly(now);
 
-    // Chặn check-out vào cuối tuần (Thứ Bảy và Chủ Nhật) nếu config không cho phép
+    // Thông tin ngày trong tuần
     const dayOfWeek = now.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-    const enableWeekendAttendance =
-      process.env.ENABLE_WEEKEND_CHECKIN === "true";
-
-    if (isWeekend && !enableWeekendAttendance) {
-      const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
-      return {
-        success: false,
-        data: null,
-        error: `Không thể check-out vào ${dayName}. Hệ thống chỉ cho phép chấm công từ Thứ Hai đến Thứ Sáu.`,
-        code: "WEEKEND_NOT_ALLOWED",
-      };
-    }
 
     // ── Face verification for check-out (optimized, optional) ──
     let faceVerified = false;
@@ -1182,6 +1189,23 @@ export const processCheckOut = async (
 
     // Get schedule and shift info
     const schedule = await getUserSchedule(userId, dateOnly);
+
+    if (isWeekend) {
+      const hasWeekendShift = schedule && schedule.status !== "off";
+      const weekendEnvEnabled =
+        process.env.ENABLE_WEEKEND_CHECKIN === "true";
+
+      if (!hasWeekendShift && !weekendEnvEnabled) {
+        const dayName = dayOfWeek === 0 ? "Chủ Nhật" : "Thứ Bảy";
+        return {
+          success: false,
+          data: null,
+          error: `Không thể check-out vào ${dayName}. Hệ thống chỉ cho phép chấm công từ Thứ Hai đến Thứ Sáu hoặc khi có ca làm việc được gán cuối tuần.`,
+          code: "WEEKEND_NOT_ALLOWED",
+        };
+      }
+    }
+
     const shiftInfo = await getShiftInfo(schedule);
 
     // Calculate work time

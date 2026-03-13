@@ -16,6 +16,7 @@ import {
   deactivateAssignment,
   getMyShift,
   getMySchedule,
+  assignShiftToDepartments,
 } from "./shift.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireRole, ROLES } from "../../middleware/role.middleware.js";
@@ -34,6 +35,7 @@ router.delete("/assignments/:assignmentId", authMiddleware, requireRole([ROLES.A
 router.get("/:shiftId/employees", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), getEmployeesByShift);
 router.post("/:shiftId/assign", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), assignShiftToEmployee);
 router.post("/:shiftId/assign/bulk", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), bulkAssignShift);
+router.post("/:shiftId/assign/departments", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), assignShiftToDepartments);
 router.delete("/:shiftId/assign/:userId", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), removeShiftFromEmployee);
 
 // Routes CRUD cơ bản

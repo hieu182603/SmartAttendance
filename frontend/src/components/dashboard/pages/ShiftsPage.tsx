@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Clock, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import shiftService from '@/services/shiftService';
+import { getDepartmentsList, type DepartmentListResponse } from '@/services/departmentService';
+import { getAllUsers } from '@/services/userService';
 
 interface Shift {
   _id?: string;
@@ -21,6 +24,18 @@ interface Shift {
   isActive?: boolean;
   employees?: number;
   color?: string;
+}
+
+interface SimpleDepartment {
+  _id: string;
+  name: string;
+  code: string;
+}
+
+interface SimpleUser {
+  _id: string;
+  name?: string;
+  email?: string;
 }
 
 const getColorClass = (color: string) => {
@@ -66,9 +81,63 @@ export function ShiftsPage() {
     description: '',
   });
 
+  // Gán ca
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [assignShift, setAssignShift] = useState<Shift | null>(null);
+  const [departments, setDepartments] = useState<SimpleDepartment[]>([]);
+  const [users, setUsers] = useState<SimpleUser[]>([]);
+  const [assignForm, setAssignForm] = useState({
+    departmentIds: [] as string[],
+    userIds: [] as string[],
+    pattern: "weekdays",
+    effectiveFrom: "",
+    effectiveTo: "",
+    specificDatesText: "",
+  });
+  const [deptSearch, setDeptSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [isAssignSubmitting, setIsAssignSubmitting] = useState(false);
+
   useEffect(() => {
     loadShifts();
   }, []);
+
+  // Load departments & users dùng cho dialog gán ca
+  useEffect(() => {
+    const loadMeta = async () => {
+      try {
+        const [deptRes, usersRes] = await Promise.all([
+          getDepartmentsList(),
+          getAllUsers({ page: 1, limit: 500 }) as Promise<{
+            users?: SimpleUser[];
+          }>,
+        ]);
+
+        const deptList =
+          (deptRes as DepartmentListResponse).departments?.map((d) => ({
+            _id: d._id,
+            name: d.name,
+            code: d.code,
+          })) || [];
+
+        const userList = (usersRes.users || []).map((u) => ({
+          _id: u._id as string,
+          name: u.name,
+          email: u.email,
+        }));
+
+        setDepartments(deptList);
+        setUsers(userList);
+      } catch (error) {
+        console.error("[ShiftsPage] Failed to load departments/users for assignment", error);
+      }
+    };
+
+    // Chỉ load một lần khi mở dialog lần đầu
+    if (isAssignDialogOpen && departments.length === 0 && users.length === 0) {
+      loadMeta();
+    }
+  }, [isAssignDialogOpen, departments.length, users.length]);
 
   const loadShifts = async () => {
     try {
@@ -130,6 +199,82 @@ export function ShiftsPage() {
       description: shift.description || '',
     });
     setIsEditDialogOpen(true);
+  };
+
+  const handleOpenAssign = (shift: Shift) => {
+    setAssignShift(shift);
+    setAssignForm({
+      departmentIds: [],
+      userIds: [],
+      pattern: "weekdays",
+      effectiveFrom: "",
+      effectiveTo: "",
+      specificDatesText: "",
+    });
+    setIsAssignDialogOpen(true);
+  };
+
+  const toggleArrayValue = (current: string[], value: string): string[] => {
+    if (current.includes(value)) {
+      return current.filter((v) => v !== value);
+    }
+    return [...current, value];
+  };
+
+  const handleSubmitAssign = async () => {
+    if (!assignShift) return;
+
+    if (
+      assignForm.departmentIds.length === 0 &&
+      assignForm.userIds.length === 0
+    ) {
+      toast.error("Vui lòng chọn ít nhất một phòng ban hoặc nhân viên");
+      return;
+    }
+
+    const payload: any = {
+      departmentIds: assignForm.departmentIds,
+      userIds: assignForm.userIds,
+      pattern: assignForm.pattern,
+    };
+
+    if (assignForm.effectiveFrom) payload.effectiveFrom = assignForm.effectiveFrom;
+    if (assignForm.effectiveTo) payload.effectiveTo = assignForm.effectiveTo;
+
+    if (assignForm.pattern === "custom") {
+      // daysOfWeek: mặc định T2–T6
+      payload.daysOfWeek = [1, 2, 3, 4, 5];
+    }
+
+    if (assignForm.pattern === "specific") {
+      const dates = assignForm.specificDatesText
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (dates.length === 0) {
+        toast.error("Vui lòng nhập ít nhất một ngày cụ thể (YYYY-MM-DD)");
+        return;
+      }
+      payload.pattern = "specific";
+      payload.specificDates = dates;
+    }
+
+    try {
+      setIsAssignSubmitting(true);
+      const loadingToastId = toast.loading("Đang gán ca cho nhân viên/phòng ban...");
+
+      await shiftService.assignShiftToDepartments(assignShift._id || assignShift.id!, payload);
+
+      toast.dismiss(loadingToastId);
+      toast.success("Đã gán ca làm việc thành công");
+      setIsAssignDialogOpen(false);
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message || error.message || "Không thể gán ca làm việc";
+      toast.error(errorMessage);
+    } finally {
+      setIsAssignSubmitting(false);
+    }
   };
 
   const handleSubmitEdit = async () => {
@@ -303,6 +448,14 @@ export function ShiftsPage() {
                   </div>
                 </div>
                 <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAssign(shift)}
+                    className="p-2 hover:bg-[var(--shell)] rounded text-[var(--accent-cyan)]"
+                    title="Gán ca cho nhân viên/phòng ban"
+                  >
+                    <Users className="h-4 w-4" />
+                  </button>
                   <button 
                     type="button"
                     onClick={() => handleEditShift(shift)}
@@ -513,6 +666,216 @@ export function ShiftsPage() {
               className="bg-[var(--error)] hover:bg-[var(--error)]/90 text-white"
             >
               Xóa ca làm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Dialog */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Gán ca làm việc</DialogTitle>
+            <DialogDescription className="text-[var(--text-sub)]">
+              Chọn phòng ban / nhân viên và khoảng ngày áp dụng cho ca{" "}
+              <span className="font-semibold">{assignShift?.name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 max-h-[480px] overflow-y-auto">
+            {/* Departments */}
+            <div className="space-y-3">
+              <h3 className="font-medium text-[var(--text-main)] flex items-center gap-2">
+                Phòng ban
+              </h3>
+              <Input
+                placeholder="Tìm theo tên hoặc mã phòng ban..."
+                className="bg-[var(--input-bg)] border-[var(--border)] text-sm"
+                value={deptSearch}
+                onChange={(e) => setDeptSearch(e.target.value)}
+              />
+              <div className="border border-[var(--border)] rounded-md h-56 overflow-y-auto p-2 space-y-1 bg-[var(--shell)]">
+                {departments
+                  .filter((dept) => {
+                    if (!deptSearch.trim()) return true;
+                    const q = deptSearch.toLowerCase();
+                    return (
+                      dept.name.toLowerCase().includes(q) ||
+                      dept.code.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((dept) => {
+                  const checked = assignForm.departmentIds.includes(dept._id);
+                  return (
+                    <label
+                      key={dept._id}
+                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[var(--surface)] cursor-pointer text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-[var(--accent-cyan)]"
+                        checked={checked}
+                        onChange={() =>
+                          setAssignForm((prev) => ({
+                            ...prev,
+                            departmentIds: toggleArrayValue(prev.departmentIds, dept._id),
+                          }))
+                        }
+                      />
+                      <span className="text-[var(--text-main)]">
+                        {dept.name} ({dept.code})
+                      </span>
+                    </label>
+                  );
+                })}
+                {departments.length === 0 && (
+                  <p className="text-xs text-[var(--text-sub)] px-2 py-1">
+                    Không tìm thấy phòng ban.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Users */}
+            <div className="space-y-3">
+              <h3 className="font-medium text-[var(--text-main)] flex items-center gap-2">
+                Nhân viên
+              </h3>
+              <Input
+                placeholder="Tìm theo tên hoặc email nhân viên..."
+                className="bg-[var(--input-bg)] border-[var(--border)] text-sm"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+              />
+              <div className="border border-[var(--border)] rounded-md h-56 overflow-y-auto p-2 space-y-1 bg-[var(--shell)]">
+                {users
+                  .filter((user) => {
+                    if (!userSearch.trim()) return true;
+                    const q = userSearch.toLowerCase();
+                    const name = user.name || "";
+                    const email = user.email || "";
+                    return (
+                      name.toLowerCase().includes(q) ||
+                      email.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((user) => {
+                  const checked = assignForm.userIds.includes(user._id);
+                  return (
+                    <label
+                      key={user._id}
+                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[var(--surface)] cursor-pointer text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-[var(--accent-cyan)]"
+                        checked={checked}
+                        onChange={() =>
+                          setAssignForm((prev) => ({
+                            ...prev,
+                            userIds: toggleArrayValue(prev.userIds, user._id),
+                          }))
+                        }
+                      />
+                      <span className="text-[var(--text-main)]">
+                        {user.name || user.email || user._id}
+                      </span>
+                    </label>
+                  );
+                })}
+                {users.length === 0 && (
+                  <p className="text-xs text-[var(--text-sub)] px-2 py-1">
+                    Không tìm thấy nhân viên.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Pattern & dates */}
+            <div className="space-y-4 md:col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Kiểu lặp</Label>
+                  <select
+                    className="w-full bg-[var(--input-bg)] border-[var(--border)] rounded-md px-3 py-2 text-sm"
+                    value={assignForm.pattern}
+                    onChange={(e) =>
+                      setAssignForm((prev) => ({
+                        ...prev,
+                        pattern: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="weekdays">Thứ 2 - Thứ 6</option>
+                    <option value="weekends">Cuối tuần (T7, CN)</option>
+                    <option value="all">Tất cả các ngày</option>
+                    <option value="specific">Ngày cụ thể</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Từ ngày</Label>
+                  <Input
+                    type="date"
+                    className="bg-[var(--input-bg)] border-[var(--border)]"
+                    value={assignForm.effectiveFrom}
+                    onChange={(e) =>
+                      setAssignForm((prev) => ({
+                        ...prev,
+                        effectiveFrom: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Đến ngày</Label>
+                  <Input
+                    type="date"
+                    className="bg-[var(--input-bg)] border-[var(--border)]"
+                    value={assignForm.effectiveTo}
+                    onChange={(e) =>
+                      setAssignForm((prev) => ({
+                        ...prev,
+                        effectiveTo: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              {assignForm.pattern === "specific" && (
+                <div className="space-y-2">
+                  <Label>Ngày cụ thể (YYYY-MM-DD, cách nhau bởi dấu phẩy)</Label>
+                  <Input
+                    placeholder="2026-03-20, 2026-03-27"
+                    className="bg-[var(--input-bg)] border-[var(--border)]"
+                    value={assignForm.specificDatesText}
+                    onChange={(e) =>
+                      setAssignForm((prev) => ({
+                        ...prev,
+                        specificDatesText: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsAssignDialogOpen(false)}
+              className="border-[var(--border)] text-[var(--text-main)]"
+              disabled={isAssignSubmitting}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleSubmitAssign}
+              className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
+              disabled={isAssignSubmitting}
+            >
+              {isAssignSubmitting ? "Đang gán..." : "Gán ca"}
             </Button>
           </DialogFooter>
         </DialogContent>

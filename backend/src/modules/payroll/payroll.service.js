@@ -174,17 +174,24 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
   let totalOvertimeHours = 0;
 
   for (const a of attendances) {
-    if (a.workHours > 8) {
-      const otHours = a.workHours - 8;
-      totalOvertimeHours += otHours;
+    const dayOfWeek = new Date(a.date).getUTCDay();
 
-      const dayOfWeek = new Date(a.date).getUTCDay();
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        // Thứ 7 / Chủ nhật
-        overtimeDetails.weekend += otHours;
-      } else {
-        // Ngày thường (T2-T6)
+    // Ngày thường (T2–T6): chỉ tính OT cho phần vượt quá 8h
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      if (a.workHours > 8) {
+        const otHours = a.workHours - 8;
+        totalOvertimeHours += otHours;
         overtimeDetails.weekday += otHours;
+      }
+      continue;
+    }
+
+    // Cuối tuần (T7/CN): toàn bộ giờ làm được tính là OT weekend
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      if (a.workHours > 0) {
+        const otHours = a.workHours;
+        totalOvertimeHours += otHours;
+        overtimeDetails.weekend += otHours;
       }
     }
   }

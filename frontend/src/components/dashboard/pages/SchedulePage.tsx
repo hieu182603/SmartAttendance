@@ -232,165 +232,158 @@ const SchedulePage: React.FC = () => {
             ) || availableShifts[0];
         }
 
-        // Generate schedule for all days in range
+        // Generate schedule for all days in range (hiển thị đủ 7 ngày)
         const finalSchedule: EmployeeSchedule[] = [];
         const cursor = new Date(rangeStart);
 
         while (cursor <= rangeEnd) {
           const currentDate = new Date(cursor);
-          const dayOfWeek = currentDate.getDay();
+          const dateStr = currentDate.toISOString().split("T")[0];
+          const isPast = currentDate < today;
+          const attendance = attendanceMap.get(dateStr);
+          const assignedSchedule = scheduleMap.get(dateStr);
 
-          // Chỉ hiển thị từ Thứ 2 đến Thứ 6 (loại bỏ Thứ 7 và Chủ nhật)
-          if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-            const dateStr = currentDate.toISOString().split("T")[0];
-            const isPast = currentDate < today;
-            const attendance = attendanceMap.get(dateStr);
-            const assignedSchedule = scheduleMap.get(dateStr);
+          // Nếu có schedule được gán, sử dụng nó
+          let scheduleToUse = assignedSchedule;
 
-            // Nếu có schedule được gán, sử dụng nó
-            let scheduleToUse = assignedSchedule;
+          // Fallback: Chỉ dùng default shift khi đã có ít nhất 1 schedule thật
+          // (scheduleMap.size > 0) để lấp các ngày trống.
+          if (!scheduleToUse && fallbackShift && scheduleMap.size > 0) {
+            scheduleToUse = {
+              shiftId: fallbackShift._id,
+              shiftName: fallbackShift.name,
+              startTime: fallbackShift.startTime,
+              endTime: fallbackShift.endTime,
+              breakDuration: fallbackShift.breakDuration || 60,
+              description: fallbackShift.description || "",
+            };
+          }
 
-            // Fallback: Chỉ dùng default shift khi đã có ít nhất 1 schedule thật
-            // (scheduleMap.size > 0) để lấp các ngày trống.
-            if (!scheduleToUse && fallbackShift && scheduleMap.size > 0) {
-              scheduleToUse = {
-                shiftId: fallbackShift._id,
-                shiftName: fallbackShift.name,
-                startTime: fallbackShift.startTime,
-                endTime: fallbackShift.endTime,
-                breakDuration: fallbackShift.breakDuration || 60,
-                description: fallbackShift.description || "",
-              };
-            }
+          if (scheduleToUse) {
+            const shiftId =
+              scheduleToUse.shiftId?._id || scheduleToUse.shiftId || "";
+            const shiftName =
+              scheduleToUse.shiftName || scheduleToUse.shiftId?.name || "";
+            const startTime =
+              scheduleToUse.startTime ||
+              scheduleToUse.shiftId?.startTime ||
+              "";
+            const endTime =
+              scheduleToUse.endTime || scheduleToUse.shiftId?.endTime || "";
+            const breakDuration =
+              scheduleToUse.shiftId?.breakDuration ||
+              scheduleToUse.breakDuration ||
+              60;
+            const description =
+              scheduleToUse.shiftId?.description ||
+              scheduleToUse.description ||
+              "";
+            const dbStatus = scheduleToUse.status as ShiftStatus | undefined;
 
-            if (scheduleToUse) {
-              const shiftId =
-                scheduleToUse.shiftId?._id || scheduleToUse.shiftId || "";
-              const shiftName =
-                scheduleToUse.shiftName || scheduleToUse.shiftId?.name || "";
-              const startTime =
-                scheduleToUse.startTime ||
-                scheduleToUse.shiftId?.startTime ||
-                "";
-              const endTime =
-                scheduleToUse.endTime || scheduleToUse.shiftId?.endTime || "";
-              const breakDuration =
-                scheduleToUse.shiftId?.breakDuration ||
-                scheduleToUse.breakDuration ||
-                60;
-              const description =
-                scheduleToUse.shiftId?.description ||
-                scheduleToUse.description ||
-                "";
-              const dbStatus = scheduleToUse.status as ShiftStatus | undefined;
+            let status: ShiftStatus =
+              dbStatus &&
+              ["scheduled", "completed", "missed", "off"].includes(dbStatus)
+                ? dbStatus
+                : "scheduled";
 
-              let status: ShiftStatus =
-                dbStatus &&
-                ["scheduled", "completed", "missed", "off"].includes(dbStatus)
-                  ? dbStatus
-                  : "scheduled";
-
-              if (status === "off") {
-                // Giữ nguyên status "off" từ database (từ leave request)
-              } else if (attendance) {
-                const hasCheckIn =
-                  attendance.checkIn &&
-                  String(attendance.checkIn).trim() !== "" &&
-                  String(attendance.checkIn).trim() !== "—" &&
-                  String(attendance.checkIn).trim() !== "null" &&
-                  String(attendance.checkIn).trim() !== "undefined";
-
-                if (hasCheckIn) {
-                  status = "completed";
-                } else if (
-                  attendance.status === "absent" ||
-                  attendance.status === "weekend"
-                ) {
-                  status = "off";
-                } else if (isPast) {
-                  status = "missed";
-                }
-              } else if (isPast && dbStatus !== "off") {
-                status = "missed";
-              }
-
-              if (shiftId && shiftName && startTime && endTime) {
-                finalSchedule.push({
-                  _id: `${dateStr}-${shiftId}`,
-                  date: dateStr,
-                  shift: {
-                    _id: shiftId,
-                    name: shiftName,
-                    startTime: startTime,
-                    endTime: endTime,
-                    breakDuration: breakDuration,
-                  },
-                  status,
-                  location:
-                    scheduleToUse.location ||
-                    attendance?.location ||
-                    t("dashboard:schedule.defaults.location"),
-                  team:
-                    scheduleToUse.team || t("dashboard:schedule.defaults.team"),
-                  notes: scheduleToUse.notes || description,
-                  attendanceRecord: attendance,
-                });
-              }
-            } else if (
-              // Chỉ tạo "virtual shift" từ attendance cho NGÀY HÔM NAY
-              // trong trường hợp user chưa có bất kỳ schedule nào (scheduleMap.size === 0).
-              // Tránh làm các ngày trước đó trong tuần cũng xanh.
-              !scheduleToUse &&
-              attendance &&
-              scheduleMap.size === 0 &&
-              dateStr === today.toISOString().split("T")[0]
-            ) {
-              // Trường hợp không có lịch nhưng user vẫn có chấm công (ví dụ: ngày đầu tiên làm việc,
-              // chưa được admin set lịch). Tạo một "virtual shift" dựa trên attendance để:
-              // - Hiển thị đúng trong lịch tuần (màu xanh đã hoàn thành).
-              // - Thống kê tháng/tuần vẫn tính ca đã làm.
-
-              const extractTime = (value: unknown): string => {
-                const raw = String(value ?? "").trim();
-                const match = /(\d{1,2}:\d{2})/.exec(raw);
-                return match ? match[1] : "00:00";
-              };
-
-              const virtualShiftId = attendance.id || `attendance-${dateStr}`;
-              const virtualStartTime = extractTime(attendance.checkIn);
-              const virtualEndTime = extractTime(attendance.checkOut);
-
+            if (status === "off") {
+              // Giữ nguyên status "off" từ database (từ leave request)
+            } else if (attendance) {
               const hasCheckIn =
                 attendance.checkIn &&
                 String(attendance.checkIn).trim() !== "" &&
                 String(attendance.checkIn).trim() !== "—" &&
                 String(attendance.checkIn).trim() !== "null" &&
                 String(attendance.checkIn).trim() !== "undefined";
-              const virtualStatus: ShiftStatus = hasCheckIn
-                ? "completed"
-                : "scheduled";
 
+              if (hasCheckIn) {
+                status = "completed";
+              } else if (attendance.status === "absent") {
+                // Có ca nhưng không đi làm
+                status = "missed";
+              } else if (isPast) {
+                status = "missed";
+              }
+            } else if (isPast && dbStatus !== "off") {
+              status = "missed";
+            }
+
+            if (shiftId && shiftName && startTime && endTime) {
               finalSchedule.push({
-                _id: `${dateStr}-${virtualShiftId}`,
+                _id: `${dateStr}-${shiftId}`,
                 date: dateStr,
                 shift: {
-                  _id: String(virtualShiftId),
-                  name: "Ca theo chấm công",
-                  startTime: virtualStartTime,
-                  endTime: virtualEndTime,
-                  breakDuration: 0,
+                  _id: shiftId,
+                  name: shiftName,
+                  startTime: startTime,
+                  endTime: endTime,
+                  breakDuration: breakDuration,
                 },
-                status: virtualStatus,
+                status,
                 location:
-                  attendance.location ||
+                  scheduleToUse.location ||
+                  attendance?.location ||
                   t("dashboard:schedule.defaults.location"),
-                team: t("dashboard:schedule.defaults.team"),
-                notes: attendance.notes || "",
+                team:
+                  scheduleToUse.team || t("dashboard:schedule.defaults.team"),
+                notes: scheduleToUse.notes || description,
                 attendanceRecord: attendance,
               });
             }
-            // Nếu không có schedule được gán và không có fallback, không tạo entry
+          } else if (
+            // Chỉ tạo "virtual shift" từ attendance cho NGÀY HÔM NAY
+            // trong trường hợp user chưa có bất kỳ schedule nào (scheduleMap.size === 0).
+            // Tránh làm các ngày trước đó trong tuần cũng xanh.
+            !scheduleToUse &&
+            attendance &&
+            scheduleMap.size === 0 &&
+            dateStr === today.toISOString().split("T")[0]
+          ) {
+            // Trường hợp không có lịch nhưng user vẫn có chấm công (ví dụ: ngày đầu tiên làm việc,
+            // chưa được admin set lịch). Tạo một "virtual shift" dựa trên attendance để:
+            // - Hiển thị đúng trong lịch tuần (màu xanh đã hoàn thành).
+            // - Thống kê tháng/tuần vẫn tính ca đã làm.
+
+            const extractTime = (value: unknown): string => {
+              const raw = String(value ?? "").trim();
+              const match = /(\d{1,2}:\d{2})/.exec(raw);
+              return match ? match[1] : "00:00";
+            };
+
+            const virtualShiftId = attendance.id || `attendance-${dateStr}`;
+            const virtualStartTime = extractTime(attendance.checkIn);
+            const virtualEndTime = extractTime(attendance.checkOut);
+
+            const hasCheckIn =
+              attendance.checkIn &&
+              String(attendance.checkIn).trim() !== "" &&
+              String(attendance.checkIn).trim() !== "—" &&
+              String(attendance.checkIn).trim() !== "null" &&
+              String(attendance.checkIn).trim() !== "undefined";
+            const virtualStatus: ShiftStatus = hasCheckIn
+              ? "completed"
+              : "scheduled";
+
+            finalSchedule.push({
+              _id: `${dateStr}-${virtualShiftId}`,
+              date: dateStr,
+              shift: {
+                _id: String(virtualShiftId),
+                name: "Ca theo chấm công",
+                startTime: virtualStartTime,
+                endTime: virtualEndTime,
+                breakDuration: 0,
+              },
+              status: virtualStatus,
+              location:
+                attendance.location ||
+                t("dashboard:schedule.defaults.location"),
+              team: t("dashboard:schedule.defaults.team"),
+              notes: attendance.notes || "",
+              attendanceRecord: attendance,
+            });
           }
+          // Nếu không có schedule được gán và không có fallback, không tạo entry
 
           cursor.setDate(cursor.getDate() + 1);
         }
@@ -566,7 +559,7 @@ const SchedulePage: React.FC = () => {
 
   const getWeekDayStatus = (
     date: Date
-  ): "completed" | "today" | "scheduled" | "off" | "none" => {
+  ): "completed" | "today" | "scheduled" | "off" | "missed" | "none" => {
     const dateStr = date.toISOString().split("T")[0];
     const dayShifts = schedule.filter((s) => s.date === dateStr);
 
@@ -576,12 +569,12 @@ const SchedulePage: React.FC = () => {
     // Nếu schedule có status = "off" thì luôn hiển thị off, dù là hôm nay hay ngày khác
     if (dayShifts.some((s) => s.status === "off")) return "off";
 
-    // Check if has attendance record with status "absent" or "weekend"
+    // Check if có bản ghi nghỉ (absent / on_leave)
     const hasAbsentRecord = dayShifts.some(
       (s) =>
         s.attendanceRecord &&
         (s.attendanceRecord.status === "absent" ||
-          s.attendanceRecord.status === "weekend")
+          s.attendanceRecord.status === "on_leave")
     );
     if (hasAbsentRecord) return "off";
 
@@ -613,15 +606,15 @@ const SchedulePage: React.FC = () => {
     });
     if (hasAttended) return "completed";
 
-    // Check if no attendance and in the past (should be "off"/nghỉ)
+    // Check if no attendance and in the past (vắng)
     const isPast = date < today;
-    if (isPast && !hasAttended) return "off";
+    if (isPast && !hasAttended) return "missed";
 
     return "scheduled";
   };
 
   const getWeekDayColor = (
-    status: "completed" | "today" | "scheduled" | "off" | "none"
+    status: "completed" | "today" | "scheduled" | "off" | "missed" | "none"
   ): string => {
     switch (status) {
       case "completed":
@@ -630,6 +623,8 @@ const SchedulePage: React.FC = () => {
         return "bg-[var(--accent-cyan)] text-white";
       case "scheduled":
         return "bg-[var(--primary)] text-white";
+      case "missed":
+        return "bg-[var(--error)] text-white";
       case "off":
         return "bg-[var(--text-sub)] text-white";
       default:
@@ -1073,6 +1068,12 @@ const SchedulePage: React.FC = () => {
                   <div className="w-3 h-3 rounded-full bg-[var(--primary)]" />
                   <span className="text-[var(--text-sub)]">
                     {t("dashboard:schedule.legend.upcoming")}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-[var(--error)]" />
+                  <span className="text-[var(--text-sub)]">
+                    {t("dashboard:schedule.legend.missed")}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
