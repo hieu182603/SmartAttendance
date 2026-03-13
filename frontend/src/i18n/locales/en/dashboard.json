@@ -440,6 +440,7 @@
       "done": "Done",
       "today": "Today",
       "upcoming": "Upcoming",
+      "missed": "Missed",
       "off": "Off"
     },
     "weekStats": {

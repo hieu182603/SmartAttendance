@@ -324,10 +324,15 @@ class ScheduleGenerationService {
           const newSchedule = {
             userId,
             date: dateStr,
-            shiftId: defaultShiftId || new mongoose.Types.ObjectId(),
-            shiftName: defaultShiftName,
-            startTime: defaultStartTime,
-            endTime: defaultEndTime,
+            // Không tạo shiftId ảo cho ngày nghỉ nếu user không có defaultShift
+            ...(defaultShiftId
+              ? {
+                  shiftId: defaultShiftId,
+                  shiftName: defaultShiftName,
+                  startTime: defaultStartTime,
+                  endTime: defaultEndTime,
+                }
+              : {}),
             status: 'off',
             notes: noteText,
             leaveRequestId: _id || null,

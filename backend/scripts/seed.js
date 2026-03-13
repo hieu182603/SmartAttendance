@@ -485,73 +485,68 @@ async function seed() {
         const createdAssignments = await EmployeeShiftAssignmentModel.insertMany(assignments);
         console.log(`✅ Created ${createdAssignments.length} employee shift assignments\n`);
 
-        // ========== 4. TẠO ATTENDANCES (Chấm công) - 6 tháng ==========
-        console.log('⏰ Creating attendances...');
-        // Đảm bảo có data từ tháng 12/2025 (tháng hiện tại) và các tháng gần đây
-        // Base date: cuối tháng 12/2025 để đảm bảo luôn có data tháng 12/2025
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // Đảm bảo luôn có data tháng 12/2025: đặt base date là cuối tháng 12/2025
-        const december2025 = new Date(2025, 11, 31); // Tháng 12/2025 (index 11 = tháng 12)
-        december2025.setHours(0, 0, 0, 0);
-
-        // Sử dụng ngày cuối tháng 12/2025 làm base date để đảm bảo có data tháng 12/2025
-        // Nếu hiện tại đã qua 31/12/2025, dùng today; nếu không dùng 31/12/2025
-        const seedBaseDate = today > december2025 ? today : december2025;
+        // ========== 4. TẠO ATTENDANCES (Chấm công) - dải cố định 01/01/2026 → 12/03/2026 ==========
+        console.log('⏰ Creating attendances for fixed range 2026-01-01 → 2026-03-12...');
 
         const attendances = [];
-        const monthsToGenerate = 6; // 6 tháng (bao gồm tháng 12)
-        const daysPerMonth = 22; // ~22 ngày làm việc/tháng (trừ cuối tuần)
 
-        for (let monthOffset = 0; monthOffset < monthsToGenerate; monthOffset++) {
-            const monthDate = new Date(seedBaseDate);
-            monthDate.setMonth(monthDate.getMonth() - monthOffset);
-            monthDate.setDate(1); // Bắt đầu từ ngày 1
+        const startDate = new Date(2026, 0, 1); // 01/01/2026
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(2026, 2, 12); // 12/03/2026
+        endDate.setHours(0, 0, 0, 0);
 
-            for (let day = 1; day <= daysPerMonth; day++) {
-                const date = new Date(monthDate);
-                date.setDate(day);
+        // Seed base date dùng cho các phần còn lại (requests, reports, events, ...)
+        const seedBaseDate = new Date(endDate);
+        const today = new Date(seedBaseDate);
+        today.setHours(0, 0, 0, 0);
 
-                // Bỏ qua cuối tuần (0 = CN, 6 = T7)
-                const dayOfWeek = date.getDay();
-                if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+        for (
+            const date = new Date(startDate);
+            date <= endDate;
+            date.setDate(date.getDate() + 1)
+        ) {
+            const dayOfWeek = date.getDay();
+            // Chỉ chấm công từ Thứ 2 đến Thứ 6 (1–5), Thứ 7/CN nghỉ
+            if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
-                // Một số nhân viên có thể nghỉ (10% chance)
-                for (const employee of employeeUsers) {
-                    if (Math.random() < 0.1) continue; // 10% nghỉ
+            for (const employee of employeeUsers) {
+                // Mặc định tất cả nhân viên active đều có chấm công mỗi ngày làm việc
+                if (!employee.isActive) continue;
 
-                    // Random check-in time: 7:30 - 9:00
-                    const checkInHour = randomInt(7, 8);
-                    const checkInMinute = checkInHour === 7 ? randomInt(30, 59) : randomInt(0, 30);
-                    const checkIn = new Date(date);
-                    checkIn.setHours(checkInHour, checkInMinute, 0, 0);
+                // Check-in 07:55–08:15 (một chút random, nhưng luôn đi làm)
+                const checkInHour = 8;
+                const checkInMinute = randomInt(0, 20) - 5; // từ -5 đến +15 phút quanh 8:00
+                const checkIn = new Date(date);
+                checkIn.setHours(
+                    checkInHour,
+                    Math.min(Math.max(0, checkInMinute), 59),
+                    0,
+                    0
+                );
 
-                    // Random check-out time: 17:00 - 19:00
-                    const checkOutHour = randomInt(17, 18);
-                    const checkOutMinute = randomInt(0, 59);
-                    const checkOut = new Date(date);
-                    checkOut.setHours(checkOutHour, checkOutMinute, 0, 0);
+                // Check-out 17:00–18:00
+                const checkOutHour = randomInt(17, 18);
+                const checkOutMinute = randomInt(0, 59);
+                const checkOut = new Date(date);
+                checkOut.setHours(checkOutHour, checkOutMinute, 0, 0);
 
-                    const location = locations.find((loc) => loc._id.equals(employee.branch));
-
-                    // Tính status
-                    let status = 'present';
-                    const lateTime = new Date(date);
-                    lateTime.setHours(8, 30, 0, 0);
-                    if (checkIn > lateTime) {
-                        status = 'late';
-                    }
-
-                    attendances.push({
-                        userId: employee._id,
-                        date: date,
-                        checkIn: checkIn,
-                        checkOut: checkOut,
-                        status: status,
-                        locationId: location?._id,
-                    });
+                // Tính status (có thể có một ít ngày đi muộn nhưng vẫn đi làm)
+                let status = 'present';
+                const lateTime = new Date(date);
+                lateTime.setHours(8, 30, 0, 0);
+                if (checkIn > lateTime) {
+                    status = 'late';
                 }
+
+                attendances.push({
+                    userId: employee._id,
+                    date: new Date(date),
+                    checkIn,
+                    checkOut,
+                    status,
+                    // Không gắn location vì seed hiện không tạo locations thực tế
+                    locationId: undefined,
+                });
             }
         }
 

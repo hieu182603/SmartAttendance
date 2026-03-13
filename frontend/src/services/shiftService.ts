@@ -43,6 +43,25 @@ const shiftService = {
     return response.data;
   },
 
+  // Gán ca cho phòng ban và/hoặc danh sách nhân viên với pattern/ngày cụ thể
+  assignShiftToDepartments: async (
+    shiftId: string,
+    payload: {
+      departmentIds?: string[];
+      userIds?: string[];
+      pattern?: string;
+      daysOfWeek?: number[];
+      specificDates?: string[];
+      effectiveFrom?: string;
+      effectiveTo?: string;
+      priority?: number;
+      notes?: string;
+    }
+  ) => {
+    const response = await api.post(`/shifts/${shiftId}/assign/departments`, payload);
+    return response.data;
+  },
+
   // Lấy danh sách nhân viên trong một ca
   getEmployeesByShift: async (shiftId: string, params?: { page?: number; limit?: number; search?: string }) => {
     const response = await api.get(`/shifts/${shiftId}/employees`, { params });

@@ -182,6 +182,111 @@ export const bulkAssignShift = async (req, res) => {
 };
 
 /**
+ * Bulk assign shift theo phòng ban và/hoặc danh sách user
+ * POST /shifts/:shiftId/assign/departments
+ * body: { departmentIds?: string[], userIds?: string[], pattern?, daysOfWeek?, specificDates?, effectiveFrom?, effectiveTo?, priority?, notes? }
+ */
+export const assignShiftToDepartments = async (req, res) => {
+  try {
+    const {
+      departmentIds,
+      userIds,
+      pattern,
+      daysOfWeek,
+      specificDates,
+      effectiveFrom,
+      effectiveTo,
+      priority,
+      notes,
+    } = req.body;
+    const { shiftId } = req.params;
+
+    if (
+      (!departmentIds || !Array.isArray(departmentIds) || departmentIds.length === 0) &&
+      (!userIds || !Array.isArray(userIds) || userIds.length === 0)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Cần cung cấp ít nhất một departmentIds hoặc userIds",
+      });
+    }
+
+    const { UserModel } = await import("../users/user.model.js");
+
+    const targetUserIds = new Set();
+
+    // Lấy tất cả user thuộc các phòng ban
+    if (Array.isArray(departmentIds) && departmentIds.length > 0) {
+      const deptUsers = await UserModel.find({
+        department: { $in: departmentIds },
+        isActive: true,
+      })
+        .select("_id")
+        .lean();
+
+      deptUsers.forEach((u) => {
+        if (u._id) {
+          targetUserIds.add(u._id.toString());
+        }
+      });
+    }
+
+    // Thêm userIds chỉ định trực tiếp
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      userIds.forEach((id) => {
+        if (id) {
+          targetUserIds.add(id.toString());
+        }
+      });
+    }
+
+    if (targetUserIds.size === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Không tìm thấy nhân viên hợp lệ để gán ca",
+      });
+    }
+
+    const options = {};
+    if (pattern) options.pattern = pattern;
+    if (daysOfWeek) options.daysOfWeek = daysOfWeek;
+    if (specificDates) options.specificDates = specificDates.map((d) => new Date(d));
+    if (effectiveFrom) options.effectiveFrom = effectiveFrom;
+    if (effectiveTo) options.effectiveTo = effectiveTo;
+    if (priority) options.priority = priority;
+    if (notes) options.notes = notes;
+
+    const results = [];
+
+    for (const uid of targetUserIds) {
+      try {
+        const result = await shiftAssignmentService.assignShiftToUser(uid, shiftId, options);
+        results.push({
+          userId: uid,
+          assignmentId: result.assignmentId || null,
+          shift: result.shift,
+          pattern: result.pattern,
+        });
+      } catch (err) {
+        results.push({
+          userId: uid,
+          error: err?.message || "Không thể gán ca",
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      totalTargets: targetUserIds.size,
+      assigned: results.filter((r) => !r.error).length,
+      results,
+    });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
  * Lấy danh sách nhân viên trong một ca
  * GET /shifts/:shiftId/employees
  */
