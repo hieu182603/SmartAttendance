@@ -52,17 +52,17 @@ export const getRecentAttendance = async (req, res) => {
         date: dayLabel,
         checkIn: doc.checkIn
           ? new Date(doc.checkIn).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZone: APP_CONFIG.TIMEZONE,
-            })
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: APP_CONFIG.TIMEZONE,
+          })
           : null,
         checkOut: doc.checkOut
           ? new Date(doc.checkOut).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZone: APP_CONFIG.TIMEZONE,
-            })
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: APP_CONFIG.TIMEZONE,
+          })
           : null,
         status: doc.status || "absent",
         location: doc.locationId?.name || null,
@@ -383,7 +383,7 @@ export const getAttendanceAnalytics = async (req, res) => {
 
       // SIMPLIFIED LOGIC: Sử dụng status có sẵn từ DB
       // Status đã được tính đúng khi check-in, không cần re-calculate
-      
+
       if (att.status === "late") {
         // Đi muộn
         daily.late++;
@@ -445,9 +445,9 @@ export const getAttendanceAnalytics = async (req, res) => {
         const avgCheckIn =
           emp.checkInTimes.length > 0
             ? emp.checkInTimes.reduce((sum, time) => {
-                const [h, m] = time.split(":").map(Number);
-                return sum + h * 60 + m;
-              }, 0) / emp.checkInTimes.length
+              const [h, m] = time.split(":").map(Number);
+              return sum + h * 60 + m;
+            }, 0) / emp.checkInTimes.length
             : 0;
         const avgHours = Math.floor(avgCheckIn / 60);
         const avgMins = Math.round(avgCheckIn % 60);
@@ -459,8 +459,8 @@ export const getAttendanceAnalytics = async (req, res) => {
           avgCheckIn:
             avgCheckIn > 0
               ? `${String(avgHours).padStart(2, "0")}:${String(
-                  avgMins
-                ).padStart(2, "0")}`
+                avgMins
+              ).padStart(2, "0")}`
               : "-",
           punctuality,
         };
@@ -479,8 +479,8 @@ export const getAttendanceAnalytics = async (req, res) => {
     const avgPresent =
       totalDays > 0
         ? Math.round(
-            dailyData.reduce((sum, d) => sum + d.present, 0) / totalDays
-          )
+          dailyData.reduce((sum, d) => sum + d.present, 0) / totalDays
+        )
         : 0;
     const avgLate =
       totalDays > 0
@@ -489,8 +489,8 @@ export const getAttendanceAnalytics = async (req, res) => {
     const avgAbsent =
       totalDays > 0
         ? Math.round(
-            dailyData.reduce((sum, d) => sum + d.absent, 0) / totalDays
-          )
+          dailyData.reduce((sum, d) => sum + d.absent, 0) / totalDays
+        )
         : 0;
     const attendanceRate =
       totalEmployees > 0 ? Math.round((avgPresent / totalEmployees) * 100) : 0;
@@ -536,7 +536,7 @@ export const getAttendanceAnalytics = async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error("[attendance] analytics error", error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Không lấy được dữ liệu phân tích",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -1413,11 +1413,11 @@ export const exportAttendanceAnalytics = async (req, res) => {
         "Giá trị":
           dailyData.length > 0 && dailyData[0].total > 0
             ? Math.round(
-                (dailyData.reduce((sum, d) => sum + d.present, 0) /
-                  dailyData.length /
-                  dailyData[0].total) *
-                  100
-              )
+              (dailyData.reduce((sum, d) => sum + d.present, 0) /
+                dailyData.length /
+                dailyData[0].total) *
+              100
+            )
             : 0,
       },
       {
@@ -1425,8 +1425,8 @@ export const exportAttendanceAnalytics = async (req, res) => {
         "Giá trị":
           dailyData.length > 0
             ? Math.round(
-                dailyData.reduce((sum, d) => sum + d.late, 0) / dailyData.length
-              )
+              dailyData.reduce((sum, d) => sum + d.late, 0) / dailyData.length
+            )
             : 0,
       },
       {
@@ -1434,9 +1434,9 @@ export const exportAttendanceAnalytics = async (req, res) => {
         "Giá trị":
           dailyData.length > 0
             ? Math.round(
-                dailyData.reduce((sum, d) => sum + d.absent, 0) /
-                  dailyData.length
-              )
+              dailyData.reduce((sum, d) => sum + d.absent, 0) /
+              dailyData.length
+            )
             : 0,
       },
     ];
@@ -1462,9 +1462,8 @@ export const exportAttendanceAnalytics = async (req, res) => {
 
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-    const fileName = `BaoCaoPhanTichChamCong_${
-      new Date().toISOString().split("T")[0]
-    }.xlsx`;
+    const fileName = `BaoCaoPhanTichChamCong_${new Date().toISOString().split("T")[0]
+      }.xlsx`;
 
     res.setHeader(
       "Content-Type",

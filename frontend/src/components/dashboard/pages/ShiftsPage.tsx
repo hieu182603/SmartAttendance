@@ -51,18 +51,18 @@ const getColorClass = (color: string) => {
 function calculateWorkHours(start: string, end: string, breakMinutes: number): string {
   const [startHour, startMin] = start.split(':').map(Number);
   const [endHour, endMin] = end.split(':').map(Number);
-  
+
   let startTotal = startHour * 60 + startMin;
   let endTotal = endHour * 60 + endMin;
-  
+
   if (endTotal < startTotal) {
     endTotal += 24 * 60;
   }
-  
+
   const workMinutes = endTotal - startTotal - breakMinutes;
   const hours = Math.floor(workMinutes / 60);
   const minutes = workMinutes % 60;
-  
+
   return `${hours}h ${minutes}m`;
 }
 
@@ -90,6 +90,7 @@ export function ShiftsPage() {
     departmentIds: [] as string[],
     userIds: [] as string[],
     pattern: "weekdays",
+    daysOfWeek: [1, 2, 3, 4, 5] as number[],
     effectiveFrom: "",
     effectiveTo: "",
     specificDatesText: "",
@@ -143,16 +144,16 @@ export function ShiftsPage() {
     try {
       setLoading(true);
       const response = await api.get('/shifts');
-      
+
       const shiftsData = response.data.data || response.data.shifts || response.data || [];
-      
+
       const mappedShifts = shiftsData.map((shift: any, index: number) => ({
         ...shift,
         id: shift._id || shift.id,
         employees: shift.employeeCount || 0,
         color: ['success', 'warning', 'error', 'primary'][index % 4],
       }));
-      
+
       setShifts(mappedShifts);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Không thể tải danh sách ca làm việc';
@@ -207,6 +208,7 @@ export function ShiftsPage() {
       departmentIds: [],
       userIds: [],
       pattern: "weekdays",
+      daysOfWeek: [1, 2, 3, 4, 5],
       effectiveFrom: "",
       effectiveTo: "",
       specificDatesText: "",
@@ -242,8 +244,11 @@ export function ShiftsPage() {
     if (assignForm.effectiveTo) payload.effectiveTo = assignForm.effectiveTo;
 
     if (assignForm.pattern === "custom") {
-      // daysOfWeek: mặc định T2–T6
-      payload.daysOfWeek = [1, 2, 3, 4, 5];
+      if (assignForm.daysOfWeek.length === 0) {
+        toast.error("Vui lòng chọn ít nhất một ngày trong tuần");
+        return;
+      }
+      payload.daysOfWeek = assignForm.daysOfWeek;
     }
 
     if (assignForm.pattern === "specific") {
@@ -360,19 +365,19 @@ export function ShiftsPage() {
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label>Tên ca</Label>
-                <Input 
-                  placeholder="Ca sáng" 
+                <Input
+                  placeholder="Ca sáng"
                   className="bg-[var(--input-bg)] border-[var(--border)]"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Giờ bắt đầu</Label>
-                  <Input 
-                    type="time" 
+                  <Input
+                    type="time"
                     className="bg-[var(--input-bg)] border-[var(--border)]"
                     value={formData.startTime}
                     onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
@@ -380,8 +385,8 @@ export function ShiftsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Giờ kết thúc</Label>
-                  <Input 
-                    type="time" 
+                  <Input
+                    type="time"
                     className="bg-[var(--input-bg)] border-[var(--border)]"
                     value={formData.endTime}
                     onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
@@ -391,9 +396,9 @@ export function ShiftsPage() {
 
               <div className="space-y-2">
                 <Label>Thời gian nghỉ (phút)</Label>
-                <Input 
-                  type="number" 
-                  placeholder="60" 
+                <Input
+                  type="number"
+                  placeholder="60"
                   className="bg-[var(--input-bg)] border-[var(--border)]"
                   value={formData.breakDuration}
                   onChange={(e) => setFormData({ ...formData, breakDuration: e.target.value })}
@@ -402,8 +407,8 @@ export function ShiftsPage() {
 
               <div className="space-y-2">
                 <Label>Mô tả (tùy chọn)</Label>
-                <Input 
-                  placeholder="Mô tả về ca làm việc" 
+                <Input
+                  placeholder="Mô tả về ca làm việc"
                   className="bg-[var(--input-bg)] border-[var(--border)]"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -411,14 +416,14 @@ export function ShiftsPage() {
               </div>
 
               <div className="flex justify-end space-x-3 pt-4">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setIsDialogOpen(false)}
                   className="border-[var(--border)] text-[var(--text-main)]"
                 >
                   Hủy
                 </Button>
-                <Button 
+                <Button
                   onClick={handleCreate}
                   className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
                 >
@@ -456,14 +461,14 @@ export function ShiftsPage() {
                   >
                     <Users className="h-4 w-4" />
                   </button>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => handleEditShift(shift)}
                     className="p-2 hover:bg-[var(--shell)] rounded text-[var(--primary)]"
                   >
                     <Edit className="h-4 w-4" />
                   </button>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => handleDeleteShift(shift)}
                     className="p-2 hover:bg-[var(--shell)] rounded text-[var(--error)]"
@@ -552,19 +557,19 @@ export function ShiftsPage() {
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
               <Label>Tên ca</Label>
-              <Input 
-                placeholder="Ca sáng" 
+              <Input
+                placeholder="Ca sáng"
                 className="bg-[var(--input-bg)] border-[var(--border)]"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Giờ bắt đầu</Label>
-                <Input 
-                  type="time" 
+                <Input
+                  type="time"
                   className="bg-[var(--input-bg)] border-[var(--border)]"
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
@@ -572,8 +577,8 @@ export function ShiftsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Giờ kết thúc</Label>
-                <Input 
-                  type="time" 
+                <Input
+                  type="time"
                   className="bg-[var(--input-bg)] border-[var(--border)]"
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
@@ -583,9 +588,9 @@ export function ShiftsPage() {
 
             <div className="space-y-2">
               <Label>Thời gian nghỉ (phút)</Label>
-              <Input 
-                type="number" 
-                placeholder="60" 
+              <Input
+                type="number"
+                placeholder="60"
                 className="bg-[var(--input-bg)] border-[var(--border)]"
                 value={formData.breakDuration}
                 onChange={(e) => setFormData({ ...formData, breakDuration: e.target.value })}
@@ -594,8 +599,8 @@ export function ShiftsPage() {
 
             <div className="space-y-2">
               <Label>Mô tả (tùy chọn)</Label>
-              <Input 
-                placeholder="Mô tả về ca làm việc" 
+              <Input
+                placeholder="Mô tả về ca làm việc"
                 className="bg-[var(--input-bg)] border-[var(--border)]"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -603,14 +608,14 @@ export function ShiftsPage() {
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setIsEditDialogOpen(false)}
                 className="border-[var(--border)] text-[var(--text-main)]"
               >
                 Hủy
               </Button>
-              <Button 
+              <Button
                 onClick={handleSubmitEdit}
                 className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
               >
@@ -654,14 +659,14 @@ export function ShiftsPage() {
             </div>
           )}
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
               className="border-[var(--border)] text-[var(--text-main)]"
             >
               Hủy
             </Button>
-            <Button 
+            <Button
               onClick={confirmDelete}
               className="bg-[var(--error)] hover:bg-[var(--error)]/90 text-white"
             >
@@ -705,29 +710,29 @@ export function ShiftsPage() {
                     );
                   })
                   .map((dept) => {
-                  const checked = assignForm.departmentIds.includes(dept._id);
-                  return (
-                    <label
-                      key={dept._id}
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[var(--surface)] cursor-pointer text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        className="accent-[var(--accent-cyan)]"
-                        checked={checked}
-                        onChange={() =>
-                          setAssignForm((prev) => ({
-                            ...prev,
-                            departmentIds: toggleArrayValue(prev.departmentIds, dept._id),
-                          }))
-                        }
-                      />
-                      <span className="text-[var(--text-main)]">
-                        {dept.name} ({dept.code})
-                      </span>
-                    </label>
-                  );
-                })}
+                    const checked = assignForm.departmentIds.includes(dept._id);
+                    return (
+                      <label
+                        key={dept._id}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[var(--surface)] cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          className="accent-[var(--accent-cyan)]"
+                          checked={checked}
+                          onChange={() =>
+                            setAssignForm((prev) => ({
+                              ...prev,
+                              departmentIds: toggleArrayValue(prev.departmentIds, dept._id),
+                            }))
+                          }
+                        />
+                        <span className="text-[var(--text-main)]">
+                          {dept.name} ({dept.code})
+                        </span>
+                      </label>
+                    );
+                  })}
                 {departments.length === 0 && (
                   <p className="text-xs text-[var(--text-sub)] px-2 py-1">
                     Không tìm thấy phòng ban.
@@ -760,29 +765,29 @@ export function ShiftsPage() {
                     );
                   })
                   .map((user) => {
-                  const checked = assignForm.userIds.includes(user._id);
-                  return (
-                    <label
-                      key={user._id}
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[var(--surface)] cursor-pointer text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        className="accent-[var(--accent-cyan)]"
-                        checked={checked}
-                        onChange={() =>
-                          setAssignForm((prev) => ({
-                            ...prev,
-                            userIds: toggleArrayValue(prev.userIds, user._id),
-                          }))
-                        }
-                      />
-                      <span className="text-[var(--text-main)]">
-                        {user.name || user.email || user._id}
-                      </span>
-                    </label>
-                  );
-                })}
+                    const checked = assignForm.userIds.includes(user._id);
+                    return (
+                      <label
+                        key={user._id}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[var(--surface)] cursor-pointer text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          className="accent-[var(--accent-cyan)]"
+                          checked={checked}
+                          onChange={() =>
+                            setAssignForm((prev) => ({
+                              ...prev,
+                              userIds: toggleArrayValue(prev.userIds, user._id),
+                            }))
+                          }
+                        />
+                        <span className="text-[var(--text-main)]">
+                          {user.name || user.email || user._id}
+                        </span>
+                      </label>
+                    );
+                  })}
                 {users.length === 0 && (
                   <p className="text-xs text-[var(--text-sub)] px-2 py-1">
                     Không tìm thấy nhân viên.
@@ -809,6 +814,7 @@ export function ShiftsPage() {
                     <option value="weekdays">Thứ 2 - Thứ 6</option>
                     <option value="weekends">Cuối tuần (T7, CN)</option>
                     <option value="all">Tất cả các ngày</option>
+                    <option value="custom">Tùy chỉnh ngày</option>
                     <option value="specific">Ngày cụ thể</option>
                   </select>
                 </div>
@@ -841,6 +847,45 @@ export function ShiftsPage() {
                   />
                 </div>
               </div>
+
+              {assignForm.pattern === "custom" && (
+                <div className="space-y-2">
+                  <Label>Chọn ngày trong tuần</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: 1, label: "T2" },
+                      { value: 2, label: "T3" },
+                      { value: 3, label: "T4" },
+                      { value: 4, label: "T5" },
+                      { value: 5, label: "T6" },
+                      { value: 6, label: "T7" },
+                      { value: 0, label: "CN" },
+                    ].map((day) => {
+                      const isSelected = assignForm.daysOfWeek.includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() =>
+                            setAssignForm((prev) => ({
+                              ...prev,
+                              daysOfWeek: isSelected
+                                ? prev.daysOfWeek.filter((d) => d !== day.value)
+                                : [...prev.daysOfWeek, day.value],
+                            }))
+                          }
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${isSelected
+                              ? "bg-[var(--primary)] text-white border-[var(--primary)]"
+                              : "bg-[var(--shell)] text-[var(--text-sub)] border-[var(--border)] hover:bg-[var(--surface)]"
+                            }`}
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {assignForm.pattern === "specific" && (
                 <div className="space-y-2">
