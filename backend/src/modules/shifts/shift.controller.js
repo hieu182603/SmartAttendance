@@ -1,18 +1,28 @@
 import { ShiftModel } from "./shift.model.js";
 import { shiftAssignmentService } from "./shiftAssignment.service.js";
-/** * Lấy toàn bộ danh sách các ca làm việc */ export const getAllShifts =
-  async (req, res) => {
-    try {
-      const shifts = await ShiftModel.find().sort({ createdAt: -1 });
-      res.json({ success: true, data: shifts });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  };
+/** * Lấy toàn bộ danh sách các ca làm việc (kèm employeeCount) */
+export const getAllShifts = async (req, res) => {
+  try {
+    const shifts = await ShiftModel.find().sort({ createdAt: -1 }).lean();
+
+    // Lấy employee count cho tất cả shifts
+    const counts = await shiftAssignmentService.getShiftEmployeeCounts();
+    const countMap = new Map(counts.map(c => [c.shiftId.toString(), c.count]));
+
+    const data = shifts.map(shift => ({
+      ...shift,
+      employeeCount: countMap.get(shift._id.toString()) || 0,
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 /** * Lấy 1 ca làm việc theo ID */ export const getShiftById = async (
-    req,
-    res
-  ) => {
+  req,
+  res
+) => {
   try {
     const shift = await ShiftModel.findById(req.params.id);
     if (!shift)

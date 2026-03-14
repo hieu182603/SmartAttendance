@@ -1006,19 +1006,35 @@ export const processCheckIn = async (
         upsert: true,
         new: true,
         setDefaultsOnInsert: true,
-        rawResult: true,
+        includeResultMetadata: true,
       }
     );
 
-    const attendance = rawResult.value;
+    // Mongoose 7+ with includeResultMetadata returns { value, lastErrorObject, ok }
+    // Fallback: if rawResult itself is the document (no includeResultMetadata support)
+    let attendance = rawResult?.value || rawResult;
 
     // If updatedExisting is true, the document already existed → user already checked in
-    if (rawResult.lastErrorObject?.updatedExisting) {
+    const updatedExisting = rawResult?.lastErrorObject?.updatedExisting;
+    if (updatedExisting) {
       return {
         success: false,
         data: null,
         error: "Bạn đã chấm công vào hôm nay rồi.",
         code: "ALREADY_CHECKED_IN",
+      };
+    }
+
+    // If attendance is still undefined, re-query from DB
+    if (!attendance || !attendance._id) {
+      attendance = await AttendanceModel.findOne({ userId, date: dateOnly }).lean();
+    }
+
+    if (!attendance) {
+      return {
+        success: false,
+        data: null,
+        error: "Không thể tạo bản ghi chấm công. Vui lòng thử lại.",
       };
     }
 
