@@ -12,7 +12,7 @@ faceRouter.use(authMiddleware);
 // Rate limiting for face operations (prevent abuse)
 const faceRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per windowMs
+  max: 100, // Limit each IP to 100 requests per windowMs
   message: "Too many face recognition requests, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
