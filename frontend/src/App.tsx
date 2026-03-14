@@ -349,6 +349,9 @@ export default function App() {
               </Route>
             </Route>
 
+            {/* Redirect /upgrade to employee upgrade page */}
+            <Route path="/upgrade" element={<Navigate to="/employee/upgrade" replace />} />
+
             {/* Public 404 route */}
             <Route path="/not-found" element={<NotFoundPage />} />
             {/* Final catch-all for any other invalid routes */}
