@@ -292,11 +292,17 @@ export class AuthController {
             if (error.message === "OTP not found. Please request a new OTP.") {
                 return res.status(400).json({ message: "OTP not found. Please request a new OTP." });
             }
+            if (error.message === "OTP not found. Please request a new one.") {
+                return res.status(400).json({ message: "OTP not found. Please request a new OTP." });
+            }
             if (error.message === "OTP expired. Please request a new OTP.") {
                 return res.status(400).json({ message: "OTP expired. Please request a new OTP." });
             }
             if (error.message === "Invalid OTP") {
                 return res.status(400).json({ message: "Invalid OTP" });
+            }
+            if (error.message === "Too many failed attempts. Please request a new OTP.") {
+                return res.status(429).json({ message: "Too many failed attempts. Please request a new OTP." });
             }
             console.error("Verify OTP error:", error);
             return res.status(500).json({ message: "Internal server error" });
@@ -500,6 +506,9 @@ export class AuthController {
             }
             if (error.message === "Invalid OTP") {
                 return res.status(400).json({ message: "Invalid OTP" });
+            }
+            if (error.message === "Too many failed attempts. Please request a new OTP.") {
+                return res.status(429).json({ message: "Too many failed attempts. Please request a new OTP." });
             }
             console.error("Verify reset OTP error:", error);
             return res.status(500).json({ message: "Internal server error" });

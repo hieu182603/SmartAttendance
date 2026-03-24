@@ -6,6 +6,7 @@ import "./config/env.js";
 
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
 
 import { connectDatabase } from "./config/database.js";
@@ -26,6 +27,11 @@ import { performanceRouter } from "./modules/performance/performance.router.js";
 import { notificationRouter } from "./modules/notifications/notification.router.js";
 import { faceRouter } from "./modules/face/face.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
+import {
+  globalRateLimiter,
+  authRateLimiter,
+  attendanceRateLimiter,
+} from "./middleware/security.middleware.js";
 
 
 import { logRouter } from "./modules/logs/log.router.js";
@@ -36,6 +42,13 @@ const app = express();
 app.set("trust proxy", 1);
 
 // Middleware
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
+app.use(globalRateLimiter);
+
 // CORS configuration - allow all origins (adjust for production)
 app.use(cors({
   origin: "*",
@@ -64,6 +77,8 @@ app.use(
 );
 
 // REGISTER ROUTES
+app.use("/api/auth", authRateLimiter);
+app.use("/api/attendance", attendanceRateLimiter);
 app.use("/api/auth", authRouter);
 app.use("/api/leave", leaveRouter);
 app.use("/api/attendance", attendanceRouter);

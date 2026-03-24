@@ -1,18 +1,22 @@
 import { Router } from "express";
 import { AuthController } from "./auth.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
+import {
+  otpRateLimiter,
+  trialRegisterRateLimiter,
+} from "../../middleware/security.middleware.js";
 
 
 export const authRouter = Router();
 
 // Đăng ký người dùng mới
-authRouter.post("/register", AuthController.register);
+authRouter.post("/register", trialRegisterRateLimiter, AuthController.register);
 
 // Xác thực OTP
-authRouter.post("/verify-otp", AuthController.verifyOTP);
+authRouter.post("/verify-otp", otpRateLimiter, AuthController.verifyOTP);
 
 // Gửi lại OTP
-authRouter.post("/resend-otp", AuthController.resendOTP);
+authRouter.post("/resend-otp", otpRateLimiter, AuthController.resendOTP);
 
 // Đăng nhập
 authRouter.post("/login", AuthController.login);
