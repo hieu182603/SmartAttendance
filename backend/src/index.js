@@ -8,7 +8,6 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
-import mongoSanitize from "express-mongo-sanitize";
 import slowDown from "express-slow-down";
 
 
@@ -73,7 +72,32 @@ app.use(
     crossOriginResourcePolicy: false,
   })
 );
-app.use(mongoSanitize()); // Prevent NoSQL Injection
+
+// Prevent NoSQL injection (Express 5-safe: do not assign to req.query)
+const sanitizeMongoKeysInPlace = (value) => {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) sanitizeMongoKeysInPlace(item);
+    return;
+  }
+
+  for (const key of Object.keys(value)) {
+    const nextValue = value[key];
+    if (key.startsWith("$") || key.includes(".")) {
+      delete value[key];
+      continue;
+    }
+    sanitizeMongoKeysInPlace(nextValue);
+  }
+};
+
+app.use((req, _res, next) => {
+  sanitizeMongoKeysInPlace(req.body);
+  sanitizeMongoKeysInPlace(req.params);
+  // req.query is a getter in Express 5; mutate returned object only.
+  sanitizeMongoKeysInPlace(req.query);
+  next();
+});
 
 // Prevent HTTP Parameter Pollution (Express 5-safe: do not assign to req.query)
 app.use((req, res, next) => {
