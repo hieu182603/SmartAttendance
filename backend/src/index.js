@@ -66,7 +66,10 @@ const speedLimiter = slowDown({
 
 // Middleware
 app.use(ipBlacklist);
-app.use(speedLimiter);
+// Apply slowdown only to sensitive routes (avoid slowing down health/docs/general APIs)
+app.use("/api/auth", speedLimiter);
+app.use("/api/attendance", speedLimiter);
+app.use("/api/face", speedLimiter);
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
