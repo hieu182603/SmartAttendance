@@ -2,6 +2,7 @@ import { Router } from "express";
 import { AuthController } from "./auth.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import {
+  authRateLimiter,
   otpRateLimiter,
   trialRegisterRateLimiter,
 } from "../../middleware/security.middleware.js";

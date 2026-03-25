@@ -18,5 +18,7 @@ const envPath = resolve(__dirname, "../../.env");
 const result = dotenv.config({ path: envPath });
 
 if (result.error) {
-    console.error(`❌ Failed to load .env from: ${envPath}`, result.error);
+    // In containers/production, env is usually injected by the runtime (Docker/CI),
+    // so missing .env file should not crash the app.
+    console.warn(`⚠️  .env not found at: ${envPath} (using process.env)`);
 }
