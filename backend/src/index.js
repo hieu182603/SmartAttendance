@@ -6,7 +6,12 @@ import "./config/env.js";
 
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
+import mongoSanitize from "express-mongo-sanitize";
+import hpp from "hpp";
+import slowDown from "express-slow-down";
+
 
 import { connectDatabase } from "./config/database.js";
 import { swaggerSpec } from "./config/swagger.js";
@@ -26,6 +31,11 @@ import { performanceRouter } from "./modules/performance/performance.router.js";
 import { notificationRouter } from "./modules/notifications/notification.router.js";
 import { faceRouter } from "./modules/face/face.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
+import {
+  globalRateLimiter,
+  authRateLimiter,
+  attendanceRateLimiter,
+} from "./middleware/security.middleware.js";
 
 
 import { logRouter } from "./modules/logs/log.router.js";
@@ -35,14 +45,58 @@ const app = express();
 // Trust proxy for rate limiting behind reverse proxy
 app.set("trust proxy", 1);
 
+// Emergency IP Blacklist
+const BLOCKED_IPS = new Set([
+  "118.70.211.226", // Attacker IP from 2026-03-24
+]);
+
+const ipBlacklist = (req, res, next) => {
+  const clientIP = req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim();
+  if (BLOCKED_IPS.has(clientIP)) {
+    return res.status(403).json({ message: "Access denied" });
+  }
+  next();
+};
+
+// Speed limiter - delay responses progressively for repeat requests
+const speedLimiter = slowDown({
+  windowMs: 60 * 1000, // 1 minute
+  delayAfter: 30,      // allow 30 requests per minute without delay
+  delayMs: (hits) => (hits - 30) * 200, // add 200ms delay per request after hit 30
+  maxDelayMs: 5000,    // max delay 5 seconds
+});
+
 // Middleware
-// CORS configuration - allow all origins (adjust for production)
+app.use(ipBlacklist);
+app.use(speedLimiter);
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
+app.use(mongoSanitize()); // Prevent NoSQL Injection
+app.use(hpp());           // Prevent HTTP Parameter Pollution
+app.use(globalRateLimiter);
+
+
+// CORS configuration - chỉ cho phép các origin đã đăng ký
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+  "http://localhost:8081", // Expo dev server
+].filter(Boolean);
 app.use(cors({
-  origin: "*",
+  origin: (origin, callback) => {
+    // Cho phép requests không có origin (mobile apps, Postman, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
 }));
-// Tăng body size limit để nhận ảnh base64 (tối đa 10MB)
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// Global body size limit: 2MB (đủ cho JSON thông thường)
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 // Health check endpoint (cho Fly.io và monitoring)
 app.get("/api/health", (_req, res) => {
@@ -64,6 +118,8 @@ app.use(
 );
 
 // REGISTER ROUTES
+app.use("/api/auth", authRateLimiter);
+app.use("/api/attendance", attendanceRateLimiter);
 app.use("/api/auth", authRouter);
 app.use("/api/leave", leaveRouter);
 app.use("/api/attendance", attendanceRouter);
@@ -77,7 +133,8 @@ app.use("/api/payroll", payrollRouter);
 app.use("/api/events", eventRouter);
 app.use("/api/performance", performanceRouter);
 app.use("/api/notifications", notificationRouter);
-app.use("/api/face", faceRouter);
+// Face routes cần body lớn hơn (ảnh base64, tối đa 10MB)
+app.use("/api/face", express.json({ limit: "10mb" }), express.urlencoded({ extended: true, limit: "10mb" }), faceRouter);
 app.use("/api/logs", logRouter);
 
 // 404 fallback — must be registered BEFORE the error handler so unmatched

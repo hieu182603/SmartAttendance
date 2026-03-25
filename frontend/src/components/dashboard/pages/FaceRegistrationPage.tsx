@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, AlertCircle, Volume2, VolumeX } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Volume2, VolumeX, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { faceService, parseFaceRegistrationError, formatFaceError } from "@/services/faceService";
@@ -10,6 +10,7 @@ import faceDetectionService, {
   type FacePosition,
 } from "@/services/faceDetectionService";
 import { useFaceValidation } from "@/hooks/useFaceValidation";
+import { useAuth } from "@/context/AuthContext";
 import { useRolePath } from "@/hooks/useRolePath";
 import { CameraPreview, CaptureControls, CapturedGallery, InstructionSidebar } from "../faceRegistration";
 
@@ -60,8 +61,44 @@ const FaceRegistrationPage: React.FC = () => {
   const navigate = useNavigate();
   const basePath = useRolePath();
 
+  const { user } = useAuth();
+  const isTrial = user?.role === 'TRIAL';
+
   // Validation hook
   const { validateCapturedImage, validateImageSet, getValidationErrors } = useFaceValidation();
+
+  if (isTrial) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center bg-background animate-in fade-in zoom-in duration-500">
+        <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
+          <ShieldAlert className="w-12 h-12 text-yellow-600" />
+        </div>
+        <h2 className="text-3xl font-bold mb-4 tracking-tight">Tính năng hạn chế</h2>
+        <p className="text-muted-foreground max-w-lg text-lg leading-relaxed mb-8">
+          Rất tiếc, các tính năng AI bao gồm <strong>Đăng ký khuôn mặt</strong> không khả dụng cho tài khoản dùng thử.
+          Vui lòng nâng cấp lên tài khoản <strong>Nhân viên</strong> hoặc cao hơn để trải nghiệm công nghệ nhận diện khuôn mặt của chúng tôi.
+        </p>
+        <div className="flex gap-4">
+          <Button
+            onClick={() => navigate(basePath)}
+            size="lg"
+            variant="default"
+            className="px-8 shadow-md hover:shadow-lg transition-all"
+          >
+            Quay lại trang chủ
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => window.open('https://smartattendance.com/pricing', '_blank')}
+            className="px-8 hover:bg-yellow-50 transition-all border-yellow-200"
+          >
+            Tìm hiểu các gói dịch vụ
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Progress milestones
   const PROGRESS_STEPS: { key: ProgressStep; label: string; threshold: number }[] = [

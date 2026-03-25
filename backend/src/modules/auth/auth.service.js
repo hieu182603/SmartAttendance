@@ -93,12 +93,16 @@ export class AuthService {
 
     // Xác thực OTP
     static async verifyOTP(email, otp) {
-        const user = await UserModel.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("User not found");
         if (user.isVerified) throw new Error("Email already verified");
 
-        // Lấy OTP trong bảng OtpModel
-        const otpRecord = await OtpModel.findOne({ email }).sort({ createdAt: -1 });
+        // Chỉ lấy OTP dùng cho verify_email để tránh dùng nhầm OTP của flow khác.
+        const otpRecord = await OtpModel.findOne({
+            email: normalizedEmail,
+            purpose: "verify_email",
+        }).sort({ createdAt: -1 });
         if (!otpRecord) throw new Error("OTP not found. Please request a new one.");
 
         if (new Date() > otpRecord.expiresAt) {
@@ -107,7 +111,7 @@ export class AuthService {
 
         // Kiểm tra số lần thử OTP
         if (otpRecord.attempts >= 5) {
-            await OtpModel.deleteMany({ email });
+            await OtpModel.deleteMany({ email: normalizedEmail, purpose: "verify_email" });
             throw new Error("Too many failed attempts. Please request a new OTP.");
         }
 
@@ -125,7 +129,7 @@ export class AuthService {
         user.isVerified = true;
         await user.save();
 
-        await OtpModel.deleteMany({ email }); // xóa các OTP cũ
+        await OtpModel.deleteMany({ email: normalizedEmail, purpose: "verify_email" }); // xóa OTP verify cũ
 
         const token = generateTokenFromUser(user);
         return {
@@ -143,7 +147,8 @@ export class AuthService {
 
     // Gửi lại OTP
     static async resendOTP(email) {
-        const user = await UserModel.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("User not found");
         if (user.isVerified) throw new Error("Email already verified");
 
@@ -151,18 +156,18 @@ export class AuthService {
         const otpExpires = generateOTPExpiry();
 
         // Xóa các OTP verify_email cũ trước khi tạo mới
-        await OtpModel.deleteMany({ email, purpose: 'verify_email' });
+        await OtpModel.deleteMany({ email: normalizedEmail, purpose: "verify_email" });
 
         await OtpModel.create({
             userId: user._id,
-            email,
+            email: normalizedEmail,
             code: otpCode,
             purpose: "verify_email",
             expiresAt: otpExpires,
         });
 
         // Gửi email OTP (không throw error nếu fail - OTP đã được tạo)
-        const emailResult = await sendOTPEmail(email, otpCode, user.name);
+        const emailResult = await sendOTPEmail(normalizedEmail, otpCode, user.name);
         if (!emailResult.success) {
             console.warn("⚠️  Email không gửi được, nhưng OTP đã được tạo. User có thể xem OTP trong console.");
             // Không throw error - OTP đã được tạo thành công
@@ -174,7 +179,8 @@ export class AuthService {
     // Đăng nhập
     static async login(credentials) {
         const { email, password } = credentials;
-        const user = await UserModel.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("Invalid credentials");
         if (!user.isVerified) throw new Error("Email not verified");
         if (user.isActive === false) {
@@ -208,7 +214,8 @@ export class AuthService {
 
     // Quên mật khẩu - Gửi OTP để reset password
     static async forgotPassword(email) {
-        const user = await UserModel.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) {
 
             return {
@@ -226,13 +233,13 @@ export class AuthService {
 
         // Xóa các OTP quên mật khẩu trước đó để tránh spam
         await OtpModel.deleteMany({
-            email,
+            email: normalizedEmail,
             purpose: "forgot_password",
         });
 
         await OtpModel.create({
             userId: user._id,
-            email,
+            email: normalizedEmail,
             code: otpCode,
             purpose: "forgot_password",
             expiresAt: otpExpires,
@@ -240,7 +247,7 @@ export class AuthService {
         });
 
         // Gửi email OTP reset password
-        const emailResult = await sendResetPasswordEmail(email, otpCode, user.name);
+        const emailResult = await sendResetPasswordEmail(normalizedEmail, otpCode, user.name);
         if (!emailResult.success) {
             console.warn("⚠️  Email không gửi được, nhưng OTP đã được tạo. User có thể xem OTP trong console.");
         }
@@ -253,25 +260,26 @@ export class AuthService {
 
     // Xác thực OTP để reset password
     static async verifyResetOtp(email, otp) {
-        const user = await UserModel.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("User not found");
 
         // Lấy OTP reset password
         const otpRecord = await OtpModel.findOne({
-            email,
+            email: normalizedEmail,
             purpose: "forgot_password"
         }).sort({ createdAt: -1 });
 
         if (!otpRecord) throw new Error("OTP not found. Please request a new one.");
 
         if (new Date() > otpRecord.expiresAt) {
-            await OtpModel.deleteMany({ email, purpose: "forgot_password" });
+            await OtpModel.deleteMany({ email: normalizedEmail, purpose: "forgot_password" });
             throw new Error("OTP expired. Please request a new OTP.");
         }
 
         // Kiểm tra số lần thử OTP
         if (otpRecord.attempts >= 5) {
-            await OtpModel.deleteMany({ email, purpose: "forgot_password" });
+            await OtpModel.deleteMany({ email: normalizedEmail, purpose: "forgot_password" });
             throw new Error("Too many failed attempts. Please request a new OTP.");
         }
 
@@ -298,12 +306,13 @@ export class AuthService {
 
     // Đặt lại mật khẩu mới
     static async resetPassword(email, newPassword) {
-        const user = await UserModel.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("User not found");
 
         // Kiểm tra xem có OTP nào đã được xác thực hay chưa
         const verifiedOtpRecord = await OtpModel.findOne({
-            email,
+            email: normalizedEmail,
             purpose: "forgot_password",
             verified: true,
         }).sort({ updatedAt: -1 });
@@ -313,7 +322,7 @@ export class AuthService {
         }
 
         if (new Date() > verifiedOtpRecord.expiresAt) {
-            await OtpModel.deleteMany({ email, purpose: "forgot_password" });
+            await OtpModel.deleteMany({ email: normalizedEmail, purpose: "forgot_password" });
             throw new Error("Reset token expired. Please request a new OTP.");
         }
 
@@ -322,7 +331,7 @@ export class AuthService {
         await user.save();
 
         // Xóa tất cả OTP quên mật khẩu của user này
-        await OtpModel.deleteMany({ email, purpose: "forgot_password" });
+        await OtpModel.deleteMany({ email: normalizedEmail, purpose: "forgot_password" });
 
         return {
             success: true,

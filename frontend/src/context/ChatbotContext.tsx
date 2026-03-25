@@ -72,23 +72,27 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
     };
   } | null>(null);
 
-  // Check if chatbot is available based on config and health
+  // Check if chatbot is available based on config, health, and user role
   const isChatbotAvailable = React.useMemo(() => {
-    // Default to enabled if environment variable is not set or is 'true'
+    // 1. Check if user is TRIAL (AI features disabled for TRIAL)
+    if (user?.role === 'TRIAL') {
+      return false;
+    }
+
+    // 2. Default to enabled if environment variable is not set or is 'true'
     const isEnabled = import.meta.env.VITE_CHATBOT_ENABLED !== 'false';
 
-    // Require successful health check before enabling chat UI
+    // 3. Require successful health check before enabling chat UI
     if (chatbotHealth === null) {
       return false; // Don't assume available until health check runs
     }
 
-    // Check health status - allow chatbot to work if at least MongoDB is connected
-    // Embeddings/LLM issues will be handled gracefully by the service
+    // 4. Check health status - allow chatbot to work if at least MongoDB is connected
     const isHealthy = chatbotHealth.status === 'healthy' &&
       chatbotHealth.components?.mongodb === 'connected';
 
     return isEnabled && isHealthy;
-  }, [chatbotHealth]);
+  }, [chatbotHealth, user?.role]);
 
   // Check chatbot health
   const checkChatbotHealth = async () => {

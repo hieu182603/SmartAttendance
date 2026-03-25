@@ -1,5 +1,5 @@
-"""API endpoints for face recognition"""
-from fastapi import APIRouter, File, UploadFile, HTTPException, status, Form, Header, Depends
+from app.limiter import limiter
+from fastapi import APIRouter, File, UploadFile, HTTPException, status, Form, Header, Depends, Request
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 from pydantic import BaseModel
@@ -92,7 +92,9 @@ async def health_check():
 
 
 @router.post("/register", response_model=RegisterResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("10/minute")
 async def register_faces(
+    request: Request,
     images: List[UploadFile] = File(...),
     liveness_success: Optional[str] = Form(None),
     liveness_passed: Optional[str] = Form(None),
@@ -177,7 +179,9 @@ async def register_faces(
 
 
 @router.post("/verify", response_model=VerifyResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("30/minute")
 async def verify_face(
+    request: Request,
     image: UploadFile = File(...),
     reference_embeddings_json: str = Form(...),
     threshold: Optional[float] = Form(None)
@@ -386,7 +390,9 @@ class AntiSpoofingStatusResponse(BaseModel):
 
 
 @router.post("/anti-spoofing/check", response_model=AntiSpoofingResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit("20/minute")
 async def check_anti_spoofing(
+    request: Request,
     image: UploadFile = File(...),
     method: str = Form("hybrid")
 ):

@@ -1,9 +1,19 @@
 import nodemailer from "nodemailer";
 
+const maskEmail = (email = "") => {
+    if (!email?.includes("@")) return "unknown";
+    const [localPart, domain] = email.split("@");
+    const safeLocal =
+        localPart.length <= 2
+            ? `${localPart[0] || "*"}*`
+            : `${localPart.slice(0, 2)}***`;
+    return `${safeLocal}@${domain}`;
+};
+
 const createTransporter = () => {
     const emailConfig = {
         host: process.env.EMAIL_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.EMAIL_PORT || "587"),
+        port: Number.parseInt(process.env.EMAIL_PORT || "587", 10),
         secure: process.env.EMAIL_SECURE === "true",
         auth: {
             user: process.env.EMAIL_USER,
@@ -37,9 +47,9 @@ export const sendOTPEmail = async (to, otp, name = "User") => {
         console.log("\n" + "=".repeat(60));
         console.log("📧 [DEV MODE] OTP Email (Not sent - Development mode)");
         console.log("=".repeat(60));
-        console.log(`To: ${to}`);
+        console.log(`To: ${maskEmail(to)}`);
         console.log(`Name: ${name}`);
-        console.log(`OTP Code: ${otp}`);
+        console.log("OTP: [REDACTED]");
         console.log(`Expires in: 10 minutes`);
         console.log("=".repeat(60) + "\n");
         return { success: true, messageId: "dev-mode", devMode: true };
@@ -108,12 +118,12 @@ export const sendOTPEmail = async (to, otp, name = "User") => {
         const info = await transporter.sendMail(mailOptions);
         return { success: true, messageId: info.messageId };
     } catch (error) {
-        // Log error nhưng không throw - OTP đã được tạo, user có thể xem trong console
+        // Không log OTP để tránh lộ thông tin nhạy cảm trong log.
         console.error("❌ Error sending OTP email:", error.message);
         console.log("\n" + "=".repeat(60));
-        console.log("⚠️  Email không gửi được, nhưng OTP đã được tạo:");
-        console.log(`📧 Email: ${to}`);
-        console.log(`🔑 OTP Code: ${otp}`);
+        console.log("⚠️  Email không gửi được, OTP đã được tạo an toàn trong hệ thống.");
+        console.log(`📧 Email: ${maskEmail(to)}`);
+        console.log("🔑 OTP: [REDACTED]");
         console.log("=".repeat(60) + "\n");
 
         // Trả về success để không làm fail registration
@@ -139,9 +149,9 @@ export const sendResetPasswordEmail = async (to, otp, name = "User") => {
         console.log("\n" + "=".repeat(60));
         console.log("📧 [DEV MODE] Reset Password OTP Email (Not sent - Development mode)");
         console.log("=".repeat(60));
-        console.log(`To: ${to}`);
+        console.log(`To: ${maskEmail(to)}`);
         console.log(`Name: ${name}`);
-        console.log(`OTP Code: ${otp}`);
+        console.log("OTP: [REDACTED]");
         console.log(`Expires in: 10 minutes`);
         console.log("=".repeat(60) + "\n");
         return { success: true, messageId: "dev-mode", devMode: true };
@@ -217,9 +227,9 @@ export const sendResetPasswordEmail = async (to, otp, name = "User") => {
     } catch (error) {
         console.error("❌ Error sending reset password OTP email:", error.message);
         console.log("\n" + "=".repeat(60));
-        console.log("⚠️  Email không gửi được, nhưng OTP đã được tạo:");
-        console.log(`📧 Email: ${to}`);
-        console.log(`🔑 OTP Code: ${otp}`);
+        console.log("⚠️  Email không gửi được, OTP đã được tạo an toàn trong hệ thống.");
+        console.log(`📧 Email: ${maskEmail(to)}`);
+        console.log("🔑 OTP: [REDACTED]");
         console.log("=".repeat(60) + "\n");
 
         return { success: false, messageId: null, error: error.message };
