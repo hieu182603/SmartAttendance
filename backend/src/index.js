@@ -9,7 +9,6 @@ import cors from "cors";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
 import mongoSanitize from "express-mongo-sanitize";
-import hpp from "hpp";
 import slowDown from "express-slow-down";
 
 
@@ -75,7 +74,29 @@ app.use(
   })
 );
 app.use(mongoSanitize()); // Prevent NoSQL Injection
-app.use(hpp());           // Prevent HTTP Parameter Pollution
+
+// Prevent HTTP Parameter Pollution (Express 5-safe: do not assign to req.query)
+app.use((req, res, next) => {
+  const url = req.originalUrl || req.url || "";
+  const qIndex = url.indexOf("?");
+  if (qIndex === -1) return next();
+
+  const queryString = url.slice(qIndex + 1);
+  if (!queryString) return next();
+
+  const seen = new Set();
+  for (const part of queryString.split("&")) {
+    if (!part) continue;
+    const key = part.split("=", 1)[0];
+    const decodedKey = decodeURIComponent(key.replace(/\+/g, " "));
+    if (seen.has(decodedKey)) {
+      return res.status(400).json({ message: "Duplicate query parameters are not allowed." });
+    }
+    seen.add(decodedKey);
+  }
+
+  next();
+});
 app.use(globalRateLimiter);
 
 
