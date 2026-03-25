@@ -8,6 +8,9 @@ from app.services.model_loader import ModelLoader
 import logging
 import os
 import traceback
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.limiter import limiter
 
 # Configure logging
 logging.basicConfig(
@@ -23,6 +26,8 @@ app = FastAPI(
     description="AI Service for Face Recognition in SmartAttendance System",
     version="1.0.0"
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware - configure allowed origins from environment
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:4000")

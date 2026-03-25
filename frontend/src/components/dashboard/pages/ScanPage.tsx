@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import api from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 import { faceService, type FaceStatus } from "@/services/faceService";
 import { useScanFaceDetection, type ScanDetectionStatus, type FaceBoundingBox } from "@/hooks/useScanFaceDetection";
 import { useVoiceFeedback } from "@/hooks/useVoiceFeedback";
@@ -177,6 +178,30 @@ const parseAttendanceDate = (dateStr: string): string | null => {
 // ============================================================================
 const ScanPage: React.FC = () => {
   const { t } = useTranslation(["dashboard", "common"]);
+  const { user } = useAuth();
+  const isTrial = user?.role === 'TRIAL';
+
+  if (isTrial) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center bg-background animate-in fade-in zoom-in duration-500">
+        <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
+          <ShieldAlert className="w-12 h-12 text-yellow-600" />
+        </div>
+        <h2 className="text-3xl font-bold mb-4 tracking-tight">Tính năng AI hạn chế</h2>
+        <p className="text-muted-foreground max-w-lg text-lg leading-relaxed mb-8">
+          Tính năng <strong>Chấm công bằng khuôn mặt</strong> hiện không hỗ trợ cho tài khoản dùng thử.
+          Vui lòng nâng cấp tài khoản để bắt đầu sử dụng hệ thống chấm công thông minh SmartAttendance.
+        </p>
+        <Button
+          onClick={() => navigate(-1)}
+          size="lg"
+          className="px-8 shadow-md hover:shadow-lg transition-all"
+        >
+          Quay lại
+        </Button>
+      </div>
+    );
+  }
 
   // ==========================================================================
   // STATE
@@ -202,11 +227,11 @@ const ScanPage: React.FC = () => {
   const [facingMode, setFacingMode] = useState<"user" | "environment">(
     "user"
   );
-  
+
   // ⚠️ MỚI: Early checkout state
   const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
   const [earlyCheckoutReason, setEarlyCheckoutReason] = useState<EarlyCheckoutReason>(null);
-  
+
   // Face registration status
   const [faceStatus, setFaceStatus] = useState<FaceStatus | null>(null);
   const [showFaceRegistrationPrompt, setShowFaceRegistrationPrompt] = useState(false);
@@ -219,7 +244,7 @@ const ScanPage: React.FC = () => {
   const voiceFeedback = useVoiceFeedback();
   const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
   const [autoCaptureTriggered, setAutoCaptureTriggered] = useState(false);
-  
+
   // UX flow: user must press Check In / Check Out before auto-capture activates
   const [activeAction, setActiveAction] = useState<'idle' | 'checkin' | 'checkout'>('idle');
   const autoCaptureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -382,7 +407,7 @@ const ScanPage: React.FC = () => {
     if (navigator.permissions && navigator.permissions.query && !permissionListenerRef.current) {
       try {
         const permissionStatus = await navigator.permissions.query({ name: "geolocation" as PermissionName });
-        
+
         if (permissionStatus.state === "denied") {
           const errorMessage = t("dashboard:scan.errors.locationPermissionDenied", {
             defaultValue: "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt.",
@@ -467,14 +492,14 @@ const ScanPage: React.FC = () => {
     } catch (error: any) {
       // Xử lý các loại lỗi khác nhau
       const errorCode = error.code || 0;
-      
+
       // Log tất cả lỗi để debug (trừ permission denied đã được xử lý ở trên)
       if (errorCode !== 1) {
         console.error("Error getting location:", error);
       }
 
       let errorMessage: string;
-      
+
       switch (errorCode) {
         case 1: // PERMISSION_DENIED
           errorMessage = t("dashboard:scan.errors.locationPermissionDenied", {
@@ -504,7 +529,7 @@ const ScanPage: React.FC = () => {
           setPermissions((prev) => ({ ...prev, location: false }));
           toast.error(errorMessage);
       }
-      
+
       setLocationError(errorMessage);
     } finally {
       setState((prev) => ({ ...prev, locationLoading: false }));
@@ -527,12 +552,12 @@ const ScanPage: React.FC = () => {
       formData.append("accuracy", location.accuracy.toString());
       const blob = dataURLtoBlob(photoData);
       formData.append("photo", blob, `${type}-${Date.now()}.jpg`);
-      
+
       // ⚠️ MỚI: Thêm earlyCheckoutReason nếu có
       if (type === "checkout" && earlyCheckoutReason) {
         formData.append("earlyCheckoutReason", earlyCheckoutReason);
       }
-      
+
       return formData;
     },
     []
@@ -566,7 +591,7 @@ const ScanPage: React.FC = () => {
           checkInTime: now,
           canCheckOut: false,
         }));
-        
+
         // Reset action state after successful check-in
         setActiveAction('idle');
         setAutoCaptureTriggered(false);
@@ -577,10 +602,10 @@ const ScanPage: React.FC = () => {
           setLocationData((prev) =>
             prev
               ? {
-                  ...prev,
-                  distance: distance ? parseInt(distance) : prev.distance,
-                  nearestOffice: location || prev.nearestOffice,
-                }
+                ...prev,
+                distance: distance ? parseInt(distance) : prev.distance,
+                nearestOffice: location || prev.nearestOffice,
+              }
               : null
           );
         }
@@ -604,8 +629,8 @@ const ScanPage: React.FC = () => {
       if (err.response?.data?.code === "FACE_VERIFICATION_FAILED") {
         const similarity = err.response.data.data?.similarity;
         toast.error(errorMessage, {
-          description: similarity 
-            ? `Độ tương đồng: ${(similarity * 100).toFixed(1)}%` 
+          description: similarity
+            ? `Độ tương đồng: ${(similarity * 100).toFixed(1)}%`
             : "Vui lòng thử lại hoặc đăng ký lại khuôn mặt",
           action: {
             label: "Đăng ký lại",
@@ -618,7 +643,7 @@ const ScanPage: React.FC = () => {
         voiceFeedback.speakMessage("Xác thực khuôn mặt thất bại. Khuôn mặt không khớp, vui lòng thử lại.");
         return;
       }
-      
+
       if (err.response?.data?.code === "FACE_VERIFICATION_ERROR") {
         toast.error("Lỗi xác thực khuôn mặt", {
           description: "Hệ thống không thể xác thực khuôn mặt. Vui lòng thử lại.",
@@ -626,7 +651,7 @@ const ScanPage: React.FC = () => {
         voiceFeedback.speakMessage("Lỗi xác thực khuôn mặt. Vui lòng thử lại.");
         return;
       }
-      
+
       if (err.response?.data?.code === "ALREADY_CHECKED_IN") {
         toast.info(errorMessage);
         setState((prev) => ({ ...prev, hasCheckedIn: true }));
@@ -678,7 +703,7 @@ const ScanPage: React.FC = () => {
         setEarlyCheckoutReason(null);
         setEarlyCheckoutError(null);
         lastCheckoutPhotoRef.current = null;
-        
+
         // Reset action state after successful check-out
         setActiveAction('idle');
         setAutoCaptureTriggered(false);
@@ -689,10 +714,10 @@ const ScanPage: React.FC = () => {
           setLocationData((prev) =>
             prev
               ? {
-                  ...prev,
-                  distance: distance ? parseInt(distance) : prev.distance,
-                  nearestOffice: location || prev.nearestOffice,
-                }
+                ...prev,
+                distance: distance ? parseInt(distance) : prev.distance,
+                nearestOffice: location || prev.nearestOffice,
+              }
               : null
           );
 
@@ -794,9 +819,8 @@ const ScanPage: React.FC = () => {
         if (response.data && response.data.length > 0) {
           const latestAttendance = response.data[0];
           const today = new Date();
-          const todayStr = `${today.getDate()}/${
-            today.getMonth() + 1
-          }/${today.getFullYear()}`;
+          const todayStr = `${today.getDate()}/${today.getMonth() + 1
+            }/${today.getFullYear()}`;
           const attendanceStr = parseAttendanceDate(latestAttendance.date);
 
           if (attendanceStr === todayStr) {
@@ -831,7 +855,7 @@ const ScanPage: React.FC = () => {
 
     loadOffices();
     checkTodayAttendance();
-    
+
     // Check face registration status
     const checkFaceStatus = async () => {
       try {
@@ -1227,7 +1251,7 @@ const ScanPage: React.FC = () => {
           </CardContent>
         </Card>
       )}
-      
+
       <Card className="border-[var(--border)] bg-[var(--surface)]">
         <CardHeader>
           <CardTitle className="text-[var(--text-main)]">
@@ -1247,11 +1271,10 @@ const ScanPage: React.FC = () => {
               {Object.entries(permissions).map(([key, granted]) => (
                 <span
                   key={key}
-                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-                    granted
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                  }`}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${granted
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                    }`}
                 >
                   {granted ? (
                     <CheckCircle2 className="h-3 w-3" />
@@ -1308,11 +1331,10 @@ const ScanPage: React.FC = () => {
                       setAutoCaptureTriggered(false);
                       faceDetection.resetConsecutiveFrames();
                     }}
-                    className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
-                      autoCaptureEnabled
-                        ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400"
-                        : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
-                    }`}
+                    className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${autoCaptureEnabled
+                      ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400"
+                      : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
+                      }`}
                     title={autoCaptureEnabled ? "Tắt tự động chấm công" : "Bật tự động chấm công"}
                   >
                     <Scan className="h-3.5 w-3.5" />
@@ -1345,9 +1367,8 @@ const ScanPage: React.FC = () => {
                 autoPlay
                 playsInline
                 muted
-                className={`h-full w-full object-cover ${
-                  isCameraReady ? "block" : "hidden"
-                }`}
+                className={`h-full w-full object-cover ${isCameraReady ? "block" : "hidden"
+                  }`}
                 style={{
                   transform: facingMode === "user" ? "scaleX(-1)" : "none",
                 }}
@@ -1377,11 +1398,10 @@ const ScanPage: React.FC = () => {
                       {Array.from({ length: 5 }).map((_, i) => (
                         <div
                           key={i}
-                          className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${
-                            i < faceDetection.consecutiveGoodFrames
-                              ? "bg-green-500"
-                              : "bg-green-300 dark:bg-green-700"
-                          }`}
+                          className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${i < faceDetection.consecutiveGoodFrames
+                            ? "bg-green-500"
+                            : "bg-green-300 dark:bg-green-700"
+                            }`}
                         />
                       ))}
                     </div>
@@ -1483,11 +1503,10 @@ const ScanPage: React.FC = () => {
                         {t("dashboard:scan.locationInfo.distance")}
                       </span>
                       <span
-                        className={`font-mono font-medium ${
-                          locationData.distance <= 100
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-orange-600 dark:text-orange-400"
-                        }`}
+                        className={`font-mono font-medium ${locationData.distance <= 100
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-orange-600 dark:text-orange-400"
+                          }`}
                       >
                         {Math.round(locationData.distance)}m
                       </span>
@@ -1617,11 +1636,10 @@ const ScanPage: React.FC = () => {
             <>
               {/* Active state: show action info + cancel button */}
               <div className="space-y-3">
-                <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm font-medium ${
-                  activeAction === 'checkin'
-                    ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                    : "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                }`}>
+                <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm font-medium ${activeAction === 'checkin'
+                  ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
+                  : "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
+                  }`}>
                   {isProcessing ? (
                     <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
                   ) : (

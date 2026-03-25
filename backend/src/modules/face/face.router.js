@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { FaceController } from "./face.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
+import { requireMinimumRole, ROLES } from "../../middleware/role.middleware.js";
 import multer from "multer";
 import rateLimit from "express-rate-limit";
 
@@ -8,6 +9,9 @@ const faceRouter = Router();
 
 // Apply auth middleware to all routes
 faceRouter.use(authMiddleware);
+
+// Chỉ cho phép nhân viên trở lên sử dụng tính năng AI (chặn TRIAL)
+faceRouter.use(requireMinimumRole(ROLES.EMPLOYEE));
 
 // Rate limiting for face operations (prevent abuse)
 const faceRateLimit = rateLimit({

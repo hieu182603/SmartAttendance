@@ -1,5 +1,6 @@
 """RAG Chatbot Router - Handles RAG-based conversations and document queries"""
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from app.limiter import limiter
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -54,7 +55,9 @@ def get_rag_service() -> RAGService:
     return _rag_service_instance
 
 @router.post("/chat", response_model=ConversationResponse)
+@limiter.limit("10/minute")
 async def chat_with_rag(
+    http_request: Request,
     request: ConversationRequest,
     background_tasks: BackgroundTasks,
     current_user: UserPrincipal = Depends(get_current_user),
@@ -71,7 +74,7 @@ async def chat_with_rag(
 
         # Check if user has permission for RAG operations
         # Roles are normalized to lowercase in auth.py
-        allowed_roles = ["employee", "supervisor", "manager", "hr_manager", "admin", "super_admin", "trial"]
+        allowed_roles = ["employee", "supervisor", "manager", "hr_manager", "admin", "super_admin"]
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=403,

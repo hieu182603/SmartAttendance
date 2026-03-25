@@ -19,16 +19,17 @@ authRouter.post("/verify-otp", otpRateLimiter, AuthController.verifyOTP);
 authRouter.post("/resend-otp", otpRateLimiter, AuthController.resendOTP);
 
 // Đăng nhập
-authRouter.post("/login", AuthController.login);
+authRouter.post("/login", authRateLimiter, AuthController.login);
 
 // Quên mật khẩu
-authRouter.post("/forgot-password", AuthController.forgotPassword);
+authRouter.post("/forgot-password", otpRateLimiter, AuthController.forgotPassword);
 
 // Xác thực OTP để reset password
-authRouter.post("/verify-reset-otp", AuthController.verifyResetOtp);
+authRouter.post("/verify-reset-otp", otpRateLimiter, AuthController.verifyResetOtp);
 
 // Đặt lại mật khẩu mới
-authRouter.post("/reset-password", AuthController.resetPassword);
+authRouter.post("/reset-password", otpRateLimiter, AuthController.resetPassword);
+
 
 // Lấy thông tin người dùng hiện tại (yêu cầu authentication)
 authRouter.get("/me", authMiddleware, AuthController.getCurrentUser);

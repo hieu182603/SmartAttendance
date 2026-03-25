@@ -20,14 +20,15 @@ const buildLimiter = ({ windowMs, max }) =>
 // Global limiter: protects all routes from basic burst traffic/DoS.
 export const globalRateLimiter = buildLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 300,
+  max: 150,
 });
 
 // Auth limiter: stricter to reduce brute-force and OTP abuse.
 export const authRateLimiter = buildLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 40,
+  max: 20,
 });
+
 
 // Attendance limiter: protect frequent scan/check-in flood attempts.
 export const attendanceRateLimiter = buildLimiter({
