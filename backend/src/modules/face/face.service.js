@@ -436,7 +436,12 @@ export class FaceService {
         match: aiResponse.data.match,
         similarity: aiResponse.data.similarity,
         threshold: aiResponse.data.threshold || FACE_RECOGNITION_CONFIG.VERIFICATION_THRESHOLD,
+        antiSpoofing: aiResponse.data.anti_spoofing || null,
       };
+
+      console.log(
+        `[FACE VERIFY] match=${result.match} similarity=${(result.similarity * 100).toFixed(1)}% threshold=${(result.threshold * 100).toFixed(1)}% antiSpoof=${result.antiSpoofing?.is_real || 'N/A'}`
+      );
 
       // Update lastVerifiedAt asynchronously (non-blocking) if match
       if (result.match) {
@@ -561,6 +566,10 @@ export class FaceService {
       similarity: aiResponse.data.similarity,
       threshold: aiResponse.data.threshold || FACE_RECOGNITION_CONFIG.VERIFICATION_THRESHOLD,
     };
+
+    console.log(
+      `[FACE VERIFY] match=${result.match} similarity=${(result.similarity * 100).toFixed(1)}% threshold=${(result.threshold * 100).toFixed(1)}%`
+    );
 
     // Update lastVerifiedAt if match
     if (result.match && user) {
@@ -828,13 +837,12 @@ export class FaceService {
    *   duplicate key error caught and handled gracefully.
    */
   async faceScan(userId, imageFiles, livenessData = null, deviceId = null) {
-    // ── Step 1: Validate inputs ─────────────────────────────────────────
-    if (!livenessData || livenessData.livenessPassed !== true) {
-      throw new AIServiceError(
-        "Liveness verification is required. Please complete the liveness check before scanning.",
-        "LIVENESS_REQUIRED"
-      );
-    }
+    // Per kehoach.md Phase 1: we DO NOT trust a client-provided `livenessPassed`
+    // flag anymore. Spoof rejection is handled server-side by the passive
+    // anti-spoofing pipeline inside the AI service (SFAS + texture, fail-closed).
+    // `livenessData` is kept as a parameter only for backwards compatibility
+    // with existing callers but is no longer validated.
+    void livenessData;
 
     if (!imageFiles || imageFiles.length === 0) {
       throw new AIServiceError(
@@ -1129,6 +1137,61 @@ export class FaceService {
       confidence: similarity,
       attendanceRecorded: true,
       action, // "check_in" | "check_out"
+      checkIn: attendance.checkIn,
+      checkOut: attendance.checkOut || null,
+      workHours: attendance.workHours || 0,
+    };
+  }
+
+  /**
+   * Record attendance after OTP fallback verification (no AI face check).
+   * Called by FaceController after user passes the 6-digit email OTP.
+   */
+  async recordAttendanceWithOtpFallback(userId) {
+    const { AttendanceModel } = await import("../attendance/attendance.model.js");
+
+    const now = new Date();
+    const dateOnly = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+
+    let attendance = await AttendanceModel.findOne({ userId, date: dateOnly });
+    let action = "check_in";
+
+    if (!attendance) {
+      attendance = new AttendanceModel({
+        userId,
+        date: dateOnly,
+        checkIn: now,
+        status: "present",
+        verificationFallback: "otp",
+      });
+    } else if (!attendance.checkOut) {
+      attendance.checkOut = now;
+      attendance.verificationFallback = "otp";
+      attendance.calculateWorkHours();
+      action = "check_out";
+    } else {
+      return {
+        status: "verified",
+        attendanceRecorded: false,
+        message: "Attendance already recorded for today.",
+      };
+    }
+
+    await attendance.save();
+
+    await logActivityWithoutRequest({
+      userId,
+      action: `face_fallback_otp_${action}`,
+      entityType: "attendance",
+      entityId: attendance._id,
+      details: { description: `Attendance ${action} via OTP fallback`, timestamp: now },
+      status: "success",
+    });
+
+    return {
+      status: "verified",
+      attendanceRecorded: true,
+      action,
       checkIn: attendance.checkIn,
       checkOut: attendance.checkOut || null,
       workHours: attendance.workHours || 0,

@@ -34,3 +34,9 @@ authRouter.post("/reset-password", otpRateLimiter, AuthController.resetPassword)
 
 // Lấy thông tin người dùng hiện tại (yêu cầu authentication)
 authRouter.get("/me", authMiddleware, AuthController.getCurrentUser);
+
+// Đổi access token mới từ refresh token
+authRouter.post("/refresh", AuthController.refresh);
+
+// Đăng xuất (thu hồi refresh token)
+authRouter.post("/logout", authMiddleware, AuthController.logout);

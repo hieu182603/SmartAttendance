@@ -1,5 +1,9 @@
+import mongoose from "mongoose";
+import XLSX from "xlsx";
 import { AttendanceModel } from "./attendance.model.js";
 import { BranchModel } from "../branches/branch.model.js";
+import { UserModel } from "../users/user.model.js";
+import { NotificationService } from "../notifications/notification.service.js";
 import {
   formatDateLabel,
   formatTime,
@@ -14,12 +18,50 @@ import {
   getShiftInfo,
   checkLateStatus,
   calculateWorkCredit,
+  applyTimeToDate,
 } from "./attendance.service.js";
 import {
   emitAttendanceUpdate,
   emitAttendanceUpdateToAdmins,
 } from "../../config/socket.js";
 import { APP_CONFIG } from "../../config/app.config.js";
+import { redisGet, redisSet } from "../../config/redis.js";
+import { OtpModel } from "../otp/otp.model.js";
+import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
+import { sendOTPEmail } from "../../utils/email.util.js";
+
+const FACE_FAIL_THRESHOLD = 5;
+const FACE_FAIL_TTL = 3600; // 1 giờ
+const faceFailKey = (userId) => `face_fail:${userId}`;
+
+/**
+ * Track face verification failure. Returns true khi đạt threshold và đã gửi OTP.
+ */
+async function handleFaceFailure(userId) {
+  const current = (await redisGet(faceFailKey(userId))) || 0;
+  const newCount = current + 1;
+  await redisSet(faceFailKey(userId), newCount, FACE_FAIL_TTL);
+
+  if (newCount >= FACE_FAIL_THRESHOLD) {
+    try {
+      const user = await UserModel.findById(userId).select("email name").lean();
+      const otpCode = generateOTP();
+      await OtpModel.deleteMany({ userId, purpose: "face_fallback" });
+      await OtpModel.create({
+        userId,
+        email: user.email,
+        code: otpCode,
+        purpose: "face_fallback",
+        expiresAt: generateOTPExpiry(10),
+      });
+      await sendOTPEmail(user.email, otpCode, user.name);
+    } catch (err) {
+      console.error("[attendance] face fallback OTP send error:", err);
+    }
+    return { requireOtpFallback: true, attemptsLeft: 0 };
+  }
+  return { requireOtpFallback: false, attemptsLeft: FACE_FAIL_THRESHOLD - newCount };
+}
 
 // ============================================================================
 // USER ATTENDANCE CONTROLLERS
@@ -182,6 +224,19 @@ export const checkIn = async (req, res) => {
     );
 
     if (!result.success) {
+      if (result.code === "FACE_VERIFICATION_FAILED") {
+        const { requireOtpFallback, attemptsLeft } = await handleFaceFailure(userId);
+        return res.status(400).json({
+          success: false,
+          message: requireOtpFallback
+            ? "Xác thực khuôn mặt thất bại nhiều lần. Mã OTP đã được gửi qua email để check-in."
+            : result.error,
+          code: result.code,
+          requireOtpFallback,
+          attemptsLeft,
+          data: result.data,
+        });
+      }
       return res.status(400).json({
         success: false,
         message: result.error,
@@ -243,6 +298,19 @@ export const checkOut = async (req, res) => {
     );
 
     if (!result.success) {
+      if (result.code === "FACE_VERIFICATION_FAILED") {
+        const { requireOtpFallback, attemptsLeft } = await handleFaceFailure(userId);
+        return res.status(400).json({
+          success: false,
+          message: requireOtpFallback
+            ? "Xác thực khuôn mặt thất bại nhiều lần. Mã OTP đã được gửi qua email để check-out."
+            : result.error,
+          code: result.code,
+          requireOtpFallback,
+          attemptsLeft,
+          data: result.data,
+        });
+      }
       return res.status(400).json({
         success: false,
         message: result.error,
@@ -292,8 +360,6 @@ export const getAttendanceAnalytics = async (req, res) => {
     if (department && department !== "all") {
       userQuery.department = department;
     }
-
-    const UserModel = (await import("../users/user.model.js")).UserModel;
 
     let userIds = [];
     if (Object.keys(userQuery).length > 0) {
@@ -558,8 +624,6 @@ export const getAllAttendance = async (req, res) => {
     const { start, end } = getDateRange(date);
     const dateQuery = { $gte: start, $lt: end };
 
-    const UserModel = (await import("../users/user.model.js")).UserModel;
-
     const userQuery = {};
     if (search) {
       userQuery.$or = [
@@ -671,13 +735,11 @@ export const updateAttendanceRecord = async (req, res) => {
 
     if (id.startsWith("absent-")) {
       const userIdStr = id.replace("absent-", "");
-      const mongoose = (await import("mongoose")).default;
       if (!mongoose.Types.ObjectId.isValid(userIdStr)) {
         return res.status(400).json({ message: "ID nhân viên không hợp lệ" });
       }
 
       const userId = new mongoose.Types.ObjectId(userIdStr);
-      const UserModel = (await import("../users/user.model.js")).UserModel;
       const user = await UserModel.findById(userId);
       if (!user) {
         return res.status(404).json({ message: "Không tìm thấy nhân viên" });
@@ -707,13 +769,27 @@ export const updateAttendanceRecord = async (req, res) => {
       }
     }
 
+    // HR_MANAGER can only edit attendance records within their own department
+    const requestorRole = req.user?.role;
+    if (requestorRole !== "ADMIN" && requestorRole !== "SUPER_ADMIN") {
+      const [requestor, targetUser] = await Promise.all([
+        UserModel.findById(req.user.userId).select("department").lean(),
+        UserModel.findById(attendance.userId).select("department").lean(),
+      ]);
+      if (
+        !requestor?.department ||
+        !targetUser?.department ||
+        requestor.department.toString() !== targetUser.department.toString()
+      ) {
+        return res.status(403).json({ message: "Không có quyền chỉnh sửa bản ghi này" });
+      }
+    }
+
     // Store old values for change tracking
     const oldCheckIn = attendance.checkIn;
     const oldCheckOut = attendance.checkOut;
     const oldStatus = attendance.status;
     const oldLocationId = attendance.locationId?.toString();
-
-    const { applyTimeToDate } = await import("./attendance.service.js");
 
     if (checkIn !== undefined) {
       if (!checkIn) {
@@ -819,7 +895,12 @@ export const updateAttendanceRecord = async (req, res) => {
           : "N/A",
       };
     }
-    // Removed status check - status variable is not defined in this scope
+    if (oldStatus !== undefined && oldStatus !== updated.status) {
+      changes.status = {
+        from: oldStatus || "N/A",
+        to: updated.status || "N/A",
+      };
+    }
     if (locationId !== undefined || locationName !== undefined) {
       const newLocationId = attendance.locationId?.toString();
       if (oldLocationId !== newLocationId) {
@@ -839,10 +920,6 @@ export const updateAttendanceRecord = async (req, res) => {
     // Send notification to user if there are changes
     if (Object.keys(changes).length > 0) {
       try {
-        const { NotificationService } = await import(
-          "../notifications/notification.service.js"
-        );
-        const { UserModel } = await import("../users/user.model.js");
         const admin = await UserModel.findById(req.user.userId)
           .select("name")
           .lean();
@@ -902,16 +979,107 @@ export const updateAttendanceRecord = async (req, res) => {
 export const deleteAttendanceRecord = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await AttendanceModel.findByIdAndDelete(id);
-    if (!deleted) {
-      return res
-        .status(404)
-        .json({ message: "Không tìm thấy bản ghi chấm công" });
+    const attendance = await AttendanceModel.findById(id);
+    if (!attendance) {
+      return res.status(404).json({ message: "Không tìm thấy bản ghi chấm công" });
     }
+
+    const requestorRole = req.user?.role;
+    if (requestorRole !== "ADMIN" && requestorRole !== "SUPER_ADMIN") {
+      const [requestor, targetUser] = await Promise.all([
+        UserModel.findById(req.user.userId).select("department").lean(),
+        UserModel.findById(attendance.userId).select("department").lean(),
+      ]);
+      if (
+        !requestor?.department ||
+        !targetUser?.department ||
+        requestor.department.toString() !== targetUser.department.toString()
+      ) {
+        return res.status(403).json({ message: "Không có quyền xóa bản ghi này" });
+      }
+    }
+
+    await attendance.deleteOne();
     res.json({ message: "Đã xóa bản ghi chấm công" });
   } catch (error) {
     console.error("[attendance] delete error", error);
     res.status(500).json({ message: "Không thể xóa bản ghi chấm công" });
+  }
+};
+
+/**
+ * POST /attendance — HR/Admin tạo bản ghi chấm công thủ công cho 1 nhân viên
+ * Body: { userId, date (YYYY-MM-DD), checkIn?, checkOut?, status?, notes?, locationId?, workCredit? }
+ */
+export const createManualAttendance = async (req, res) => {
+  try {
+    const {
+      userId,
+      date,
+      checkIn,
+      checkOut,
+      status,
+      notes,
+      locationId,
+      workCredit,
+    } = req.body || {};
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "userId không hợp lệ" });
+    }
+    if (!date || isNaN(new Date(date).getTime())) {
+      return res.status(400).json({ message: "date không hợp lệ" });
+    }
+
+    const targetUser = await UserModel.findById(userId).select("department").lean();
+    if (!targetUser) return res.status(404).json({ message: "Không tìm thấy nhân viên" });
+
+    // HR_MANAGER chỉ được tạo cho nhân viên cùng phòng ban
+    const requestorRole = req.user?.role;
+    if (requestorRole === "HR_MANAGER") {
+      const requestor = await UserModel.findById(req.user.userId).select("department").lean();
+      if (
+        !requestor?.department ||
+        !targetUser.department ||
+        requestor.department.toString() !== targetUser.department.toString()
+      ) {
+        return res.status(403).json({ message: "Không có quyền tạo bản ghi cho nhân viên ngoài phòng ban" });
+      }
+    }
+
+    const dayStart = new Date(date);
+    dayStart.setUTCHours(0, 0, 0, 0);
+
+    const existing = await AttendanceModel.findOne({ userId, date: dayStart });
+    if (existing) {
+      return res.status(409).json({ message: "Đã có bản ghi chấm công cho ngày này" });
+    }
+
+    const allowedStatus = ["present", "absent", "late", "on_leave", "weekend", "overtime"];
+    const finalStatus = allowedStatus.includes(status) ? status : "present";
+
+    let workHours = 0;
+    if (checkIn && checkOut) {
+      const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+      if (ms > 0) workHours = +(ms / (1000 * 60 * 60)).toFixed(2);
+    }
+
+    const record = await AttendanceModel.create({
+      userId,
+      date: dayStart,
+      checkIn: checkIn ? new Date(checkIn) : undefined,
+      checkOut: checkOut ? new Date(checkOut) : undefined,
+      status: finalStatus,
+      workHours,
+      workCredit: typeof workCredit === "number" ? workCredit : workHours > 0 ? 1 : 0,
+      locationId: locationId && mongoose.Types.ObjectId.isValid(locationId) ? locationId : undefined,
+      notes: notes ? String(notes).slice(0, 500) : `Tạo thủ công bởi ${requestorRole}`,
+    });
+
+    return res.status(201).json({ message: "Đã tạo bản ghi chấm công", data: record });
+  } catch (error) {
+    console.error("[attendance] manual create error", error);
+    return res.status(500).json({ message: error.message || "Không thể tạo bản ghi" });
   }
 };
 
@@ -1005,8 +1173,6 @@ export const approveEarlyCheckout = async (req, res) => {
 
     // Gửi notification cho nhân viên
     try {
-      const { NotificationService } = await import("../notifications/notification.service.js");
-      const { UserModel } = await import("../users/user.model.js");
       const approver = await UserModel.findById(approverId).select("name").lean();
       const isApproved = approvalStatus === "APPROVED";
       const dateStr = attendance.date
@@ -1062,8 +1228,6 @@ export const getPendingEarlyCheckouts = async (req, res) => {
     const userId = req.user.userId;
     const userRole = req.user.role;
     const { page = 1, limit = 20, search } = req.query;
-
-    const UserModel = (await import("../users/user.model.js")).UserModel;
 
     // Build user query based on role
     let userQuery = {};
@@ -1201,8 +1365,6 @@ export const getDepartmentAttendance = async (req, res) => {
     const userRole = req.user.role;
     const { date, search, page = 1, limit = 20 } = req.query;
 
-    const UserModel = (await import("../users/user.model.js")).UserModel;
-
     const user = await UserModel.findById(userId).select("department");
     if (!user || !user.department) {
       return res.status(403).json({
@@ -1303,7 +1465,6 @@ export const getDepartmentAttendance = async (req, res) => {
 export const exportAttendanceAnalytics = async (req, res) => {
   try {
     const { from, to, department } = req.query;
-    const XLSX = (await import("xlsx")).default;
 
     const dateQuery = buildDateQuery(from, to);
     if (Object.keys(dateQuery).length === 0) {
@@ -1318,8 +1479,6 @@ export const exportAttendanceAnalytics = async (req, res) => {
     if (department && department !== "all") {
       userQuery.department = department;
     }
-
-    const UserModel = (await import("../users/user.model.js")).UserModel;
 
     let userIds = [];
     if (Object.keys(userQuery).length > 0) {

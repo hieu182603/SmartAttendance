@@ -72,4 +72,16 @@ userRouter.put(
     UserController.updateUserByAdmin
 );
 
+userRouter.patch(
+    "/:id/deactivate",
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
+    UserController.deactivateUser
+);
+
+userRouter.patch(
+    "/:id/activate",
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
+    UserController.activateUser
+);
+
 

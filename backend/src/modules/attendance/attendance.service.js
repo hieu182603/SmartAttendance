@@ -8,12 +8,19 @@ import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { AttendanceModel } from "./attendance.model.js";
 import { BranchModel } from "../branches/branch.model.js";
 import { UserModel } from "../users/user.model.js";
-import { FaceService } from "../face/face.service.js";
+import { ShiftModel } from "../shifts/shift.model.js";
+import { RequestModel } from "../requests/request.model.js";
+import {
+  FaceService,
+  SpoofDetectedError,
+  FaceVerificationFailedError,
+} from "../face/face.service.js";
 import { uploadToCloudinary } from "../../config/cloudinary.js";
 import {
   emitAttendanceUpdate,
   emitAttendanceUpdateToAdmins,
 } from "../../config/socket.js";
+import { cacheAside } from "../../config/redis.js";
 
 /* global Intl */
 
@@ -118,8 +125,14 @@ export const validateAndFindBranch = async (latitude, longitude) => {
     };
   }
 
-  // Tìm tất cả branch active
-  const branches = await BranchModel.find({ status: "active" });
+  // Tìm tất cả branch active — cached 5 phút.
+  // Branch metadata rarely changes; if an admin edits, stale cache is tolerable
+  // since the worst case is one check-in decided on 5-minute-old coordinates.
+  const branches = await cacheAside(
+    "branches:active",
+    300,
+    () => BranchModel.find({ status: "active" }).lean()
+  );
 
   // Kiểm tra nếu không có branch nào active
   if (!branches || branches.length === 0) {
@@ -359,14 +372,16 @@ export const deriveStatus = (doc) => {
  */
 export const getUserSchedule = async (userId, date) => {
   try {
-    const schedule = await EmployeeScheduleModel.findOne({
-      userId,
-      date: date,
-    })
-      .populate("shiftId")
-      .lean();
-
-    return schedule;
+    const dateKey = date instanceof Date
+      ? date.toISOString().slice(0, 10)
+      : String(date);
+    return await cacheAside(
+      `schedule:${userId}:${dateKey}`,
+      60, // 1 minute — short TTL so shift changes propagate quickly.
+      () => EmployeeScheduleModel.findOne({ userId, date })
+        .populate("shiftId")
+        .lean()
+    );
   } catch (error) {
     return null;
   }
@@ -379,8 +394,6 @@ export const getUserSchedule = async (userId, date) => {
  */
 export const getShiftInfo = async (schedule) => {
   try {
-    const { ShiftModel } = await import("../shifts/shift.model.js");
-
     // Nếu schedule có shiftId đã được populate
     if (schedule?.shiftId && typeof schedule.shiftId === "object") {
       return {
@@ -706,7 +719,7 @@ export const validateLocation = (latitude, longitude) => {
  * @returns {Object} { valid, message }
  */
 export const validateGPSAccuracy = (accuracy) => {
-  if (accuracy && accuracy > ATTENDANCE_CONFIG.GPS_ACCURACY_THRESHOLD) {
+  if (accuracy && Number(accuracy) > ATTENDANCE_CONFIG.GPS_ACCURACY_THRESHOLD) {
     return {
       valid: false,
       message: "Vị trí không chính xác. Vui lòng bật GPS và thử lại.",
@@ -860,6 +873,25 @@ export const processCheckIn = async (
             faceVerified = result.match;
             faceSimilarity = result.similarity;
 
+            if (faceVerified) {
+              console.log(`[attendance] ✅ Khuôn mặt khớp (Độ tương đồng: ${(result.similarity * 100).toFixed(1)}%)`);
+            } else {
+              console.log(`[attendance] ❌ Khuôn mặt KHÔNG khớp (Độ tương đồng: ${(result.similarity * 100).toFixed(1)}%)`);
+            }
+
+            // Passive Anti-Spoofing — always blocking, never config-gated.
+            // If AI service flagged the image as spoof, it would already throw
+            // SpoofDetectedError; this is a defense-in-depth check in case the
+            // field came back in a success payload.
+            if (result.antiSpoofing && result.antiSpoofing.is_real === false) {
+              return {
+                success: false,
+                data: null,
+                error: `Phát hiện giả mạo khuôn mặt (${result.antiSpoofing.attack_type || "unknown"}). Vui lòng sử dụng khuôn mặt thật.`,
+                code: "SPOOF_DETECTED",
+              };
+            }
+
             if (!faceVerified) {
               if (requireFaceVerification) {
                 return {
@@ -876,6 +908,15 @@ export const processCheckIn = async (
           }
         }
       } catch (error) {
+        // Anti-spoofing is ALWAYS blocking — regardless of requireFaceVerification config.
+        if (error instanceof SpoofDetectedError) {
+          return {
+            success: false,
+            data: null,
+            error: `Phát hiện giả mạo khuôn mặt (${error.antiSpoofingData?.attack_type || "unknown"}). Vui lòng sử dụng khuôn mặt thật.`,
+            code: "SPOOF_DETECTED",
+          };
+        }
         if (requireFaceVerification) {
           return {
             success: false,
@@ -898,7 +939,6 @@ export const processCheckIn = async (
 
     // Chặn chấm công nếu hôm nay đang trong thời gian nghỉ đã được duyệt
     try {
-      const { RequestModel } = await import("../requests/request.model.js");
       const leaveTypes = [
         "leave",
         "sick",
@@ -1064,6 +1104,9 @@ export const processCheckIn = async (
     const statusMsg = attendance.status === "late" ? " (Đi muộn)" : "";
     const message = `Chấm công thành công!${statusMsg} (${shiftInfo.shiftName})`;
 
+    const faceMsg = faceVerified ? `✅ Khuôn mặt khớp (${(faceSimilarity * 100).toFixed(1)}%)` : `(Không xác thực khuôn mặt)`;
+    console.log(`[attendance] ✅ CHECK-IN THÀNH CÔNG: ${message} ${faceMsg}`);
+
     return {
       success: true,
       data: {
@@ -1147,10 +1190,15 @@ export const processCheckOut = async (
     const dayOfWeek = now.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    // ── Face verification for check-out (optimized, optional) ──
+    // ── Face verification for check-out — BLOCKING when face is registered ──
+    // Previously this was informational-only (just logged a warning), which
+    // let anyone with a registered user's credentials check-out on their
+    // behalf. Now mirrors check-in: if the user has a registered face and we
+    // have a photo, the verification must succeed.
     let faceVerified = false;
     let faceSimilarity = null;
     const shouldAutoVerify = FACE_RECOGNITION_CONFIG.ENABLED && FACE_RECOGNITION_CONFIG.AUTO_VERIFY_WHEN_REGISTERED;
+    const requireFaceVerification = ATTENDANCE_CONFIG.REQUIRE_FACE_VERIFICATION;
 
     if (shouldAutoVerify && photoFile) {
       try {
@@ -1158,7 +1206,6 @@ export const processCheckOut = async (
         const hasRegisteredFace = user?.faceData?.isRegistered && user?.faceData?.embeddings?.length > 0;
 
         if (hasRegisteredFace) {
-          // NOTE: photoFile is already a raw Buffer (extracted by controller via req.file.buffer)
           const faceService = getFaceService();
           const result = await faceService.verifyUserFaceOptimized(
             userId,
@@ -1168,14 +1215,50 @@ export const processCheckOut = async (
           faceVerified = result.match;
           faceSimilarity = result.similarity;
 
+          if (faceVerified) {
+            console.log(`[attendance] ✅ Khuôn mặt khớp (Độ tương đồng: ${(result.similarity * 100).toFixed(1)}%)`);
+          } else {
+            console.log(`[attendance] ❌ Khuôn mặt KHÔNG khớp (Độ tương đồng: ${(result.similarity * 100).toFixed(1)}%)`);
+          }
+
+          // Passive Anti-Spoofing — always blocking on check-out too.
+          if (result.antiSpoofing && result.antiSpoofing.is_real === false) {
+            return {
+              success: false,
+              data: null,
+              error: `Phát hiện giả mạo khuôn mặt (${result.antiSpoofing.attack_type || "unknown"}). Vui lòng sử dụng khuôn mặt thật.`,
+              code: "SPOOF_DETECTED",
+            };
+          }
+
           if (!faceVerified) {
-            // Check-out face verification is informational only (not blocking)
-            console.warn(`[attendance] Check-out face verification failed for user ${userId}, similarity: ${result.similarity}`);
+            return {
+              success: false,
+              data: null,
+              error: `Khuôn mặt không khớp khi check-out (Độ tương đồng: ${(result.similarity * 100).toFixed(1)}%). Vui lòng thử lại.`,
+              code: "FACE_VERIFICATION_FAILED",
+              similarity: result.similarity,
+            };
           }
         }
       } catch (error) {
-        // Check-out face verification failure is non-blocking
-        console.warn(`[attendance] Check-out face verification error: ${error.message}`);
+        if (error instanceof SpoofDetectedError) {
+          return {
+            success: false,
+            data: null,
+            error: `Phát hiện giả mạo khuôn mặt (${error.antiSpoofingData?.attack_type || "unknown"}). Vui lòng sử dụng khuôn mặt thật.`,
+            code: "SPOOF_DETECTED",
+          };
+        }
+        if (requireFaceVerification) {
+          return {
+            success: false,
+            data: null,
+            error: `Không thể xác thực khuôn mặt khi check-out: ${error.message}`,
+            code: "FACE_VERIFICATION_ERROR",
+          };
+        }
+        console.warn(`[attendance] Check-out face verification error (non-blocking): ${error.message}`);
       }
     }
 
@@ -1350,6 +1433,9 @@ export const processCheckOut = async (
     if (attendance.approvalStatus === "PENDING") {
       message = `Check-out thành công! Yêu cầu của bạn đang chờ duyệt (${shiftInfo.shiftName})`;
     }
+
+    const faceMsg = faceVerified ? `✅ Khuôn mặt khớp (${(faceSimilarity * 100).toFixed(1)}%)` : `(Không xác thực khuôn mặt)`;
+    console.log(`[attendance] ✅ CHECK-OUT THÀNH CÔNG: ${message} ${faceMsg}`);
 
     return {
       success: true,

@@ -466,6 +466,63 @@ export class UserController {
   }
 
   /**
+   * PATCH /api/users/:id/deactivate — vô hiệu hoá tài khoản nhân viên
+   */
+  static async deactivateUser(req, res) {
+    try {
+      const { id } = req.params;
+      if (id === req.user?.userId) {
+        return res.status(400).json({ message: "Không thể tự vô hiệu hoá tài khoản của chính mình" });
+      }
+      const userRole = req.user?.role;
+      const updated = await UserService.updateUserByAdmin(id, { isActive: false }, userRole);
+
+      await logActivity(req, {
+        action: "deactivate_user",
+        entityType: "user",
+        entityId: id,
+        details: { description: `Vô hiệu hoá user: ${updated.name}`, targetUserId: id },
+        status: "success",
+      });
+
+      return res.status(200).json({ message: "Đã vô hiệu hoá user", user: updated });
+    } catch (error) {
+      if (error.message === "User not found") {
+        return res.status(404).json({ message: "Không tìm thấy user" });
+      }
+      console.error("[UserController] Deactivate user error:", error);
+      return res.status(500).json({ message: error.message || "Lỗi server" });
+    }
+  }
+
+  /**
+   * PATCH /api/users/:id/activate — kích hoạt lại tài khoản
+   */
+  static async activateUser(req, res) {
+    try {
+      const { id } = req.params;
+      const userRole = req.user?.role;
+      const updated = await UserService.updateUserByAdmin(id, { isActive: true }, userRole);
+
+      await logActivity(req, {
+        action: "activate_user",
+        entityType: "user",
+        entityId: id,
+        details: { description: `Kích hoạt lại user: ${updated.name}`, targetUserId: id },
+        status: "success",
+      });
+
+      return res.status(200).json({ message: "Đã kích hoạt lại user", user: updated });
+    } catch (error) {
+      if (error.message === "User not found") {
+        return res.status(404).json({ message: "Không tìm thấy user" });
+      }
+      console.error("[UserController] Activate user error:", error);
+      return res.status(500).json({ message: error.message || "Lỗi server" });
+    }
+  }
+
+  /**
    * @swagger
    * /api/users/me/avatar:
    *   post:

@@ -74,7 +74,7 @@ faceRouter.post(
 faceRouter.post(
   "/liveness/baseline/:sessionId",
   faceRateLimit,
-  livenessUpload.none(),
+  livenessUpload.single("image"),
   FaceController.captureLivenessBaseline
 );
 
@@ -86,7 +86,7 @@ faceRouter.post(
 faceRouter.post(
   "/liveness/verify/:sessionId",
   faceRateLimit,
-  livenessUpload.none(),
+  livenessUpload.single("image"),
   FaceController.verifyLivenessResponse
 );
 
@@ -127,6 +127,13 @@ faceRouter.post(
   upload.array("images", 5),
   FaceController.scanFace
 );
+
+/**
+ * @route   POST /api/face/verify-fallback-otp
+ * @desc    Xác minh OTP fallback khi face scan thất bại 3 lần và ghi chấm công
+ * @access  Private
+ */
+faceRouter.post("/verify-fallback-otp", FaceController.verifyFaceFallbackOtp);
 
 export { faceRouter };
 

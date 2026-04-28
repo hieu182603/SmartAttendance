@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { PayrollReportModel } from "./payroll.model.js";
 import { emitPayrollUpdate } from "../../config/socket.js";
+import { generatePayrollForMonth, generatePayrollRecord } from "./payroll.service.js";
 
 const sanitizeNumber = (value = 0) => {
   if (Number.isFinite(value)) return value;
@@ -142,6 +143,18 @@ export const getPayrollRecordById = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy bảng lương" });
     }
 
+    // HR_MANAGER can only view payroll records within their own department
+    const requestorRole = req.user?.role;
+    if (requestorRole !== "ADMIN" && requestorRole !== "SUPER_ADMIN") {
+      const { UserModel } = await import("../users/user.model.js");
+      const requestor = await UserModel.findById(req.user?.userId).select("department").lean();
+      const targetDept = record.userId?.department?.toString();
+      const requestorDept = requestor?.department?.toString();
+      if (!requestorDept || !targetDept || requestorDept !== targetDept) {
+        return res.status(403).json({ message: "Không có quyền xem bảng lương này" });
+      }
+    }
+
     res.json({ data: record });
   } catch (error) {
     console.error("[payroll] get record by id error", error);
@@ -165,6 +178,23 @@ export const approvePayrollRecord = async (req, res) => {
     const record = await PayrollRecordModel.findById(id);
     if (!record) {
       return res.status(404).json({ message: "Không tìm thấy bảng lương" });
+    }
+
+    // HR_MANAGER can only approve payroll records within their own department
+    const requestorRole = req.user?.role;
+    if (requestorRole !== "ADMIN" && requestorRole !== "SUPER_ADMIN") {
+      const { UserModel } = await import("../users/user.model.js");
+      const [requestor, targetUser] = await Promise.all([
+        UserModel.findById(userId).select("department").lean(),
+        UserModel.findById(record.userId).select("department").lean(),
+      ]);
+      if (
+        !requestor?.department ||
+        !targetUser?.department ||
+        requestor.department.toString() !== targetUser.department.toString()
+      ) {
+        return res.status(403).json({ message: "Không có quyền duyệt bảng lương này" });
+      }
     }
 
     if (record.status !== "pending") {
@@ -290,6 +320,230 @@ export const markPayrollAsPaid = async (req, res) => {
   } catch (error) {
     console.error("[payroll] mark as paid error", error);
     res.status(500).json({ message: "Không thể cập nhật trạng thái thanh toán" });
+  }
+};
+
+/**
+ * POST /payroll/generate — HR/Admin generate payroll cho 1 tháng (toàn bộ NV hoặc 1 NV)
+ */
+export const generatePayroll = async (req, res) => {
+  try {
+    const { month, userId } = req.body || {};
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ message: "month phải có format YYYY-MM" });
+    }
+
+    if (userId) {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "userId không hợp lệ" });
+      }
+      const record = await generatePayrollRecord(userId, month);
+      return res.json({ success: true, processed: 1, record });
+    }
+
+    const results = await generatePayrollForMonth(month);
+    return res.json({
+      success: true,
+      processed: results.processed,
+      successCount: results.success.length,
+      errorCount: results.errors.length,
+      errors: results.errors,
+    });
+  } catch (error) {
+    console.error("[payroll] generate error", error);
+    return res.status(500).json({ message: error.message || "Không thể tạo bảng lương" });
+  }
+};
+
+/**
+ * GET /payroll/my-payslip — Employee xem phiếu lương của chính mình
+ * Query: month (YYYY-MM, mặc định tháng trước)
+ */
+export const getMyPayslip = async (req, res) => {
+  try {
+    const { PayrollRecordModel } = await import("./payroll.model.js");
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    let { month } = req.query;
+    if (month && !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ message: "month phải có format YYYY-MM" });
+    }
+
+    if (!month) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    const record = await PayrollRecordModel.findOne({ userId, month })
+      .populate("userId", "name email employeeId department position")
+      .populate("approvedBy", "name email")
+      .lean();
+
+    if (!record) {
+      return res.status(404).json({ message: `Chưa có phiếu lương tháng ${month}` });
+    }
+
+    return res.json({ data: record });
+  } catch (error) {
+    console.error("[payroll] my-payslip error", error);
+    return res.status(500).json({ message: "Không lấy được phiếu lương" });
+  }
+};
+
+const formatVND = (n) => {
+  const value = Number.isFinite(n) ? n : 0;
+  return new Intl.NumberFormat("vi-VN").format(Math.round(value)) + " ₫";
+};
+
+const loadOwnPayslipOrFail = async (req, res) => {
+  const { PayrollRecordModel } = await import("./payroll.model.js");
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return null;
+  }
+
+  let { month } = req.query;
+  if (month && !/^\d{4}-\d{2}$/.test(month)) {
+    res.status(400).json({ message: "month phải có format YYYY-MM" });
+    return null;
+  }
+
+  if (!month) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  const record = await PayrollRecordModel.findOne({ userId, month })
+    .populate("userId", "name email employeeId department position")
+    .lean();
+
+  if (!record) {
+    res.status(404).json({ message: `Chưa có phiếu lương tháng ${month}` });
+    return null;
+  }
+  return { record, month };
+};
+
+/**
+ * GET /payroll/my-payslip/pdf — xuất phiếu lương cá nhân ra PDF
+ */
+export const exportMyPayslipPdf = async (req, res) => {
+  try {
+    const data = await loadOwnPayslipOrFail(req, res);
+    if (!data) return;
+    const { record, month } = data;
+
+    const PDFKit = (await import("pdfkit")).default;
+    const doc = new PDFKit({ size: "A4", margin: 50 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="payslip-${month}.pdf"`
+    );
+    doc.pipe(res);
+
+    doc.fontSize(18).text("PHIEU LUONG", { align: "center" });
+    doc.fontSize(12).text(`Thang: ${month}`, { align: "center" });
+    doc.moveDown();
+
+    const u = record.userId || {};
+    doc.fontSize(11).text(`Ho ten: ${u.name || "-"}`);
+    doc.text(`Email: ${u.email || "-"}`);
+    doc.text(`Ma NV: ${u.employeeId || record.employeeId || "-"}`);
+    doc.text(`Phong ban: ${record.department || "-"}`);
+    doc.text(`Chuc vu: ${record.position || u.position || "-"}`);
+    doc.moveDown();
+
+    const rows = [
+      ["Ngay cong thuc te", record.workDays],
+      ["Gio tang ca", record.overtimeHours],
+      ["Ngay nghi phep", record.leaveDays],
+      ["Ngay di muon", record.lateDays],
+      ["Luong co ban", formatVND(record.baseSalary)],
+      ["Luong thuc te theo cong", formatVND(record.actualBaseSalary)],
+      ["Luong tang ca", formatVND(record.overtimePay)],
+      ["Thuong", formatVND(record.bonus)],
+      ["Khau tru", formatVND(record.deductions)],
+    ];
+
+    rows.forEach(([k, v]) => doc.text(`${k}: ${v}`));
+    doc.moveDown();
+    doc.fontSize(13).text(`TONG LUONG: ${formatVND(record.totalSalary)}`, {
+      underline: true,
+    });
+    doc.moveDown();
+    doc.fontSize(10).fillColor("gray").text(`Trang thai: ${record.status}`);
+
+    doc.end();
+  } catch (error) {
+    console.error("[payroll] export pdf error", error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Không xuất được PDF" });
+    }
+  }
+};
+
+/**
+ * GET /payroll/my-payslip/excel — xuất phiếu lương cá nhân ra Excel
+ */
+export const exportMyPayslipExcel = async (req, res) => {
+  try {
+    const data = await loadOwnPayslipOrFail(req, res);
+    if (!data) return;
+    const { record, month } = data;
+
+    const xlsx = await import("xlsx");
+    const u = record.userId || {};
+
+    const sheetData = [
+      ["PHIEU LUONG"],
+      [`Thang: ${month}`],
+      [],
+      ["Ho ten", u.name || "-"],
+      ["Email", u.email || "-"],
+      ["Ma NV", u.employeeId || record.employeeId || "-"],
+      ["Phong ban", record.department || "-"],
+      ["Chuc vu", record.position || u.position || "-"],
+      [],
+      ["Hang muc", "Gia tri"],
+      ["Ngay cong thuc te", record.workDays],
+      ["Gio tang ca", record.overtimeHours],
+      ["Ngay nghi phep", record.leaveDays],
+      ["Ngay di muon", record.lateDays],
+      ["Luong co ban", record.baseSalary],
+      ["Luong thuc te theo cong", record.actualBaseSalary],
+      ["Luong tang ca", record.overtimePay],
+      ["Thuong", record.bonus],
+      ["Khau tru", record.deductions],
+      ["TONG LUONG", record.totalSalary],
+      [],
+      ["Trang thai", record.status],
+    ];
+
+    const ws = xlsx.utils.aoa_to_sheet(sheetData);
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, ws, "Payslip");
+
+    const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="payslip-${month}.xlsx"`
+    );
+    res.send(buf);
+  } catch (error) {
+    console.error("[payroll] export excel error", error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Không xuất được Excel" });
+    }
   }
 };
 

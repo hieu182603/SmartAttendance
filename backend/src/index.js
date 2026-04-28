@@ -28,6 +28,7 @@ import { eventRouter } from "./modules/events/event.router.js";
 import { performanceRouter } from "./modules/performance/performance.router.js";
 import { notificationRouter } from "./modules/notifications/notification.router.js";
 import { faceRouter } from "./modules/face/face.router.js";
+import { configRouter } from "./modules/config/config.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
 import {
   globalRateLimiter,
@@ -184,6 +185,7 @@ app.use("/api/notifications", notificationRouter);
 // Face routes cần body lớn hơn (ảnh base64, tối đa 10MB)
 app.use("/api/face", express.json({ limit: "10mb" }), express.urlencoded({ extended: true, limit: "10mb" }), faceRouter);
 app.use("/api/logs", logRouter);
+app.use("/api/config", configRouter);
 
 // 404 fallback — must be registered BEFORE the error handler so unmatched
 // routes get a clear 404 instead of falling through to the error handler.

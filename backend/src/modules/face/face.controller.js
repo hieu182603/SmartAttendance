@@ -11,6 +11,16 @@ import {
 import { FACE_RECOGNITION_CONFIG } from "../../config/app.config.js";
 import { aiServiceClient } from "../../utils/aiServiceClient.js";
 import FormData from "form-data";
+import { redisGet, redisSet, redisDel } from "../../config/redis.js";
+import { OtpModel } from "../otp/otp.model.js";
+import { UserModel } from "../users/user.model.js";
+import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
+import { sendOTPEmail } from "../../utils/email.util.js";
+import crypto from "node:crypto";
+
+const FACE_FAIL_THRESHOLD = 5;
+const FACE_FAIL_TTL = 3600; // 1 hour
+const faceFailKey = (userId) => `face_fail:${userId}`;
 
 export class FaceController {
   /**
@@ -442,7 +452,7 @@ export class FaceController {
     try {
       const userId = req.user.userId;
       const files = req.files;
-      const { livenessPassed, deviceId } = req.body;
+      const { deviceId } = req.body;
 
       if (!files || files.length === 0) {
         return res.status(400).json({
@@ -452,12 +462,10 @@ export class FaceController {
         });
       }
 
-      const livenessData = {
-        livenessPassed: livenessPassed === "true" || livenessPassed === true,
-      };
-
+      // Liveness trust is server-side only (Passive Anti-Spoofing inside AI service).
+      // We no longer accept a client-provided `livenessPassed` flag.
       const faceService = new FaceService();
-      const result = await faceService.faceScan(userId, files, livenessData, deviceId || null);
+      const result = await faceService.faceScan(userId, files, null, deviceId || null);
 
       return res.status(200).json({
         success: true,
@@ -468,6 +476,39 @@ export class FaceController {
 
       // Handle specific error types
       if (error instanceof FaceVerificationFailedError) {
+        const userId = req.user.userId;
+        const key = faceFailKey(userId);
+        const current = (await redisGet(key)) || 0;
+        const newCount = current + 1;
+        await redisSet(key, newCount, FACE_FAIL_TTL);
+
+        if (newCount >= FACE_FAIL_THRESHOLD) {
+          // Gửi OTP fallback qua email
+          try {
+            const user = await UserModel.findById(userId).select("email name").lean();
+            const otpCode = generateOTP();
+            await OtpModel.deleteMany({ userId, purpose: "face_fallback" });
+            await OtpModel.create({
+              userId,
+              email: user.email,
+              code: otpCode,
+              purpose: "face_fallback",
+              expiresAt: generateOTPExpiry(10),
+            });
+            await sendOTPEmail(user.email, otpCode, user.name);
+          } catch (otpErr) {
+            console.error("Face fallback OTP send error:", otpErr);
+          }
+
+          return res.status(403).json({
+            success: false,
+            status: "failed",
+            errorCode: "FACE_VERIFICATION_FAILED",
+            requireOtpFallback: true,
+            message: "Xác thực khuôn mặt thất bại nhiều lần. Mã OTP đã được gửi qua email để check-in.",
+          });
+        }
+
         return res.status(403).json({
           success: false,
           status: "failed",
@@ -475,6 +516,7 @@ export class FaceController {
           message: error.message,
           confidence: error.similarity,
           threshold: error.threshold,
+          attemptsLeft: FACE_FAIL_THRESHOLD - newCount,
         });
       }
 
@@ -535,6 +577,55 @@ export class FaceController {
         errorCode: "INTERNAL_ERROR",
         message: error.message || "Failed to process face scan",
       });
+    }
+  }
+
+  /**
+   * Verify face fallback OTP and record attendance
+   * POST /api/face/verify-fallback-otp
+   * Body: { otp: string }
+   */
+  static async verifyFaceFallbackOtp(req, res) {
+    try {
+      const userId = req.user.userId;
+      const { otp } = req.body;
+
+      if (!otp || typeof otp !== "string" || otp.trim().length !== 6) {
+        return res.status(400).json({ success: false, message: "OTP không hợp lệ (cần 6 chữ số)" });
+      }
+
+      const otpRecord = await OtpModel.findOne({ userId, purpose: "face_fallback" }).sort({ createdAt: -1 });
+      if (!otpRecord) {
+        return res.status(400).json({ success: false, message: "OTP không tìm thấy. Vui lòng thử lại." });
+      }
+      if (new Date() > otpRecord.expiresAt) {
+        await OtpModel.deleteMany({ userId, purpose: "face_fallback" });
+        return res.status(400).json({ success: false, message: "OTP đã hết hạn. Vui lòng quét mặt lại." });
+      }
+      if (otpRecord.attempts >= 5) {
+        await OtpModel.deleteMany({ userId, purpose: "face_fallback" });
+        return res.status(429).json({ success: false, message: "Nhập sai quá nhiều lần. Vui lòng thử lại." });
+      }
+
+      const otpBuf = Buffer.from(otpRecord.code);
+      const inputBuf = Buffer.from(otp.trim());
+      if (otpBuf.length !== inputBuf.length || !crypto.timingSafeEqual(otpBuf, inputBuf)) {
+        otpRecord.attempts = (otpRecord.attempts || 0) + 1;
+        await otpRecord.save();
+        return res.status(400).json({ success: false, message: "OTP không đúng" });
+      }
+
+      // OTP hợp lệ — xóa OTP + reset fail counter + ghi chấm công
+      await OtpModel.deleteMany({ userId, purpose: "face_fallback" });
+      await redisDel(faceFailKey(userId));
+
+      const faceService = new FaceService();
+      const result = await faceService.recordAttendanceWithOtpFallback(userId);
+
+      return res.status(200).json({ success: true, ...result });
+    } catch (error) {
+      console.error("verifyFaceFallbackOtp error:", error);
+      return res.status(500).json({ success: false, message: "Lỗi server. Vui lòng thử lại." });
     }
   }
 }
