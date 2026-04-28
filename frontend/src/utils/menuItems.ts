@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Home, Camera, History, FileText, Clock, CalendarDays, Calendar,
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
-  DollarSign, TrendingUp, Award, FileBarChart, Table2
+  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { Permission, type PermissionType, UserRole, ROLE_PERMISSIONS, type UserRoleType } from '@/utils/roles';
@@ -71,6 +71,13 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Hồ sơ',
     icon: User,
     path: '/employee/profile',
+    section: 'employee',
+  },
+  {
+    id: 'chatbot',
+    label: 'Trợ lý AI',
+    icon: Bot,
+    path: '/employee/chatbot',
     section: 'employee',
   },
   // Admin Dashboard (home) - moved to admin section for admin roles in getMenuByPermissionsWithTranslations

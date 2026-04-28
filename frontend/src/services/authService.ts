@@ -29,10 +29,14 @@ export const verifyResetOtp = async ({ email, otp }: { email: string; otp: strin
     return (await api.post('/auth/verify-reset-otp', { email, otp })).data
 }
 
-export const resetPassword = async ({ email, password }: { email: string; password: string }): Promise<ResetPasswordResponse> => {
-    return (await api.post('/auth/reset-password', { email, password })).data
+export const resetPassword = async ({ email, password, resetToken }: { email: string; password: string; resetToken: string }): Promise<ResetPasswordResponse> => {
+    return (await api.post('/auth/reset-password', { email, password, resetToken })).data
 }
 
+export const refreshTokenApi = async (refreshToken: string): Promise<{ token: string; refreshToken: string }> => {
+    return (await api.post('/auth/refresh', { refreshToken })).data
+}
 
-
-
+export const logoutApi = async (): Promise<void> => {
+    await api.post('/auth/logout')
+}

@@ -34,7 +34,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/dashboard/NotificationCenter";
-import { FloatingChatWidget } from "@/components/dashboard/FloatingChatWidget";
 import { useNotifications } from "@/hooks/useNotifications";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
@@ -100,7 +99,7 @@ const DashboardLayout: React.FC = () => {
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
       const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
       const employeeItems = menu.filter(item =>
-        item.section === 'employee' && (item.id === 'company-calendar' || item.id === 'profile')
+        item.section === 'employee' && (item.id === 'company-calendar' || item.id === 'profile' || item.id === 'chatbot')
       );
       return [...adminItems, ...employeeItems];
     }
@@ -115,6 +114,8 @@ const DashboardLayout: React.FC = () => {
     if (!path || path === "") return "home";
     return path;
   }, [location.pathname, basePath]);
+  const isScanPage = location.pathname.endsWith("/scan");
+  const isChatbotPage = location.pathname.endsWith("/chatbot");
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -365,7 +366,13 @@ const DashboardLayout: React.FC = () => {
         )}
 
         {/* Main Content */}
-        <main className={`flex-1 h-[calc(100vh-4rem)] overflow-y-auto p-4 md:p-6 lg:p-8 transition-all duration-200 ease-in-out ${
+        <main className={`flex-1 h-[calc(100vh-4rem)] transition-all duration-200 ease-in-out ${
+          isChatbotPage
+            ? "overflow-y-auto p-0"
+            : isScanPage
+            ? "overflow-hidden px-4 md:px-6 lg:px-8 py-0"
+            : "overflow-y-auto p-4 md:p-6 lg:p-8"
+        } ${
           isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
         }`}>
           <Outlet />
@@ -375,10 +382,6 @@ const DashboardLayout: React.FC = () => {
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
       />
-      {/* Hide chatbot on scan and face registration pages to avoid camera/GPS interference */}
-      {!location.pathname.endsWith('/scan') && !location.pathname.endsWith('/face-registration') && (
-        <FloatingChatWidget />
-      )}
     </div>
   );
 };

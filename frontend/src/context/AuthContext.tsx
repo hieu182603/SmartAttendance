@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { getMe, login as loginApi } from '@/services/authService'
+import { getMe, login as loginApi, logoutApi } from '@/services/authService'
 import type { User, LoginResponse } from '@/types'
+
+const REFRESH_TOKEN_KEY = 'sa_refresh_token'
 
 interface AuthContextType {
   token: string
@@ -63,34 +65,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const data = await loginApi({ email, password })
     setToken(data.token)
     setUser(data.user)
-    // Store user role in localStorage for API interceptor to use
     if (data.user?.role) {
       localStorage.setItem('sa_user_role', data.user.role)
     }
-    // Dispatch custom event to notify other contexts (e.g., NotificationsContext)
+    if (data.refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken)
+    }
     window.dispatchEvent(new CustomEvent('auth-token-changed'))
     return data
   }
 
   const logout = () => {
-    // Clear all storage immediately
+    // Best-effort server-side revoke (fire-and-forget)
+    logoutApi().catch(() => {})
+
     localStorage.removeItem('sa_token')
     localStorage.removeItem('sa_user_role')
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
     sessionStorage.clear()
-    
-    // Clear state immediately
+
     setToken('')
     setUser(null)
     setLoading(false)
-    
-    // Dispatch custom event to notify other contexts
+
     window.dispatchEvent(new CustomEvent('auth-token-changed'))
-    
-    // Cancel any pending API requests by clearing token in interceptor
-    // The API interceptor will handle this automatically
-    
-    // Redirect to login immediately (don't wait for React state updates)
-    // Use window.location for immediate redirect to prevent any delays
+
     if (window.location.pathname !== '/login') {
       window.location.href = '/login'
     }

@@ -117,6 +117,16 @@ export const updateUserByAdmin = async (id: string, userData: UpdateUserByAdminD
   }
 }
 
+export const deactivateUser = async (id: string): Promise<unknown> => {
+  const { data } = await api.patch(`/users/${id}/deactivate`)
+  return data
+}
+
+export const activateUser = async (id: string): Promise<unknown> => {
+  const { data } = await api.patch(`/users/${id}/activate`)
+  return data
+}
+
 export const createUserByAdmin = async (userData: CreateUserByAdminData): Promise<unknown> => {
   try {
     const { data } = await api.post('/users', userData)

@@ -20,6 +20,7 @@ export interface ApiError {
 
 export interface LoginResponse {
   token: string
+  refreshToken?: string
   user: User
 }
 
@@ -38,6 +39,7 @@ export interface VerifyOtpResponse {
 export interface VerifyResetOtpResponse {
   success: boolean
   message?: string
+  resetToken?: string
 }
 
 export interface ForgotPasswordResponse {
@@ -58,6 +60,7 @@ export interface ResendOtpResponse {
 export interface LocationState {
   email?: string
   purpose?: 'register' | 'reset'
+  resetToken?: string
 }
 
 // Error types

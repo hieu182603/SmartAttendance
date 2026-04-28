@@ -11,6 +11,14 @@ interface CapturedGalleryProps {
   onDrop?: (e: React.DragEvent, dropIndex: number) => void;
 }
 
+// Mirrors CAPTURE_INSTRUCTIONS in FaceRegistrationPage
+const SLOT_CONFIG = [
+  { icon: "👤", label: "Nhìn thẳng" },
+  { icon: "👆", label: "Ngẩng lên" },
+  { icon: "👈", label: "Quay trái" },
+  { icon: "👉", label: "Quay phải" },
+];
+
 export const CapturedGallery: React.FC<CapturedGalleryProps> = ({
   images,
   onRemove,
@@ -19,86 +27,77 @@ export const CapturedGallery: React.FC<CapturedGalleryProps> = ({
   onDragEnd,
   onDrop,
 }) => {
-  if (images.length === 0) return null;
-
   return (
-    <div className="p-3">
-      <h3 className="text-sm font-semibold text-white mb-3">
-        Captured Images ({images.length})
-      </h3>
-      <div className="grid grid-cols-3 gap-3">
-        {images.map((img, index) => {
-          const qualityPercentage = Math.round(img.qualityScore * 100);
-          const isLowQuality = img.qualityScore < 0.7;
-          const qualityColor =
-            qualityPercentage >= 80 ? "text-green-400" :
-              qualityPercentage >= 70 ? "text-amber-400" : "text-red-400";
+    <div className="grid grid-cols-2 gap-1 px-0 pt-0 pb-1">
+      {SLOT_CONFIG.map((cfg, index) => {
+        const img = images[index];
+        const filled = Boolean(img);
+        const qualityPercentage = img ? Math.round(img.qualityScore * 100) : 0;
+        const isLowQuality = img ? img.qualityScore < 0.7 : false;
 
-          return (
-            <div
-              key={index}
-              draggable={!isLowQuality}
-              onDragStart={(e) => !isLowQuality && onDragStart?.(e, index)}
-              onDragOver={(e) => !isLowQuality && onDragOver?.(e, index)}
-              onDragEnd={onDragEnd}
-              onDrop={(e) => !isLowQuality && onDrop?.(e, index)}
-              className={`relative group overflow-hidden rounded-lg border-2 transition-all duration-300 hover:scale-105 ${isLowQuality
-                ? "border-red-500 hover:border-red-600 cursor-default grayscale"
-                : "border-gray-700 hover:border-cyan-500 cursor-move"
-                }`}
-            >
-              <img
-                src={img.dataURL}
-                alt={`Face ${index + 1}${isLowQuality ? ' - Low Quality' : ''}`}
-                className="w-full aspect-square object-cover pointer-events-none"
-              />
-
-              {/* Low Quality Warning Overlay */}
-              {isLowQuality && (
-                <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
-                  <AlertCircle className="h-6 w-6 text-red-400" />
-                </div>
-              )}
-
-              <button
-                onClick={() => onRemove(index)}
-                className={`absolute top-1 right-1 text-white rounded-full p-1 transition-all duration-200 shadow-lg z-10 ${isLowQuality ? 'bg-red-500 hover:bg-red-600 opacity-100' : 'bg-red-500 hover:bg-red-600 opacity-0 group-hover:opacity-100'
-                  }`}
-                title="Remove image"
-              >
-                <X className="h-2 w-2" />
-              </button>
-
-              {/* Quality Score Badge */}
-              <div className={`absolute top-1 left-1 px-1 py-0.5 rounded text-xs font-semibold backdrop-blur-sm z-10 ${isLowQuality ? "bg-red-500/90 text-white" : "bg-green-500/80 text-white"
-                }`}>
-                {qualityPercentage}%
+        return (
+          <div
+            key={index}
+            draggable={filled && !isLowQuality}
+            onDragStart={(e) => filled && !isLowQuality && onDragStart?.(e, index)}
+            onDragOver={(e) => filled && !isLowQuality && onDragOver?.(e, index)}
+            onDragEnd={onDragEnd}
+            onDrop={(e) => filled && !isLowQuality && onDrop?.(e, index)}
+            className={`gallery-slot group ${filled && !isLowQuality ? "cursor-move" : "cursor-default"}`}
+            data-filled={filled}
+          >
+            {!filled && (
+              <div className="flex flex-col items-center gap-1 text-[var(--text-sub)]">
+                <span className="text-lg opacity-70">{cfg.icon}</span>
+                <span className="text-[9px] uppercase tracking-wide font-semibold text-center px-1 leading-tight">
+                  {cfg.label}
+                </span>
               </div>
+            )}
 
-              {/* Low Quality Notice */}
-              {isLowQuality && (
-                <div className="absolute bottom-6 left-0 right-0 bg-red-600/90 text-white text-xs p-1 transition-opacity z-10">
-                  <div className="text-center text-white font-semibold">
-                    Low Quality - Remove
+            {filled && img && (
+              <>
+                <img
+                  src={img.dataURL}
+                  alt={`Ảnh ${index + 1} — ${cfg.label}`}
+                  className={`absolute inset-0 w-full h-full object-cover pointer-events-none ${isLowQuality ? "grayscale" : ""}`}
+                />
+
+                {isLowQuality && (
+                  <div className="absolute inset-0 bg-[var(--error)]/20 flex items-center justify-center z-10">
+                    <AlertCircle className="h-6 w-6 text-[var(--error)]" />
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className={`absolute bottom-0 left-0 right-0 text-white text-xs p-1 ${isLowQuality ? 'bg-red-600/90' : 'bg-black/80'
-                }`}>
-                <div className="text-center">
-                  <span className={qualityColor}>
-                    {qualityPercentage >= 80 ? "Good" :
-                      qualityPercentage >= 70 ? "Fair" : "Low"}
-                  </span>
+                {/* Quality badge — top right */}
+                <div
+                  className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded font-mono text-[9px] font-bold backdrop-blur-sm z-10 ${isLowQuality
+                    ? "bg-[var(--error)]/90 text-white"
+                    : "bg-[var(--background)]/85 text-[var(--success)]"
+                    }`}
+                  style={{ letterSpacing: "0.03em" }}
+                >
+                  {qualityPercentage}%
                 </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+
+                {/* Remove button — top left (appears on hover) */}
+                <button
+                  onClick={() => onRemove(index)}
+                  className={`absolute top-1.5 left-1.5 w-[22px] h-[22px] rounded-full bg-[var(--background)]/90 grid place-items-center transition-opacity duration-200 z-10 ${isLowQuality ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                  title="Xóa ảnh"
+                >
+                  <X className="h-[11px] w-[11px] text-[var(--error)]" strokeWidth={2.5} />
+                </button>
+
+                {/* Angle badge — bottom */}
+                <div className="absolute bottom-1.5 left-1.5 right-1.5 bg-[var(--background)]/90 px-1.5 py-0.5 rounded text-[10px] font-semibold text-[var(--text-main)] text-center tracking-wide">
+                  {cfg.label}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
-
-

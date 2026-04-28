@@ -386,7 +386,7 @@ export default function Register() {
                 Đang tạo tài khoản dùng thử...
               </>
             ) : (
-              "🚀 Bắt đầu dùng thử miễn phí"
+              " Bắt đầu dùng thử miễn phí"
             )}
           </Button>
         </motion.div>

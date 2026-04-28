@@ -53,9 +53,9 @@ body {
   min-height: 100%;
   background-color: var(--background);
   color: var(--text-main);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-    sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -109,11 +109,13 @@ body {
 @keyframes glow-pulse {
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(6, 182, 212, 0.3),
+    box-shadow:
+      0 0 20px rgba(6, 182, 212, 0.3),
       0 0 40px rgba(34, 211, 238, 0.2);
   }
   50% {
-    box-shadow: 0 0 30px rgba(6, 182, 212, 0.5),
+    box-shadow:
+      0 0 30px rgba(6, 182, 212, 0.5),
       0 0 60px rgba(34, 211, 238, 0.4);
   }
 }
@@ -209,4 +211,491 @@ input[type="month"]::-moz-calendar-picker-indicator {
 
 .time-input::-moz-focus-inner {
   border: 0;
+}
+
+/* ============================================================
+   Prototype UI — biometric HUD style
+   (ported from prototypes/shared.css, adapted to project vars)
+   ============================================================ */
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Brand logo with animated glow (header) --- */
+.brand-logo {
+  width: 44px;
+  height: 44px;
+  position: relative;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    var(--accent-cyan) 0%,
+    var(--success) 100%
+  );
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.4),
+    0 4px 18px -4px rgba(34, 211, 238, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
+.brand-logo::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--success));
+  filter: blur(14px);
+  opacity: 0.4;
+  z-index: -1;
+  animation: brand-glow-pulse 3s ease-in-out infinite;
+}
+
+.brand-logo svg {
+  width: 20px;
+  height: 20px;
+  stroke: #042f2e;
+  stroke-width: 2.5;
+  fill: none;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}
+
+@keyframes brand-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+/* --- Camera HUD — corner brackets + scanner line --- */
+.hud-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--shell);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 28px -10px rgba(0, 0, 0, 0.6);
+}
+
+.hud-corners {
+  position: absolute;
+  inset: 16px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hud-corners::before,
+.hud-corners::after,
+.hud-corners span::before,
+.hud-corners span::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: var(--accent-cyan);
+  border-style: solid;
+  border-width: 0;
+  opacity: 0.85;
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.45));
+  transition:
+    border-color 0.3s ease,
+    filter 0.3s ease;
+}
+
+.hud-corners::before {
+  top: 0;
+  left: 0;
+  border-top-width: 2px;
+  border-left-width: 2px;
+  border-top-left-radius: 4px;
+}
+
+.hud-corners::after {
+  top: 0;
+  right: 0;
+  border-top-width: 2px;
+  border-right-width: 2px;
+  border-top-right-radius: 4px;
+}
+
+.hud-corners span {
+  position: absolute;
+  inset: 0;
+}
+
+.hud-corners span::before {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+  border-bottom-left-radius: 4px;
+}
+
+.hud-corners span::after {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+  border-bottom-right-radius: 4px;
+}
+
+.hud-frame[data-hud="good"] .hud-corners::before,
+.hud-frame[data-hud="good"] .hud-corners::after,
+.hud-frame[data-hud="good"] .hud-corners span::before,
+.hud-frame[data-hud="good"] .hud-corners span::after {
+  border-color: var(--success);
+  filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.55));
+}
+
+.hud-frame[data-hud="warning"] .hud-corners::before,
+.hud-frame[data-hud="warning"] .hud-corners::after,
+.hud-frame[data-hud="warning"] .hud-corners span::before,
+.hud-frame[data-hud="warning"] .hud-corners span::after {
+  border-color: var(--warning);
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.55));
+}
+
+.hud-frame[data-hud="error"] .hud-corners::before,
+.hud-frame[data-hud="error"] .hud-corners::after,
+.hud-frame[data-hud="error"] .hud-corners span::before,
+.hud-frame[data-hud="error"] .hud-corners span::after {
+  border-color: var(--error);
+  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.55));
+}
+
+/* Scanner sweep */
+.scanner-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent-cyan),
+    transparent
+  );
+  filter: blur(1px) drop-shadow(0 0 6px rgba(34, 211, 238, 0.45));
+  pointer-events: none;
+  z-index: 4;
+  animation: scanner-sweep 2.4s ease-in-out infinite;
+}
+
+@keyframes scanner-sweep {
+  0% {
+    top: 10%;
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 1;
+  }
+  50% {
+    top: 90%;
+  }
+  100% {
+    top: 10%;
+    opacity: 0;
+  }
+}
+
+/* Status pill (top-center of camera) */
+.status-pill {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: 0.02em;
+  z-index: 20;
+}
+
+.status-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-sub);
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.15);
+}
+
+.hud-frame[data-hud="detecting"] .status-pill__dot {
+  background: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
+  animation: dot-pulse 1.2s ease-in-out infinite;
+}
+.hud-frame[data-hud="warning"] .status-pill__dot {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+.hud-frame[data-hud="good"] .status-pill__dot {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  animation: dot-pulse 1s ease-in-out infinite;
+}
+.hud-frame[data-hud="error"] .status-pill__dot {
+  background: var(--error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+@keyframes dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.75;
+  }
+}
+
+/* HUD bottom meta strip (FPS/QUALITY/ID/MATCH etc.) */
+.hud-meta {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  z-index: 15;
+  pointer-events: none;
+  font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+
+.hud-meta__item {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(8px);
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.hud-meta__label {
+  color: var(--text-sub);
+  margin-right: 6px;
+}
+
+.hud-meta__value {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+/* Processing overlay */
+.hud-processing {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: 30;
+}
+
+.hud-processing__ring {
+  width: 64px;
+  height: 64px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.45);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Step timeline (registration progress) */
+.step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--shell);
+  border: 1.5px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.step-circle[data-state="completed"] {
+  background: var(--success);
+  border-color: var(--success);
+  color: #022c22;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
+}
+
+.step-circle[data-state="active"] {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.15);
+  animation: step-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes step-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(34, 211, 238, 0.08);
+  }
+}
+
+/* Gallery slot (registration 2x2) */
+.gallery-slot {
+  position: relative;
+  min-height: 0;
+  border-radius: 6px;
+  background: var(--shell);
+  border: 1.5px dashed var(--border);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  transition: all 0.3s ease;
+  height: clamp(76px, 8.8vw, 102px);
+}
+
+@media (max-width: 1279px) {
+  .gallery-slot {
+    height: clamp(72px, 10vw, 94px);
+  }
+}
+
+@media (max-width: 1023px) {
+  .gallery-slot {
+    height: clamp(78px, 13.5vw, 108px);
+  }
+}
+
+@media (max-width: 767px) {
+  .gallery-slot {
+    height: clamp(82px, 20vw, 118px);
+  }
+}
+
+.gallery-slot[data-filled="true"] {
+  border-style: solid;
+  border-color: var(--success);
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.15);
+}
+
+/* Radar sweep (scan page location card) */
+.radar-sweep {
+  transform-origin: center;
+  animation: radar-spin 3s linear infinite;
+}
+
+@keyframes radar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pulse armed (scan primary button mid-scan) */
+@keyframes pulse-armed {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(34, 211, 238, 0.08);
+  }
+}
+
+.pulse-armed {
+  animation: pulse-armed 1.4s ease-in-out infinite;
+}
+
+/* Face bbox pulse (good state) */
+@keyframes pulse-good {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(34, 197, 94, 0.15),
+      inset 0 0 16px rgba(34, 197, 94, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(34, 197, 94, 0.25),
+      inset 0 0 24px rgba(34, 197, 94, 0.18);
+  }
+}
+
+/* Progress bar shimmer */
+@keyframes shimmer-line {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer-line 2s linear infinite;
+}
+
+/* Capture flash overlay */
+@keyframes flash-anim {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.capture-flash {
+  animation: flash-anim 0.5s ease-out;
 }

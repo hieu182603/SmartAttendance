@@ -74,7 +74,7 @@ export default function VerifyOtp() {
         const data = await verifyResetOtp({ email, otp })
         if (data?.success) {
           toast.success(t('auth:verifyOtp.verifySuccess'))
-          navigate('/reset-password', { state: { email } })
+          navigate('/reset-password', { state: { email, resetToken: data.resetToken } })
         } else {
           const errorMsg = data?.message || t('auth:verifyOtp.verifyError')
           setError(errorMsg)
