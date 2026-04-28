@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, AlertCircle, Volume2, VolumeX, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { faceService, parseFaceRegistrationError, formatFaceError } from "@/services/faceService";
@@ -46,7 +46,7 @@ const CAPTURE_INSTRUCTIONS = [
 ];
 
 type FaceDetectionStatus = "loading" | "detecting" | "good" | "warning" | "error" | "none";
-type ProgressStep = "detecting" | "aligning" | "capturing" | "completed";
+export type ProgressStep = "detecting" | "aligning" | "capturing" | "completed";
 
 // Captured image with metadata
 export interface CapturedImage {
@@ -1506,249 +1506,177 @@ const FaceRegistrationPage: React.FC = () => {
     return PROGRESS_STEPS.find((s) => s.key === currentStep)?.label || t("dashboard:faceRegistration.progress.detecting");
   };
 
+  const qualifyingImagesCount = capturedImages.filter(
+    (img) => img.qualityScore >= MIN_QUALITY_SCORE
+  ).length;
+  const canRegister = qualifyingImagesCount >= MIN_IMAGES;
+
   return (
-    <>
-      <style>{`
-        @keyframes breathe {
-          0%, 100% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.05); opacity: 0.8; }
-        }
-      `}</style>
-      <div className="min-h-screen w-full bg-gray-900 text-white">
-        {/* Fixed Header */}
-        <div className="h-16 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 flex items-center justify-between px-6">
-          <div>
-            <h1 className="text-xl font-bold text-cyan-400">{t("dashboard:faceRegistration.title")}</h1>
-            <p className="text-sm text-gray-400">
-              {hasRegisteredFace
-                ? "Bạn đã đăng ký khuôn mặt. Có thể chụp thêm ảnh mới."
-                : t("dashboard:faceRegistration.description", { min: MIN_IMAGES, max: MAX_IMAGES })
-              }
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Face Registration Status */}
-            {isCheckingFaceStatus ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-500/20 border border-gray-500/50 rounded-lg">
-                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                <span className="text-sm text-gray-400">Đang kiểm tra...</span>
-              </div>
-            ) : hasRegisteredFace ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 border border-blue-500/50 rounded-lg">
-                <CheckCircle2 className="h-4 w-4 text-blue-500" />
-                <span className="text-sm text-blue-400">Đã đăng ký khuôn mặt</span>
-              </div>
-            ) : livenessVerified ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 border border-green-500/50 rounded-lg">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-400">Đã xác thực</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/40 rounded-lg">
-                <AlertCircle className="h-4 w-4 text-amber-400" />
-                <span className="text-sm text-amber-300">
-                  Chưa xác thực khuôn mặt
-                </span>
-              </div>
-            )}
-            <Button
-              variant="outline"
-              onClick={() => navigate(-1)}
-              className="border-red-500 text-red-400 hover:bg-red-500/10 hover:border-red-400 transition-all duration-200 px-4"
-              title={t("dashboard:faceRegistration.buttons.cancel")}
-            >
-              {t("dashboard:faceRegistration.buttons.cancel")}
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={toggleVoice}
-              className={`border-gray-700 hover:bg-gray-800 transition-all duration-200 ${voiceEnabled ? "text-cyan-500" : "text-gray-500"}`}
-              title={voiceEnabled ? t("dashboard:faceRegistration.buttons.toggleVoiceOff") : t("dashboard:faceRegistration.buttons.toggleVoiceOn")}
-            >
-              {voiceEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-            </Button>
-          </div>
-        </div>
+    <div className="h-full min-h-0 w-full bg-[var(--background)] text-[var(--text-main)] flex flex-col overflow-hidden">
+      {/* Screen reader announcements */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </div>
 
-        {/* Full-screen Content Layout */}
-        <div
-          className={`flex flex-col flex-1 transition-all duration-500 ${isEntering ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}
-          role="main"
-          aria-label="Face registration interface"
-        >
-          {/* Screen reader announcements */}
-          <div
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-          >
-            {announcement}
-          </div>
+      {/* ==================== MAIN ==================== */}
+      <main
+        className={`flex-1 min-h-0 px-3 pb-3 pt-0 md:px-4 md:pb-4 lg:px-5 lg:pb-5 lg:pt-0 grid grid-cols-1 lg:grid-cols-10 gap-3 md:gap-4 lg:gap-5 transition-all duration-500 overflow-hidden ${isEntering ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}
+        role="main"
+        aria-label="Face registration interface"
+      >
+        {/* ===== CAMERA COLUMN ===== */}
+        <section className="lg:col-span-7 flex flex-col gap-3 min-h-0 h-full">
+          <CameraPreview
+            cameraReady={cameraReady}
+            modelLoading={modelLoading}
+            modelError={modelError}
+            cameraError={cameraError}
+            detectionStatus={detectionStatus}
+            statusMessage={statusMessage}
+            progress={progress}
+            currentStep={currentStep}
+            maskColor={maskColor}
+            faceQuality={faceQuality}
+            showFlash={showFlash}
+            showSuccessAnimation={showSuccessAnimation}
+            showMilestoneCelebration={showMilestoneCelebration}
+            onVideoRef={(ref) => {
+              (videoRef as any).current = ref;
+            }}
+            onCanvasRef={(ref) => {
+              (canvasRef as any).current = ref;
+            }}
+            onRetry={startCamera}
+          />
 
-          {/* Camera Preview Section with instructions above and right-side gallery (7:3 grid on lg) */}
-          <div className="flex-1 flex flex-col">
-            {/* Instructions row above the camera */}
-            <div className="w-full px-4 lg:px-6 pb-4">
-              <InstructionSidebar
-                showOnMobile={showInstructions}
-                currentStep={currentStep}
-                cameraReady={cameraReady}
-                detectionStatus={detectionStatus}
-                capturedImagesCount={capturedImages.length}
-                compactRow
-                hasRegisteredFace={hasRegisteredFace}
-                livenessVerified={livenessVerified}
-                onStartLiveness={handleEnableCapture}
-                maxImages={MAX_IMAGES}
+          {/* Progress bar under camera */}
+          <div className="flex items-center gap-3 px-3.5 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl flex-shrink-0">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-main)] whitespace-nowrap">
+              {detectionStatus === "good" ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-[var(--success)]" />
+              ) : detectionStatus === "warning" ? (
+                <AlertCircle className="h-3.5 w-3.5 text-[var(--warning)]" />
+              ) : detectionStatus === "error" ? (
+                <AlertCircle className="h-3.5 w-3.5 text-[var(--error)]" />
+              ) : (
+                <Loader2 className="h-3.5 w-3.5 text-[var(--accent-cyan)] animate-spin" />
+              )}
+              <span>{getCurrentStepLabel()}</span>
+            </div>
+            <div className="flex-1 h-1.5 bg-[var(--shell)] rounded-full overflow-hidden relative progress-shimmer">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ease-out ${maskColor === "good"
+                  ? "bg-gradient-to-r from-[var(--accent-cyan)] to-[var(--success)]"
+                  : maskColor === "warning"
+                    ? "bg-gradient-to-r from-[var(--warning)] to-amber-300"
+                    : "bg-gradient-to-r from-[var(--error)] to-red-400"
+                  }`}
+                style={{ width: `${progress}%`, boxShadow: "0 0 12px rgba(34, 211, 238, 0.45)" }}
               />
             </div>
-
-            {/* Main content: grid 7/3 on large screens */}
-            <div className="w-full px-4 lg:px-6">
-              <div className="w-full lg:grid lg:grid-cols-10 lg:gap-6">
-                {/* Left: camera (col-span-7) */}
-                <div className="lg:col-span-7">
-                  <div
-                    className={`w-full relative transition-all duration-700 delay-200 ${isEntering ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
-                    role="region"
-                    aria-label="Camera preview"
-                  >
-                    <CameraPreview
-                      cameraReady={cameraReady}
-                      modelLoading={modelLoading}
-                      modelError={modelError}
-                      cameraError={cameraError}
-                      detectionStatus={detectionStatus}
-                      statusMessage={statusMessage}
-                      progress={progress}
-                      currentStep={currentStep}
-                      maskColor={maskColor}
-                      faceQuality={faceQuality}
-                      showFlash={showFlash}
-                      showSuccessAnimation={showSuccessAnimation}
-                      showMilestoneCelebration={showMilestoneCelebration}
-                      onVideoRef={(ref) => {
-                        (videoRef as any).current = ref;
-                      }}
-                      onCanvasRef={(ref) => {
-                        (canvasRef as any).current = ref;
-                      }}
-                      onRetry={startCamera}
-                    />
-
-                    {/* Face Detection Status */}
-                    <div className="mt-4 bg-gray-900/50 rounded-lg p-4 backdrop-blur-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        {detectionStatus === "good" && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                        {detectionStatus === "warning" && <AlertCircle className="h-5 w-5 text-amber-500" />}
-                        {detectionStatus === "error" && <AlertCircle className="h-5 w-5 text-red-500" />}
-                        {(detectionStatus === "loading" || detectionStatus === "none") && (
-                          <Loader2 className="h-5 w-5 text-gray-500 animate-spin" />
-                        )}
-                        <p className={`text-sm font-medium transition-colors duration-300 ${getStatusColor(detectionStatus)}`}>
-                          {statusMessage}
-                        </p>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div className="mt-4 space-y-2">
-                        <div className="flex justify-between items-center text-xs text-gray-400">
-                          <span>{getCurrentStepLabel()}</span>
-                          <span>{progress}%</span>
-                        </div>
-                        <div className="w-full h-2.5 bg-gray-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-300 ease-out rounded-full ${maskColor === "good"
-                              ? "bg-gradient-to-r from-cyan-500 to-green-500"
-                              : maskColor === "warning"
-                                ? "bg-gradient-to-r from-amber-400 to-amber-500"
-                                : "bg-gradient-to-r from-red-400 to-red-500"
-                              }`}
-                            style={{ width: `${progress}%` }}
-                          >
-                            <div className="h-full w-full bg-white/30 animate-pulse"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: gallery + capture controls (col-span-3) */}
-                <div className="lg:col-span-3 mt-6 lg:mt-0">
-                  <div className="bg-gray-900/60 rounded-lg border border-gray-800 min-h-[400px] max-h-[600px] overflow-y-auto relative">
-                    {capturedImages.length === 0 ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-gray-500">
-                        <div className="text-center">
-                          <div className="text-4xl mb-2">📷</div>
-                          <p className="text-sm font-medium">Chưa có hình ảnh</p>
-                          <p className="text-xs mt-1">Hình ảnh sẽ xuất hiện ở đây khi chụp</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <CapturedGallery
-                        images={capturedImages}
-                        onRemove={handleRemove}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
-                        onDragEnd={handleDragEnd}
-                        onDrop={handleDrop}
-                      />
-                    )}
-                  </div>
-
-                  <div className="mt-4">
-                    <CaptureControls
-                      canCapture={canCapture}
-                      isCapturing={isCapturing}
-                      capturedImagesLength={capturedImages.length}
-                      maxImages={MAX_IMAGES}
-                      onCapture={handleCapture}
-                      currentInstruction={CAPTURE_INSTRUCTIONS[currentImageIndex]}
-                      currentStep={currentImageIndex}
-                      totalSteps={MAX_IMAGES}
-                      livenessRequired={livenessRequiredForCapture}
-                      onStartLiveness={handleEnableCapture}
-                    />
-                  </div>
-
-                  {/* Register Button (shown only when enough images are captured) */}
-                  <div className="mt-4 flex justify-center">
-                    {capturedImages.filter(img => img.qualityScore >= MIN_QUALITY_SCORE).length >= MIN_IMAGES && (
-                      <Button
-                        onClick={handleSubmit}
-                        disabled={isUploading}
-                        className={`w-full transition-all duration-300 py-6 text-lg ${!isUploading
-                          ? "bg-gradient-to-r from-cyan-500 to-green-500 hover:from-cyan-600 hover:to-green-600 shadow-lg shadow-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/60 hover:scale-105"
-                          : "bg-gray-600 cursor-not-allowed opacity-50"
-                          }`}
-                      >
-                        {isUploading ? (
-                          <>
-                            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                            {t("dashboard:faceRegistration.buttons.processing")}
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="h-5 w-5 mr-2" />
-                            {t("dashboard:faceRegistration.buttons.register", { current: capturedImages.length, min: MIN_IMAGES })}
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
+            <div className="mono text-xs font-bold text-[var(--accent-cyan)] min-w-[40px] text-right">
+              {progress}%
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Controls + Horizontal Image Gallery removed - moved to right column beside camera */}
+        {/* ===== SIDEBAR COLUMN ===== */}
+        <aside className="lg:col-span-3 flex flex-col gap-2.5 md:gap-3 min-h-0 overflow-y-auto lg:overflow-hidden pr-0.5">
+          {/* Step timeline */}
+          <InstructionSidebar
+            showOnMobile={showInstructions}
+            currentStep={currentStep}
+            cameraReady={cameraReady}
+            detectionStatus={detectionStatus}
+            capturedImagesCount={capturedImages.length}
+            compactRow
+            hasRegisteredFace={hasRegisteredFace}
+            livenessVerified={livenessVerified}
+            onStartLiveness={handleEnableCapture}
+            maxImages={MAX_IMAGES}
+            voiceEnabled={voiceEnabled}
+            onToggleVoice={toggleVoice}
+            voiceToggleTitle={voiceEnabled ? t("dashboard:faceRegistration.buttons.toggleVoiceOff") : t("dashboard:faceRegistration.buttons.toggleVoiceOn")}
+          />
 
+          {/* Gallery 2x2 */}
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-2 md:p-2.5 flex flex-col min-h-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent-cyan)"
+                strokeWidth="2"
+                className="w-3.5 h-3.5"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+              <span className="font-semibold text-[11px] uppercase tracking-[0.1em] text-[var(--text-sub)]">
+                Ảnh đã chụp
+              </span>
+            </div>
+            <CapturedGallery
+              images={capturedImages}
+              onRemove={handleRemove}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+              onDrop={handleDrop}
+            />
+          </div>
 
-      </div>
-    </>
+          {/* Capture + Register panel */}
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 flex flex-col gap-2 flex-shrink-0">
+            {canRegister ? (
+              <>
+                <div className="flex items-center justify-center gap-2 px-3 py-1.5 bg-[var(--shell)] border border-[var(--border)] rounded-md">
+                  <span className="text-base leading-none">✅</span>
+                  <span className="text-xs font-semibold text-[var(--text-main)] tracking-tight">
+                    Đã đủ 4 ảnh — Nhấn để đăng ký
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isUploading}
+                  className={`w-full py-2.5 rounded-xl font-bold text-[13px] tracking-wider uppercase flex items-center justify-center gap-2 transition-all duration-200 ${isUploading
+                    ? "bg-[var(--shell)] border-2 border-[var(--border)] text-[var(--text-sub)] cursor-not-allowed"
+                    : "bg-gradient-to-br from-[var(--accent-cyan)] to-[var(--success)] text-[#042f2e] shadow-[0_0_32px_-4px_rgba(34,197,94,0.4)] hover:shadow-[0_0_40px_-4px_rgba(34,197,94,0.55)] hover:-translate-y-px"
+                    }`}
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{t("dashboard:faceRegistration.buttons.processing")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" strokeWidth={2.5} />
+                      <span>Hoàn tất đăng ký</span>
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <CaptureControls
+                canCapture={canCapture}
+                isCapturing={isCapturing}
+                capturedImagesLength={capturedImages.length}
+                maxImages={MAX_IMAGES}
+                onCapture={handleCapture}
+                currentInstruction={CAPTURE_INSTRUCTIONS[currentImageIndex]}
+                currentStep={currentImageIndex}
+                totalSteps={MAX_IMAGES}
+                livenessRequired={livenessRequiredForCapture}
+                onStartLiveness={handleEnableCapture}
+              />
+            )}
+          </div>
+        </aside>
+      </main>
+    </div>
   );
 };
 

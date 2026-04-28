@@ -237,6 +237,22 @@ export const deleteAttendanceRecord = async (id: string) => {
   return data as { message: string };
 };
 
+export interface CreateManualAttendancePayload {
+  userId: string;
+  date: string; // YYYY-MM-DD
+  checkIn?: string;
+  checkOut?: string;
+  status?: "present" | "absent" | "late" | "on_leave" | "weekend" | "overtime";
+  notes?: string;
+  locationId?: string;
+  workCredit?: number;
+}
+
+export const createManualAttendance = async (payload: CreateManualAttendancePayload) => {
+  const { data } = await api.post(`/attendance`, payload);
+  return data as { message: string; data: AttendanceRecord };
+};
+
 /**
  * Approve or reject early checkout request
  */

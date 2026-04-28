@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 Sample Data Ingestion Script for RAG System
-Collection: att (as configured in .env)
 
-This script ingests comprehensive SmartAttendance documents into MongoDB Atlas Vector Search.
+Canonical ingestion script for SmartAttendance documents into MongoDB Atlas Vector Search.
+Collection name is read from config (RAG_COLLECTION_NAME env var, default: rag_documents).
 """
 import asyncio
 import logging
 from datetime import datetime
 from app.services.rag_service import RAGService
+from app.utils.config import RAG_COLLECTION_NAME
 
 # Configure logging
 logging.basicConfig(
@@ -472,7 +473,7 @@ async def main():
     try:
         logger.info("=" * 60)
         logger.info("Starting sample data ingestion...")
-        logger.info(f"Collection: att")
+        logger.info(f"Collection: {RAG_COLLECTION_NAME}")
         logger.info(f"Documents: {len(SAMPLE_DOCUMENTS)}")
         logger.info("=" * 60)
 
@@ -483,7 +484,7 @@ async def main():
         # Ingest sample documents
         result = await rag_service.ingest_documents(
             documents=SAMPLE_DOCUMENTS,
-            collection_name="att",  # Using collection from .env
+            collection_name=RAG_COLLECTION_NAME,
             chunk_size=1000,
             chunk_overlap=200
         )

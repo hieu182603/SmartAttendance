@@ -21,6 +21,7 @@ export default function ResetPassword() {
   const location = useLocation()
   const navigate = useNavigate()
   const email = (location.state as LocationState)?.email || ''
+  const resetToken = (location.state as LocationState)?.resetToken || ''
   const [formData, setFormData] = useState<FormData>({
     password: '',
     confirmPassword: '',
@@ -119,7 +120,7 @@ export default function ResetPassword() {
     setIsLoading(true)
 
     try {
-      const response = await resetPassword({ email, password: formData.password })
+      const response = await resetPassword({ email, password: formData.password, resetToken })
       
       if (response.success) {
         toast.success(response.message || t('auth:resetPassword.success'))
@@ -274,7 +275,7 @@ export default function ResetPassword() {
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button
               type="submit"
-              disabled={isLoading || !isPasswordValid || !passwordsMatch}
+              disabled={isLoading || !isPasswordValid || !passwordsMatch || !resetToken}
               className="w-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90 transition-opacity shadow-lg shadow-[var(--primary)]/30"
             >
               {isLoading ? (

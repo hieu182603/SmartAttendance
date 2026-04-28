@@ -6,6 +6,11 @@
 **/build/
 **/.cache/
 
+# Test artifacts
+**/playwright-report/
+**/test-results/
+**/.pytest_cache/
+
 # Environment files
 .env
 **/.env
@@ -139,5 +144,9 @@ luong_rag.md
 luong_tinh_luong.md
 TODO.md
 DEPLOY_VPS.md
-
+CLAUDE.md
 .blackboxcli/
+LarkIntegrationGuide.md
+kehoach.md
+
+.scripts/

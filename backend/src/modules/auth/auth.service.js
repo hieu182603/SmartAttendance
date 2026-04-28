@@ -1,9 +1,13 @@
 import crypto from "crypto";
 import { UserModel } from "../users/user.model.js";
 import { OtpModel } from "../otp/otp.model.js";
-import { generateTokenFromUser } from "../../utils/jwt.util.js";
+import { generateTokenFromUser, verifyRefreshToken, generateAccessToken, generateRefreshToken } from "../../utils/jwt.util.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail, sendResetPasswordEmail } from "../../utils/email.util.js";
+import { redisSet, redisDel, redisGet } from "../../config/redis.js";
+
+const REFRESH_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
+const refreshKey = (userId) => `refresh:${userId}`;
 
 export class AuthService {
     // Đăng ký tài khoản mới
@@ -131,10 +135,12 @@ export class AuthService {
 
         await OtpModel.deleteMany({ email: normalizedEmail, purpose: "verify_email" }); // xóa OTP verify cũ
 
-        const token = generateTokenFromUser(user);
+        const { accessToken, refreshToken } = generateTokenFromUser(user);
+        await redisSet(refreshKey(user._id), refreshToken, REFRESH_TTL);
         return {
             message: "Email verified successfully",
-            token,
+            token: accessToken,
+            refreshToken,
             user: {
                 id: user._id,
                 email: user.email,
@@ -190,9 +196,11 @@ export class AuthService {
         const isPasswordValid = await user.comparePassword(password);
         if (!isPasswordValid) throw new Error("Invalid credentials");
 
-        const token = generateTokenFromUser(user);
+        const { accessToken, refreshToken } = generateTokenFromUser(user);
+        await redisSet(refreshKey(user._id), refreshToken, REFRESH_TTL);
         return {
-            token,
+            token: accessToken,
+            refreshToken,
             user: {
                 id: user._id,
                 email: user.email,
@@ -293,45 +301,74 @@ export class AuthService {
             throw new Error("Invalid OTP");
         }
 
-        // Đánh dấu OTP đã được xác thực và gia hạn thời gian cho bước reset password
-        otpRecord.verified = true;
-        otpRecord.expiresAt = generateOTPExpiry();
-        await otpRecord.save();
+        // Xóa OTP record sau khi xác thực thành công
+        await OtpModel.deleteMany({ email: normalizedEmail, purpose: "forgot_password" });
+
+        // Tạo reset token ngắn hạn (5 phút) lưu trên Redis, ràng buộc với email
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        await redisSet(`reset_token:${normalizedEmail}`, resetToken, 300);
 
         return {
             success: true,
-            message: "OTP verified successfully. You can now reset your password."
+            message: "OTP verified successfully. You can now reset your password.",
+            resetToken,
         };
     }
 
+    // Cấp access token mới từ refresh token
+    static async refreshToken(token) {
+        let decoded;
+        try {
+            decoded = verifyRefreshToken(token);
+        } catch {
+            throw new Error("Invalid or expired refresh token");
+        }
+
+        const stored = await redisGet(refreshKey(decoded.userId));
+        if (!stored || stored !== token) {
+            throw new Error("Refresh token revoked");
+        }
+
+        const user = await UserModel.findById(decoded.userId).select("_id email role department isActive isTrial trialExpiresAt").lean();
+        if (!user || user.isActive === false) {
+            throw new Error("User not found or inactive");
+        }
+
+        const newAccess = generateAccessToken({
+            userId: user._id,
+            email: user.email,
+            role: user.role || "EMPLOYEE",
+            department_id: user.department,
+        });
+        const newRefresh = generateRefreshToken({ userId: user._id });
+        await redisSet(refreshKey(user._id), newRefresh, REFRESH_TTL);
+
+        return { token: newAccess, refreshToken: newRefresh };
+    }
+
+    // Thu hồi refresh token (logout)
+    static async logout(userId) {
+        await redisDel(refreshKey(userId));
+    }
+
     // Đặt lại mật khẩu mới
-    static async resetPassword(email, newPassword) {
+    static async resetPassword(email, newPassword, resetToken) {
         const normalizedEmail = email.toLowerCase().trim();
         const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("User not found");
 
-        // Kiểm tra xem có OTP nào đã được xác thực hay chưa
-        const verifiedOtpRecord = await OtpModel.findOne({
-            email: normalizedEmail,
-            purpose: "forgot_password",
-            verified: true,
-        }).sort({ updatedAt: -1 });
-
-        if (!verifiedOtpRecord) {
-            throw new Error("Please verify OTP first before resetting password.");
-        }
-
-        if (new Date() > verifiedOtpRecord.expiresAt) {
-            await OtpModel.deleteMany({ email: normalizedEmail, purpose: "forgot_password" });
-            throw new Error("Reset token expired. Please request a new OTP.");
+        // Xác thực reset token từ Redis (được cấp sau khi verify OTP)
+        const storedToken = await redisGet(`reset_token:${normalizedEmail}`);
+        if (!storedToken || storedToken !== resetToken) {
+            throw new Error("Invalid or expired reset token. Please verify OTP again.");
         }
 
         // Cập nhật mật khẩu mới
         user.password = newPassword;
         await user.save();
 
-        // Xóa tất cả OTP quên mật khẩu của user này
-        await OtpModel.deleteMany({ email: normalizedEmail, purpose: "forgot_password" });
+        // Xóa reset token khỏi Redis sau khi dùng (single-use)
+        await redisDel(`reset_token:${normalizedEmail}`);
 
         return {
             success: true,

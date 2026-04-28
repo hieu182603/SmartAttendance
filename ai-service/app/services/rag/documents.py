@@ -1,4 +1,5 @@
 """Document ingestion and search for RAG service"""
+import hashlib
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
@@ -15,7 +16,7 @@ class DocumentManager:
     def __init__(
         self,
         vector_store,
-        collection_name: str = "documents",
+        collection_name: str = "rag_documents",
         chunk_size: int = 1000,
         chunk_overlap: int = 200
     ):
@@ -76,11 +77,12 @@ class DocumentManager:
             # Process documents
             langchain_docs = []
             total_chunks = 0
-            
+            chunk_hashes: List[str] = []
+
             for doc_data in documents:
                 content = doc_data.get("content", "")
                 metadata = doc_data.get("metadata", {})
-                
+
                 # Add processing metadata
                 metadata.update({
                     "ingested_at": datetime.now(timezone.utc),
@@ -88,22 +90,48 @@ class DocumentManager:
                     "doc_type": doc_data.get("doc_type", "text"),
                     "collection_name": target_collection
                 })
-                
+
                 # Split text into chunks
                 chunks = text_splitter.split_text(content)
-                
+
                 for i, chunk in enumerate(chunks):
+                    # content_hash makes ingestion idempotent: re-running the same
+                    # document yields the same hash per chunk, so we can delete the
+                    # previous version before inserting (upsert-like semantics).
+                    content_hash = hashlib.sha256(
+                        f"{target_collection}::{chunk}".encode("utf-8")
+                    ).hexdigest()
+
                     chunk_metadata = metadata.copy()
                     chunk_metadata["chunk_index"] = i
                     chunk_metadata["total_chunks"] = len(chunks)
-                    
+                    chunk_metadata["content_hash"] = content_hash
+
                     langchain_docs.append(Document(
                         page_content=chunk,
                         metadata=chunk_metadata
                     ))
-                
+                    chunk_hashes.append(content_hash)
+
                 total_chunks += len(chunks)
-            
+
+            # Delete any existing chunks with the same content hashes (idempotent
+            # re-ingest). Uses the underlying pymongo collection; safe no-op if
+            # no matches exist. This runs before insert to avoid duplicate vectors.
+            if chunk_hashes:
+                try:
+                    deleted = self.vector_store.collection.delete_many(
+                        {"metadata.content_hash": {"$in": chunk_hashes}}
+                    )
+                    if deleted.deleted_count:
+                        logger.info(
+                            f"Deduplication: removed {deleted.deleted_count} existing chunks "
+                            f"before re-inserting."
+                        )
+                except Exception as dedup_err:
+                    # Don't fail the whole ingest if dedup fails — log and continue.
+                    logger.warning(f"Dedup step failed (continuing): {dedup_err}")
+
             # Add to vector store
             if langchain_docs:
                 await self.vector_store.aadd_documents(langchain_docs)

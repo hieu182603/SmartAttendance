@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { type FaceDetectionStatus } from '@/hooks/useFaceDetection';
 import { type ProgressStep } from '../pages/FaceRegistrationPage';
 
@@ -13,7 +13,7 @@ interface CameraPreviewProps {
   progress: number;
   currentStep: ProgressStep;
   maskColor: "good" | "warning" | "error";
-  faceQuality: any; // FaceQuality type
+  faceQuality: any;
   showFlash: boolean;
   showSuccessAnimation: boolean;
   showMilestoneCelebration: boolean;
@@ -22,12 +22,14 @@ interface CameraPreviewProps {
   onRetry: () => void;
 }
 
-const PROGRESS_STEPS = [
-  { key: "detecting", label: "Detecting" },
-  { key: "aligning", label: "Aligning" },
-  { key: "capturing", label: "Capturing" },
-  { key: "completed", label: "Completed" },
-] as const;
+// Map detection status to HUD data-attribute
+const hudFromStatus = (s: FaceDetectionStatus, maskColor: "good" | "warning" | "error") => {
+  if (s === "good") return "good";
+  if (s === "warning") return "warning";
+  if (s === "error") return "error";
+  if (s === "loading" || s === "none") return "detecting";
+  return maskColor;
+};
 
 export const CameraPreview: React.FC<CameraPreviewProps> = ({
   cameraReady,
@@ -36,16 +38,12 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
   cameraError,
   detectionStatus,
   statusMessage,
-  progress,
-  currentStep,
-  maskColor,
   faceQuality,
   showFlash,
-  showSuccessAnimation,
-  showMilestoneCelebration,
   onVideoRef,
   onCanvasRef,
   onRetry,
+  maskColor,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -55,39 +53,33 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
     onCanvasRef(canvasRef.current);
   }, [onVideoRef, onCanvasRef]);
 
-  // Derive mutually exclusive overlay state based on priority
   const overlayState = React.useMemo(() => {
     if (modelError) return 'error';
     if (cameraError && !cameraReady) return 'error';
     if (!cameraReady || modelLoading) return 'loading';
-    if (showSuccessAnimation) return 'success';
-    if (showMilestoneCelebration) return 'milestone';
     if (showFlash) return 'flash';
     return 'none';
-  }, [modelError, cameraError, cameraReady, modelLoading, showSuccessAnimation, showMilestoneCelebration, showFlash]);
+  }, [modelError, cameraError, cameraReady, modelLoading, showFlash]);
 
-  const getStatusColor = (status: FaceDetectionStatus): string => {
-    switch (status) {
-      case "good": return "text-green-500";
-      case "warning": return "text-amber-500";
-      case "error": return "text-red-500";
-      case "loading": return "text-blue-500";
-      default: return "text-gray-500";
-    }
-  };
+  const hudState = hudFromStatus(detectionStatus, maskColor);
 
-  const getCurrentStepLabel = () => {
-    return PROGRESS_STEPS.find((s) => s.key === currentStep)?.label || "Detecting";
-  };
+  const qualityLabel = faceQuality
+    ? (faceQuality.score ?? 0).toFixed(2)
+    : "—";
 
   return (
-    <div className="relative rounded-xl overflow-hidden bg-black aspect-video min-h-[60vh] md:min-h-0 shadow-2xl">
+    <div
+      className="hud-frame w-full flex-1 min-h-[38vh] md:min-h-[44vh] lg:min-h-[48vh] xl:min-h-[52vh] relative"
+      data-hud={hudState}
+      role="region"
+      aria-label="Camera preview"
+    >
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        className="w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-cover"
       />
       <canvas
         ref={canvasRef}
@@ -95,104 +87,87 @@ export const CameraPreview: React.FC<CameraPreviewProps> = ({
         style={{ objectFit: "cover" }}
       />
 
-      {/* Mutually exclusive overlay rendering */}
+      {/* HUD corner brackets */}
+      <div className="hud-corners" aria-hidden>
+        <span />
+      </div>
+
+      {/* Scanner sweep */}
+      <div className="scanner-line" aria-hidden />
+
+      {/* Status pill — top center */}
+      <div className="status-pill">
+        <span className="status-pill__dot" />
+        <span>{statusMessage}</span>
+      </div>
+
+      {/* Flash on capture */}
       {overlayState === 'flash' && (
-        <div className="absolute inset-0 bg-white opacity-80 animate-pulse pointer-events-none z-50"></div>
+        <div className="absolute inset-0 bg-white pointer-events-none z-40 capture-flash" />
       )}
 
-      {/* Success and milestone effects removed per request */}
-
-      {/* Auto-capture countdown overlay removed - manual capture only */}
-
-
+      {/* Loading overlay */}
       {overlayState === 'loading' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/95 text-white z-50">
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--background)]/95 text-[var(--text-main)] z-50">
           <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-cyan-500" />
-            <p className="text-sm">
-              {modelLoading ? "Loading face detection model..." : "Starting camera..."}
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-[var(--accent-cyan)]" />
+            <p className="text-sm tracking-wide uppercase">
+              {modelLoading ? "Đang tải mô hình nhận diện..." : "Đang khởi động camera..."}
             </p>
           </div>
         </div>
       )}
 
+      {/* Error overlays */}
       {overlayState === 'error' && modelError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/95 text-white z-50">
-          <div className="text-center max-w-md">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Model Loading Failed</h3>
-            <p className="text-sm text-gray-400 mb-4">Face detection model failed to load</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--background)]/95 text-[var(--text-main)] z-50">
+          <div className="text-center max-w-md px-6">
+            <AlertCircle className="h-12 w-12 text-[var(--error)] mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Tải mô hình thất bại</h3>
+            <p className="text-sm text-[var(--text-sub)] mb-4">
+              Không thể tải mô hình nhận diện khuôn mặt
+            </p>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 rounded text-white"
+              className="px-4 py-2 bg-[var(--accent-cyan)] hover:opacity-90 rounded-md text-[#042f2e] font-semibold"
             >
-              Reload Page
+              Tải lại trang
             </button>
           </div>
         </div>
       )}
 
       {overlayState === 'error' && cameraError && !cameraReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/95 text-white z-50">
-          <div className="text-center max-w-md">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Camera Access Required</h3>
-            <p className="text-sm text-gray-400 mb-4">
-              {cameraError === "permission" && "Please allow camera access"}
-              {cameraError === "not_found" && "No camera detected"}
-              {cameraError === "busy" && "Camera is being used by another application"}
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--background)]/95 text-[var(--text-main)] z-50">
+          <div className="text-center max-w-md px-6">
+            <AlertCircle className="h-12 w-12 text-[var(--error)] mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Cần cấp quyền camera</h3>
+            <p className="text-sm text-[var(--text-sub)] mb-4">
+              {cameraError === "permission" && "Vui lòng cho phép truy cập camera"}
+              {cameraError === "not_found" && "Không tìm thấy camera"}
+              {cameraError === "busy" && "Camera đang được ứng dụng khác sử dụng"}
             </p>
             <button
               onClick={onRetry}
-              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 rounded text-white"
+              className="px-4 py-2 bg-[var(--accent-cyan)] hover:opacity-90 rounded-md text-[#042f2e] font-semibold"
             >
-              Try Again
+              Thử lại
             </button>
           </div>
         </div>
       )}
 
-      {/* Status indicator */}
-      {faceQuality && (
-        <div className={`absolute top-6 right-6 px-4 py-2 rounded-lg backdrop-blur-sm transition-all duration-500 ${maskColor === "good" ? "bg-green-500/20 border border-green-500/50 text-green-400" :
-          maskColor === "warning" ? "bg-amber-500/20 border border-amber-500/50 text-amber-400" :
-            "bg-red-500/20 border border-red-500/50 text-red-400"
-          }`}>
-          <div className="flex items-center gap-2 text-sm font-medium">
-            {maskColor === "good" && <CheckCircle2 className="h-4 w-4" />}
-            {(maskColor === "warning" || maskColor === "error") && <AlertCircle className="h-4 w-4" />}
-            <span>{getCurrentStepLabel()}</span>
-          </div>
+      {/* HUD bottom meta */}
+      <div className="hud-meta">
+        <div className="hud-meta__item">
+          <span className="hud-meta__label">FPS</span>
+          <span className="hud-meta__value">30</span>
         </div>
-      )}
-
-      {/* Quality meter */}
-      {faceQuality && (
-        <div className="absolute top-6 left-6 bg-black/70 backdrop-blur-sm rounded-lg p-3 border border-gray-700">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></div>
-            <span className="text-xs text-cyan-400 font-medium">Quality</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-300 ${faceQuality.score >= 0.8 ? 'bg-gradient-to-r from-green-500 to-green-400' :
-                  faceQuality.score >= 0.7 ? 'bg-gradient-to-r from-amber-500 to-amber-400' :
-                    'bg-gradient-to-r from-red-500 to-red-400'
-                  }`}
-                style={{ width: `${faceQuality.score * 100}%` }}
-              ></div>
-            </div>
-            <span className={`text-xs font-bold ${faceQuality.score >= 0.8 ? 'text-green-400' :
-              faceQuality.score >= 0.7 ? 'text-amber-400' :
-                'text-red-400'
-              }`}>
-              {Math.round(faceQuality.score * 100)}%
-            </span>
-          </div>
+        <div className="hud-meta__item">
+          <span className="hud-meta__label">Quality</span>
+          <span className="hud-meta__value">{qualityLabel}</span>
         </div>
-      )}
-
+      </div>
     </div>
   );
 };

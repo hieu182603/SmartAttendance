@@ -17,7 +17,6 @@ primary_region = 'sin'
 
 [env]
   ALLOW_INSECURE_AUTH = 'false'
-  API_KEY = 'dev-api-key-change-in-production'
   DETECTION_THRESHOLD = '0.5'
   DISPLAY = ''
   HOST = '0.0.0.0'

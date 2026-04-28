@@ -12,6 +12,10 @@ import {
   markPayrollAsPaid,
   getDepartments,
   getPositions,
+  generatePayroll,
+  getMyPayslip,
+  exportMyPayslipPdf,
+  exportMyPayslipExcel,
 } from "./payroll.controller.js";
 import {
   getSalaryMatrix,
@@ -34,6 +38,18 @@ payrollRouter.get(
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   getPayrollReports
 );
+
+// Generate payroll cho 1 tháng (HR/Admin)
+payrollRouter.post(
+  "/generate",
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  generatePayroll
+);
+
+// Phiếu lương cá nhân (mọi user đã đăng nhập đều xem được phiếu của chính mình)
+payrollRouter.get("/my-payslip", getMyPayslip);
+payrollRouter.get("/my-payslip/pdf", exportMyPayslipPdf);
+payrollRouter.get("/my-payslip/excel", exportMyPayslipExcel);
 
 // ============================================================================
 // Specific routes (MUST be defined BEFORE dynamic routes like /:id)

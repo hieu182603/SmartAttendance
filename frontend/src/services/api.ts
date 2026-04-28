@@ -1,5 +1,23 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosError, type AxiosResponse } from 'axios'
 
+const REFRESH_TOKEN_KEY = 'sa_refresh_token'
+let _isRefreshing = false
+let _failQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
+
+const processQueue = (err: unknown, token: string | null) => {
+  _failQueue.forEach(({ resolve, reject }) => (err ? reject(err) : resolve(token!)))
+  _failQueue = []
+}
+
+const forceLogout = () => {
+  localStorage.removeItem('sa_token')
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem('sa_user_role')
+  if (window.location.pathname !== '/login') {
+    setTimeout(() => { window.location.href = '/login' }, 0)
+  }
+}
+
 // Get base URLs from environment variables or use defaults
 const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 const ragServiceUrl = import.meta.env.VITE_RAG_SERVICE_URL || 'http://localhost:8001'
@@ -46,39 +64,64 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 api.interceptors.response.use(
     (res: AxiosResponse) => res,
-    (error: AxiosError) => {
+    async (error: AxiosError) => {
         const status = error?.response?.status
         const responseData = error?.response?.data as { message?: string; errors?: unknown } | undefined
 
         // Handle 401 Unauthorized - Token expired or invalid
         if (status === 401) {
-            // Check if this is a RAG service error (API key issue) rather than user auth
             const isRAGError = error.config?.url?.includes('/rag/') ||
                               error.config?.url?.includes('rag/health');
-
             if (isRAGError) {
-                // For RAG service API key errors, don't log user out - surface the server message
                 const message = responseData?.message || 'RAG AI service authentication failed. Please contact support.'
                 const apiError = new Error(message) as ValidationError
                 apiError.response = error.response
                 return Promise.reject(apiError)
             }
 
-            // Clear auth state for user authentication errors
-            localStorage.removeItem('sa_token')
-
-            // Only redirect if we're not already on login page
-            if (window.location.pathname !== '/login') {
-                // Use setTimeout to avoid navigation during render
-                setTimeout(() => {
-                    window.location.href = '/login'
-                }, 0)
+            // Don't retry refresh endpoint itself to avoid infinite loop
+            const isRefreshEndpoint = error.config?.url?.includes('/auth/refresh')
+            if (isRefreshEndpoint) {
+                forceLogout()
+                return Promise.reject(error)
             }
 
-            const message = responseData?.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-            const apiError = new Error(message) as ValidationError
-            apiError.response = error.response
-            return Promise.reject(apiError)
+            const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+            if (!refreshToken) {
+                forceLogout()
+                return Promise.reject(error)
+            }
+
+            if (_isRefreshing) {
+                // Queue this request until refresh completes
+                return new Promise((resolve, reject) => {
+                    _failQueue.push({ resolve, reject })
+                }).then((token) => {
+                    if (error.config?.headers) error.config.headers.Authorization = `Bearer ${token}`
+                    return api(error.config!)
+                })
+            }
+
+            _isRefreshing = true
+            try {
+                const { data } = await axios.post(
+                    `${backendBaseURL}/auth/refresh`,
+                    { refreshToken },
+                )
+                const newToken: string = data.token
+                const newRefresh: string = data.refreshToken
+                localStorage.setItem('sa_token', newToken)
+                localStorage.setItem(REFRESH_TOKEN_KEY, newRefresh)
+                processQueue(null, newToken)
+                if (error.config?.headers) error.config.headers.Authorization = `Bearer ${newToken}`
+                return api(error.config!)
+            } catch (refreshErr) {
+                processQueue(refreshErr, null)
+                forceLogout()
+                return Promise.reject(refreshErr)
+            } finally {
+                _isRefreshing = false
+            }
         }
 
         // Handle 403 Forbidden - Insufficient permissions

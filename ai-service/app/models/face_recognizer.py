@@ -70,11 +70,17 @@ class FaceRecognizer:
             if not similarities:
                 raise ValueError("No valid reference embeddings to compare against")
 
-            best_similarity = max(similarities)
+            # Use mean of top-K similarities to reduce false-accept when a single
+            # reference embedding happens to match due to lighting/pose noise.
+            # With 4 references, requiring the 2 closest to agree is much
+            # stricter than trusting just the single max.
+            similarities_sorted = sorted(similarities, reverse=True)
+            k = min(2, len(similarities_sorted))
+            score = float(np.mean(similarities_sorted[:k]))
 
             return {
-                "match": best_similarity >= threshold,
-                "similarity": float(best_similarity),
+                "match": score >= threshold,
+                "similarity": score,
                 "threshold": threshold,
             }
 

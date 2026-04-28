@@ -36,6 +36,7 @@ export interface LivenessResult {
 export interface LivenessState {
   isActive: boolean;
   isLoading: boolean;
+  sessionId: string | null;
   challenge: LivenessChallenge | null;
   baselinePose: LivenessPose | null;
   currentPose: LivenessPose | null;
@@ -46,7 +47,7 @@ export interface LivenessState {
 }
 
 export interface LivenessActions {
-  startLivenessCheck: () => Promise<boolean>;
+  startLivenessCheck: () => Promise<string | null>;
   captureBaseline: (imageDataUrl: string) => Promise<boolean>;
   verifyChallenge: (imageDataUrl: string) => Promise<LivenessResult | null>;
   reset: () => void;
@@ -68,6 +69,7 @@ export const useFaceLiveness = (): LivenessState & LivenessActions => {
   const [state, setState] = useState<LivenessState>({
     isActive: false,
     isLoading: false,
+    sessionId: null,
     challenge: null,
     baselinePose: null,
     currentPose: null,
@@ -83,32 +85,33 @@ export const useFaceLiveness = (): LivenessState & LivenessActions => {
     return CHALLENGE_INSTRUCTIONS[challengeType] || 'Thực hiện hành động được yêu cầu';
   }, []);
 
-  const startLivenessCheck = useCallback(async (): Promise<boolean> => {
+  const startLivenessCheck = useCallback(async (): Promise<string | null> => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
       const response = await faceService.createLivenessSession();
-      
+
       if (response.success) {
         sessionIdRef.current = response.session_id;
-        
+
         setState(prev => ({
           ...prev,
           isActive: true,
           isLoading: false,
+          sessionId: response.session_id,
           challenge: response.challenge as LivenessChallenge,
           step: 'started',
           error: null,
         }));
 
-        return true;
+        return response.session_id;
       } else {
         throw new Error('Failed to create liveness session');
       }
     } catch (error: any) {
       console.error('Failed to start liveness check:', error);
       const errorMessage = error.response?.data?.message || 'Không thể bắt đầu xác thực liveness';
-      
+
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -116,7 +119,7 @@ export const useFaceLiveness = (): LivenessState & LivenessActions => {
       }));
 
       toast.error(errorMessage);
-      return false;
+      return null;
     }
   }, []);
 
@@ -256,6 +259,7 @@ export const useFaceLiveness = (): LivenessState & LivenessActions => {
     setState({
       isActive: false,
       isLoading: false,
+      sessionId: null,
       challenge: null,
       baselinePose: null,
       currentPose: null,

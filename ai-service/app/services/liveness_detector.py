@@ -349,11 +349,13 @@ class LivenessDetector:
                     # A smile often causes slight upward pitch and wider expression
                     pitch_diff = current_pose.pitch - baseline_pose.pitch
                     
-                    # Smile typically raises cheeks, which can affect pitch slightly
-                    smile_detected = abs(pitch_diff) > 2 or True  # Temporarily more lenient
-                    
+                    # Smile raises cheeks slightly — use pitch_diff as a weak proxy.
+                    # Threshold of 3° filters out noise while still detecting genuine smiles.
+                    # NOTE: proper detection requires MAR from mouth landmarks (not yet available).
+                    smile_detected = abs(pitch_diff) > 3
+
                     # Calculate confidence based on pitch change
-                    confidence = min(1.0, abs(pitch_diff) / 10 + 0.5)
+                    confidence = min(1.0, abs(pitch_diff) / 10 + 0.3)
                     
                     return LivenessResult(
                         success=True,
@@ -367,11 +369,11 @@ class LivenessDetector:
                 except Exception as smile_error:
                     logger.warning(f"Smile detection error: {smile_error}")
                     return LivenessResult(
-                        success=True,
+                        success=False,
                         challenge=challenge.value,
-                        passed=True,
-                        confidence=0.5,
-                        error_message=None
+                        passed=False,
+                        confidence=0.0,
+                        error_message=f"Lỗi xác minh nụ cười: {smile_error}"
                     )
             
             else:

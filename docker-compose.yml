@@ -1,8 +1,22 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: always
+
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
@@ -16,6 +30,7 @@ services:
       - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY}
       - HOST=0.0.0.0
       - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
       # Cloudinary Configuration
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
@@ -28,6 +43,7 @@ services:
       - EMAIL_PASS=${EMAIL_PASS}
     depends_on:
       - ai-service
+      - redis
     restart: always
 
   ai-service:
@@ -44,3 +60,6 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     restart: always
+
+volumes:
+  redis-data:

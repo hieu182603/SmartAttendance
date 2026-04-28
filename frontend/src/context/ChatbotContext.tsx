@@ -230,7 +230,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
           id: response.conversation_id,
           lastActivity: response.timestamp,
           messageCount: 2,
-          preview: response.message.substring(0, 100)
+          preview: messageToSend.substring(0, 100)
         };
         setCurrentConversation(newConv);
         localStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, response.conversation_id);
@@ -242,7 +242,7 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
           ...prev,
           lastActivity: response.timestamp,
           messageCount: prev.messageCount + 2,
-          preview: response.message.substring(0, 100)
+          preview: messageToSend.substring(0, 100)
         } : null);
       }
 

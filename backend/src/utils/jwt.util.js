@@ -1,32 +1,42 @@
 import jwt from "jsonwebtoken";
 
-const getJWTSecret = () => {
-    return process.env.JWT_SECRET || "dev_secret";
+const getJWTSecret = () => process.env.JWT_SECRET || "dev_secret";
+const getRefreshSecret = () => process.env.REFRESH_TOKEN_SECRET || "dev_refresh_secret";
+
+export const generateAccessToken = (payload) => {
+    return jwt.sign(payload, getJWTSecret(), { expiresIn: "15m" });
 };
 
-const getJWTExpiresIn = () => {
-    return process.env.JWT_EXPIRES_IN || "7d";
+export const generateRefreshToken = (payload) => {
+    return jwt.sign(payload, getRefreshSecret(), { expiresIn: "7d" });
 };
 
+// Kept for backward-compat with existing callers (OTP flow, etc.)
 export const generateToken = (payload) => {
-    const JWT_SECRET = getJWTSecret();
-    const JWT_EXPIRES_IN = getJWTExpiresIn();
-
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-};
-
-export const generateTokenFromUser = (user) => {
-    return generateToken({
-        userId: user._id,
-        email: user.email,
-        role: user.role || 'EMPLOYEE',
-        department_id: user.department
+    return jwt.sign(payload, getJWTSecret(), {
+        expiresIn: process.env.JWT_EXPIRES_IN || "15m",
     });
 };
 
+export const generateTokenFromUser = (user) => {
+    const payload = {
+        userId: user._id,
+        email: user.email,
+        role: user.role || "EMPLOYEE",
+        department_id: user.department,
+    };
+    return {
+        accessToken: generateAccessToken(payload),
+        refreshToken: generateRefreshToken({ userId: user._id }),
+    };
+};
+
 export const verifyToken = (token) => {
-    const JWT_SECRET = getJWTSecret();
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, getJWTSecret());
+};
+
+export const verifyRefreshToken = (token) => {
+    return jwt.verify(token, getRefreshSecret());
 };
 
 export const extractTokenFromHeader = (authHeader) => {

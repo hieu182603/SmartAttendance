@@ -34,7 +34,12 @@ export const verifyResetOTPSchema = z.object({
 
 export const resetPasswordSchema = z.object({
     email: z.string().email("Invalid email"),
-    password: z.string().min(6, "Password must be at least 6 characters")
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    resetToken: z.string().min(1, "Reset token is required"),
+});
+
+const refreshBodySchema = z.object({
+    refreshToken: z.string().min(1, "refreshToken is required"),
 });
 
 /**
@@ -543,6 +548,29 @@ export class AuthController {
      *       404:
      *         description: User not found
      */
+    static async refresh(req, res) {
+        try {
+            const parse = refreshBodySchema.safeParse(req.body);
+            if (!parse.success) {
+                return res.status(400).json({ message: "refreshToken is required" });
+            }
+            const result = await AuthService.refreshToken(parse.data.refreshToken);
+            return res.status(200).json(result);
+        } catch (error) {
+            return res.status(401).json({ message: error.message });
+        }
+    }
+
+    static async logout(req, res) {
+        try {
+            await AuthService.logout(req.user.userId);
+            return res.status(200).json({ message: "Logged out successfully" });
+        } catch (error) {
+            console.error("Logout error:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
     static async resetPassword(req, res) {
         try {
             const parse = resetPasswordSchema.safeParse(req.body);
@@ -553,17 +581,14 @@ export class AuthController {
                 });
             }
 
-            const result = await AuthService.resetPassword(parse.data.email, parse.data.password);
+            const result = await AuthService.resetPassword(parse.data.email, parse.data.password, parse.data.resetToken);
             return res.status(200).json(result);
         } catch (error) {
             if (error.message === "User not found") {
                 return res.status(404).json({ message: "User not found" });
             }
-            if (error.message === "Please verify OTP first before resetting password.") {
-                return res.status(400).json({ message: "Please verify OTP first before resetting password." });
-            }
-            if (error.message === "Reset token expired. Please request a new OTP.") {
-                return res.status(400).json({ message: "Reset token expired. Please request a new OTP." });
+            if (error.message === "Invalid or expired reset token. Please verify OTP again.") {
+                return res.status(400).json({ message: "Invalid or expired reset token. Please verify OTP again." });
             }
             console.error("Reset password error:", error);
             return res.status(500).json({

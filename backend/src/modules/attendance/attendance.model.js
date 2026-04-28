@@ -80,6 +80,13 @@ const attendanceSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Phương thức fallback khi face verification thất bại (null = face bình thường)
+    verificationFallback: {
+      type: String,
+      enum: ["otp", null],
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -3,11 +3,12 @@ from app.limiter import limiter
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from app.services.rag_service import RAGService
 from app.utils.auth import get_current_user, UserPrincipal
+from app.utils.config import RAG_COLLECTION_NAME
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class ConversationResponse(BaseModel):
 
 class DataIngestionRequest(BaseModel):
     documents: List[Dict[str, Any]] = Field(..., description="List of documents to ingest")
-    collection_name: str = Field("documents", description="MongoDB collection name")
+    collection_name: str = Field(RAG_COLLECTION_NAME, description="MongoDB collection name")
     chunk_size: int = Field(1000, description="Text chunk size")
     chunk_overlap: int = Field(200, description="Overlap between chunks")
 
@@ -57,8 +58,8 @@ def get_rag_service() -> RAGService:
 @router.post("/chat", response_model=ConversationResponse)
 @limiter.limit("10/minute")
 async def chat_with_rag(
-    http_request: Request,
-    request: ConversationRequest,
+    request: Request,
+    body: ConversationRequest,
     background_tasks: BackgroundTasks,
     current_user: UserPrincipal = Depends(get_current_user),
     rag_service: RAGService = Depends(get_rag_service)
@@ -84,8 +85,8 @@ async def chat_with_rag(
         # Process the message with RAG
         response = await rag_service.process_message(
             user_id=current_user.user_id,
-            message=request.message,
-            conversation_id=request.conversation_id,
+            message=body.message,
+            conversation_id=body.conversation_id,
             department_id=current_user.department_id,
             role=current_user.role
         )
@@ -101,7 +102,7 @@ async def chat_with_rag(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error processing RAG chat: {str(e)}")
+        logger.exception(f"Error processing RAG chat: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process message: {str(e)}")
 
 @router.post("/ingest", response_model=Dict[str, Any])
@@ -114,7 +115,7 @@ async def ingest_documents(
     Ingest documents into the vector database for RAG
 
     - **documents**: List of documents with content and metadata
-    - **collection_name**: MongoDB collection name (default: "documents")
+    - **collection_name**: MongoDB collection name (default: from RAG_COLLECTION_NAME env var)
     - **chunk_size**: Size of text chunks (default: 1000)
     - **chunk_overlap**: Overlap between chunks (default: 200)
 
@@ -226,7 +227,7 @@ async def delete_conversation(
 @router.get("/search")
 async def search_documents(
     query: str,
-    collection_name: str = "documents",
+    collection_name: str = RAG_COLLECTION_NAME,
     limit: int = 5,
     current_user: UserPrincipal = Depends(get_current_user),
     rag_service: RAGService = Depends(get_rag_service)
@@ -277,6 +278,6 @@ async def rag_health_check(rag_service: RAGService = Depends(get_rag_service)):
         return {
             "status": "unhealthy",
             "error": str(e),
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.now(timezone.utc)
         }
 

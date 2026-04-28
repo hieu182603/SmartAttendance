@@ -2,6 +2,7 @@
 from typing import List, Optional, Dict, Any
 import numpy as np
 import os
+from concurrent.futures import ThreadPoolExecutor
 from app.models.face_detector import FaceDetector
 from app.models.face_recognizer import FaceRecognizer
 from app.utils.image_utils import ImageUtils
@@ -11,6 +12,14 @@ from app.services.texture_analyzer import TextureAnalyzer
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Shared pool for parallel AI inference within a single verify_face call.
+# Each verify_face call fans out 2 tasks (anti-spoofing + recognition); we
+# size the pool to handle ~8 concurrent verify requests in parallel before
+# queueing kicks in. Anti-spoofing (torch/onnx) releases the GIL during
+# inference, so running it alongside the (GIL-bound) numpy recognition on a
+# worker thread gives real parallelism.
+_VERIFY_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="verify-")
 
 
 class FaceService:
@@ -31,9 +40,15 @@ class FaceService:
                 self.anti_spoofing = AntiSpoofingDetector()
                 logger.info("AntiSpoofingDetector initialized successfully")
             except Exception as e:
-                logger.warning(f"Failed to initialize AntiSpoofingDetector: {e}. Falling back to texture analysis.")
+                logger.error(
+                    "SFAS deep-learning anti-spoofing DISABLED: %s "
+                    "Anti-spoofing now relies ONLY on texture analysis (LBP+FFT), "
+                    "which is less robust against high-quality print/screen attacks. "
+                    "Place a trained checkpoint at ANTI_SPOOFING_MODEL_PATH to re-enable SFAS.",
+                    e,
+                )
                 self.anti_spoofing = None
-            
+
             self.texture_analyzer = TextureAnalyzer()
             logger.info("TextureAnalyzer initialized successfully")
         else:
@@ -457,47 +472,63 @@ class FaceService:
             # Extract face data
             face_data = detection_result['face']
             
-            # Anti-spoofing check
-            should_check_spoofing = enable_anti_spoofing if enable_anti_spoofing is not None else self._anti_spoofing_enabled
-            if should_check_spoofing:
-                spoof_method = anti_spoofing_method or self._anti_spoofing_method
-                
-                # Crop face for anti-spoofing
-                bbox = face_data['bbox']
-                x1, y1, x2, y2 = map(int, bbox)
-                
-                # Ensure valid crop coordinates
-                h, w = image.shape[:2]
-                x1, y1 = max(0, x1), max(0, y1)
-                x2, y2 = min(w, x2), min(h, y2)
-                
-                if x2 > x1 and y2 > y1:
-                    face_crop = image[y1:y2, x1:x2]
-                    
-                    # Run anti-spoofing check
-                    spoof_result = self._check_anti_spoofing(face_crop, spoof_method)
-                    
-                    if not spoof_result.get('is_real', True):
-                        return {
-                            'match': False,
-                            'error': f"Phát hiện tấn công giả mạo: {spoof_result.get('attack_type', 'unknown')}",
-                            'error_code': 'SPOOF_DETECTED',
-                            'anti_spoofing': spoof_result,
-                            'face_detection': {
-                                'bbox': face_data['bbox'],
-                                'confidence': face_data['confidence']
-                            }
-                        }
-            
-            # Verify against references
+            # Per kehoach.md Phase 1: anti-spoofing is always-on for verification.
+            # The only way to skip is explicit enable_anti_spoofing=False.
+            should_check_spoofing = (
+                enable_anti_spoofing if enable_anti_spoofing is not None
+                else True
+            )
+
+            # Prepare both pipelines then run in parallel (Phase 3.3).
+            # Recognition is typically fast (~1-5ms numpy cosine) while
+            # anti-spoofing is the bottleneck (~200-400ms SFAS+Texture), so
+            # the gain here is small when the user has few reference
+            # embeddings. With larger embedding sets or a slower recognizer
+            # the savings compound.
+            spoof_method = anti_spoofing_method or self._anti_spoofing_method
+            bbox = face_data['bbox']
+            x1, y1, x2, y2 = map(int, bbox)
+            h, w = image.shape[:2]
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w, x2), min(h, y2)
+            face_crop = image[y1:y2, x1:x2] if (x2 > x1 and y2 > y1) else None
+
             candidate_embedding = np.array(face_data['embedding'])
             reference_arrays = [np.array(emb) for emb in reference_embeddings]
-            
-            result = self.recognizer.verify_against_multiple(
+
+            spoof_future = None
+            if should_check_spoofing and face_crop is not None:
+                spoof_future = _VERIFY_POOL.submit(
+                    self._check_anti_spoofing,
+                    face_crop,
+                    spoof_method,
+                    image,
+                    (x1, y1, x2, y2),
+                )
+
+            recognize_future = _VERIFY_POOL.submit(
+                self.recognizer.verify_against_multiple,
                 candidate_embedding,
                 reference_arrays,
-                custom_threshold=custom_threshold
+                custom_threshold,
             )
+
+            spoof_result = spoof_future.result() if spoof_future else None
+            if spoof_result is not None and not spoof_result.get('is_real', True):
+                # Don't wait for the recognition result — spoof short-circuits.
+                recognize_future.cancel()
+                return {
+                    'match': False,
+                    'error': f"Phát hiện tấn công giả mạo: {spoof_result.get('attack_type', 'unknown')}",
+                    'error_code': 'SPOOF_DETECTED',
+                    'anti_spoofing': spoof_result,
+                    'face_detection': {
+                        'bbox': face_data['bbox'],
+                        'confidence': face_data['confidence']
+                    }
+                }
+
+            result = recognize_future.result()
             
             # Add face detection details to result
             result['face_detection'] = {
@@ -505,7 +536,11 @@ class FaceService:
                 'confidence': face_data['confidence'],
                 'score': face_data['score']
             }
-            
+
+            # Surface anti-spoofing outcome on success too so backend can log / audit
+            if spoof_result is not None:
+                result['anti_spoofing'] = spoof_result
+
             return result
             
         except Exception as e:
@@ -610,53 +645,73 @@ class FaceService:
     def _check_anti_spoofing(
         self,
         face_crop: np.ndarray,
-        method: str = "hybrid"
+        method: str = "hybrid",
+        full_image: Optional[np.ndarray] = None,
+        bbox: Optional[tuple] = None,
     ) -> Dict[str, Any]:
         """
-        Internal method to check anti-spoofing
-        
-        Args:
-            face_crop: Cropped face image
-            method: 'sfas', 'texture', or 'hybrid'
-            
-        Returns:
-            Anti-spoofing result dict
+        Internal method to check anti-spoofing.
+
+        SFAS prefers (full_image, bbox) so it can apply the 2.7x context crop
+        that matches its training distribution; if those are missing it falls
+        back to the tight face_crop. Texture analysis always uses face_crop.
         """
+        def _sfas():
+            if not self.anti_spoofing:
+                return None
+            if full_image is not None and bbox is not None:
+                return self.anti_spoofing.predict(full_image, bbox=bbox)
+            return self.anti_spoofing.predict(face_crop)
+
         if method == "sfas":
-            if self.anti_spoofing:
-                return self.anti_spoofing.predict(face_crop)
-            else:
-                # Fallback to texture if SFAS not available
-                return self.texture_analyzer.comprehensive_check(face_crop)
-        
+            sfas_result = _sfas()
+            if sfas_result is not None:
+                return sfas_result
+            # Fallback to texture if SFAS not available
+            return self.texture_analyzer.comprehensive_check(face_crop)
+
         elif method == "texture":
             if self.texture_analyzer:
                 return self.texture_analyzer.comprehensive_check(face_crop)
             else:
                 return {'is_real': True, 'confidence': 0.0, 'error': 'TextureAnalyzer not initialized'}
-        
+
         else:  # hybrid
-            # Use both methods and combine results
-            sfas_result = None
-            texture_result = None
-            
-            if self.texture_analyzer:
-                texture_result = self.texture_analyzer.comprehensive_check(face_crop)
-                
-                # If texture analysis is highly confident, trust it
-                if texture_result.get('confidence', 0) > 0.85:
-                    return texture_result
-            
-            if self.anti_spoofing:
-                sfas_result = self.anti_spoofing.predict(face_crop)
-                
-                # SFAS is more reliable, use as primary
+            # Run both methods and combine. Fail-closed: if EITHER detector
+            # flags the face as fake, reject it. The previous logic trusted
+            # texture alone when its confidence exceeded 0.85, which let
+            # high-quality printed photos through.
+            texture_result = (
+                self.texture_analyzer.comprehensive_check(face_crop)
+                if self.texture_analyzer else None
+            )
+            sfas_result = _sfas()
+
+            if sfas_result and texture_result:
+                sfas_real = sfas_result.get('is_real', True)
+                texture_real = texture_result.get('is_real', True)
+                is_real = sfas_real and texture_real
+                if not sfas_real:
+                    attack_type = sfas_result.get('attack_type', 'unknown')
+                elif not texture_real:
+                    attack_type = texture_result.get('attack_type', 'unknown')
+                else:
+                    attack_type = 'none'
+                return {
+                    'is_real': is_real,
+                    'confidence': min(
+                        sfas_result.get('confidence', 0.0),
+                        texture_result.get('confidence', 0.0),
+                    ),
+                    'attack_type': attack_type,
+                    'method': 'SFAS+Texture',
+                    'sfas': sfas_result,
+                    'texture': texture_result,
+                }
+            if sfas_result:
                 return sfas_result
-            
-            # Fallback to texture result
             if texture_result:
                 return texture_result
-            
             return {'is_real': True, 'confidence': 0.0, 'error': 'No anti-spoofing method available'}
     
     def check_anti_spoofing_only(
@@ -710,9 +765,9 @@ class FaceService:
             x2, y2 = min(w, x2), min(h, y2)
             
             face_crop = image[y1:y2, x1:x2]
-            
+
             # Run anti-spoofing
-            result = self._check_anti_spoofing(face_crop, method)
+            result = self._check_anti_spoofing(face_crop, method, image, (x1, y1, x2, y2))
             result['face_detection'] = {
                 'bbox': face_data['bbox'],
                 'confidence': face_data['confidence']

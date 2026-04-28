@@ -239,3 +239,45 @@ export const updateUserBaseSalary = async (
   return data.data;
 };
 
+// ============================================================================
+// Generate / My Payslip / Export
+// ============================================================================
+
+export interface GeneratePayrollPayload {
+  month: string;
+  userId?: string;
+}
+
+export const generatePayroll = async (payload: GeneratePayrollPayload) => {
+  const { data } = await api.post("/payroll/generate", payload);
+  return data;
+};
+
+export const getMyPayslip = async (month?: string): Promise<PayrollRecord> => {
+  const { data } = await api.get("/payroll/my-payslip", {
+    params: month ? { month } : undefined,
+  });
+  return data.data;
+};
+
+const downloadPayslip = async (path: string, filename: string, month?: string) => {
+  const response = await api.get(path, {
+    params: month ? { month } : undefined,
+    responseType: "blob",
+  });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export const downloadMyPayslipPdf = (month?: string) =>
+  downloadPayslip("/payroll/my-payslip/pdf", `payslip-${month || "current"}.pdf`, month);
+
+export const downloadMyPayslipExcel = (month?: string) =>
+  downloadPayslip("/payroll/my-payslip/excel", `payslip-${month || "current"}.xlsx`, month);
+

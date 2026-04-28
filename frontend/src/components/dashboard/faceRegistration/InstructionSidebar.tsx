@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { CheckCircle2, Volume2, VolumeX } from 'lucide-react';
 
 interface InstructionSidebarProps {
   showOnMobile?: boolean;
@@ -13,246 +13,111 @@ interface InstructionSidebarProps {
   livenessVerified?: boolean;
   onStartLiveness?: () => void;
   maxImages?: number;
+  voiceEnabled?: boolean;
+  onToggleVoice?: () => void;
+  voiceToggleTitle?: string;
 }
 
+const STEPS = [
+  { key: "detecting", labelKey: "step1", threshold: 0 },
+  { key: "aligning", labelKey: "step2", threshold: 30 },
+  { key: "capturing", labelKey: "step3", threshold: 60 },
+  { key: "completed", labelKey: "step4", threshold: 90 },
+] as const;
+
 export const InstructionSidebar: React.FC<InstructionSidebarProps> = ({
-  showOnMobile = false,
   currentStep = "detecting",
-  cameraReady = false,
-  detectionStatus = "loading",
   capturedImagesCount = 0,
-  compactRow = false,
-  hasRegisteredFace = false,
-  livenessVerified = false,
-  onStartLiveness,
   maxImages = 4,
+  voiceEnabled = true,
+  onToggleVoice,
+  voiceToggleTitle = "Toggle voice guidance",
 }) => {
   const { t } = useTranslation(['dashboard', 'common']);
-  const [showInstructions, setShowInstructions] = useState(showOnMobile);
-
-  const livenessStepNeeded = !hasRegisteredFace;
-  const livenessStepCompleted = hasRegisteredFace || livenessVerified;
-
-  const rootClasses = compactRow
-    ? "w-full bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 overflow-visible transition-all duration-700 delay-500"
-    : "w-full lg:w-1/3 bg-gray-900/95 backdrop-blur-sm border-t lg:border-t-0 lg:border-l border-gray-800 overflow-hidden transition-all duration-700 delay-500";
 
   return (
-    <div className={rootClasses}>
-      {/* Mobile Instructions Toggle */}
-      <div className="lg:hidden">
-        <button
-          onClick={() => setShowInstructions(!showInstructions)}
-          className="w-full p-4 bg-gray-800/50 hover:bg-gray-800 transition-colors flex items-center justify-between text-left"
-        >
-          <h3 className="text-lg font-semibold text-cyan-400 flex items-center gap-2">
-            <span className="w-1 h-6 bg-gradient-to-b from-cyan-500 to-green-500 rounded"></span>
-            {t("dashboard:faceRegistration.instructions.title")}
-          </h3>
-          {showInstructions ? <ChevronUp className="h-5 w-5 text-cyan-400" /> : <ChevronDown className="h-5 w-5 text-cyan-400" />}
-        </button>
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
+      {/* Card header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--accent-cyan)"
+            strokeWidth="2"
+            className="w-3.5 h-3.5"
+          >
+            <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+          </svg>
+          <span className="font-semibold text-[11px] uppercase tracking-[0.1em] text-[var(--text-sub)]">
+            Tiến trình
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center rounded-full border border-[var(--accent-cyan)]/30 bg-[var(--accent-cyan)]/12 px-2.5 py-0.5 text-[11px] font-semibold font-mono tabular-nums text-[var(--accent-cyan)] tracking-wide">
+            {Math.min(capturedImagesCount, maxImages)} / {maxImages}
+          </span>
+          {onToggleVoice && (
+            <button
+              type="button"
+              onClick={onToggleVoice}
+              className={`w-8 h-8 rounded-full grid place-items-center border transition-colors ${voiceEnabled
+                ? "bg-[var(--accent-cyan)]/12 border-[var(--accent-cyan)]/30 text-[var(--accent-cyan)]"
+                : "bg-[var(--shell)] border-[var(--border)]/80 text-[var(--text-sub)] hover:bg-[var(--surface)] hover:border-[var(--accent-cyan)]/30"
+                }`}
+              title={voiceToggleTitle}
+            >
+              {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Instructions Content */}
-      <div className={`overflow-y-auto transition-all duration-300 ${showInstructions || 'lg:block hidden'}`}>
-        <div className="p-6 space-y-6">
-          {compactRow ? (
-            <div className="w-full">
-              {/* Mobile: Stack vertically */}
-              <div className="block md:hidden space-y-2">
-                {[1, 2, 3, 4].map((step) => {
-                  const steps = [
-                    { key: "detecting", threshold: 0 },
-                    { key: "aligning", threshold: 30 },
-                    { key: "capturing", threshold: 60 },
-                    { key: "completed", threshold: 90 }
-                  ];
-                  const stepConfig = steps[step - 1];
-                  const isActive = currentStep === stepConfig.key;
-                  const isCompleted = capturedImagesCount >= Math.min(step, maxImages);
+      {/* Step timeline — 4 columns with connector line */}
+      <div className="relative grid grid-cols-4 gap-2">
+        {/* Connector line behind circles */}
+        <div
+          className="absolute top-[14px] left-[12%] right-[12%] h-[1.5px] bg-[var(--border)] z-0"
+          aria-hidden
+        />
 
-                  // Dynamic descriptions based on current state for mobile
-                  let descriptionKey = `dashboard:faceRegistration.steps.step${step}Description`;
-                  if (step === 1) {
-                    if (!cameraReady) {
-                      descriptionKey = "dashboard:faceRegistration.steps.step1DescriptionCamera";
-                    } else if (detectionStatus === "none") {
-                      descriptionKey = "dashboard:faceRegistration.steps.step1DescriptionPosition";
-                    } else if (detectionStatus === "warning") {
-                      descriptionKey = "dashboard:faceRegistration.steps.step1DescriptionAdjust";
-                    }
-                  }
+        {STEPS.map((step, idx) => {
+          const isCompleted = capturedImagesCount > idx;
+          const isActive = !isCompleted && currentStep === step.key;
+          const state: "completed" | "active" | "pending" = isCompleted
+            ? "completed"
+            : isActive
+              ? "active"
+              : "pending";
 
-                  return (
-                    <div
-                      key={step}
-                      className={`flex items-start gap-3 p-3 rounded-lg transition-all duration-200 ${isCompleted ? "bg-green-900/20 border border-green-500/30" :
-                        isActive ? "bg-cyan-900/20 border border-cyan-500/30" :
-                          "bg-gray-800/40"
-                        }`}
-                    >
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 transition-all duration-300 ${isCompleted ? "bg-green-500 text-white" :
-                        isActive ? "bg-cyan-500 text-white" :
-                          "bg-gray-600 text-gray-400"
-                        }`}>
-                        {isCompleted ? "✓" : step}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium transition-colors duration-300 ${isCompleted ? "text-green-400" :
-                          isActive ? "text-cyan-400" :
-                            "text-gray-400"
-                          }`}>
-                          {t(`dashboard:faceRegistration.steps.step${step}`)}
-                        </p>
-                        <p className={`text-xs mt-1 transition-colors duration-300 ${isCompleted ? "text-green-300/70" :
-                          isActive ? "text-white" :
-                            "text-gray-400"
-                          }`}>
-                          {t(descriptionKey)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+          const labelText = t(`dashboard:faceRegistration.steps.${step.labelKey}`);
+
+          return (
+            <div
+              key={step.key}
+              className="flex flex-col items-center gap-1.5 text-center relative"
+              data-state={state}
+            >
+              <div className="step-circle" data-state={state}>
+                {isCompleted ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={3} />
+                ) : (
+                  idx + 1
+                )}
               </div>
-
-              {/* Desktop/Tablet: equal-width cards (4 columns) */}
-              <div className="hidden md:grid md:grid-cols-4 gap-3 py-2 px-1 items-stretch">
-                {[1, 2, 3, 4].map((step) => {
-                  const steps = [
-                    { key: "detecting", threshold: 0 },
-                    { key: "aligning", threshold: 30 },
-                    { key: "capturing", threshold: 60 },
-                    { key: "completed", threshold: 90 }
-                  ];
-                  const stepConfig = steps[step - 1];
-                  const isActive = currentStep === stepConfig.key;
-                  const isCompleted = capturedImagesCount >= Math.min(step, maxImages);
-
-                  // Smart text truncation based on step
-                  const getTruncatedText = (fullText: string, step: number) => {
-                    const limits = {
-                      1: 35, // Camera access step - shorter
-                      2: 45, // Face positioning - medium
-                      3: 40, // Capturing - medium
-                      4: 30  // Review step - shorter
-                    };
-                    const limit = limits[step as keyof typeof limits] || 40;
-                    return fullText && fullText.length > limit ? fullText.slice(0, limit).trim() + '...' : fullText;
-                  };
-
-                  const fullDesc = t(`dashboard:faceRegistration.steps.step${step}Description`);
-                  const shortDesc = getTruncatedText(fullDesc, step);
-
-                  return (
-                    <div
-                      key={step}
-                      className={`w-full text-center p-3 rounded-lg transition-all duration-200 border flex flex-col justify-between ${isCompleted ? "bg-green-900/20 border-green-500/30" :
-                        isActive ? "bg-cyan-900/20 border-cyan-500/30" :
-                          "bg-gray-800/40 border-gray-700/50"
-                        }`}
-                      title={fullDesc}
-                    >
-                      <div>
-                        <div className={`text-sm font-semibold leading-tight mb-1 ${isCompleted ? "text-green-400" : isActive ? "text-cyan-400" : "text-gray-400"}`}>
-                          {t(`dashboard:faceRegistration.steps.step${step}`)}
-                        </div>
-                        <div className="text-xs text-gray-400 leading-tight">
-                          {shortDesc}
-                        </div>
-                      </div>
-                      {isActive && step === 3 && (
-                        <div className="text-xs text-cyan-300 mt-3 font-medium">
-                          {capturedImagesCount}/{maxImages}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div
+                className={`text-[9px] uppercase tracking-[0.04em] font-semibold leading-tight ${isCompleted
+                  ? "text-[var(--success)]"
+                  : isActive
+                    ? "text-[var(--accent-cyan)]"
+                    : "text-[var(--text-sub)]"
+                  }`}
+              >
+                {labelText}
               </div>
             </div>
-          ) : (
-            <>
-              <div className="hidden lg:block">
-                <h3 className="text-lg font-semibold mb-4 text-cyan-400 flex items-center gap-2">
-                  <span className="w-1 h-6 bg-gradient-to-b from-cyan-500 to-green-500 rounded"></span>
-                  {t("dashboard:faceRegistration.instructions.title")}
-                </h3>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-3">
-                  {[1, 2, 3, 4].map((step) => {
-                    const steps = [
-                      { key: "detecting", threshold: 0 },
-                      { key: "aligning", threshold: 30 },
-                      { key: "capturing", threshold: 60 },
-                      { key: "completed", threshold: 90 }
-                    ];
-
-                    const stepConfig = steps[step - 1];
-                    const isCompleted = capturedImagesCount >= Math.min(step, maxImages);
-                    const isActive = currentStep === stepConfig.key && !isCompleted;
-                    const isUpcoming = !isCompleted && !isActive;
-
-                    // Skip completed steps
-                    if (isCompleted && step < 4) return null;
-
-                    // Dynamic descriptions based on current state
-                    let descriptionKey = `dashboard:faceRegistration.steps.step${step}Description`;
-                    if (step === 1) {
-                      if (!cameraReady) {
-                        descriptionKey = "dashboard:faceRegistration.steps.step1DescriptionCamera";
-                      } else if (detectionStatus === "none") {
-                        descriptionKey = "dashboard:faceRegistration.steps.step1DescriptionPosition";
-                      } else if (detectionStatus === "warning") {
-                        descriptionKey = "dashboard:faceRegistration.steps.step1DescriptionAdjust";
-                      }
-                    } else if (step === 2 && currentStep === "aligning") {
-                      descriptionKey = "dashboard:faceRegistration.steps.step2DescriptionActive";
-                    } else if (step === 3 && currentStep === "capturing") {
-                      descriptionKey = "dashboard:faceRegistration.steps.step3DescriptionActive";
-                    }
-
-                    return (
-                      <div key={step} className={`flex items-start gap-3 p-3 rounded-lg transition-all duration-300 ${isCompleted ? "bg-green-900/20 border border-green-500/30" :
-                        isActive ? "bg-cyan-900/30 border border-cyan-500/50 ring-1 ring-cyan-500/20" :
-                          "bg-gray-800/50 hover:bg-gray-800"
-                        }`}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 transition-all duration-300 ${isCompleted ? "bg-green-500 text-white" :
-                          isActive ? "bg-cyan-500 text-white animate-pulse" :
-                            "bg-gray-600 text-gray-400"
-                          }`}>
-                          {isCompleted ? "✓" : step}
-                        </div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-medium transition-colors duration-300 ${isCompleted ? "text-green-400" :
-                            isActive ? "text-cyan-400" :
-                              "text-gray-400"
-                            }`}>
-                            {t(`dashboard:faceRegistration.steps.step${step}`)}
-                          </p>
-                          <p className={`text-xs mt-1 transition-colors duration-300 ${isCompleted ? "text-green-300/70" :
-                            isActive ? "text-white" :
-                              "text-gray-400"
-                            }`}>
-                            {t(descriptionKey)}
-                          </p>
-                          {isActive && step === 3 && (
-                            <p className="text-xs text-cyan-300 mt-1 font-medium">
-                              {capturedImagesCount} / {maxImages} images captured
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  }).filter(Boolean)}
-                </div>
-
-                {/* Tips removed per request */}
-              </div>
-            </>)}
-        </div>
+          );
+        })}
       </div>
     </div>
   );

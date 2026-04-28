@@ -12,8 +12,6 @@ import {
   X,
   User,
   Scan,
-  Volume2,
-  VolumeX,
   ShieldCheck,
   ShieldAlert,
   Eye,
@@ -100,6 +98,8 @@ interface CheckInError {
     data?: {
       message?: string;
       code?: string;
+      requireOtpFallback?: boolean;
+      attemptsLeft?: number;
       data?: {
         hoursWorked?: number;
         minutesWorked?: number;
@@ -107,11 +107,23 @@ interface CheckInError {
         remainingMinutes?: number;
         shiftName?: string;
         requiresReason?: boolean;
+        similarity?: number;
       };
     };
   };
   message?: string;
   code?: string;
+  requireOtpFallback?: boolean;
+  attemptsLeft?: number;
+  data?: {
+    hoursWorked?: number;
+    minutesWorked?: number;
+    minRequiredMinutes?: number;
+    remainingMinutes?: number;
+    shiftName?: string;
+    requiresReason?: boolean;
+    similarity?: number;
+  };
 }
 
 type EarlyCheckoutReason = "machine_issue" | "personal_emergency" | "manager_request" | null;
@@ -174,6 +186,20 @@ const parseAttendanceDate = (dateStr: string): string | null => {
 };
 
 // ============================================================================
+// LIVE CLOCK (used in ScanPage progress bar)
+// ============================================================================
+const LiveClock: React.FC = () => {
+  const [now, setNow] = useState<string>(() => new Date().toTimeString().slice(0, 8));
+  useEffect(() => {
+    const id = setInterval(() => {
+      setNow(new Date().toTimeString().slice(0, 8));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <span className="mono">{now}</span>;
+};
+
+// ============================================================================
 // COMPONENT
 // ============================================================================
 const ScanPage: React.FC = () => {
@@ -231,6 +257,11 @@ const ScanPage: React.FC = () => {
   // ⚠️ MỚI: Early checkout state
   const [showEarlyCheckoutModal, setShowEarlyCheckoutModal] = useState(false);
   const [earlyCheckoutReason, setEarlyCheckoutReason] = useState<EarlyCheckoutReason>(null);
+
+  // Face fallback OTP state
+  const [showOtpFallbackModal, setShowOtpFallbackModal] = useState(false);
+  const [otpFallbackValue, setOtpFallbackValue] = useState("");
+  const [otpFallbackLoading, setOtpFallbackLoading] = useState(false);
 
   // Face registration status
   const [faceStatus, setFaceStatus] = useState<FaceStatus | null>(null);
@@ -626,21 +657,29 @@ const ScanPage: React.FC = () => {
         t("dashboard:scan.errors.checkInError");
 
       // Handle face verification errors
-      if (err.response?.data?.code === "FACE_VERIFICATION_FAILED") {
-        const similarity = err.response.data.data?.similarity;
-        toast.error(errorMessage, {
-          description: similarity
-            ? `Độ tương đồng: ${(similarity * 100).toFixed(1)}%`
-            : "Vui lòng thử lại hoặc đăng ký lại khuôn mặt",
-          action: {
-            label: "Đăng ký lại",
-            onClick: () => {
-              const userRole = localStorage.getItem("sa_user_role") || "employee";
-              navigate(`/${userRole === "EMPLOYEE" ? "employee" : userRole.toLowerCase()}/face-registration`);
-            },
-          },
+      if (err.response?.data?.code === "SPOOF_DETECTED") {
+        toast.error("Phát hiện giả mạo khuôn mặt", {
+          description: "Hệ thống phát hiện ảnh in, màn hình hoặc video. Vui lòng dùng khuôn mặt thật.",
+          duration: 5000,
         });
-        voiceFeedback.speakMessage("Xác thực khuôn mặt thất bại. Khuôn mặt không khớp, vui lòng thử lại.");
+        voiceFeedback.speakMessage("Phát hiện giả mạo khuôn mặt. Vui lòng dùng khuôn mặt thật.");
+        return;
+      }
+
+      if (err.response?.data?.code === "FACE_VERIFICATION_FAILED") {
+        if (err.response.data?.requireOtpFallback) {
+          setOtpFallbackValue("");
+          setShowOtpFallbackModal(true);
+          voiceFeedback.speakMessage("Xác thực khuôn mặt thất bại nhiều lần. Vui lòng nhập mã OTP đã gửi qua email.");
+          return;
+        }
+        const attemptsLeft = err.response.data?.attemptsLeft;
+        toast.error(errorMessage, {
+          description: attemptsLeft !== undefined
+            ? `Còn ${attemptsLeft} lần thử trước khi chuyển sang OTP`
+            : "Vui lòng thử lại hoặc đăng ký lại khuôn mặt",
+        });
+        voiceFeedback.speakMessage("Xác thực khuôn mặt thất bại. Vui lòng thử lại.");
         return;
       }
 
@@ -745,7 +784,33 @@ const ScanPage: React.FC = () => {
         err.message ||
         t("dashboard:scan.errors.checkOutError");
 
-      if (err.response?.data?.code === "NOT_CHECKED_IN") {
+      if (err.response?.data?.code === "SPOOF_DETECTED") {
+        toast.error("Phát hiện giả mạo khuôn mặt", {
+          description: "Hệ thống phát hiện ảnh in, màn hình hoặc video. Vui lòng dùng khuôn mặt thật.",
+          duration: 5000,
+        });
+        voiceFeedback.speakMessage("Phát hiện giả mạo khuôn mặt. Vui lòng dùng khuôn mặt thật.");
+      } else if (err.response?.data?.code === "FACE_VERIFICATION_FAILED") {
+        if (err.response.data?.requireOtpFallback) {
+          setOtpFallbackValue("");
+          setShowOtpFallbackModal(true);
+          voiceFeedback.speakMessage("Xác thực khuôn mặt thất bại nhiều lần. Vui lòng nhập mã OTP đã gửi qua email.");
+        } else {
+          const attemptsLeft = err.response.data?.attemptsLeft;
+          toast.error(errorMessage, {
+            description: attemptsLeft !== undefined
+              ? `Còn ${attemptsLeft} lần thử trước khi chuyển sang OTP`
+              : "Khuôn mặt không khớp. Vui lòng thử lại.",
+            duration: 5000,
+          });
+          voiceFeedback.speakMessage("Khuôn mặt không khớp khi check-out. Vui lòng thử lại.");
+        }
+      } else if (err.response?.data?.code === "FACE_VERIFICATION_ERROR") {
+        toast.error("Lỗi xác thực khuôn mặt", {
+          description: "Hệ thống không thể xác thực khuôn mặt. Vui lòng thử lại.",
+        });
+        voiceFeedback.speakMessage("Lỗi xác thực khuôn mặt. Vui lòng thử lại.");
+      } else if (err.response?.data?.code === "NOT_CHECKED_IN") {
         toast.warning(errorMessage);
         voiceFeedback.speakMessage("Bạn chưa chấm công vào. Vui lòng chấm công vào trước.");
       } else if (err.response?.data?.code === "ALREADY_CHECKED_OUT") {
@@ -778,6 +843,38 @@ const ScanPage: React.FC = () => {
       setState((prev) => ({ ...prev, isProcessing: false }));
     }
   }, [locationData, capturePhoto, createFormData, t, voiceFeedback]);
+
+  const handleOtpFallbackSubmit = useCallback(async () => {
+    if (otpFallbackValue.length !== 6) return;
+    setOtpFallbackLoading(true);
+    try {
+      const result = await api.post<{ success: boolean; action?: string; message?: string }>(
+        "/face/verify-fallback-otp",
+        { otp: otpFallbackValue }
+      );
+      if (result.data.success) {
+        const action = result.data.action ?? "check_in";
+        setShowOtpFallbackModal(false);
+        setOtpFallbackValue("");
+        if (action === "check_in") {
+          setState((prev) => ({ ...prev, hasCheckedIn: true, checkInTime: new Date(), canCheckOut: false }));
+          toast.success("Chấm công vào thành công (OTP) 🎉");
+          voiceFeedback.speakMessage("Chấm công thành công bằng OTP!");
+        } else {
+          setState((prev) => ({ ...prev, hasCheckedOut: true }));
+          toast.success("Chấm công ra thành công (OTP) ✅");
+          voiceFeedback.speakMessage("Chấm công ra thành công bằng OTP!");
+        }
+        setActiveAction("idle");
+        faceDetection.resetConsecutiveFrames();
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "OTP không hợp lệ";
+      toast.error(msg);
+    } finally {
+      setOtpFallbackLoading(false);
+    }
+  }, [otpFallbackValue, voiceFeedback, faceDetection, setActiveAction]);
 
   // ==========================================================================
   // EFFECTS
@@ -861,9 +958,7 @@ const ScanPage: React.FC = () => {
       try {
         const status = await faceService.getFaceStatus();
         setFaceStatus(status);
-        if (!status.isRegistered) {
-          setShowFaceRegistrationPrompt(true);
-        }
+        setShowFaceRegistrationPrompt(!status.isRegistered);
       } catch (error) {
         console.error("Failed to check face status:", error);
         // Silent fail - don't block user
@@ -871,6 +966,12 @@ const ScanPage: React.FC = () => {
     };
     checkFaceStatus();
   }, []);
+
+  useEffect(() => {
+    if (faceStatus?.isRegistered) {
+      setShowFaceRegistrationPrompt(false);
+    }
+  }, [faceStatus?.isRegistered]);
 
   useEffect(() => {
     if (offices.length > 0) {
@@ -1210,471 +1311,656 @@ const ScanPage: React.FC = () => {
   const DetectionStatusIcon = detectionStatusConfig?.icon ?? Eye;
 
   // ==========================================================================
+  // HUD-STATE helper for ScanPage prototype style
+  // ==========================================================================
+  const hudState: "detecting" | "warning" | "good" | "error" = (() => {
+    const s = faceDetection.detectionStatus;
+    if (s === "good") return "good";
+    if (s === "multiple_faces" || s === "error") return "error";
+    if (s === "too_far" || s === "too_close" || s === "not_centered") return "warning";
+    return "detecting";
+  })();
+
+  // Primary action button mode
+  const primaryMode: "checkin" | "checkout" | "armed" | "done" = (() => {
+    if (hasCheckedIn && hasCheckedOut) return "done";
+    if (activeAction !== "idle") return "armed";
+    if (!hasCheckedIn) return "checkin";
+    return "checkout";
+  })();
+
+  // Working hours live calculation
+  const totalWorkText = (() => {
+    if (!checkInTime) return "0h 00m";
+    const end = hasCheckedOut ? new Date(checkInTime.getTime()) : new Date();
+    // Note: we don't have explicit checkOutTime state for display, use now()
+    const diff = Math.max(0, end.getTime() - checkInTime.getTime());
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    return `${hours}h ${String(mins).padStart(2, "0")}m`;
+  })();
+
+  const formatTime = (d: Date | null) => {
+    if (!d) return "—:—";
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  const distanceValue = locationData?.distance;
+  const distanceClass =
+    distanceValue !== undefined && distanceValue <= 100
+      ? "bg-[var(--success)]/15 border-[var(--success)]/30 text-[var(--success)]"
+      : "bg-[var(--warning)]/15 border-[var(--warning)]/30 text-[var(--warning)]";
+
+  // ==========================================================================
   // RENDER
   // ==========================================================================
   return (
-    <div className="space-y-6">
-      {/* Face Registration Prompt */}
+    <div className="h-full min-h-0 w-full bg-[var(--background)] text-[var(--text-main)] flex flex-col overflow-hidden">
+      {/* Face Registration Prompt (banner) */}
       {showFaceRegistrationPrompt && !faceStatus?.isRegistered && (
-        <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-900/20">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <User className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-1">
-                  Đăng ký khuôn mặt để bảo mật tốt hơn
-                </h3>
-                <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
-                  Đăng ký khuôn mặt để tăng tính bảo mật khi chấm công. Bạn có thể đăng ký ngay bây giờ hoặc bỏ qua.
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const userRole = localStorage.getItem("sa_user_role") || "employee";
-                      navigate(`/${userRole === "EMPLOYEE" ? "employee" : userRole.toLowerCase()}/face-registration`);
-                    }}
-                    className="bg-amber-600 hover:bg-amber-700"
-                  >
-                    Đăng ký ngay
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowFaceRegistrationPrompt(false)}
-                  >
-                    Bỏ qua
-                  </Button>
-                </div>
-              </div>
+        <div className="mx-4 lg:mx-5 mt-3 rounded-xl border border-[var(--warning)]/50 bg-[var(--warning)]/10 p-3 flex items-center gap-3">
+          <User className="h-5 w-5 text-[var(--warning)] flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm text-[var(--text-main)]">
+              Đăng ký khuôn mặt để bảo mật tốt hơn
             </div>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-[var(--text-sub)] mt-0.5">
+              Đăng ký khuôn mặt để tăng tính bảo mật khi chấm công.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const userRole = localStorage.getItem("sa_user_role") || "employee";
+              navigate(`/${userRole === "EMPLOYEE" ? "employee" : userRole.toLowerCase()}/face-registration`);
+            }}
+            className="px-3 py-1.5 rounded-md bg-[var(--warning)] text-black font-semibold text-xs hover:brightness-110 transition-all"
+          >
+            Đăng ký ngay
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowFaceRegistrationPrompt(false)}
+            className="px-3 py-1.5 rounded-md border border-[var(--border)] text-[var(--text-main)] font-semibold text-xs hover:bg-[var(--shell)] transition-colors"
+          >
+            Bỏ qua
+          </button>
+        </div>
       )}
 
-      <Card className="border-[var(--border)] bg-[var(--surface)]">
-        <CardHeader>
-          <CardTitle className="text-[var(--text-main)]">
-            {t("dashboard:scan.checkInToday")}
-          </CardTitle>
-          <p className="text-sm text-[var(--text-sub)] mt-2">
-            {t("dashboard:scan.description")}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Permission Status */}
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
-            <h3 className="mb-3 text-sm font-semibold text-[var(--text-main)]">
-              {t("dashboard:scan.permissionStatus")}
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(permissions).map(([key, granted]) => (
-                <span
-                  key={key}
-                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${granted
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                    }`}
-                >
-                  {granted ? (
-                    <CheckCircle2 className="h-3 w-3" />
-                  ) : (
-                    <AlertCircle className="h-3 w-3" />
-                  )}
-                  {key === "camera"
-                    ? t("dashboard:scan.permissions.camera")
-                    : t("dashboard:scan.permissions.location")}{" "}
-                  -{" "}
-                  {granted
-                    ? t("dashboard:scan.permissions.granted")
-                    : t("dashboard:scan.permissions.denied")}
-                </span>
-              ))}
+      {/* ==================== MAIN ==================== */}
+      <main className="flex-1 min-h-0 px-4 pb-4 pt-2 lg:px-5 lg:pb-5 lg:pt-3 grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-5 overflow-hidden">
+        {/* ===== CAMERA COLUMN ===== */}
+        <section className="lg:col-span-7 flex flex-col gap-3 min-h-0">
+          <div
+            className="hud-frame flex-1 min-h-[46vh] md:min-h-[50vh] lg:min-h-0 relative"
+            data-hud={hudState}
+          >
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`absolute inset-0 h-full w-full object-cover ${isCameraReady ? "block" : "hidden"}`}
+              style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
+            />
+
+            {/* Face detection overlay canvas */}
+            {isCameraReady && faceStatus?.isRegistered && (
+              <canvas
+                ref={canvasOverlayRef}
+                className="absolute inset-0 h-full w-full pointer-events-none z-[3]"
+              />
+            )}
+
+            {/* HUD corners */}
+            <div className="hud-corners" aria-hidden>
+              <span />
             </div>
-            {(!permissions.camera || !permissions.location) && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <p>{t("dashboard:permissions.requestMessage")}</p>
+
+            {/* Scanner sweep */}
+            <div className="scanner-line" aria-hidden />
+
+            {/* Status pill */}
+            {isCameraReady && detectionStatusConfig && (
+              <div className="status-pill">
+                <span className="status-pill__dot" />
+                <DetectionStatusIcon
+                  className={`h-3.5 w-3.5 ${faceDetection.detectionStatus === "loading" ? "animate-spin" : ""}`}
+                />
+                <span>{detectionStatusConfig.label}</span>
               </div>
             )}
-          </div>
 
-          {/* Camera with Face Detection */}
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[var(--text-main)] flex items-center gap-2">
-                <Camera className="h-4 w-4" />
-                {t("dashboard:scan.camera.title")}
-              </h3>
-              <div className="flex items-center gap-2">
-                {/* Voice toggle */}
-                {faceStatus?.isRegistered && (
-                  <button
-                    type="button"
-                    onClick={voiceFeedback.toggleVoice}
-                    className="flex items-center gap-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
-                    title={voiceFeedback.voiceEnabled ? "Tắt giọng nói" : "Bật giọng nói"}
-                  >
-                    {voiceFeedback.voiceEnabled ? (
-                      <Volume2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <VolumeX className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                )}
-                {/* Auto-capture toggle */}
-                {faceStatus?.isRegistered && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAutoCaptureEnabled((prev) => !prev);
-                      setAutoCaptureTriggered(false);
-                      faceDetection.resetConsecutiveFrames();
-                    }}
-                    className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${autoCaptureEnabled
-                      ? "bg-green-100 border-green-300 text-green-700 dark:bg-green-900/30 dark:border-green-700 dark:text-green-400"
-                      : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)]"
-                      }`}
-                    title={autoCaptureEnabled ? "Tắt tự động chấm công" : "Bật tự động chấm công"}
-                  >
-                    <Scan className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">
-                      {autoCaptureEnabled ? "Tự động" : "Thủ công"}
-                    </span>
-                  </button>
-                )}
-                {/* Camera switch */}
-                {isCameraReady && (
-                  <button
-                    type="button"
-                    onClick={toggleCamera}
-                    className="flex items-center gap-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--text-main)] hover:bg-[var(--shell)] transition-colors"
-                    title={t("dashboard:scan.camera.switch")}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">
-                      {facingMode === "environment"
-                        ? t("dashboard:scan.camera.switchToFront")
-                        : t("dashboard:scan.camera.switchToBack")}
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--shell)]">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className={`h-full w-full object-cover ${isCameraReady ? "block" : "hidden"
-                  }`}
-                style={{
-                  transform: facingMode === "user" ? "scaleX(-1)" : "none",
-                }}
-              />
-              {/* Face detection overlay canvas */}
-              {isCameraReady && faceStatus?.isRegistered && (
-                <canvas
-                  ref={canvasOverlayRef}
-                  className="absolute inset-0 h-full w-full pointer-events-none"
-                  style={{ zIndex: 10 }}
-                />
-              )}
-              {/* Face detection status badge (top-center) */}
-              {isCameraReady && detectionStatusConfig && (
-                <div
-                  className={`absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur-sm ${detectionStatusConfig.bgColor} ${detectionStatusConfig.color}`}
-                >
-                  <DetectionStatusIcon className={`h-3.5 w-3.5 ${faceDetection.detectionStatus === "loading" ? "animate-spin" : ""}`} />
-                  {detectionStatusConfig.label}
-                </div>
-              )}
-              {/* Auto-capture progress indicator (bottom-center) - only when user has chosen an action */}
-              {isCameraReady && faceStatus?.isRegistered && activeAction !== 'idle' && autoCaptureEnabled && faceDetection.detectionStatus === "good" && !autoCaptureTriggered && !isProcessing && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20">
-                  <div className="flex items-center gap-2 rounded-full bg-green-100/90 dark:bg-green-900/70 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300 shadow-lg backdrop-blur-sm">
-                    <div className="flex gap-0.5">
+            {/* Auto-capture progress indicator */}
+            {isCameraReady &&
+              faceStatus?.isRegistered &&
+              activeAction !== "idle" &&
+              autoCaptureEnabled &&
+              faceDetection.detectionStatus === "good" &&
+              !autoCaptureTriggered &&
+              !isProcessing && (
+                <div className="absolute bottom-[50px] left-1/2 -translate-x-1/2 z-20">
+                  <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-[var(--success)]/20 border border-[var(--success)]/50 backdrop-blur-md text-xs font-semibold text-[var(--success)]">
+                    <div className="flex gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
-                        <div
+                        <span
                           key={i}
-                          className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${i < faceDetection.consecutiveGoodFrames
-                            ? "bg-green-500"
-                            : "bg-green-300 dark:bg-green-700"
+                          className={`w-[7px] h-[7px] rounded-full transition-all ${i < faceDetection.consecutiveGoodFrames
+                            ? "bg-[var(--success)] shadow-[0_0_6px_rgba(34,197,94,0.6)]"
+                            : "bg-[var(--success)]/30"
                             }`}
                         />
                       ))}
                     </div>
                     <span>
                       {faceDetection.canAutoCapture
-                        ? "Đang chụp..."
+                        ? "Đang chấm công..."
                         : `Giữ yên ${faceDetection.consecutiveGoodFrames}/5`}
                     </span>
                   </div>
                 </div>
               )}
-              {/* Processing overlay */}
-              {isProcessing && (
-                <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                  <div className="flex flex-col items-center gap-2 text-white">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                    <span className="text-sm font-medium">Đang xác thực...</span>
+
+            {/* HUD meta */}
+            <div className="hud-meta">
+              <div className="hud-meta__item">
+                <span className="hud-meta__label">ID</span>
+                <span className="hud-meta__value">
+                  {(user?.id || user?._id || "—").toString().slice(-6).toUpperCase()}
+                </span>
+              </div>
+              <div className="hud-meta__item">
+                <span className="hud-meta__label">Match</span>
+                <span className="hud-meta__value">
+                  {faceDetection.detectionStatus === "good" ? "OK" : "—"}
+                </span>
+              </div>
+            </div>
+
+            {/* Processing overlay */}
+            {isProcessing && (
+              <div className="hud-processing">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="hud-processing__ring" />
+                  <div className="text-sm font-semibold tracking-tight text-[var(--text-main)]">
+                    Đang xác thực
+                  </div>
+                  <div className="text-[11px] uppercase tracking-[0.1em] text-[var(--text-sub)]">
+                    So khớp khuôn mặt &amp; vị trí
                   </div>
                 </div>
-              )}
-              {!isCameraReady && (
-                <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--shell)] text-[var(--text-sub)]">
-                  <Camera className="h-12 w-12" />
-                  <p className="text-sm">
+              </div>
+            )}
+
+            {/* Not ready placeholder */}
+            {!isCameraReady && (
+              <div className="absolute inset-0 grid place-items-center bg-[var(--shell)]">
+                <div className="text-center flex flex-col items-center gap-3">
+                  <Camera className="h-14 w-14 text-[var(--text-sub)]" strokeWidth={1.5} />
+                  <p className="text-sm text-[var(--text-sub)]">
                     {t("dashboard:scan.camera.notActivated")}
                   </p>
+                  <p className="text-[11px] uppercase tracking-wider text-[var(--text-sub)]/70">
+                    Cho phép camera để chấm công
+                  </p>
                 </div>
-              )}
-            </div>
-            {/* Face detection model loading indicator */}
-            {faceStatus?.isRegistered && faceDetection.modelLoading && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Đang tải mô hình nhận diện khuôn mặt...
               </div>
             )}
           </div>
 
-          {/* Location Info */}
-          <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)]/50 p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--text-main)]">
-              <MapPin className="h-4 w-4" />
-              {t("dashboard:scan.locationInfo.title")}
-            </h3>
-            {!locationData && !locationError ? (
-              <div className="flex items-center justify-center gap-2 py-4 text-sm text-[var(--text-sub)]">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t("dashboard:scan.locationInfo.loading")}
-              </div>
-            ) : locationError ? (
-              <div className="space-y-3">
-                <div className="flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                  <p>{locationError}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={getLocation}
-                  disabled={locationLoading}
-                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-                >
-                  {locationLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t("dashboard:scan.locationInfo.retrying")}
-                    </>
-                  ) : (
-                    <>
-                      <MapPin className="h-4 w-4" />
-                      {t("dashboard:scan.locationInfo.retry")}
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : locationData ? (
-              <div className="relative">
-                {locationLoading && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[var(--shell)]/80 backdrop-blur-sm">
-                    <div className="flex items-center gap-2 text-sm text-[var(--text-main)]">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t("dashboard:scan.locationInfo.refreshing")}
-                    </div>
-                  </div>
-                )}
-                <div className="space-y-2 text-sm">
-                  {locationData.nearestOffice && (
-                    <div className="flex justify-between items-start">
-                      <span className="text-[var(--text-sub)]">
-                        {t("dashboard:scan.locationInfo.nearestOffice")}
-                      </span>
-                      <span className="font-medium text-[var(--text-main)] text-right">
-                        {locationData.nearestOffice}
-                      </span>
-                    </div>
-                  )}
-                  {locationData.distance !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-[var(--text-sub)]">
-                        {t("dashboard:scan.locationInfo.distance")}
-                      </span>
-                      <span
-                        className={`font-mono font-medium ${locationData.distance <= 100
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-orange-600 dark:text-orange-400"
-                          }`}
-                      >
-                        {Math.round(locationData.distance)}m
-                      </span>
-                    </div>
-                  )}
-                  {locationData.latitude != null && locationData.longitude != null && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-[var(--text-sub)]">
-                        Vị trí:
-                      </span>
-                      <a
-                        href={`https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[var(--accent-cyan)] hover:underline text-xs flex items-center gap-1 font-mono"
-                      >
-                        <MapPin className="h-3 w-3" />
-                        {locationData.latitude.toFixed(6)}, {locationData.longitude.toFixed(6)}
-                      </a>
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={getLocation}
-                  disabled={locationLoading}
-                  className="mt-3 flex items-center justify-center gap-2 w-full rounded-lg border border-[var(--border)] bg-[var(--shell)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <MapPin className="h-4 w-4" />
-                  {t("dashboard:scan.locationInfo.refresh")}
-                </button>
-              </div>
-            ) : null}
+          {/* Progress bar / live clock */}
+          <div className="flex items-center gap-3 px-3.5 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl flex-shrink-0">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-main)] whitespace-nowrap">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent-cyan)"
+                strokeWidth="2.5"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 6v6l3 2" />
+              </svg>
+              <LiveClock />
+            </div>
+            <div className="flex-1 h-1.5 bg-[var(--shell)] rounded-full overflow-hidden relative progress-shimmer">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[var(--accent-cyan)] to-[var(--success)]"
+                style={{
+                  width: hasCheckedOut ? "100%" : hasCheckedIn ? "60%" : "25%",
+                  boxShadow: "0 0 12px rgba(34, 211, 238, 0.45)",
+                }}
+              />
+            </div>
+            <div className="mono text-xs font-bold text-[var(--accent-cyan)] min-w-[56px] text-right uppercase tracking-wider">
+              {hasCheckedOut ? "DONE" : "ONLINE"}
+            </div>
           </div>
 
-          {/* Face Detection Hint (when registered but face not detected, only during active action) */}
-          {faceStatus?.isRegistered && faceDetection.modelReady && activeAction !== 'idle' && !autoCaptureEnabled && faceDetection.detectionStatus !== "good" && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
-              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              <p>{faceDetection.statusMessage}</p>
+          {/* Face detection model loading */}
+          {faceStatus?.isRegistered && faceDetection.modelLoading && (
+            <div className="flex items-center gap-2 text-xs text-[var(--accent-cyan)]">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Đang tải mô hình nhận diện khuôn mặt...
             </div>
           )}
+        </section>
 
-          {/* Action Buttons */}
-          {activeAction === 'idle' ? (
-            <>
-              {/* Idle state: show Check In / Check Out buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveAction('checkin');
-                    setAutoCaptureTriggered(false);
-                    faceDetection.resetConsecutiveFrames();
-                  }}
-                  disabled={
-                    isProcessing ||
-                    !permissions.camera ||
-                    !permissions.location ||
-                    !locationData ||
-                    hasCheckedIn
-                  }
-                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[var(--primary)]/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {hasCheckedIn ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      {t("dashboard:scan.buttons.checkedIn")}
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="h-4 w-4" />
-                      {t("dashboard:scan.buttons.checkIn")}
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveAction('checkout');
-                    setAutoCaptureTriggered(false);
-                    faceDetection.resetConsecutiveFrames();
-                  }}
-                  disabled={
-                    isProcessing ||
-                    !permissions.camera ||
-                    !permissions.location ||
-                    !locationData ||
-                    !hasCheckedIn ||
-                    hasCheckedOut
-                  }
-                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-orange-500/30 transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    !canCheckOut && hasCheckedIn && !hasCheckedOut && checkInTime
-                      ? `Cần làm việc ít nhất ${MIN_WORK_MINUTES} phút`
-                      : ""
-                  }
-                >
-                  {hasCheckedOut ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      {t("dashboard:scan.buttons.checkedOut")}
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="h-4 w-4" />
-                      {t("dashboard:scan.buttons.checkOut")}
-                    </>
-                  )}
-                </button>
+        {/* ===== SIDEBAR COLUMN ===== */}
+        <aside className="lg:col-span-3 flex flex-col gap-3 min-h-0 overflow-y-auto">
+          {/* Location card */}
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 flex-shrink-0">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[var(--accent-cyan)]" strokeWidth={2} />
+                <span className="font-semibold text-[11px] uppercase tracking-[0.1em] text-[var(--text-sub)]">
+                  {t("dashboard:scan.locationInfo.title")}
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={getLocation}
+                disabled={locationLoading}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--shell)] text-[var(--text-sub)] text-[10px] font-semibold hover:bg-[var(--accent-cyan)]/10 hover:text-[var(--accent-cyan)] transition-colors disabled:opacity-50"
+                title="Làm mới vị trí"
+              >
+                {locationLoading ? (
+                  <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-2.5 w-2.5" />
+                )}
+                <span>Làm mới</span>
+              </button>
+            </div>
 
-              {/* Idle hint */}
-              {faceStatus?.isRegistered && !hasCheckedOut && (
-                <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
-                  <Scan className="h-4 w-4 flex-shrink-0" />
-                  <p>
-                    {!hasCheckedIn
-                      ? "Bấm nút Check In để bắt đầu chấm công. Hệ thống sẽ tự động nhận diện khuôn mặt và chụp ảnh."
-                      : "Bấm nút Check Out để bắt đầu check-out. Hệ thống sẽ tự động nhận diện khuôn mặt và chụp ảnh."}
-                  </p>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              {/* Active state: show action info + cancel button */}
-              <div className="space-y-3">
-                <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm font-medium ${activeAction === 'checkin'
-                  ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                  : "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                  }`}>
-                  {isProcessing ? (
-                    <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-                  ) : (
-                    <Scan className="h-4 w-4 flex-shrink-0" />
-                  )}
-                  <p className="flex-1">
-                    {isProcessing
-                      ? "Đang xác thực khuôn mặt..."
-                      : activeAction === 'checkin'
-                        ? "Đang nhận diện khuôn mặt để Check In... Hãy giữ khuôn mặt ổn định trong khung hình."
-                        : "Đang nhận diện khuôn mặt để Check Out... Hãy giữ khuôn mặt ổn định trong khung hình."}
-                  </p>
-                </div>
-
+            <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto">
+              <div
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${permissions.camera
+                  ? "bg-[var(--success)]/20 border-[var(--success)]/50 text-[var(--success)]"
+                  : "bg-[var(--warning)]/10 border-[var(--warning)]/40 text-[#fcd34d]"
+                  }`}
+                title={permissions.camera ? "Camera đã cấp quyền" : "Camera chưa cấp quyền"}
+              >
+                <Camera className="h-3 w-3" />
+                <span>Camera</span>
+              </div>
+              <div
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${permissions.location
+                  ? "bg-[var(--success)]/20 border-[var(--success)]/50 text-[var(--success)]"
+                  : "bg-[var(--warning)]/10 border-[var(--warning)]/40 text-[#fcd34d]"
+                  }`}
+                title={permissions.location ? "Vị trí đã cấp quyền" : "Vị trí chưa cấp quyền"}
+              >
+                <MapPin className="h-3 w-3" />
+                <span>Vị trí</span>
+              </div>
+              {isCameraReady && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveAction('idle');
-                    setAutoCaptureTriggered(false);
-                    faceDetection.resetConsecutiveFrames();
-                    if (autoCaptureTimeoutRef.current) {
-                      clearTimeout(autoCaptureTimeoutRef.current);
-                    }
-                  }}
-                  disabled={isProcessing}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--shell)] px-6 py-3 text-sm font-medium text-[var(--text-main)] transition hover:bg-[var(--surface)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={toggleCamera}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] bg-[var(--shell)] text-[var(--text-main)] hover:bg-[var(--surface)] transition-colors text-[11px] font-semibold whitespace-nowrap"
+                  title={t("dashboard:scan.camera.switch")}
                 >
-                  <X className="h-4 w-4" />
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Đổi camera</span>
+                </button>
+              )}
+            </div>
+
+            {!locationData ? (
+              locationError ? (
+                <div className="flex items-start gap-2 p-2.5 rounded-md bg-[var(--error)]/10 text-xs text-[var(--error)]">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-px" />
+                  <p>{locationError}</p>
+                </div>
+              ) : (
+              <div className="flex items-center gap-2 py-2 text-xs text-[var(--text-sub)]">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {t("dashboard:scan.locationInfo.loading")}
+              </div>
+              )
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {/* Office + radar */}
+                <div className="flex items-center gap-2.5 p-2.5 bg-[var(--shell)] border border-[var(--border)] rounded-lg">
+                  <div className="w-10 h-10 relative flex-shrink-0">
+                    <svg viewBox="0 0 44 44" className="w-full h-full">
+                      <circle cx="22" cy="22" r="20" fill="none" stroke="var(--border)" strokeWidth="1" />
+                      <circle cx="22" cy="22" r="14" fill="none" stroke="var(--border)" strokeWidth="1" />
+                      <circle cx="22" cy="22" r="8" fill="none" stroke="var(--border)" strokeWidth="1" />
+                      <circle cx="22" cy="22" r="2" fill="var(--success)" />
+                      <g className="radar-sweep">
+                        <defs>
+                          <linearGradient id="sweep" x1="22" y1="22" x2="42" y2="22" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity="0.9" />
+                            <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity="0" />
+                          </linearGradient>
+                        </defs>
+                        <path d="M22 22 L42 22 A20 20 0 0 0 32 5 Z" fill="url(#sweep)" />
+                      </g>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-sub)] font-semibold">
+                      Văn phòng
+                    </div>
+                    <div className="text-[13px] text-[var(--text-main)] font-semibold truncate mt-0.5">
+                      {locationData.nearestOffice || "—"}
+                    </div>
+                  </div>
+                  {distanceValue !== undefined && (
+                    <span className={`mono font-bold text-[11px] px-2 py-1 rounded-full border ${distanceClass}`}>
+                      {Math.round(distanceValue)} m
+                    </span>
+                  )}
+                </div>
+
+                {/* Coords link */}
+                {locationData.latitude != null && locationData.longitude != null && (
+                  <a
+                    href={`https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-[var(--shell)] border border-[var(--border)] text-xs hover:border-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/5 transition-colors"
+                  >
+                    <span className="text-[var(--text-sub)] tracking-tight">Tọa độ</span>
+                    <span className="flex-1 mono font-semibold text-[var(--text-main)] text-right text-[11px]">
+                      {locationData.latitude.toFixed(4)}, {locationData.longitude.toFixed(4)}
+                    </span>
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--accent-cyan)"
+                      strokeWidth="2"
+                      className="flex-shrink-0"
+                    >
+                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                      <path d="M15 3h6v6" />
+                      <path d="M10 14L21 3" />
+                    </svg>
+                  </a>
+                )}
+
+                {locationError && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-md bg-[var(--error)]/10 text-xs text-[var(--error)]">
+                    <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-px" />
+                    <p>{locationError}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Today status card */}
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 flex-shrink-0">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--accent-cyan)"
+                  strokeWidth="2"
+                  className="w-3.5 h-3.5"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+                <span className="font-semibold text-[11px] uppercase tracking-[0.1em] text-[var(--text-sub)]">
+                  Hôm nay
+                </span>
+              </div>
+              <span
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold mono tracking-wide border ${hasCheckedOut
+                  ? "bg-[var(--success)]/12 border-[var(--success)]/30 text-[var(--success)]"
+                  : hasCheckedIn
+                    ? "bg-[var(--accent-cyan)]/12 border-[var(--accent-cyan)]/30 text-[var(--accent-cyan)]"
+                    : "bg-[var(--shell)] border-[var(--border)] text-[var(--text-sub)]"
+                  }`}
+              >
+                {hasCheckedOut ? "Hoàn tất" : hasCheckedIn ? "Đang làm" : "Chưa check-in"}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2.5 bg-[var(--shell)] border border-[var(--border)] rounded-md">
+                <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-sub)] font-semibold mb-1">
+                  Vào
+                </div>
+                <div
+                  className={`mono text-base font-bold ${checkInTime ? "text-[var(--success)]" : "text-[var(--text-sub)]"}`}
+                >
+                  {formatTime(checkInTime)}
+                </div>
+                <div className="text-[10px] text-[var(--text-sub)] mt-0.5">
+                  {checkInTime ? "Đúng giờ" : "Chưa có"}
+                </div>
+              </div>
+              <div className="p-2.5 bg-[var(--shell)] border border-[var(--border)] rounded-md">
+                <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-sub)] font-semibold mb-1">
+                  Ra
+                </div>
+                <div
+                  className={`mono text-base font-bold ${hasCheckedOut ? "text-[var(--success)]" : "text-[var(--text-sub)]"}`}
+                >
+                  {hasCheckedOut ? "Đã ra" : "—:—"}
+                </div>
+                <div className="text-[10px] text-[var(--text-sub)] mt-0.5">
+                  {hasCheckedOut ? "Kết thúc ca" : "Chưa có"}
+                </div>
+              </div>
+              <div className="col-span-2 p-2.5 bg-[var(--shell)] border border-[var(--border)] rounded-md">
+                <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-sub)] font-semibold mb-1">
+                  Tổng giờ làm
+                </div>
+                <div className="mono text-base font-bold text-[var(--text-main)]">
+                  {totalWorkText}
+                </div>
+                <div className="text-[10px] text-[var(--text-sub)] mt-0.5">
+                  Cần ≥ {MIN_WORK_MINUTES} phút để check-out
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Face detection hint (active action, face not good) */}
+          {faceStatus?.isRegistered &&
+            faceDetection.modelReady &&
+            activeAction !== "idle" &&
+            !autoCaptureEnabled &&
+            faceDetection.detectionStatus !== "good" && (
+              <div className="flex items-start gap-2 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-2.5 text-xs text-[var(--warning)] flex-shrink-0">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-px" />
+                <p>{faceDetection.statusMessage}</p>
+              </div>
+            )}
+
+          {/* Primary action + auto-capture toggle */}
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 flex flex-col gap-2.5 flex-shrink-0">
+            {/* Auto-capture toggle (compact) */}
+            {faceStatus?.isRegistered && activeAction === "idle" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoCaptureEnabled((prev) => !prev);
+                  setAutoCaptureTriggered(false);
+                  faceDetection.resetConsecutiveFrames();
+                }}
+                className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-semibold border transition-colors ${autoCaptureEnabled
+                  ? "bg-[var(--success)]/12 border-[var(--success)]/30 text-[var(--success)]"
+                  : "bg-[var(--shell)] border-[var(--border)] text-[var(--text-sub)]"
+                  }`}
+                title={autoCaptureEnabled ? "Tắt tự động chấm công" : "Bật tự động chấm công"}
+              >
+                <Scan className="h-3 w-3" />
+                <span>{autoCaptureEnabled ? "Chế độ: Tự động" : "Chế độ: Thủ công"}</span>
+              </button>
+            )}
+
+            {/* Primary action button */}
+            {primaryMode === "done" ? (
+              <div className="w-full py-3 px-4 rounded-xl bg-[var(--success)]/15 border border-[var(--success)]/30 text-[var(--success)] flex items-center justify-center gap-2.5 font-bold text-sm tracking-wider uppercase cursor-default">
+                <CheckCircle2 className="h-4 w-4" strokeWidth={2.5} />
+                <div className="flex flex-col items-start">
+                  <span className="leading-none">Đã hoàn tất</span>
+                  <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
+                    Vào {formatTime(checkInTime)} · Ca đã kết thúc
+                  </span>
+                </div>
+              </div>
+            ) : primaryMode === "armed" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveAction("idle");
+                  setAutoCaptureTriggered(false);
+                  faceDetection.resetConsecutiveFrames();
+                  if (autoCaptureTimeoutRef.current) clearTimeout(autoCaptureTimeoutRef.current);
+                }}
+                disabled={isProcessing}
+                className="w-full py-3 px-4 rounded-xl bg-[var(--shell)] border border-[var(--accent-cyan)] text-[var(--accent-cyan)] font-bold text-sm tracking-wider uppercase flex items-center justify-center gap-2.5 disabled:opacity-50 pulse-armed"
+              >
+                {isProcessing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Scan className="h-4 w-4" />
+                )}
+                <div className="flex flex-col items-start">
+                  <span className="leading-none">
+                    {isProcessing
+                      ? "Đang xác thực..."
+                      : activeAction === "checkin"
+                        ? "Đang quét cho Check-in..."
+                        : "Đang quét cho Check-out..."}
+                  </span>
+                  <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
+                    Giữ yên — nhấn lại để hủy
+                  </span>
+                </div>
+              </button>
+            ) : primaryMode === "checkin" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveAction("checkin");
+                  setAutoCaptureTriggered(false);
+                  faceDetection.resetConsecutiveFrames();
+                }}
+                disabled={
+                  isProcessing ||
+                  !permissions.camera ||
+                  !permissions.location ||
+                  !locationData
+                }
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-br from-[var(--accent-cyan)] to-[var(--success)] text-[#042f2e] font-bold text-sm tracking-wider uppercase flex items-center justify-center gap-2.5 shadow-[0_0_32px_-4px_rgba(34,197,94,0.4)] hover:shadow-[0_0_40px_-4px_rgba(34,197,94,0.55)] hover:-translate-y-px transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
+                  <path d="M10 17l5-5-5-5" />
+                  <path d="M15 12H3" />
+                </svg>
+                <div className="flex flex-col items-start">
+                  <span className="leading-none">Bắt đầu check-in</span>
+                  <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
+                    Nhấn để quét khuôn mặt vào ca
+                  </span>
+                </div>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveAction("checkout");
+                  setAutoCaptureTriggered(false);
+                  faceDetection.resetConsecutiveFrames();
+                }}
+                disabled={
+                  isProcessing ||
+                  !permissions.camera ||
+                  !permissions.location ||
+                  !locationData ||
+                  hasCheckedOut
+                }
+                title={
+                  !canCheckOut && hasCheckedIn && !hasCheckedOut && checkInTime
+                    ? `Cần làm việc ít nhất ${MIN_WORK_MINUTES} phút`
+                    : ""
+                }
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-br from-orange-500 to-[var(--error)] text-white font-bold text-sm tracking-wider uppercase flex items-center justify-center gap-2.5 shadow-[0_4px_20px_-4px_rgba(239,68,68,0.4)] hover:shadow-[0_0_40px_-4px_rgba(239,68,68,0.55)] hover:-translate-y-px transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <path d="M16 17l5-5-5-5" />
+                  <path d="M21 12H9" />
+                </svg>
+                <div className="flex flex-col items-start">
+                  <span className="leading-none">Check-out</span>
+                  <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
+                    Nhấn để kết thúc ca làm
+                  </span>
+                </div>
+              </button>
+            )}
+          </div>
+        </aside>
+      </main>
+
+      {/* Face Fallback OTP Modal */}
+      {showOtpFallbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Card className="w-full max-w-sm border-[var(--border)] bg-[var(--surface)] shadow-xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-lg font-semibold text-[var(--text-main)]">
+                Xác thực OTP
+              </CardTitle>
+              <button
+                type="button"
+                onClick={() => { setShowOtpFallbackModal(false); setOtpFallbackValue(""); }}
+                className="rounded-lg p-1 text-[var(--text-sub)] hover:bg-[var(--shell)] transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <p className="text-sm text-[var(--text-sub)]">
+                Nhận dạng khuôn mặt thất bại nhiều lần. Mã OTP 6 số đã được gửi đến email của bạn.
+              </p>
+              <div className="flex justify-center">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpFallbackValue}
+                  onChange={(e) => setOtpFallbackValue(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  className="w-40 rounded-lg border border-[var(--border)] bg-[var(--shell)] px-4 py-3 text-center text-2xl font-mono tracking-[0.5em] text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowOtpFallbackModal(false); setOtpFallbackValue(""); }}
+                  className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--shell)] px-4 py-2 text-sm font-medium text-[var(--text-main)] hover:bg-[var(--surface)] transition-colors"
+                >
                   Hủy
                 </button>
+                <button
+                  type="button"
+                  onClick={handleOtpFallbackSubmit}
+                  disabled={otpFallbackValue.length !== 6 || otpFallbackLoading}
+                  className="flex-1 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-lg transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {otpFallbackLoading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin inline mr-2" />Đang xác thực...</>
+                  ) : "Xác nhận"}
+                </button>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* ⚠️ MỚI: Early Checkout Modal */}
       {showEarlyCheckoutModal && (

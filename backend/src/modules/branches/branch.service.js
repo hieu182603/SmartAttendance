@@ -1,6 +1,12 @@
 import { BranchModel } from "./branch.model.js";
 import { UserModel } from "../users/user.model.js";
 import { DepartmentModel } from "../departments/department.model.js";
+import { redisDel } from "../../config/redis.js";
+
+// `branches:active` is cached in attendance.service.validateAndFindBranch
+// (5-minute TTL). Any branch mutation must invalidate it, otherwise a
+// deactivated branch can still be used for check-in for up to 5 minutes.
+const invalidateBranchesCache = () => redisDel("branches:active");
 
 export class BranchService {
   /**
@@ -36,6 +42,7 @@ export class BranchService {
       timezone: data.timezone || "GMT+7",
     });
 
+    await invalidateBranchesCache();
     return branch;
   }
 
@@ -192,6 +199,7 @@ export class BranchService {
     if (data.timezone) branch.timezone = data.timezone;
 
     await branch.save();
+    await invalidateBranchesCache();
 
     return branch;
   }
@@ -213,6 +221,7 @@ export class BranchService {
     branch.status = "active";
     branch.deletedAt = null;
     await branch.save();
+    await invalidateBranchesCache();
 
     return { message: "Đã kích hoạt lại chi nhánh thành công", branch };
   }
@@ -287,6 +296,7 @@ export class BranchService {
     branch.status = "inactive";
     branch.deletedAt = new Date();
     await branch.save();
+    await invalidateBranchesCache();
 
     return { message: "Đã vô hiệu hóa chi nhánh thành công" };
   }
