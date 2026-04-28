@@ -3,7 +3,7 @@ import logging
 import re
 from datetime import datetime
 from typing import Dict, Any, Tuple
-from app.services.rag.query_handlers.base import BaseQueryHandler
+from app.services.rag.query_handlers.base import BaseQueryHandler, VN_TZ
 from app.services.rag.permissions import PermissionChecker
 
 logger = logging.getLogger(__name__)
@@ -11,26 +11,29 @@ logger = logging.getLogger(__name__)
 
 class PayrollQueryHandler(BaseQueryHandler):
     """Handle payroll-related queries"""
-    
+
     @property
     def collection_name(self) -> str:
         return "payroll"
-    
+
     @property
     def error_message(self) -> str:
         return "bạn không có quyền truy cập thông tin lương"
-    
+
     @staticmethod
     def _parse_month_year_from_message(message: str) -> Tuple[int, int, str]:
         """
         Parse month/year from Vietnamese message for personal salary queries.
-        
+
+        Uses Vietnam timezone so that "tháng này" reflects the user's local month,
+        not the server's (e.g. a UTC host at 23:30 is already tomorrow in VN).
+
         Hỗ trợ các mẫu đơn giản:
         - "tháng này"  -> tháng hiện tại
         - "tháng trước" / "tháng vừa rồi" -> tháng trước
         - "tháng 3" / "tháng 12" -> tháng cụ thể trong năm hiện tại
         """
-        now = datetime.now()
+        now = datetime.now(VN_TZ)
         msg = message.lower()
         
         # Tháng này

@@ -88,60 +88,61 @@ class RAGCache:
     # =========================================================================
     # Database Query Cache
     #
-    # WARNING: This cache does NOT include user_id or role in the cache key.
-    # Therefore, it MUST NOT be used for queries that return user-specific data
-    # (e.g., personal attendance, leave balance, personal requests).
-    # It is safe to use ONLY for global/aggregate queries that return the same
-    # result regardless of which user is asking (e.g., total employee count,
-    # department list).
-    #
-    # If you plan to cache user-specific DB results in the future, you MUST
-    # include user_id and role in the cache key to prevent data leakage
-    # between different users.
+    # This cache is scoped to GLOBAL / aggregate queries. It enforces at runtime
+    # that callers never pass user-identifying parameters (which would cause
+    # cross-user data leakage because the cache key does not include the caller).
     # =========================================================================
-    
-    def get_db_result(self, query_type: str, params: dict = None) -> Optional[Any]:
+
+    # Param keys that indicate user-specific data; caching is refused when they
+    # appear in `params`. Lowercase comparison is used so "userId" and "user_id"
+    # both match.
+    _USER_SCOPED_PARAM_KEYS = {
+        "user_id", "userid", "email", "employee_id",
+    }
+
+    def _assert_global_scope(self, query_type: str, params: Optional[dict]) -> bool:
+        """Return True if params are safe for the global db_cache, False otherwise.
+
+        We log a warning instead of raising so a buggy caller degrades to
+        "no caching" rather than taking down the request.
         """
-        Get cached database query result
-        
-        WARNING: Cache key does not include user_id/role. Do NOT use for
-        user-specific queries. Only use for global/aggregate data.
-        
-        Args:
-            query_type: Type of query (e.g., 'employee_count', 'department_list')
-            params: Query parameters
-            
-        Returns:
-            Cached result or None if not found
+        if not params:
+            return True
+        for k in params.keys():
+            if isinstance(k, str) and k.lower() in self._USER_SCOPED_PARAM_KEYS:
+                logger.warning(
+                    f"RAGCache db_cache refused: query_type='{query_type}' param '{k}' "
+                    f"is user-scoped. Use a per-user cache or omit this param."
+                )
+                return False
+        return True
+
+    def get_db_result(self, query_type: str, params: dict = None) -> Optional[Any]:
+        """Get cached global query result. Returns None (cache miss) if params
+        contain user-scoped keys.
         """
         if not self._enabled:
             return None
-        
+        if not self._assert_global_scope(query_type, params):
+            return None
+
         key = self._make_hash(query_type, params)
         result = self._db_cache.get(key)
-        
+
         if result is not None:
             logger.debug(f"Cache HIT for {query_type}")
-        
+
         return result
-    
+
     def set_db_result(self, query_type: str, params: dict, result: Any):
-        """
-        Cache a database query result
-        
-        WARNING: Cache key does not include user_id/role. Do NOT cache
-        user-specific data here. Only cache global/aggregate results.
-        If caching user-specific data is needed in the future, add
-        user_id and role to the cache key.
-        
-        Args:
-            query_type: Type of query
-            params: Query parameters (should NOT contain user-specific filters)
-            result: Result to cache
+        """Cache a global query result. Silently skips caching if params contain
+        user-scoped keys (prevents cross-user leakage).
         """
         if not self._enabled:
             return
-        
+        if not self._assert_global_scope(query_type, params):
+            return
+
         key = self._make_hash(query_type, params)
         self._db_cache[key] = result
         logger.debug(f"Cached {query_type}")

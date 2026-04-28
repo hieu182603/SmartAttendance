@@ -233,6 +233,31 @@ class EmployeeQueryHandler(BaseQueryHandler):
             logger.error(f"Error handling employee query: {str(e)}")
             return f"Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu: {str(e)}"
 
+    async def _resolve_ref_name(self, ref, collection_attr: str) -> str:
+        """
+        Resolve a referenced document's name. The ref may be:
+        - None / empty: return ""
+        - dict (already populated): return ref["name"]
+        - ObjectId / str: look up in the collection and return its "name"
+        """
+        if not ref:
+            return ""
+        if isinstance(ref, dict):
+            return ref.get("name", "") or ""
+        collection = getattr(self.collections, collection_attr, None)
+        if collection is None:
+            return ""
+        try:
+            oid = ref if isinstance(ref, ObjectId) else ObjectId(ref)
+        except Exception:
+            return ""
+        try:
+            doc = await collection.find_one({"_id": oid}, {"name": 1})
+            return (doc or {}).get("name", "") or ""
+        except Exception as e:
+            logger.error(f"Error resolving {collection_attr} for ref {ref}: {str(e)}")
+            return ""
+
     async def _handle_self_info(self, user_id: str) -> str:
         """
         Trả lời câu hỏi về thông tin cá nhân của nhân viên hiện tại.
@@ -278,15 +303,19 @@ class EmployeeQueryHandler(BaseQueryHandler):
             f"- **Trạng thái:** {is_active}",
         ]
 
-        # Add department info if available
+        # Add department info if available. The field may be either a populated
+        # object (after $lookup/populate) OR a raw ObjectId — in the latter case
+        # we resolve it via the departments collection so we never silently drop
+        # a user's department in the response.
         dept = user.get("department")
-        if dept and isinstance(dept, dict):
-            lines.append(f"- **Phòng ban:** {dept.get('name', 'N/A')}")
-        
-        # Add branch info if available
+        dept_name = await self._resolve_ref_name(dept, "departments_collection")
+        if dept_name:
+            lines.append(f"- **Phòng ban:** {dept_name}")
+
         branch = user.get("branch")
-        if branch and isinstance(branch, dict):
-            lines.append(f"- **Chi nhánh:** {branch.get('name', 'N/A')}")
+        branch_name = await self._resolve_ref_name(branch, "branches_collection")
+        if branch_name:
+            lines.append(f"- **Chi nhánh:** {branch_name}")
 
         return "\n".join(lines)
 

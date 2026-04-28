@@ -40,7 +40,7 @@ MAIN_MONGODB_URI = os.getenv("MAIN_MONGODB_URI") or MONGODB_ATLAS_URI
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 VECTOR_SEARCH_INDEX_NAME = os.getenv("VECTOR_SEARCH_INDEX_NAME", "vector_index")
-RAG_COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "documents")
+RAG_COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "rag_documents")
 CONVERSATIONS_COLLECTION_NAME = os.getenv("CONVERSATIONS_COLLECTION_NAME", "rag_conversations")
 
 # Chatbot Configuration
@@ -72,10 +72,6 @@ RAG_CACHE_TTL = int(os.getenv("RAG_CACHE_TTL", "300"))  # seconds
 RAG_CACHE_MAXSIZE = int(os.getenv("RAG_CACHE_MAXSIZE", "1000"))
 RAG_CONTEXT_WINDOW = int(os.getenv("RAG_CONTEXT_WINDOW", "10"))  # messages
 RAG_PARALLEL_QUERIES = os.getenv("RAG_PARALLEL_QUERIES", "true").lower() == "true"
-
-
-
-
 
 
 

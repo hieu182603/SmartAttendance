@@ -17,7 +17,7 @@ face_service = FaceService()
 
 # Get minimum/maximum images from environment
 MIN_IMAGES = int(os.getenv("MIN_REGISTRATION_IMAGES", "4"))
-MAX_IMAGES = int(os.getenv("MAX_REGISTRATION_IMAGES", "5"))
+MAX_IMAGES = int(os.getenv("MAX_REGISTRATION_IMAGES", "4"))
 
 # Liveness requirement for registration (default: disabled to match guided 4-photo flow)
 REQUIRE_LIVENESS_FOR_REGISTRATION = os.getenv("REQUIRE_LIVENESS_FOR_REGISTRATION", "false").lower() == "true"
@@ -72,6 +72,8 @@ class VerifyResponse(BaseModel):
     match: bool
     similarity: float
     threshold: float
+    anti_spoofing: Optional[dict] = None
+    face_detection: Optional[dict] = None
     error: Optional[str] = None
     error_code: Optional[str] = None
     error_details: Optional[dict] = None
@@ -231,7 +233,8 @@ async def verify_face(
         result = face_service.verify_face(
             image_bytes,
             reference_embeddings,
-            custom_threshold=verification_threshold
+            custom_threshold=verification_threshold,
+            enable_anti_spoofing=face_service._anti_spoofing_enabled
         )
         
         if 'error' in result:
