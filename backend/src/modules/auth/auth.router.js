@@ -2,7 +2,7 @@ import { Router } from "express";
 import { AuthController } from "./auth.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import {
-  authRateLimiter,
+  loginRateLimiter,
   otpRateLimiter,
   trialRegisterRateLimiter,
 } from "../../middleware/security.middleware.js";
@@ -20,7 +20,7 @@ authRouter.post("/verify-otp", otpRateLimiter, AuthController.verifyOTP);
 authRouter.post("/resend-otp", otpRateLimiter, AuthController.resendOTP);
 
 // Đăng nhập
-authRouter.post("/login", authRateLimiter, AuthController.login);
+authRouter.post("/login", loginRateLimiter, AuthController.login);
 
 // Quên mật khẩu
 authRouter.post("/forgot-password", otpRateLimiter, AuthController.forgotPassword);

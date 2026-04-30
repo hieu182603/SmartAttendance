@@ -3,8 +3,20 @@ import { uploadFaceImage, deleteFaceImages } from "../../utils/cloudinary.js";
 import { aiServiceClient } from "../../utils/aiServiceClient.js";
 import { FACE_RECOGNITION_CONFIG } from "../../config/app.config.js";
 import { logActivityWithoutRequest } from "../../utils/logger.util.js";
+import { redisDel } from "../../config/redis.js";
 import FormData from "form-data";
 import axios from "axios";
+
+// Average N embeddings into one vector — reduces AI service payload from N×2KB to 2KB
+const computeMeanEmbedding = (embeddings) => {
+  const dim = embeddings[0].length;
+  const mean = new Array(dim).fill(0);
+  for (const emb of embeddings) {
+    for (let i = 0; i < dim; i++) mean[i] += emb[i];
+  }
+  const n = embeddings.length;
+  return mean.map((v) => v / n);
+};
 
 /**
  * Custom error classes for face recognition
@@ -288,6 +300,7 @@ export class FaceService {
 
       // Save user data
       await user.save();
+      redisDel(`face_data:${userId}`).catch(() => {});
 
       // Clean up old images after successful save
       if (oldPublicIds.length > 0) {
@@ -404,16 +417,14 @@ export class FaceService {
         throw new Error("User has not registered face");
       }
 
-      // Prepare form data for AI service
+      // Prepare form data — send only the mean embedding to minimise payload
+      const meanEmb = computeMeanEmbedding(preloadedFaceData.embeddings);
       const formData = new FormData();
       formData.append("image", candidateImageBuffer, {
         filename: "verify.jpg",
         contentType: "image/jpeg",
       });
-      formData.append(
-        "reference_embeddings_json",
-        JSON.stringify(preloadedFaceData.embeddings)
-      );
+      formData.append("reference_embeddings_json", JSON.stringify([meanEmb]));
       formData.append(
         "threshold",
         FACE_RECOGNITION_CONFIG.VERIFICATION_THRESHOLD.toString()
@@ -593,16 +604,15 @@ export class FaceService {
    * @returns {Promise<{success: boolean, embeddings: Array, faceImages: Array}>}
    */
   async updateUserFace(userId, newImageFiles, mode = "replace", livenessData = null) {
-    try {
-      const user = await UserModel.findById(userId);
-      if (!user) {
-        throw new Error("User not found");
-      }
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
 
-      if (mode === "replace") {
-        // Delete old embeddings and register new ones
-        return await this.registerUserFace(userId, newImageFiles, livenessData);
-      } else if (mode === "append") {
+    if (mode === "replace") {
+      // Delete old embeddings and register new ones
+      return await this.registerUserFace(userId, newImageFiles, livenessData);
+    } else if (mode === "append") {
         // Add new embeddings to existing set
         const MAX_EMBEDDINGS = 15;
         const MIN_IMAGES = 1;
@@ -699,6 +709,7 @@ export class FaceService {
           user.faceData.isRegistered = true;
 
           await user.save();
+          redisDel(`face_data:${userId}`).catch(() => {});
 
           return {
             success: true,
@@ -716,11 +727,8 @@ export class FaceService {
           }
           throw aiError;
         }
-      } else {
-        throw new Error(`Invalid update mode: ${mode}`);
-      }
-    } catch (error) {
-      throw error;
+    } else {
+      throw new Error(`Invalid update mode: ${mode}`);
     }
   }
 
@@ -729,11 +737,10 @@ export class FaceService {
    * @param {string} userId - User ID
    */
   async deleteUserFace(userId) {
-    try {
-      const user = await UserModel.findById(userId);
-      if (!user) {
-        throw new Error("User not found");
-      }
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
 
       // Delete images from Cloudinary before clearing data
       const publicIds = user.faceData?.faceImagePublicIds || [];
@@ -757,20 +764,18 @@ export class FaceService {
       };
 
       await user.save();
+      redisDel(`face_data:${userId}`).catch(() => {});
 
-      await logActivityWithoutRequest({
-        userId,
-        action: "delete_face",
-        entityType: "user",
-        entityId: userId,
-        details: {
-          description: "User deleted face biometric data",
-        },
-        status: "success",
-      });
-    } catch (error) {
-      throw error;
-    }
+    await logActivityWithoutRequest({
+      userId,
+      action: "delete_face",
+      entityType: "user",
+      entityId: userId,
+      details: {
+        description: "User deleted face biometric data",
+      },
+      status: "success",
+    });
   }
 
   /**
@@ -980,6 +985,7 @@ export class FaceService {
     };
 
     await user.save();
+    redisDel(`face_data:${user._id}`).catch(() => {});
 
     // Cleanup old images
     if (oldPublicIds.length > 0) {

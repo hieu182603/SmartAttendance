@@ -95,6 +95,21 @@ const payrollRecordSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    paidLeaveDays: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    unpaidLeaveDays: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    unauthorizedAbsenceDays: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     lateDays: {
       type: Number,
       default: 0,
@@ -142,6 +157,37 @@ const payrollRecordSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Lương gross (trước BHXH + thuế)
+    grossSalary: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // Bảo hiểm (BHXH/BHYT/BHTN người lao động đóng)
+    insurance: {
+      social:       { type: Number, default: 0, min: 0 },
+      health:       { type: Number, default: 0, min: 0 },
+      unemployment: { type: Number, default: 0, min: 0 },
+      total:        { type: Number, default: 0, min: 0 },
+      base:         { type: Number, default: 0, min: 0 },
+    },
+    // Thuế TNCN bậc thang
+    tax: {
+      taxableIncome:         { type: Number, default: 0 },
+      personalDeduction:     { type: Number, default: 0 },
+      dependentCount:        { type: Number, default: 0 },
+      dependentDeduction:    { type: Number, default: 0 },
+      taxableAfterDeduction: { type: Number, default: 0 },
+      amount:                { type: Number, default: 0, min: 0 },
+      bracketBreakdown:      [{ bracket: String, amount: Number, tax: Number }],
+    },
+    // Lương net (thực lĩnh = gross - BHXH - thuế)
+    netSalary: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    // totalSalary = netSalary khi có insurance/tax, ngược lại = gross (backward compat)
     totalSalary: {
       type: Number,
       required: true,
@@ -204,13 +250,15 @@ payrollRecordSchema.index({ departmentId: 1, status: 1, month: -1 }); // Compoun
 payrollRecordSchema.index({ position: 1, month: -1 });
 
 // Tính tổng lương tự động
-// Ưu tiên dùng actualBaseSalary nếu có, nếu không thì dùng baseSalary (backward compatibility)
 payrollRecordSchema.pre("save", function (next) {
-  // ✅ FIX: Dùng nullish coalescing operator (??) để code ngắn gọn hơn
   const baseSalaryForCalculation = this.actualBaseSalary ?? this.baseSalary;
+  this.grossSalary = baseSalaryForCalculation + this.overtimePay + this.bonus - this.deductions;
 
-  this.totalSalary =
-    baseSalaryForCalculation + this.overtimePay + this.bonus - this.deductions;
+  // insurance và tax được gán từ service trước khi save
+  const insuranceTotal = this.insurance?.total ?? 0;
+  const taxAmount = this.tax?.amount ?? 0;
+  this.netSalary = Math.max(0, this.grossSalary - insuranceTotal - taxAmount);
+  this.totalSalary = this.netSalary; // backward compat: totalSalary = thực lĩnh
   next();
 });
 

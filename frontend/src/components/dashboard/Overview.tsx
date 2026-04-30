@@ -581,67 +581,6 @@ export const DashboardOverview: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Additional Quick Actions */}
-      <motion.div
-        initial={!hasMounted ? { opacity: 0, y: 20 } : false}
-        animate={{ opacity: 1, y: 0 }}
-        transition={!hasMounted ? { delay: 1.2 } : { duration: 0 }}
-      >
-        <Card className="bg-[var(--surface)] border-[var(--border)] shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-[var(--text-main)]">Thao tác bổ sung</CardTitle>
-            <p className="text-sm text-[var(--text-sub)] mt-1">Các tính năng khác đang phát triển</p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <motion.button
-                className="p-4 rounded-xl bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors text-[var(--text-main)] text-center border border-[var(--border)] hover:border-[var(--accent-cyan)]"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="text-2xl mb-2">
-                  <Users className="h-8 w-8 mx-auto text-[var(--primary)]" />
-                </div>
-                <div className="text-sm">{t('dashboard:overview.userManagement')}</div>
-                <div className="text-xs text-[var(--text-sub)] mt-1">Sắp ra mắt</div>
-              </motion.button>
-              <motion.button
-                className="p-4 rounded-xl bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors text-[var(--text-main)] text-center border border-[var(--border)] hover:border-[var(--warning)]"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="text-2xl mb-2">
-                  <Clock className="h-8 w-8 mx-auto text-[var(--warning)]" />
-                </div>
-                <div className="text-sm">Tạo ca làm</div>
-                <div className="text-xs text-[var(--text-sub)] mt-1">Sắp ra mắt</div>
-              </motion.button>
-              <motion.button
-                className="p-4 rounded-xl bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors text-[var(--text-main)] text-center border border-[var(--border)] hover:border-[var(--success)]"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="text-2xl mb-2">
-                  <CheckCircle className="h-8 w-8 mx-auto text-[var(--success)]" />
-                </div>
-                <div className="text-sm">Báo cáo</div>
-                <div className="text-xs text-[var(--text-sub)] mt-1">Sắp ra mắt</div>
-              </motion.button>
-              <motion.button
-                className="p-4 rounded-xl bg-[var(--shell)] hover:bg-[var(--shell)]/80 transition-colors text-[var(--text-main)] text-center border border-[var(--border)] hover:border-[var(--error)]"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="text-2xl mb-2">
-                  <Activity className="h-8 w-8 mx-auto text-[var(--error)]" />
-                </div>
-                <div className="text-sm">Cài đặt</div>
-                <div className="text-xs text-[var(--text-sub)] mt-1">Sắp ra mắt</div>
-              </motion.button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
     </div>
   );
 };

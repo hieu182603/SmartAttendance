@@ -24,14 +24,14 @@ import {
   emitAttendanceUpdate,
   emitAttendanceUpdateToAdmins,
 } from "../../config/socket.js";
-import { APP_CONFIG } from "../../config/app.config.js";
+import { APP_CONFIG, FACE_FALLBACK_CONFIG } from "../../config/app.config.js";
 import { redisGet, redisSet } from "../../config/redis.js";
 import { OtpModel } from "../otp/otp.model.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail } from "../../utils/email.util.js";
 
-const FACE_FAIL_THRESHOLD = 5;
-const FACE_FAIL_TTL = 3600; // 1 giờ
+const FACE_FAIL_THRESHOLD = FACE_FALLBACK_CONFIG.FAIL_THRESHOLD;
+const FACE_FAIL_TTL = FACE_FALLBACK_CONFIG.FAIL_TTL_SECONDS;
 const faceFailKey = (userId) => `face_fail:${userId}`;
 
 /**

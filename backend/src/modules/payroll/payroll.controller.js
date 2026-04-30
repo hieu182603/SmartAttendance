@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { PayrollReportModel } from "./payroll.model.js";
 import { emitPayrollUpdate } from "../../config/socket.js";
-import { generatePayrollForMonth, generatePayrollRecord } from "./payroll.service.js";
+import { generatePayrollForMonth, generatePayrollRecord, previewPayrollRecord } from "./payroll.service.js";
 
 const sanitizeNumber = (value = 0) => {
   if (Number.isFinite(value)) return value;
@@ -328,19 +328,53 @@ export const markPayrollAsPaid = async (req, res) => {
  */
 export const generatePayroll = async (req, res) => {
   try {
-    const { month, userId } = req.body || {};
+    const { month, userId, departmentId } = req.body || {};
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
       return res.status(400).json({ message: "month phải có format YYYY-MM" });
     }
 
+    // Single user
     if (userId) {
       if (!mongoose.Types.ObjectId.isValid(userId)) {
         return res.status(400).json({ message: "userId không hợp lệ" });
       }
       const record = await generatePayrollRecord(userId, month);
-      return res.json({ success: true, processed: 1, record });
+      return res.json({ success: true, processed: 1, successCount: 1, errorCount: 0, errors: [], record });
     }
 
+    // Department scope
+    if (departmentId) {
+      if (!mongoose.Types.ObjectId.isValid(departmentId)) {
+        return res.status(400).json({ message: "departmentId không hợp lệ" });
+      }
+      const { UserModel } = await import("../users/user.model.js");
+      const employees = await UserModel.find({
+        department: departmentId,
+        role: { $in: ["EMPLOYEE", "MANAGER", "SUPERVISOR"] },
+        isActive: true,
+        isTrial: { $ne: true },
+      }).select("_id name").lean();
+
+      const results = { success: [], errors: [], processed: 0 };
+      for (const emp of employees) {
+        try {
+          const record = await generatePayrollRecord(emp._id.toString(), month);
+          results.success.push({ userId: emp._id.toString(), name: emp.name, recordId: record._id.toString() });
+          results.processed++;
+        } catch (err) {
+          results.errors.push({ userId: emp._id.toString(), name: emp.name, error: err.message });
+        }
+      }
+      return res.json({
+        success: true,
+        processed: results.processed,
+        successCount: results.success.length,
+        errorCount: results.errors.length,
+        errors: results.errors,
+      });
+    }
+
+    // All users
     const results = await generatePayrollForMonth(month);
     return res.json({
       success: true,
@@ -394,7 +428,7 @@ export const getMyPayslip = async (req, res) => {
 
 const formatVND = (n) => {
   const value = Number.isFinite(n) ? n : 0;
-  return new Intl.NumberFormat("vi-VN").format(Math.round(value)) + " ₫";
+  return Math.round(value).toLocaleString("vi-VN") + " ₫";
 };
 
 const loadOwnPayslipOrFail = async (req, res) => {
@@ -570,6 +604,24 @@ export const getDepartments = async (req, res) => {
 };
 
 /**
+ * Get departments list with ID (for Generate dialog)
+ * GET /api/payroll/meta/departments-with-id
+ */
+export const getDepartmentsWithId = async (req, res) => {
+  try {
+    const { DepartmentModel } = await import("../departments/department.model.js");
+    const departments = await DepartmentModel.find({ isActive: true })
+      .select("_id name code")
+      .sort({ name: 1 })
+      .lean();
+    res.json({ departments });
+  } catch (error) {
+    console.error("[payroll] get departments-with-id error", error);
+    res.status(500).json({ message: "Không lấy được danh sách phòng ban" });
+  }
+};
+
+/**
  * Get unique positions from users
  */
 export const getPositions = async (req, res) => {
@@ -578,7 +630,7 @@ export const getPositions = async (req, res) => {
     
     // Get unique positions from active users
     const positions = await UserModel.distinct("position", {
-      position: { $exists: true, $ne: null, $ne: "" },
+      position: { $exists: true, $nin: [null, ""] },
       isActive: true,
     });
     
@@ -591,5 +643,51 @@ export const getPositions = async (req, res) => {
   } catch (error) {
     console.error("[payroll] get positions error", error);
     res.status(500).json({ message: "Không lấy được danh sách chức vụ" });
+  }
+};
+
+/**
+ * Preview payroll for a user/month without writing to DB
+ * GET /api/payroll/preview?userId=xxx&month=YYYY-MM
+ */
+export const previewPayroll = async (req, res) => {
+  try {
+    const { z } = await import("zod");
+    const schema = z.object({
+      userId: z.string().regex(/^[0-9a-fA-F]{24}$/, "userId không hợp lệ"),
+      month: z.string().regex(/^\d{4}-\d{2}$/, "month phải có định dạng YYYY-MM"),
+    });
+    const parse = schema.safeParse(req.query);
+    if (!parse.success) {
+      return res.status(400).json({
+        message: "Dữ liệu không hợp lệ",
+        errors: parse.error.flatten(),
+      });
+    }
+
+    const { userId, month } = parse.data;
+
+    // HR_MANAGER chỉ được preview nhân viên cùng phòng ban
+    const requestorRole = req.user?.role;
+    if (requestorRole !== "ADMIN" && requestorRole !== "SUPER_ADMIN") {
+      const { UserModel } = await import("../users/user.model.js");
+      const [requestor, target] = await Promise.all([
+        UserModel.findById(req.user?.userId).select("department").lean(),
+        UserModel.findById(userId).select("department").lean(),
+      ]);
+      if (!target) {
+        return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      }
+      if (requestor?.department?.toString() !== target?.department?.toString()) {
+        return res.status(403).json({ message: "Không có quyền xem bảng lương này" });
+      }
+    }
+
+    const preview = await previewPayrollRecord(userId, month);
+    res.json({ data: preview });
+  } catch (error) {
+    console.error("[payroll] preview error", error);
+    const status = error.message?.includes("not found") ? 404 : 500;
+    res.status(status).json({ message: error.message || "Không thể xem trước bảng lương" });
   }
 };

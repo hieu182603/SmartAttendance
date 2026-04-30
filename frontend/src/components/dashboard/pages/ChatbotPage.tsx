@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useChatbot } from '../../../context/ChatbotContext'
 import { useAuth } from '../../../context/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 // ── Role-based suggestion chips ──────────────────────────────────────────────
 type IconKey = 'clock' | 'calendar' | 'users' | 'dollar' | 'check' | 'trend'
@@ -94,6 +95,7 @@ const CYAN_GLOW = 'rgba(34,211,238,0.45)'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 const ChatbotPage: React.FC = () => {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const {
     conversations,
@@ -167,11 +169,6 @@ const ChatbotPage: React.FC = () => {
     textareaRef.current?.focus()
   }
 
-  const sendSuggestion = async (text: string) => {
-    if (isLoading) return
-    await sendChatMessage(text)
-  }
-
   const copyMsg = (content: string) => navigator.clipboard?.writeText(content).catch(() => {})
 
   const filtered = searchQuery.trim()
@@ -179,12 +176,20 @@ const ChatbotPage: React.FC = () => {
     : conversations
 
   const grouped = groupConvs(filtered)
-  const groupLabels = { today: 'Hôm nay', yesterday: 'Hôm qua', week: 'Trước đó' } as const
+  const groupLabels = {
+    today: t('dashboard:chatbotPage.groups.today'),
+    yesterday: t('dashboard:chatbotPage.groups.yesterday'),
+    week: t('dashboard:chatbotPage.groups.week'),
+  } as const
 
   const initials = user?.name
     ? user.name.split(' ').slice(-2).map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : 'U'
-  const displayName = user?.name?.trim() || user?.email?.split('@')[0] || 'bạn'
+  const displayName =
+    user?.name?.trim() ||
+    user?.email?.split('@')[0] ||
+    t('dashboard:chatbotPage.defaultUserName')
+  const newConversationLabel = t('dashboard:chatbotPage.newConversation')
   const latestUserQuestion = [...messages].reverse().find(msg => msg.role === 'user')?.content
 
   // Overlay layout: sidebar floats above chat content
@@ -210,7 +215,7 @@ const ChatbotPage: React.FC = () => {
       {sidebarOpen && (
         <button
           type="button"
-          aria-label="Đóng danh sách hội thoại"
+          aria-label={t('dashboard:chatbotPage.aria.closeConversationList')}
           onClick={() => setSidebarOpen(false)}
           className="absolute inset-0 z-20 bg-black/35 backdrop-blur-[1px]"
         />
@@ -265,7 +270,7 @@ const ChatbotPage: React.FC = () => {
             <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" width="16" height="16">
               <path d="M12 5v14M5 12h14"/>
             </svg>
-            Hội thoại mới
+            {newConversationLabel}
           </button>
 
           {/* Search */}
@@ -276,7 +281,7 @@ const ChatbotPage: React.FC = () => {
             </svg>
             <input
               type="text"
-              placeholder="Tìm hội thoại..."
+              placeholder={t('dashboard:chatbotPage.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full rounded-[10px] py-2 pr-3 pl-9 text-[13px] text-slate-100 placeholder-slate-500 outline-none transition-all duration-200"
@@ -305,7 +310,9 @@ const ChatbotPage: React.FC = () => {
               <div className="w-6 h-6 rounded-full border-2 border-white/10 border-t-cyan-400 animate-spin" />
             </div>
           ) : filtered.length === 0 ? (
-            <p className="text-center text-slate-500 text-xs py-8">Chưa có hội thoại nào</p>
+            <p className="text-center text-slate-500 text-xs py-8">
+              {t('dashboard:chatbotPage.emptyConversations')}
+            </p>
           ) : (
             (Object.entries(grouped) as [keyof typeof grouped, (typeof filtered)[number][]][]).map(([key, items]) => {
               if (!items.length) return null
@@ -335,7 +342,7 @@ const ChatbotPage: React.FC = () => {
                         className="text-[13px] font-semibold truncate pr-6"
                         style={{ color: currentConversation?.id === conv.id ? '#22d3ee' : '#f1f5f9' }}
                       >
-                        {conv.preview || 'Hội thoại mới'}
+                        {conv.preview || newConversationLabel}
                       </div>
                       <div className="text-[11.5px] truncate text-slate-500">{conv.preview ?? ''}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5" style={{ fontFamily: 'monospace' }}>
@@ -406,7 +413,7 @@ const ChatbotPage: React.FC = () => {
                 e.currentTarget.style.background = 'transparent'
                 e.currentTarget.style.borderColor = 'var(--border)'
               }}
-              title="Ẩn/hiện danh sách"
+              title={t('dashboard:chatbotPage.actions.toggleSidebar')}
             >
               <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" width="14" height="14">
                 <line x1="3" y1="6" x2="21" y2="6"/>
@@ -415,7 +422,7 @@ const ChatbotPage: React.FC = () => {
               </svg>
             </button>
             <div className="text-[16px] font-semibold text-[var(--text-main)] truncate">
-              {latestUserQuestion ?? currentConversation?.preview ?? 'Hội thoại mới'}
+              {latestUserQuestion ?? currentConversation?.preview ?? newConversationLabel}
             </div>
           </div>
           {currentConversation && (
@@ -423,7 +430,7 @@ const ChatbotPage: React.FC = () => {
               onClick={() => deleteChatConversation(currentConversation.id)}
               className="w-9 h-9 grid place-items-center rounded-[10px] text-[var(--text-sub)] transition-all duration-200"
               style={{ border: '1px solid transparent' }}
-              title="Xóa hội thoại"
+              title={t('dashboard:chatbotPage.actions.deleteConversation')}
               onMouseEnter={e => {
                 e.currentTarget.style.background = 'rgba(239,68,68,0.1)'
                 e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'
@@ -475,52 +482,13 @@ const ChatbotPage: React.FC = () => {
                   <h1
                     className="text-[38px] font-bold tracking-tight mb-3 leading-tight text-[var(--text-main)]"
                   >
-                    Xin chào, {displayName}
+                    {t('dashboard:chatbotPage.greeting')}, {displayName}
                   </h1>
 
                   <p className="text-[15px] text-[var(--text-sub)] mb-12 max-w-[520px] mx-auto leading-relaxed">
-                    Trợ lý AI giúp bạn tra cứu thông tin nhân sự, chấm công, lương thưởng và mọi nghiệp vụ HR chỉ bằng tin nhắn.
+                    {t('dashboard:chatbotPage.description')}
                   </p>
 
-                  <p className="text-[11px] uppercase tracking-[0.15em] font-bold text-[var(--text-sub)] mb-4">Gợi ý cho bạn</p>
-
-                  <div className="grid grid-cols-2 gap-3.5">
-                    {chips.map((chip, i) => (
-                      <button
-                        key={i}
-                        disabled={isLoading}
-                        onClick={() => sendSuggestion(chip.text)}
-                        className="flex items-center gap-3.5 p-4 rounded-2xl text-[14px] text-[var(--text-main)] text-left transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group"
-                        style={{
-                          background: 'var(--surface)',
-                          border: '1px solid var(--border)',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                        }}
-                        onMouseEnter={e => {
-                          if (!isLoading) {
-                            const el = e.currentTarget
-                            el.style.borderColor = 'rgba(34,211,238,0.4)'
-                            el.style.background = 'rgba(34,211,238,0.04)'
-                            el.style.transform = 'translateY(-4px) scale(1.02)'
-                            el.style.boxShadow = `0 12px 24px -8px ${CYAN_GLOW}`
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          const el = e.currentTarget
-                          el.style.borderColor = 'var(--border)'
-                          el.style.background = 'var(--surface)'
-                          el.style.transform = ''
-                          el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)'
-                        }}
-                      >
-                        <span className="w-9 h-9 rounded-[10px] grid place-items-center flex-shrink-0"
-                          style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.03)' }}>
-                          <ChipIcon name={chip.icon} />
-                        </span>
-                        <span className="leading-snug">{chip.text}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </motion.div>
             ) : (
@@ -572,7 +540,9 @@ const ChatbotPage: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2.5 mb-2">
                           <span className="text-[14px] font-bold text-[var(--text-main)]">
-                            {isUser ? 'Bạn' : 'SmartAttendance AI'}
+                            {isUser
+                              ? t('dashboard:chatbotPage.userLabel')
+                              : t('dashboard:chatbotPage.assistantLabel')}
                           </span>
                           {time && <span className="text-[11px] text-[var(--text-sub)]" style={{ fontFamily: 'monospace' }}>{time}</span>}
                         </div>
@@ -621,9 +591,9 @@ const ChatbotPage: React.FC = () => {
                         {!isUser && (
                           <div className="flex gap-1.5 mt-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                             {[
-                              { title: 'Sao chép', onClick: () => copyMsg(msg.content), path: <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></> },
-                              { title: 'Hữu ích',  onClick: () => {}, path: <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"/> },
-                              { title: 'Không hữu ích', onClick: () => {}, path: <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3z"/> },
+                              { title: t('dashboard:chatbotPage.actions.copy'), onClick: () => copyMsg(msg.content), path: <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></> },
+                              { title: t('dashboard:chatbotPage.actions.helpful'),  onClick: () => {}, path: <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"/> },
+                              { title: t('dashboard:chatbotPage.actions.notHelpful'), onClick: () => {}, path: <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3z"/> },
                             ].map((btn, bi) => (
                               <button key={bi} title={btn.title} onClick={btn.onClick}
                                 className="w-[30px] h-[30px] rounded-lg grid place-items-center text-slate-500 transition-all duration-200"
@@ -668,7 +638,9 @@ const ChatbotPage: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2.5 mb-2">
                         <span className="text-[14px] font-bold text-[var(--text-main)]">SmartAttendance AI</span>
-                        <span className="text-[11px] text-[var(--text-sub)]">đang trả lời...</span>
+                        <span className="text-[11px] text-[var(--text-sub)]">
+                          {t('dashboard:chatbotPage.typing')}
+                        </span>
                       </div>
                       <div className="flex gap-1.5 py-2.5">
                         {[0, 150, 300].map(delay => (
@@ -687,8 +659,8 @@ const ChatbotPage: React.FC = () => {
         </div>
 
         {/* ── Composer ─────────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 px-8 pb-6 pt-4 relative z-20"
-          style={{ background: 'var(--surface)' }}>
+        <div className="flex-shrink-0 px-8 pb-[40px] pt-4 relative z-20 overflow-hidden"
+          style={{ background: 'var(--surface)', height: '85px' }}>
           <div className="max-w-[860px] mx-auto w-full">
             {/* Composer box */}
             <div
@@ -722,7 +694,9 @@ const ChatbotPage: React.FC = () => {
                     }}
                   >
                     {slashItems.length === 0 ? (
-                      <p className="px-3.5 py-3 text-[13px] text-[var(--text-sub)]">Không có gợi ý phù hợp</p>
+                      <p className="px-3.5 py-3 text-[13px] text-[var(--text-sub)]">
+                        {t('dashboard:chatbotPage.noSuggestions')}
+                      </p>
                     ) : (
                       slashItems.map((s, i) => (
                         <button key={i} className="w-full flex items-center gap-2.5 px-3.5 py-3 text-left text-[var(--text-main)] transition-colors duration-150 border-b border-[var(--border)] last:border-b-0"
@@ -746,7 +720,7 @@ const ChatbotPage: React.FC = () => {
               <textarea
                 ref={textareaRef}
                 rows={1}
-                placeholder="Gõ / để hiện gợi ý"
+                placeholder={t('dashboard:chatbotPage.composerPlaceholder')}
                 value={inputValue}
                 onChange={handleInput}
                 onKeyDown={handleKeyDown}
@@ -765,7 +739,7 @@ const ChatbotPage: React.FC = () => {
                 {/* Attach */}
                 <button
                   type="button"
-                  title="Đính kèm"
+                  title={t('dashboard:chatbotPage.actions.attach')}
                   className="w-10 h-10 rounded-xl grid place-items-center text-[var(--text-sub)] transition-all duration-200"
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#22d3ee' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-sub)' }}
@@ -777,7 +751,7 @@ const ChatbotPage: React.FC = () => {
                 {/* Voice */}
                 <button
                   type="button"
-                  title="Nhập bằng giọng nói"
+                  title={t('dashboard:chatbotPage.actions.voiceInput')}
                   onClick={() => setVoiceActive(v => !v)}
                   className="w-10 h-10 rounded-xl grid place-items-center transition-all duration-200"
                   style={{
@@ -825,18 +799,6 @@ const ChatbotPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Hint */}
-            <div className="flex justify-between items-center mt-3 px-3 text-[11.5px] text-[var(--text-sub)] gap-4">
-              <span>
-                <kbd className="font-mono rounded px-1.5 py-0.5 text-[10.5px] text-[var(--text-sub)]"
-                  style={{ background: 'var(--shell)', border: '1px solid var(--border)' }}>Enter</kbd>
-                {' '}gửi ·{' '}
-                <kbd className="font-mono rounded px-1.5 py-0.5 text-[10.5px] text-[var(--text-sub)]"
-                  style={{ background: 'var(--shell)', border: '1px solid var(--border)' }}>Shift+Enter</kbd>
-                {' '}xuống dòng
-              </span>
-              <span>Trợ lý có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.</span>
-            </div>
           </div>
         </div>
       </section>

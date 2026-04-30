@@ -87,6 +87,12 @@ const attendanceSchema = new mongoose.Schema(
       enum: ["otp", null],
       default: null,
     },
+
+    // GPS accuracy warning: true nếu check-in/out với tín hiệu GPS yếu nhưng vẫn trong geofence
+    lowGpsAccuracy: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

@@ -39,6 +39,7 @@ const AdminAttendancePage = lazy(() => import("@/components/dashboard/pages/Admi
 const AdminReportsPage = lazy(() => import("@/components/dashboard/pages/AdminReportsPage"));
 const UpgradePage = lazy(() => import("@/components/dashboard/pages/UpgradePage"));
 const ChatbotPage = lazy(() => import("@/components/dashboard/pages/ChatbotPage"));
+const MyPayslipPage = lazy(() => import("@/components/dashboard/pages/MyPayslipPage"));
 // Trial analytics page removed
 
 // Named Exports - Lazy Load with proper handling
@@ -59,6 +60,12 @@ const ShiftsPage = lazy(() =>
 );
 const SalaryMatrixManagementPage = lazy(() =>
   import("@/components/dashboard/pages/SalaryMatrixManagementPage")
+);
+const SystemConfigPage = lazy(() =>
+  import("@/components/dashboard/pages/SystemConfigPage")
+);
+const LeaveTypeManagementPage = lazy(() =>
+  import("@/components/dashboard/pages/LeaveTypeManagementPage")
 );
 
 // Layout & Common Components - Lazy Load
@@ -110,6 +117,7 @@ export default function App() {
                 <Route path="company-calendar" element={<CompanyCalendarPage />} />
                 <Route path="upgrade" element={<UpgradePage />} />
                 <Route path="chatbot" element={<ChatbotPage />} />
+                <Route path="my-payslip" element={<MyPayslipPage />} />
                 {/* Catch-all: redirect invalid employee routes to 404 */}
                 <Route path="*" element={<Navigate to="/not-found" replace />} />
               </Route>
@@ -129,6 +137,7 @@ export default function App() {
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="company-calendar" element={<CompanyCalendarPage />} />
                   <Route path="chatbot" element={<ChatbotPage />} />
+                  <Route path="my-payslip" element={<MyPayslipPage />} />
                   {/* Manager specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
@@ -188,6 +197,7 @@ export default function App() {
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="company-calendar" element={<CompanyCalendarPage />} />
                   <Route path="chatbot" element={<ChatbotPage />} />
+                  <Route path="my-payslip" element={<MyPayslipPage />} />
                   {/* HR specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
@@ -250,6 +260,9 @@ export default function App() {
                   >
                     <Route index element={<ShiftsPage />} />
                   </Route>
+                  <Route path="leave-types">
+                    <Route index element={<LeaveTypeManagementPage />} />
+                  </Route>
                   {/* Catch-all: redirect invalid HR routes to 404 */}
                   <Route path="*" element={<Navigate to="/not-found" replace />} />
                 </Route>
@@ -262,6 +275,7 @@ export default function App() {
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="company-calendar" element={<CompanyCalendarPage />} />
                   <Route path="chatbot" element={<ChatbotPage />} />
+                  <Route path="my-payslip" element={<MyPayslipPage />} />
                   {/* Admin specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
@@ -342,7 +356,15 @@ export default function App() {
                   >
                     <Route index element={<AuditLogsPage />} />
                   </Route>
-                  {/* trial-analytics removed */}
+                  <Route
+                    path="system-config"
+                    element={<ProtectedRoute permission={Permission.AUDIT_LOGS_VIEW} />}
+                  >
+                    <Route index element={<SystemConfigPage />} />
+                  </Route>
+                  <Route path="leave-types">
+                    <Route index element={<LeaveTypeManagementPage />} />
+                  </Route>
                   {/* Catch-all: redirect invalid admin routes to 404 */}
                   <Route path="*" element={<Navigate to="/not-found" replace />} />
                 </Route>

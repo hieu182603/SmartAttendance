@@ -497,7 +497,6 @@ export default function AuditLogsPage() {
                                     <TableHeader>
                                         <TableRow className="border-gray-200 dark:border-gray-700">
                                             <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.time')}</TableHead>
-                                            <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.user')}</TableHead>
                                             <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.action')}</TableHead>
                                             <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.description')}</TableHead>
                                             <TableHead className="text-gray-600 dark:text-gray-400">{t('auditLogs.table.status')}</TableHead>
@@ -507,13 +506,13 @@ export default function AuditLogsPage() {
                                     <TableBody>
                                         {loading ? (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                                <TableCell colSpan={5} className="text-center py-8 text-gray-600 dark:text-gray-400">
                                                     {t('auditLogs.loadingData')}
                                                 </TableCell>
                                             </TableRow>
                                         ) : filteredLogs.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                                <TableCell colSpan={5} className="text-center py-8 text-gray-600 dark:text-gray-400">
                                                     {t('auditLogs.noLogsFound')}
                                                 </TableCell>
                                             </TableRow>
@@ -530,12 +529,6 @@ export default function AuditLogsPage() {
                                                         <div className="flex items-center gap-2">
                                                             <Clock className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                                                             <span className="text-sm">{log.timestamp}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div>
-                                                            <p className="text-gray-900 dark:text-gray-100">{log.userName}</p>
-                                                            <p className="text-xs text-gray-600 dark:text-gray-400">{log.userRole}</p>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>

@@ -9,6 +9,7 @@ import {
   updateLeaveType,
   deleteLeaveType,
 } from "./leave-type.controller.js";
+import { adjustBalance } from "./leave.controller.js";
 
 export const leaveRouter = Router();
 
@@ -50,5 +51,12 @@ leaveRouter.delete(
   "/types/:id",
   requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   deleteLeaveType
+);
+
+// PATCH /api/leave/balance/:userId — HR/Admin điều chỉnh quota ngày phép
+leaveRouter.patch(
+  "/balance/:userId",
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  adjustBalance
 );
 

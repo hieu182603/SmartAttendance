@@ -23,6 +23,10 @@
   "audit-logs": "Nhật ký hệ thống",
   "camera-checkin": "Chấm công bằng camera",
   "admin-reports": "Báo cáo & Thống kê",
-  "chatbot": "Trợ lý AI"
+  "chatbot": "Trợ lý AI",
+  "my-payslip": "Lương",
+  "payroll-group": "Lương",
+  "leave-types": "Quản lý loại phép",
+  "system-config": "Cấu hình hệ thống"
 }
 

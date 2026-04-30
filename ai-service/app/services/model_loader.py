@@ -37,7 +37,7 @@ class ModelLoader:
                     name=MODEL_NAME,
                     providers=['CPUExecutionProvider']
                 )
-                self._app.prepare(ctx_id=0, det_size=(640, 640))
+                self._app.prepare(ctx_id=0, det_size=(320, 320))
                 logger.info("Model loaded successfully")
             except Exception as e:
                 logger.error(f"Error loading model: {str(e)}")

@@ -4,8 +4,13 @@ import {
   SALARY_MATRIX,
   POSITION_DEFAULT_SALARY,
   DEPARTMENT_DEFAULT_SALARY,
+  FEATURE_FLAGS,
 } from "../../config/payroll.config.js";
+import { getPayrollRulesAsync } from "../config/config.service.js";
+import { calculateInsurance, calculatePersonalIncomeTax } from "./insurance-tax.service.js";
 import { AttendanceModel } from "../attendance/attendance.model.js";
+import { CalendarEventModel } from "../calendar/calendar.model.js";
+import { RequestModel } from "../requests/request.model.js";
 import { UserModel } from "../users/user.model.js";
 import { DepartmentModel } from "../departments/department.model.js";
 import { PayrollRecordModel, PayrollReportModel } from "./payroll.model.js";
@@ -146,7 +151,7 @@ export async function calculateBaseSalary(user, department = null) {
  * @param {Date} periodEnd - Ngày kết thúc
  * @returns {Promise<Object>} { workDays, totalDays, overtimeHours, overtimeDetails, lateDays, leaveDays }
  */
-export async function calculateAttendanceData(userId, periodStart, periodEnd) {
+export async function calculateAttendanceData(userId, periodStart, periodEnd, rules = PAYROLL_RULES) {
   const attendances = await AttendanceModel.find({
     userId,
     date: {
@@ -163,18 +168,42 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
     );
   }
 
-  const workDays = attendances.filter(
-    (a) => a.status === "present" || a.status === "late"
+  // Tính ngày công theo workCredit (0.5 = nửa công, 1.0 = đủ công)
+  const workDays = attendances
+    .filter((a) => (a.workCredit ?? 0) > 0)
+    .reduce((sum, a) => sum + (a.workCredit ?? 1), 0);
+
+  // Đi muộn vẫn đếm theo ngày (không theo credit)
+  const lateDays = attendances.filter(
+    (a) => a.status === "late" && (a.workCredit ?? 0) > 0
   ).length;
 
-  const lateDays = attendances.filter((a) => a.status === "late").length;
-
-  // ✅ FIX: Phân biệt OT theo loại ngày (Điều 98 BLLĐ)
+  // ✅ FIX: Phân biệt OT theo loại ngày (Điều 98 BLLĐ): holiday > weekend > weekday
   const overtimeDetails = { weekday: 0, weekend: 0, holiday: 0 };
   let totalOvertimeHours = 0;
 
+  // Fetch holidays in period once for all attendances
+  const holidays = await CalendarEventModel.find({
+    type: "holiday",
+    isActive: true,
+    date: { $gte: periodStart, $lte: periodEnd },
+  }).lean();
+  const holidayDates = new Set(
+    holidays.map((h) => new Date(h.date).toISOString().slice(0, 10))
+  );
+
   for (const a of attendances) {
+    const dateKey = new Date(a.date).toISOString().slice(0, 10);
     const dayOfWeek = new Date(a.date).getUTCDay();
+
+    // Ngày lễ: toàn bộ giờ làm tính OT 300%
+    if (holidayDates.has(dateKey)) {
+      if ((a.workHours ?? 0) > 0) {
+        totalOvertimeHours += a.workHours;
+        overtimeDetails.holiday += a.workHours;
+      }
+      continue;
+    }
 
     // Ngày thường (T2–T6): chỉ tính OT cho phần vượt quá 8h
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
@@ -188,16 +217,14 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
 
     // Cuối tuần (T7/CN): toàn bộ giờ làm được tính là OT weekend
     if (dayOfWeek === 0 || dayOfWeek === 6) {
-      if (a.workHours > 0) {
-        const otHours = a.workHours;
-        totalOvertimeHours += otHours;
-        overtimeDetails.weekend += otHours;
+      if ((a.workHours ?? 0) > 0) {
+        totalOvertimeHours += a.workHours;
+        overtimeDetails.weekend += a.workHours;
       }
     }
   }
 
-  // ✅ Giới hạn OT (Điều 107 BLLĐ: tối đa 40 giờ/tháng)
-  const maxOT = PAYROLL_RULES.OVERTIME.MAX_PER_MONTH || Infinity;
+  const maxOT = rules.OVERTIME.MAX_PER_MONTH || Infinity;
   if (totalOvertimeHours > maxOT) {
     const ratio = maxOT / totalOvertimeHours;
     overtimeDetails.weekday = Math.round(overtimeDetails.weekday * ratio * 10) / 10;
@@ -209,8 +236,34 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
     );
   }
 
-  const totalDays = PAYROLL_RULES.STANDARD_WORK_DAYS;
-  const leaveDays = Math.max(0, totalDays - workDays);
+  const totalDays = rules.STANDARD_WORK_DAYS;
+
+  // Split leave by type: paid (leave/sick/compensatory/maternity) vs unpaid
+  const PAID_LEAVE_TYPES = ["leave", "sick", "compensatory", "maternity"];
+  const approvedLeaves = await RequestModel.find({
+    userId,
+    status: "approved",
+    type: { $in: [...PAID_LEAVE_TYPES, "unpaid"] },
+    startDate: { $lte: periodEnd },
+    endDate: { $gte: periodStart },
+  }).lean();
+
+  let paidLeaveDays = 0;
+  let unpaidLeaveDays = 0;
+  for (const leave of approvedLeaves) {
+    const leaveStart = new Date(Math.max(new Date(leave.startDate), periodStart));
+    const leaveEnd = new Date(Math.min(new Date(leave.endDate), periodEnd));
+    const days = Math.max(0, Math.round((leaveEnd - leaveStart) / 86400000) + 1);
+    if (PAID_LEAVE_TYPES.includes(leave.type)) {
+      paidLeaveDays += days;
+    } else {
+      unpaidLeaveDays += days;
+    }
+  }
+
+  const totalAbsence = Math.max(0, totalDays - workDays);
+  const unauthorizedAbsenceDays = Math.max(0, totalAbsence - paidLeaveDays - unpaidLeaveDays);
+  const leaveDays = totalAbsence; // backward compat: total non-working days
 
   return {
     workDays,
@@ -219,6 +272,9 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd) {
     overtimeDetails, // ✅ Chi tiết OT theo loại ngày
     lateDays,
     leaveDays,
+    paidLeaveDays,
+    unpaidLeaveDays,
+    unauthorizedAbsenceDays,
     hasAttendanceData,
   };
 }
@@ -251,13 +307,13 @@ export function roundSalary(amount, precision = 1000) {
  * @param {number} workDays - Số ngày làm việc
  * @returns {number} Actual base salary
  */
-export function calculateActualBaseSalary(baseSalary, workDays) {
-  if (!PAYROLL_RULES.CALCULATE_BY_WORK_DAYS) {
+export function calculateActualBaseSalary(baseSalary, workDays, rules = PAYROLL_RULES) {
+  if (!rules.CALCULATE_BY_WORK_DAYS) {
     return baseSalary;
   }
 
   const actualSalary =
-    baseSalary * (workDays / PAYROLL_RULES.STANDARD_WORK_DAYS);
+    baseSalary * (workDays / rules.STANDARD_WORK_DAYS);
   return roundSalary(actualSalary);
 }
 
@@ -268,47 +324,40 @@ export function calculateActualBaseSalary(baseSalary, workDays) {
  * @param {number} baseSalary - Lương cơ bản
  * @returns {number} Overtime pay
  */
-export function calculateOvertimePay(overtimeDetails, baseSalary) {
+export function calculateOvertimePay(overtimeDetails, baseSalary, rules = PAYROLL_RULES) {
   const hourlyRate =
     baseSalary /
-    (PAYROLL_RULES.STANDARD_WORK_DAYS *
-      PAYROLL_RULES.STANDARD_WORK_HOURS_PER_DAY);
+    (rules.STANDARD_WORK_DAYS * rules.STANDARD_WORK_HOURS_PER_DAY);
 
-  // Hỗ trợ cả format cũ (number) và format mới (object)
   if (typeof overtimeDetails === "number") {
-    // Backward compatibility: dùng hệ số ngày thường cho tất cả
-    return roundSalary(overtimeDetails * hourlyRate * PAYROLL_RULES.OVERTIME.MULTIPLIER);
+    return roundSalary(overtimeDetails * hourlyRate * rules.OVERTIME.MULTIPLIER);
   }
 
-  const weekdayOT = (overtimeDetails.weekday || 0) * hourlyRate * PAYROLL_RULES.OVERTIME.MULTIPLIER;         // 150%
-  const weekendOT = (overtimeDetails.weekend || 0) * hourlyRate * PAYROLL_RULES.OVERTIME.WEEKEND_MULTIPLIER;  // 200%
-  const holidayOT = (overtimeDetails.holiday || 0) * hourlyRate * PAYROLL_RULES.OVERTIME.HOLIDAY_MULTIPLIER;  // 300%
+  const weekdayOT = (overtimeDetails.weekday || 0) * hourlyRate * rules.OVERTIME.MULTIPLIER;
+  const weekendOT = (overtimeDetails.weekend || 0) * hourlyRate * rules.OVERTIME.WEEKEND_MULTIPLIER;
+  const holidayOT = (overtimeDetails.holiday || 0) * hourlyRate * rules.OVERTIME.HOLIDAY_MULTIPLIER;
 
   return roundSalary(weekdayOT + weekendOT + holidayOT);
 }
 
 /**
  * Tính khấu trừ
- * 
+ *
  * @param {number} lateDays - Số ngày đi muộn
- * @param {number} leaveDays - Số ngày nghỉ không phép
+ * @param {number} unpaidAbsenceDays - Số ngày nghỉ không lương (unpaid + unauthorized)
  * @param {number} baseSalary - Lương cơ bản
  * @returns {number} Total deductions
  */
-export function calculateDeductions(lateDays, leaveDays, baseSalary) {
+export function calculateDeductions(lateDays, unpaidAbsenceDays, baseSalary, rules = PAYROLL_RULES) {
   let deductions = 0;
 
-  if (PAYROLL_RULES.DEDUCTIONS.LATE_ARRIVAL) {
-    deductions += lateDays * PAYROLL_RULES.DEDUCTIONS.LATE_ARRIVAL;
+  if (rules.DEDUCTIONS.LATE_ARRIVAL) {
+    deductions += lateDays * rules.DEDUCTIONS.LATE_ARRIVAL;
   }
 
-  if (
-    PAYROLL_RULES.DEDUCTIONS.UNAUTHORIZED_ABSENCE &&
-    PAYROLL_RULES.DEDUCTIONS.UNAUTHORIZED_ABSENCE.PER_DAY
-  ) {
-    const perDayDeduction =
-      baseSalary / PAYROLL_RULES.STANDARD_WORK_DAYS;
-    deductions += leaveDays * perDayDeduction;
+  if (rules.DEDUCTIONS.UNAUTHORIZED_ABSENCE?.PER_DAY) {
+    const perDayDeduction = baseSalary / rules.STANDARD_WORK_DAYS;
+    deductions += unpaidAbsenceDays * perDayDeduction;
   }
 
   return roundSalary(deductions);
@@ -321,29 +370,18 @@ export function calculateDeductions(lateDays, leaveDays, baseSalary) {
  * @param {number} baseSalary - Lương cơ bản
  * @returns {number} Total bonus
  */
-export function calculateBonus(attendanceData, baseSalary) {
+export function calculateBonus(attendanceData, baseSalary, rules = PAYROLL_RULES) {
   let bonus = 0;
 
-  if (PAYROLL_RULES.BONUS.ATTENDANCE?.ENABLED) {
-    const req = PAYROLL_RULES.BONUS.ATTENDANCE.REQUIREMENTS;
+  if (rules.BONUS.ATTENDANCE?.ENABLED) {
+    const req = rules.BONUS.ATTENDANCE.REQUIREMENTS;
     let eligible = true;
 
-    if (req.NO_LATE_DAYS && attendanceData.lateDays > 0) {
-      eligible = false;
-    }
-    if (req.NO_ABSENCE && attendanceData.leaveDays > 0) {
-      eligible = false;
-    }
-    if (
-      req.MIN_WORK_DAYS &&
-      attendanceData.workDays < req.MIN_WORK_DAYS
-    ) {
-      eligible = false;
-    }
+    if (req.NO_LATE_DAYS && attendanceData.lateDays > 0) eligible = false;
+    if (req.NO_ABSENCE && (attendanceData.unauthorizedAbsenceDays ?? attendanceData.leaveDays) > 0) eligible = false;
+    if (req.MIN_WORK_DAYS && attendanceData.workDays < req.MIN_WORK_DAYS) eligible = false;
 
-    if (eligible) {
-      bonus += PAYROLL_RULES.BONUS.ATTENDANCE.AMOUNT;
-    }
+    if (eligible) bonus += rules.BONUS.ATTENDANCE.AMOUNT;
   }
 
   return roundSalary(bonus);
@@ -382,28 +420,30 @@ export async function generatePayrollRecord(userId, month) {
     throw new Error("User not found");
   }
 
+  const rules = await getPayrollRulesAsync();
   const { baseSalary, source: salarySource } = await calculateBaseSalary(user, user.department);
-  const attendanceData = await calculateAttendanceData(
-    userId,
-    periodStart,
-    periodEnd
-  );
+  const attendanceData = await calculateAttendanceData(userId, periodStart, periodEnd, rules);
 
-  const actualBaseSalary = calculateActualBaseSalary(
-    baseSalary,
-    attendanceData.workDays
-  );
+  // Paid leave counts as worked days for salary calculation
+  const effectiveWorkDays = attendanceData.workDays + (attendanceData.paidLeaveDays ?? 0);
+  const actualBaseSalary = calculateActualBaseSalary(baseSalary, effectiveWorkDays, rules);
   const overtimePay = calculateOvertimePay(
     attendanceData.overtimeDetails || attendanceData.overtimeHours,
-    baseSalary
+    baseSalary,
+    rules
   );
-  const deductions = calculateDeductions(
-    attendanceData.lateDays,
-    attendanceData.leaveDays,
-    baseSalary
-  );
-  const bonus = calculateBonus(attendanceData, baseSalary);
-  const totalSalary = actualBaseSalary + overtimePay + bonus - deductions;
+  const unpaidAbsence = (attendanceData.unpaidLeaveDays ?? 0) + (attendanceData.unauthorizedAbsenceDays ?? 0);
+  const deductions = calculateDeductions(attendanceData.lateDays, unpaidAbsence, baseSalary, rules);
+  const bonus = calculateBonus(attendanceData, baseSalary, rules);
+  const grossSalary = actualBaseSalary + overtimePay + bonus - deductions;
+
+  let insurance = { social: 0, health: 0, unemployment: 0, total: 0, base: 0 };
+  let tax = { taxableIncome: 0, personalDeduction: 0, dependentCount: 0, dependentDeduction: 0, taxableAfterDeduction: 0, amount: 0, bracketBreakdown: [] };
+  if (FEATURE_FLAGS.INSURANCE_TAX) {
+    insurance = calculateInsurance(baseSalary);
+    tax = calculatePersonalIncomeTax(grossSalary, insurance.total, user.dependentCount ?? 0);
+  }
+  const totalSalary = grossSalary - insurance.total - tax.amount;
 
   let payrollRecord = await PayrollRecordModel.findOne({
     userId,
@@ -420,6 +460,9 @@ export async function generatePayrollRecord(userId, month) {
     overtimeHours: attendanceData.overtimeHours,
     leaveDays: attendanceData.leaveDays,
     lateDays: attendanceData.lateDays,
+    paidLeaveDays: attendanceData.paidLeaveDays ?? 0,
+    unpaidLeaveDays: attendanceData.unpaidLeaveDays ?? 0,
+    unauthorizedAbsenceDays: attendanceData.unauthorizedAbsenceDays ?? 0,
     baseSalary, // Lương tháng đầy đủ
     actualBaseSalary, // Lương cơ bản thực tế (theo số ngày làm việc)
     salarySource, // ✅ Nguồn của baseSalary
@@ -427,6 +470,9 @@ export async function generatePayrollRecord(userId, month) {
     overtimePay,
     bonus,
     deductions,
+    grossSalary,
+    insurance,
+    tax,
     totalSalary,
     department: user.department?.name || "N/A",
     departmentId: user.department?._id || user.department || null, // Store departmentId for filtering
@@ -446,11 +492,15 @@ export async function generatePayrollRecord(userId, month) {
       payrollRecord.overtimeDetails = recordData.overtimeDetails;
       payrollRecord.leaveDays = recordData.leaveDays;
       payrollRecord.lateDays = recordData.lateDays;
+      payrollRecord.paidLeaveDays = recordData.paidLeaveDays;
+      payrollRecord.unpaidLeaveDays = recordData.unpaidLeaveDays;
+      payrollRecord.unauthorizedAbsenceDays = recordData.unauthorizedAbsenceDays;
 
-      // Tính lại actualBaseSalary dựa trên workDays mới
+      // Tính lại actualBaseSalary dựa trên workDays mới (paid leave counts as worked)
+      const updatedEffectiveWorkDays = recordData.workDays + recordData.paidLeaveDays;
       payrollRecord.actualBaseSalary = calculateActualBaseSalary(
         payrollRecord.baseSalary,
-        recordData.workDays
+        updatedEffectiveWorkDays
       );
 
       // Recalculate các components
@@ -458,9 +508,10 @@ export async function generatePayrollRecord(userId, month) {
         recordData.overtimeDetails || recordData.overtimeHours,
         payrollRecord.baseSalary
       );
+      const updatedUnpaidAbsence = recordData.unpaidLeaveDays + recordData.unauthorizedAbsenceDays;
       payrollRecord.deductions = calculateDeductions(
         recordData.lateDays,
-        recordData.leaveDays,
+        updatedUnpaidAbsence,
         payrollRecord.baseSalary
       );
       payrollRecord.bonus = calculateBonus(
@@ -468,6 +519,7 @@ export async function generatePayrollRecord(userId, month) {
           workDays: recordData.workDays,
           lateDays: recordData.lateDays,
           leaveDays: recordData.leaveDays,
+          unauthorizedAbsenceDays: recordData.unauthorizedAbsenceDays,
         },
         payrollRecord.baseSalary
       );
@@ -563,21 +615,43 @@ export async function previewPayrollRecord(userId, month) {
     periodEnd
   );
 
-  const actualBaseSalary = calculateActualBaseSalary(
-    baseSalary,
-    attendanceData.workDays
+  const previewEffectiveWorkDays = attendanceData.workDays + (attendanceData.paidLeaveDays ?? 0);
+  const actualBaseSalary = calculateActualBaseSalary(baseSalary, previewEffectiveWorkDays);
+  const hourlyRate = Math.round(
+    baseSalary / (PAYROLL_RULES.STANDARD_WORK_DAYS * PAYROLL_RULES.STANDARD_WORK_HOURS_PER_DAY)
   );
-  const overtimePay = calculateOvertimePay(
-    attendanceData.overtimeDetails || attendanceData.overtimeHours,
-    baseSalary
-  );
-  const deductions = calculateDeductions(
-    attendanceData.lateDays,
-    attendanceData.leaveDays,
-    baseSalary
-  );
+  const otDetails = attendanceData.overtimeDetails || { weekday: 0, weekend: 0, holiday: 0 };
+  const overtimePay = calculateOvertimePay(otDetails, baseSalary);
+  const previewUnpaidAbsence = (attendanceData.unpaidLeaveDays ?? 0) + (attendanceData.unauthorizedAbsenceDays ?? 0);
+  const deductions = calculateDeductions(attendanceData.lateDays, previewUnpaidAbsence, baseSalary);
   const bonus = calculateBonus(attendanceData, baseSalary);
-  const totalSalary = actualBaseSalary + overtimePay + bonus - deductions;
+  const grossSalary = actualBaseSalary + overtimePay + bonus - deductions;
+
+  let insurance = { social: 0, health: 0, unemployment: 0, total: 0, base: 0 };
+  let tax = { taxableIncome: 0, personalDeduction: 0, dependentCount: 0, dependentDeduction: 0, taxableAfterDeduction: 0, amount: 0, bracketBreakdown: [] };
+  if (FEATURE_FLAGS.INSURANCE_TAX) {
+    insurance = calculateInsurance(baseSalary);
+    tax = calculatePersonalIncomeTax(grossSalary, insurance.total, user.dependentCount ?? 0);
+  }
+  const netSalary = grossSalary - insurance.total - tax.amount;
+
+  const paidLeaveSuffix = (attendanceData.paidLeaveDays ?? 0) > 0 ? `+${attendanceData.paidLeaveDays}NP` : "";
+  const absenceDays = (attendanceData.unpaidLeaveDays ?? 0) + (attendanceData.unauthorizedAbsenceDays ?? 0);
+  const breakdown = [
+    { label: "Lương cơ bản", formula: `${baseSalary.toLocaleString("vi-VN")} [${salarySource}]`, value: baseSalary },
+    { label: "Ngày công", formula: `${attendanceData.workDays}${paidLeaveSuffix} / ${PAYROLL_RULES.STANDARD_WORK_DAYS} ngày`, value: actualBaseSalary },
+    ...(otDetails.weekday > 0 ? [{ label: "OT ngày thường (150%)", formula: `${otDetails.weekday}h × ${hourlyRate.toLocaleString("vi-VN")} × 1.5`, value: Math.round(otDetails.weekday * hourlyRate * PAYROLL_RULES.OVERTIME.MULTIPLIER) }] : []),
+    ...(otDetails.weekend > 0 ? [{ label: "OT cuối tuần (200%)", formula: `${otDetails.weekend}h × ${hourlyRate.toLocaleString("vi-VN")} × 2.0`, value: Math.round(otDetails.weekend * hourlyRate * PAYROLL_RULES.OVERTIME.WEEKEND_MULTIPLIER) }] : []),
+    ...(otDetails.holiday > 0 ? [{ label: "OT ngày lễ (300%)", formula: `${otDetails.holiday}h × ${hourlyRate.toLocaleString("vi-VN")} × 3.0`, value: Math.round(otDetails.holiday * hourlyRate * PAYROLL_RULES.OVERTIME.HOLIDAY_MULTIPLIER) }] : []),
+    ...(bonus > 0 ? [{ label: "Thưởng chuyên cần", formula: "+1 lần/tháng đủ điều kiện", value: bonus }] : []),
+    ...(deductions > 0 ? [{ label: "Khấu trừ", formula: `${attendanceData.lateDays} ngày muộn + ${absenceDays} ngày vắng có phí`, value: -deductions }] : []),
+    { label: "Lương gross", formula: "actualBase + OT + thưởng - khấu trừ", value: grossSalary },
+    ...(FEATURE_FLAGS.INSURANCE_TAX ? [
+      { label: "BHXH/BHYT/BHTN (10.5%)", formula: `${insurance.base.toLocaleString("vi-VN")} × 10.5%`, value: -insurance.total },
+      { label: "Thuế TNCN", formula: `${tax.bracketBreakdown.length} bậc, ${tax.dependentCount} người phụ thuộc`, value: -tax.amount },
+      { label: "Thực lĩnh (net)", formula: "gross - BHXH - thuế", value: netSalary },
+    ] : []),
+  ];
 
   return {
     userId: user._id.toString(),
@@ -592,19 +666,20 @@ export async function previewPayrollRecord(userId, month) {
     salary: {
       baseSalary,
       actualBaseSalary,
-      salarySource, // ✅ Thêm source vào preview
+      salarySource,
       overtimePay,
       bonus,
       deductions,
-      totalSalary,
+      grossSalary,
+      insurance,
+      tax,
+      netSalary,
+      totalSalary: netSalary,
     },
-    overtimeDetails: attendanceData.overtimeDetails || { weekday: 0, weekend: 0, holiday: 0 },
+    overtimeDetails: otDetails,
+    breakdown,
     calculation: {
-      hourlyRate: Math.round(
-        baseSalary /
-        (PAYROLL_RULES.STANDARD_WORK_DAYS *
-          PAYROLL_RULES.STANDARD_WORK_HOURS_PER_DAY)
-      ),
+      hourlyRate,
       workDaysRatio: attendanceData.workDays / PAYROLL_RULES.STANDARD_WORK_DAYS,
     },
   };

@@ -32,7 +32,6 @@ import { configRouter } from "./modules/config/config.router.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
 import {
   globalRateLimiter,
-  authRateLimiter,
   attendanceRateLimiter,
 } from "./middleware/security.middleware.js";
 
@@ -167,7 +166,6 @@ app.use(
 );
 
 // REGISTER ROUTES
-app.use("/api/auth", authRateLimiter);
 app.use("/api/attendance", attendanceRateLimiter);
 app.use("/api/auth", authRouter);
 app.use("/api/leave", leaveRouter);

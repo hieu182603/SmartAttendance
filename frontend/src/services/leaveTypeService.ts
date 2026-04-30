@@ -53,3 +53,16 @@ export const updateLeaveType = async (
 export const deleteLeaveType = async (id: string): Promise<void> => {
   await api.delete(`/leave/types/${id}`);
 };
+
+export interface AdjustLeaveBalancePayload {
+  leaveType: "annual" | "sick" | "unpaid" | "compensatory" | "maternity";
+  total: number;
+}
+
+export const adjustLeaveBalance = async (
+  userId: string,
+  payload: AdjustLeaveBalancePayload
+): Promise<{ leaveType: string; total: number; used: number; remaining: number }> => {
+  const { data } = await api.patch(`/leave/balance/${userId}`, payload);
+  return data.data;
+};

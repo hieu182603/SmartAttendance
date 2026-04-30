@@ -8,7 +8,10 @@ import {
   AIServiceTimeoutError,
   AIServiceError,
 } from "./face.service.js";
-import { FACE_RECOGNITION_CONFIG } from "../../config/app.config.js";
+import {
+  FACE_RECOGNITION_CONFIG,
+  FACE_FALLBACK_CONFIG,
+} from "../../config/app.config.js";
 import { aiServiceClient } from "../../utils/aiServiceClient.js";
 import FormData from "form-data";
 import { redisGet, redisSet, redisDel } from "../../config/redis.js";
@@ -18,8 +21,8 @@ import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail } from "../../utils/email.util.js";
 import crypto from "node:crypto";
 
-const FACE_FAIL_THRESHOLD = 5;
-const FACE_FAIL_TTL = 3600; // 1 hour
+const FACE_FAIL_THRESHOLD = FACE_FALLBACK_CONFIG.FAIL_THRESHOLD;
+const FACE_FAIL_TTL = FACE_FALLBACK_CONFIG.FAIL_TTL_SECONDS;
 const faceFailKey = (userId) => `face_fail:${userId}`;
 
 export class FaceController {

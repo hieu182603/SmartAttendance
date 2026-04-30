@@ -10,6 +10,8 @@ import {
   Clock,
   Eye,
   CheckCircle2,
+  FileSearch,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -51,9 +53,14 @@ import {
   markAsPaid,
   type PayrollRecord,
 } from "../../../services/payrollService";
+import { PayrollPreviewDialog } from "./PayrollPreviewDialog";
+import { GeneratePayrollDialog } from "./GeneratePayrollDialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Permission, UserRole } from "@/utils/roles";
 
 export default function PayrollPage() {
   const { t } = useTranslation("dashboard");
+  const { hasPermission, hasMinimumRole } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -79,8 +86,17 @@ export default function PayrollPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
+  const canManagePayroll = hasPermission(Permission.PAYROLL_MANAGE);
+  const canMarkPayrollAsPaid = hasMinimumRole(UserRole.ADMIN);
+
+  const handleOpenPreview = (record: PayrollRecord) => {
+    setSelectedRecord(record);
+    setIsPreviewDialogOpen(true);
+  };
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -481,15 +497,28 @@ export default function PayrollPage() {
             <p className="text-[var(--text-sub)]">{t("payroll.description")}</p>
           </div>
 
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button
-              onClick={exportToExcel}
-              className="bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)] hover:opacity-90 shadow-lg"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {t("payroll.export")}
-            </Button>
-          </motion.div>
+          <div className="flex items-center gap-3 ml-auto">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                onClick={() => setIsGenerateDialogOpen(true)}
+                disabled={!canManagePayroll}
+                className="bg-[var(--primary)] hover:bg-[var(--primary)]/90 shadow-lg"
+                title={!canManagePayroll ? "Bạn không có quyền tạo bảng lương" : undefined}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Tạo bảng lương
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                onClick={exportToExcel}
+                className="bg-gradient-to-r from-[var(--success)] to-[var(--accent-cyan)] hover:opacity-90 shadow-lg"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {t("payroll.export")}
+              </Button>
+            </motion.div>
+          </div>
         </div>
       </motion.div>
 
@@ -713,7 +742,7 @@ export default function PayrollPage() {
                       {t("payroll.table.deductions")}
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)] text-right">
-                      {t("payroll.table.totalSalary")}
+                      Thực lĩnh
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)] text-center">
                       {t("payroll.table.status")}
@@ -766,7 +795,10 @@ export default function PayrollPage() {
                           -{formatCurrency(record.deductions)}
                         </TableCell>
                         <TableCell className="text-right text-[var(--text-main)]">
-                          {formatCurrency(record.totalSalary)}
+                          <div>{formatCurrency(record.netSalary ?? record.totalSalary)}</div>
+                          {record.grossSalary && record.grossSalary !== record.totalSalary && (
+                            <div className="text-xs text-[var(--text-sub)]">Gross: {formatCurrency(record.grossSalary)}</div>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge className={getStatusColor(record.status)}>
@@ -779,13 +811,23 @@ export default function PayrollPage() {
                               type="button"
                               variant="outline"
                               size="sm"
+                              onClick={() => handleOpenPreview(record)}
+                              className="h-8 w-8 p-0 border-[var(--border)] text-[var(--text-sub)] hover:bg-[var(--surface)] hover:text-[var(--text-main)]"
+                              title="Xem trước chi tiết tính lương"
+                            >
+                              <FileSearch className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleViewDetails(record)}
                               className="h-8 w-8 p-0 border-[var(--border)] text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10"
                               title="Xem chi tiết"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {record.status === "pending" && (
+                            {record.status === "pending" && canManagePayroll && (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -797,7 +839,7 @@ export default function PayrollPage() {
                                 <CheckCircle2 className="h-4 w-4" />
                               </Button>
                             )}
-                            {record.status === "approved" && (
+                            {record.status === "approved" && canMarkPayrollAsPaid && (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -867,7 +909,7 @@ export default function PayrollPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          {record.status === "pending" && (
+                          {record.status === "pending" && canManagePayroll && (
                             <Button
                               type="button"
                               variant="outline"
@@ -879,7 +921,7 @@ export default function PayrollPage() {
                               <CheckCircle2 className="h-4 w-4" />
                             </Button>
                           )}
-                          {record.status === "approved" && (
+                          {record.status === "approved" && canMarkPayrollAsPaid && (
                             <Button
                               type="button"
                               variant="outline"
@@ -919,8 +961,24 @@ export default function PayrollPage() {
                           <span className="text-[var(--error)] font-medium">-{formatCurrency(record.deductions)}</span>
                         </div>
                         <div className="flex items-center justify-between text-xs pt-2 border-t border-[var(--border)]">
-                          <span className="text-[var(--text-sub)] font-semibold">{t("payroll.table.totalSalary")}</span>
-                          <span className="text-[var(--text-main)] font-bold text-base">{formatCurrency(record.totalSalary)}</span>
+                          <span className="text-[var(--text-sub)] font-semibold">Gross</span>
+                          <span className="text-[var(--text-main)] font-medium">{formatCurrency(record.grossSalary ?? record.totalSalary)}</span>
+                        </div>
+                        {record.insurance && record.insurance.total > 0 && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[var(--text-sub)]">BHXH/BHYT/BHTN</span>
+                            <span className="text-[var(--error)] font-medium">-{formatCurrency(record.insurance.total)}</span>
+                          </div>
+                        )}
+                        {record.tax && record.tax.amount > 0 && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[var(--text-sub)]">Thuế TNCN</span>
+                            <span className="text-[var(--error)] font-medium">-{formatCurrency(record.tax.amount)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-[var(--border)]">
+                          <span className="text-[var(--text-sub)] font-semibold">Thực lĩnh</span>
+                          <span className="text-[var(--accent-cyan)] font-bold text-base">{formatCurrency(record.netSalary ?? record.totalSalary)}</span>
                         </div>
                         <div className="flex items-center justify-between text-xs pt-1">
                           <span className="text-[var(--text-sub)]">{t("payroll.table.status")}</span>
@@ -1264,6 +1322,25 @@ export default function PayrollPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Preview Payroll Dialog */}
+      {selectedRecord && (
+        <PayrollPreviewDialog
+          open={isPreviewDialogOpen}
+          onOpenChange={setIsPreviewDialogOpen}
+          userId={selectedRecord.userId._id}
+          userName={selectedRecord.userId?.name || "N/A"}
+          month={selectedRecord.month}
+        />
+      )}
+
+      {/* Generate Payroll Dialog */}
+      <GeneratePayrollDialog
+        open={isGenerateDialogOpen}
+        onOpenChange={setIsGenerateDialogOpen}
+        defaultMonth={selectedMonth}
+        onSuccess={fetchPayrollData}
+      />
     </div>
   );
 }

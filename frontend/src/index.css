@@ -147,14 +147,12 @@ body {
 input[type="date"] {
   position: relative;
   padding-right: 2.5rem;
-  color-scheme: dark;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
   position: absolute;
   right: 0.75rem;
   cursor: pointer;
-  filter: brightness(0) invert(1);
   opacity: 0.9;
 }
 
@@ -167,7 +165,6 @@ input[type="date"]::-moz-calendar-picker-indicator {
   position: absolute;
   right: 0.75rem;
   cursor: pointer;
-  filter: brightness(0) invert(1);
   opacity: 0.9;
 }
 
@@ -175,14 +172,12 @@ input[type="date"]::-moz-calendar-picker-indicator {
 input[type="month"] {
   position: relative;
   padding-right: 2.5rem;
-  color-scheme: dark;
 }
 
 input[type="month"]::-webkit-calendar-picker-indicator {
   position: absolute;
   right: 0.75rem;
   cursor: pointer;
-  filter: brightness(0) invert(1);
   opacity: 0.9;
 }
 
@@ -195,8 +190,31 @@ input[type="month"]::-moz-calendar-picker-indicator {
   position: absolute;
   right: 0.75rem;
   cursor: pointer;
-  filter: brightness(0) invert(1);
   opacity: 0.9;
+}
+
+.dark input[type="date"],
+.dark input[type="month"] {
+  color-scheme: dark;
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="month"]::-webkit-calendar-picker-indicator,
+.dark input[type="date"]::-moz-calendar-picker-indicator,
+.dark input[type="month"]::-moz-calendar-picker-indicator {
+  filter: brightness(0) invert(1);
+}
+
+.light input[type="date"],
+.light input[type="month"] {
+  color-scheme: light;
+}
+
+.light input[type="date"]::-webkit-calendar-picker-indicator,
+.light input[type="month"]::-webkit-calendar-picker-indicator,
+.light input[type="date"]::-moz-calendar-picker-indicator,
+.light input[type="month"]::-moz-calendar-picker-indicator {
+  filter: none;
 }
 
 /* Time Input Styling */

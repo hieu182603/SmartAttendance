@@ -34,12 +34,14 @@ import {
   ROLE_NAMES,
 } from "@/utils/roles";
 import { useAuth } from "@/context/AuthContext";
-import { getAttendanceStatusBadgeClass, type AttendanceStatus } from "@/utils/attendanceStatus";
+import { getAttendanceStatusBadgeClass } from "@/utils/attendanceStatus";
+type AttendanceStatus = "ontime" | "late" | "absent" | "overtime" | "weekend";
 import {
   getAllAttendance,
   updateAttendanceRecord as updateAttendanceRecordApi,
 } from "@/services/attendanceService";
 import { getAllLocations } from "@/services/locationService";
+import ManualAttendanceDialog from "./ManualAttendanceDialog";
 import {
   Select,
   SelectContent,
@@ -48,7 +50,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type AttendanceStatus = "ontime" | "late" | "absent" | "overtime" | "weekend";
 
 interface AttendanceRecordItem {
   id: string;
@@ -77,9 +78,9 @@ interface AttendanceSummary {
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 25];
-// STATUS_FILTER_OPTIONS will be created inside component to use translation
 
-type StatusFilterValue = (typeof STATUS_FILTER_OPTIONS)[number]["value"];
+const STATUS_FILTER_VALUES = ["all", "ontime", "late", "absent", "overtime", "weekend"] as const;
+type StatusFilterValue = (typeof STATUS_FILTER_VALUES)[number];
 
 const adminRoleOrder = [
   UserRole.MANAGER,
@@ -231,6 +232,7 @@ export default function AdminAttendancePage() {
   const [locations, setLocations] = useState<Array<{ _id: string; name: string }>>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
   const checkInInputRef = useRef<HTMLInputElement>(null);
   const checkOutInputRef = useRef<HTMLInputElement>(null);
 
@@ -599,6 +601,15 @@ export default function AdminAttendancePage() {
               <Download className="h-4 w-4 mr-2" />
               {t('dashboard:adminAttendance.export')}
             </Button>
+            {roleConfig.canEdit && (
+              <Button
+                onClick={() => setIsManualDialogOpen(true)}
+                className="whitespace-nowrap"
+              >
+                <Clock className="h-4 w-4 mr-2" />
+                Thêm thủ công
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1157,6 +1168,13 @@ export default function AdminAttendancePage() {
         </DialogContent>
       </Dialog>
 
+      <ManualAttendanceDialog
+        open={isManualDialogOpen}
+        onOpenChange={setIsManualDialogOpen}
+        onSuccess={() => {
+          setPage(1);
+        }}
+      />
     </div>
   );
 }

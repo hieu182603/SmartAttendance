@@ -51,6 +51,12 @@ const userSchema = new mongoose.Schema(
       default: null,
       min: 0,
     },
+    // Số người phụ thuộc khai thuế TNCN
+    dependentCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     isActive: { type: Boolean, default: true },
 
     // Số ngày phép

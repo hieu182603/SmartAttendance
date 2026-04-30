@@ -6,7 +6,12 @@ import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 import {
   Calendar,
+  CalendarDays,
   TrendingUp,
+  Activity,
+  Wallet,
+  RotateCcw,
+  Heart,
   Clock,
   CheckCircle2,
   XCircle,
@@ -14,7 +19,6 @@ import {
   Plus,
   History,
   Info,
-  Award,
   Loader2,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -31,6 +35,7 @@ type LeaveStatus = 'approved' | 'pending' | 'rejected'
 interface LeaveTypeConfig {
   icon: ReactNode
   color: string
+  iconColor: string
   description: string
 }
 
@@ -70,34 +75,40 @@ const getLeaveTypeConfig = (typeId: string, t: TranslationFn): LeaveTypeConfig =
 
   const configs: Record<string, LeaveTypeConfig> = {
     annual: {
-      icon: <Calendar className="h-5 w-5" />,
+      icon: <CalendarDays className="h-5 w-5" />,
       color: 'bg-blue-500',
+      iconColor: 'text-white',
       description: descriptions.annual,
     },
     sick: {
-      icon: <AlertCircle className="h-5 w-5" />,
+      icon: <Activity className="h-5 w-5" />,
       color: 'bg-red-500',
+      iconColor: 'text-white',
       description: descriptions.sick,
     },
     unpaid: {
-      icon: <XCircle className="h-5 w-5" />,
+      icon: <Wallet className="h-5 w-5" />,
       color: 'bg-gray-500',
+      iconColor: 'text-white',
       description: descriptions.unpaid,
     },
     compensatory: {
-      icon: <TrendingUp className="h-5 w-5" />,
+      icon: <RotateCcw className="h-5 w-5" />,
       color: 'bg-purple-500',
+      iconColor: 'text-white',
       description: descriptions.compensatory,
     },
     maternity: {
-      icon: <Award className="h-5 w-5" />,
+      icon: <Heart className="h-5 w-5" />,
       color: 'bg-pink-500',
+      iconColor: 'text-white',
       description: descriptions.maternity,
     },
   }
   return configs[typeId] || {
     icon: <Calendar className="h-5 w-5" />,
     color: 'bg-gray-500',
+    iconColor: 'text-white',
     description: '',
   }
 }
@@ -361,7 +372,7 @@ const LeaveBalancePage: React.FC = () => {
                                   className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg ${config.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                                 >
                                   <span
-                                    className={`${config.color.replace('bg-', 'text-')} flex items-center justify-center`}
+                                    className={`${config.iconColor} flex items-center justify-center`}
                                   >
                                     {config.icon}
                                   </span>

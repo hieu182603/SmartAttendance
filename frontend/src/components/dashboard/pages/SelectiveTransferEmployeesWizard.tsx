@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getDepartmentsList, getDepartmentEmployees, type DepartmentEmployees } from '@/services/departmentService';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface SelectiveTransferEmployeesWizardProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export function SelectiveTransferEmployeesWizard({
   sourceBranchId,
   onTransfer,
 }: SelectiveTransferEmployeesWizardProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<WizardStep>('select');
   const [targetDepartmentId, setTargetDepartmentId] = useState('');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
@@ -69,7 +71,7 @@ export function SelectiveTransferEmployeesWizard({
       const filtered = response.departments.filter((d) => d._id !== sourceDepartmentId);
       setDepartments(filtered);
     } catch (error: any) {
-      toast.error('Không thể tải danh sách phòng ban');
+      toast.error(t('dashboard:transferEmployees.toasts.loadDepartmentsError'));
     }
   };
 
@@ -79,7 +81,7 @@ export function SelectiveTransferEmployeesWizard({
       const data = await getDepartmentEmployees(sourceDepartmentId);
       setEmployees(data);
     } catch (error: any) {
-      toast.error('Không thể tải thông tin nhân viên');
+      toast.error(t('dashboard:transferEmployees.toasts.loadEmployeesError'));
     } finally {
       setLoading(false);
     }
@@ -133,10 +135,12 @@ export function SelectiveTransferEmployeesWizard({
     try {
       setTransferring(true);
       await onTransfer(targetDepartmentId, selectedEmployeeIds);
-      toast.success(`Đã chuyển ${selectedEmployeeIds.length} nhân viên thành công`);
+      toast.success(
+        t('dashboard:transferEmployees.toasts.success', { count: selectedEmployeeIds.length })
+      );
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Không thể chuyển nhân viên');
+      toast.error(error.message || t('dashboard:transferEmployees.toasts.error'));
     } finally {
       setTransferring(false);
     }
@@ -151,7 +155,7 @@ export function SelectiveTransferEmployeesWizard({
         <DialogHeader>
           <DialogTitle className="text-[var(--text-main)] flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-[var(--primary)]" />
-            Chuyển nhân viên
+            {t('dashboard:transferEmployees.title')}
           </DialogTitle>
           <DialogDescription className="text-[var(--text-sub)]">
             Chọn nhân viên cụ thể từ <strong>{sourceDepartmentName}</strong> để chuyển sang phòng ban khác
@@ -214,7 +218,7 @@ export function SelectiveTransferEmployeesWizard({
                   </Label>
                   <Select value={targetDepartmentId} onValueChange={setTargetDepartmentId}>
                     <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-                      <SelectValue placeholder="Chọn phòng ban để chuyển nhân viên..." />
+              <SelectValue placeholder={t('dashboard:transferEmployees.selectTargetPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {departments.length === 0 ? (
@@ -439,7 +443,9 @@ export function SelectiveTransferEmployeesWizard({
             disabled={transferring}
             className="border-[var(--border)] text-[var(--text-main)]"
           >
-            {step === 'select' ? 'Hủy' : 'Quay lại'}
+            {step === 'select'
+              ? t('dashboard:transferEmployees.actions.cancel')
+              : t('dashboard:transferEmployees.actions.back')}
           </Button>
           <div className="flex gap-2">
             {step !== 'confirm' && (

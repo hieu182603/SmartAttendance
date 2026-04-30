@@ -222,23 +222,54 @@ export const PAYROLL_RULES = {
         },
     },
 
-    // Bảo hiểm & Thuế (tạm tắt, sẽ enable khi cần)
+    // Bảo hiểm & Thuế — legacy flag, dùng FEATURE_FLAGS.INSURANCE_TAX thay thế
     INSURANCE_TAX: {
         ENABLED: false,
-        // Bảo hiểm xã hội (BHXH)
-        SOCIAL_INSURANCE: {
-            PERCENTAGE: 0.08, // 8% lương cơ bản
-            MAX_BASE: 23840000, // Mức lương tối đa tính BHXH
-        },
-        // Bảo hiểm y tế (BHYT)
-        HEALTH_INSURANCE: {
-            PERCENTAGE: 0.015, // 1.5%
-        },
-        // Bảo hiểm thất nghiệp (BHTN)
-        UNEMPLOYMENT_INSURANCE: {
-            PERCENTAGE: 0.01, // 1%
-        },
     },
+};
+
+// ============================================================================
+// INSURANCE CONFIG (BHXH/BHYT/BHTN — Nghị định 38/2022, hiệu lực 01/07/2024)
+// ============================================================================
+export const INSURANCE_CONFIG = {
+    EMPLOYEE_RATES: {
+        SOCIAL: 0.08,          // BHXH 8%
+        HEALTH: 0.015,         // BHYT 1.5%
+        UNEMPLOYMENT: 0.01,    // BHTN 1%
+    },
+    // Cap đóng BHXH/BHYT = 20 × lương cơ sở (2.34tr) = 46.8tr
+    CAP_SOCIAL_HEALTH: 46_800_000,
+    // Cap đóng BHTN = 20 × lương tối thiểu vùng I (4.96tr) = 99.2tr
+    CAP_UNEMPLOYMENT: 99_200_000,
+};
+
+// ============================================================================
+// PERSONAL INCOME TAX CONFIG (Thông tư 111/2013 + Nghị quyết 954/2020)
+// ============================================================================
+export const TAX_CONFIG = {
+    PERSONAL_DEDUCTION: 11_000_000,     // Giảm trừ bản thân
+    DEPENDENT_DEDUCTION: 4_400_000,     // Giảm trừ phụ thuộc/người
+    // Biểu thuế lũy tiến từng phần (Phụ lục 01)
+    BRACKETS: [
+        { upTo: 5_000_000,   rate: 0.05 },   // Bậc 1
+        { upTo: 10_000_000,  rate: 0.1 },    // Bậc 2
+        { upTo: 18_000_000,  rate: 0.15 },   // Bậc 3
+        { upTo: 32_000_000,  rate: 0.2 },    // Bậc 4
+        { upTo: 52_000_000,  rate: 0.25 },   // Bậc 5
+        { upTo: 80_000_000,  rate: 0.3 },    // Bậc 6
+        { upTo: Infinity,    rate: 0.35 },   // Bậc 7
+    ],
+};
+
+// ============================================================================
+// FEATURE FLAGS (controllable via environment variables)
+// ============================================================================
+export const FEATURE_FLAGS = {
+    WORK_CREDIT_INTEGRATION: process.env.PAYROLL_FF_WORKCREDIT !== "false",
+    PAID_UNPAID_LEAVE: process.env.PAYROLL_FF_LEAVE_SPLIT !== "false",
+    HOLIDAY_OT: process.env.PAYROLL_FF_HOLIDAY_OT !== "false",
+    // Default OFF — bật khi ready cho production
+    INSURANCE_TAX: process.env.PAYROLL_FF_INSURANCE_TAX === "true",
 };
 
 // ============================================================================

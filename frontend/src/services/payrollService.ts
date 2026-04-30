@@ -38,6 +38,30 @@ interface PayrollParams {
   department?: string;
 }
 
+export interface InsuranceBreakdown {
+  social: number;
+  health: number;
+  unemployment: number;
+  total: number;
+  base: number;
+}
+
+export interface TaxBracket {
+  bracket: string;
+  amount: number;
+  tax: number;
+}
+
+export interface TaxBreakdown {
+  taxableIncome: number;
+  personalDeduction: number;
+  dependentCount: number;
+  dependentDeduction: number;
+  taxableAfterDeduction: number;
+  amount: number;
+  bracketBreakdown: TaxBracket[];
+}
+
 export interface PayrollRecord {
   _id: string;
   userId: {
@@ -53,10 +77,17 @@ export interface PayrollRecord {
   overtimeHours: number;
   leaveDays: number;
   lateDays: number;
+  paidLeaveDays?: number;
+  unpaidLeaveDays?: number;
+  unauthorizedAbsenceDays?: number;
   baseSalary: number;
   overtimePay: number;
   bonus: number;
   deductions: number;
+  grossSalary?: number;
+  insurance?: InsuranceBreakdown;
+  tax?: TaxBreakdown;
+  netSalary?: number;
   totalSalary: number;
   status: "pending" | "approved" | "paid";
   department: string;
@@ -110,6 +141,11 @@ export const markAsPaid = async (id: string): Promise<PayrollRecord> => {
 
 export const getDepartments = async (): Promise<string[]> => {
   const { data } = await api.get("/payroll/meta/departments");
+  return data.departments || [];
+};
+
+export const getDepartmentsWithId = async (): Promise<{ _id: string; name: string; code: string }[]> => {
+  const { data } = await api.get("/payroll/meta/departments-with-id");
   return data.departments || [];
 };
 
@@ -246,9 +282,18 @@ export const updateUserBaseSalary = async (
 export interface GeneratePayrollPayload {
   month: string;
   userId?: string;
+  departmentId?: string;
 }
 
-export const generatePayroll = async (payload: GeneratePayrollPayload) => {
+export interface GeneratePayrollResult {
+  success: boolean;
+  processed: number;
+  successCount: number;
+  errorCount: number;
+  errors: { userId: string; name: string; error: string }[];
+}
+
+export const generatePayroll = async (payload: GeneratePayrollPayload): Promise<GeneratePayrollResult> => {
   const { data } = await api.post("/payroll/generate", payload);
   return data;
 };
@@ -280,4 +325,46 @@ export const downloadMyPayslipPdf = (month?: string) =>
 
 export const downloadMyPayslipExcel = (month?: string) =>
   downloadPayslip("/payroll/my-payslip/excel", `payslip-${month || "current"}.xlsx`, month);
+
+// ============================================================================
+// Preview Payroll
+// ============================================================================
+
+export interface PayrollBreakdownItem {
+  label: string;
+  formula: string;
+  value: number;
+}
+
+export interface PayrollPreview {
+  userId: string;
+  userName: string;
+  employeeId: string;
+  department: string;
+  position: string;
+  month: string;
+  attendance: {
+    workDays: number;
+    totalDays: number;
+    overtimeHours: number;
+    lateDays: number;
+    leaveDays: number;
+  };
+  salary: {
+    baseSalary: number;
+    actualBaseSalary: number;
+    salarySource: string;
+    overtimePay: number;
+    bonus: number;
+    deductions: number;
+    totalSalary: number;
+  };
+  overtimeDetails: { weekday: number; weekend: number; holiday: number };
+  breakdown: PayrollBreakdownItem[];
+}
+
+export const previewPayroll = async (userId: string, month: string): Promise<PayrollPreview> => {
+  const { data } = await api.get("/payroll/preview", { params: { userId, month } });
+  return data.data;
+};
 

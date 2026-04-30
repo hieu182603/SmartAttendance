@@ -246,7 +246,17 @@ export default function AdminReportsPage() {
         <div className="flex flex-wrap gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-40 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
-              <SelectValue />
+              <SelectValue
+                placeholder={
+                  timeRange === "week"
+                    ? t("dashboard:adminReports.timeRange.week") || "Tuần này"
+                    : timeRange === "month"
+                    ? t("dashboard:adminReports.timeRange.month") || "Tháng này"
+                    : timeRange === "quarter"
+                    ? t("dashboard:adminReports.timeRange.quarter") || "Quý này"
+                    : t("dashboard:adminReports.timeRange.year") || "Năm này"
+                }
+              />
             </SelectTrigger>
             <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
               <SelectItem value="week">

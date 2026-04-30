@@ -104,3 +104,10 @@ export const FACE_RECOGNITION_CONFIG = {
   THRESHOLD_BALANCED: 0.6, // Default
   THRESHOLD_LENIENT: 0.5,  // User-friendly
 };
+
+export const FACE_FALLBACK_CONFIG = {
+  // Number of consecutive face verification failures before falling back to OTP
+  FAIL_THRESHOLD: parseInt(process.env.FACE_FAIL_THRESHOLD || "5", 10),
+  // Failure counter TTL in Redis (seconds)
+  FAIL_TTL_SECONDS: parseInt(process.env.FACE_FAIL_TTL_SECONDS || "3600", 10),
+};

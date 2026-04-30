@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Home, Camera, History, FileText, Clock, CalendarDays, Calendar,
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
-  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot
+  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot, Wallet, Settings
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { Permission, type PermissionType, UserRole, ROLE_PERMISSIONS, type UserRoleType } from '@/utils/roles';
@@ -39,20 +39,6 @@ export const MENU_ITEMS: MenuItem[] = [
     section: 'employee',
   },
   {
-    id: 'requests',
-    label: 'Yêu cầu',
-    icon: FileText,
-    path: '/employee/requests',
-    section: 'employee',
-  },
-  {
-    id: 'leave-balance',
-    label: 'Số ngày phép',
-    icon: CalendarDays,
-    path: '/employee/leave-balance',
-    section: 'employee',
-  },
-  {
     id: 'schedule',
     label: 'Lịch làm việc',
     icon: Clock,
@@ -67,10 +53,31 @@ export const MENU_ITEMS: MenuItem[] = [
     section: 'employee',
   },
   {
+    id: 'requests',
+    label: 'Yêu cầu',
+    icon: FileText,
+    path: '/employee/requests',
+    section: 'employee',
+  },
+  {
+    id: 'leave-balance',
+    label: 'Số ngày phép',
+    icon: CalendarDays,
+    path: '/employee/leave-balance',
+    section: 'employee',
+  },
+  {
     id: 'profile',
     label: 'Hồ sơ',
     icon: User,
     path: '/employee/profile',
+    section: 'employee',
+  },
+  {
+    id: 'my-payslip',
+    label: 'Phiếu lương của tôi',
+    icon: Wallet,
+    path: '/employee/my-payslip',
     section: 'employee',
   },
   {
@@ -192,6 +199,22 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Nhật ký hệ thống',
     icon: Shield,
     path: '/admin/audit-logs',
+    permission: Permission.AUDIT_LOGS_VIEW,
+    section: 'system',
+  },
+  {
+    id: 'leave-types',
+    label: 'Quản lý loại phép',
+    icon: CalendarDays,
+    path: '/admin/leave-types',
+    permission: Permission.USERS_VIEW,
+    section: 'admin',
+  },
+  {
+    id: 'system-config',
+    label: 'Cấu hình hệ thống',
+    icon: Settings,
+    path: '/admin/system-config',
     permission: Permission.AUDIT_LOGS_VIEW,
     section: 'system',
   },

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import * as LeaveService from "./leave.service.js";
 
 /**
@@ -65,6 +66,31 @@ export const getHistory = async (req, res) => {
     res.status(500).json({
       message: error.message || "Không thể lấy lịch sử nghỉ phép",
     });
+  }
+};
+
+/**
+ * PATCH /leave/balance/:userId
+ * HR/Admin điều chỉnh quota ngày phép cho một user
+ * Body: { leaveType: string, total: number }
+ */
+export const adjustBalance = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "userId không hợp lệ" });
+    }
+
+    const { leaveType, total } = req.body;
+    if (!leaveType || total === undefined) {
+      return res.status(400).json({ message: "Thiếu leaveType hoặc total" });
+    }
+
+    const result = await LeaveService.adjustLeaveBalance(userId, leaveType, Number(total));
+    res.json({ message: "Cập nhật quota ngày phép thành công", data: result });
+  } catch (error) {
+    const status = error.message === "User not found" ? 404 : 400;
+    res.status(status).json({ message: error.message || "Không thể cập nhật ngày phép" });
   }
 };
 

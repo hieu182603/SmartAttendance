@@ -14,7 +14,7 @@ MODELS_DIR = BASE_DIR / "models"
 MODEL_ROOT = os.getenv("INSIGHTFACE_HOME", str(MODELS_DIR))
 
 # Model config
-MODEL_NAME = os.getenv("MODEL_NAME", "buffalo_l")
+MODEL_NAME = os.getenv("MODEL_NAME", "buffalo_sc")
 MODEL_PATH = os.getenv("MODEL_PATH", str(MODELS_DIR / MODEL_NAME))
 DETECTION_THRESHOLD = float(os.getenv("DETECTION_THRESHOLD", "0.5"))
 VERIFICATION_THRESHOLD = float(os.getenv("VERIFICATION_THRESHOLD", "0.6"))

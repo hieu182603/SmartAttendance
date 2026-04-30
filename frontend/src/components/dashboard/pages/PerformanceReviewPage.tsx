@@ -165,7 +165,7 @@ export default function PerformanceReviewPage() {
       fetchReviews();
     }, 500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-dep
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const getScoreColor = useCallback((score: number) => {

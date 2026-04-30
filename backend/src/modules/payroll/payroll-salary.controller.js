@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { z } from "zod";
 import { SalaryMatrixModel } from "./salary-matrix.model.js";
 import { SalaryHistoryModel } from "./salary-history.model.js";
@@ -22,6 +23,10 @@ const updateUserBaseSalarySchema = z.object({
   baseSalary: z
     .union([z.number().min(0, "Lương phải >= 0"), z.null()])
     .optional(),
+});
+
+const updateUserDependentsSchema = z.object({
+  dependentCount: z.number().int().min(0, "Số người phụ thuộc phải >= 0"),
 });
 
 export const getSalaryMatrix = async (req, res) => {
@@ -283,24 +288,26 @@ export const deleteSalaryMatrix = async (req, res) => {
 };
 
 export const updateUserBaseSalary = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.userId || req.user?._id;
+  if (!userId) {
+    return res.status(401).json({ message: "User not authenticated" });
+  }
+
+  const parse = updateUserBaseSalarySchema.safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({
+      message: "Dữ liệu không hợp lệ",
+      errors: parse.error.flatten(),
+    });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    const { id } = req.params;
-    const userId = req.user?.userId || req.user?._id;
-    if (!userId) {
-      return res.status(401).json({ message: "User not authenticated" });
-    }
-
-    const parse = updateUserBaseSalarySchema.safeParse(req.body);
-    if (!parse.success) {
-      const errors = parse.error.flatten();
-      return res.status(400).json({
-        message: "Dữ liệu không hợp lệ",
-        errors,
-      });
-    }
-
-    const user = await UserModel.findById(id);
+    const user = await UserModel.findById(id).session(session);
     if (!user) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
 
@@ -308,32 +315,41 @@ export const updateUserBaseSalary = async (req, res) => {
     const newSalary = parse.data.baseSalary;
 
     user.baseSalary = newSalary;
-    await user.save();
+    await user.save({ session });
 
-    // ✅ FIX: Lưu vào SalaryHistory để audit
     if (oldSalary !== newSalary) {
-      // Chỉ lưu nếu có thay đổi
-      await SalaryHistoryModel.create({
-        userId: id,
-        oldSalary,
-        newSalary,
-        changedBy: userId,
-        reason: req.body.reason || null, // Optional: có thể thêm reason trong request body
-        effectiveDate: req.body.effectiveDate || new Date(), // Optional: ngày có hiệu lực
-        metadata: {
-          updatedVia: "API", // Thông tin bổ sung
-        },
-      });
+      await SalaryHistoryModel.create(
+        [
+          {
+            userId: id,
+            oldSalary: oldSalary ?? null,
+            // Schema yêu cầu newSalary required+min:0 — null nghĩa là reset về matrix
+            newSalary: newSalary ?? 0,
+            changedBy: userId,
+            reason: req.body.reason || null,
+            effectiveDate: req.body.effectiveDate || new Date(),
+            metadata: {
+              updatedVia: "API",
+              originalNewSalary: newSalary,
+              resetToMatrix: newSalary === null,
+            },
+          },
+        ],
+        { session }
+      );
     }
 
-    await logActivity({
+    await session.commitTransaction();
+
+    // logActivity là best-effort: không nằm trong transaction
+    logActivity({
       userId,
       action: "UPDATE",
       entityType: "USER_BASE_SALARY",
       entityId: id,
       description: `Cập nhật lương cơ bản cho ${user.name}: ${oldSalary?.toLocaleString() || "null"} → ${newSalary?.toLocaleString() || "null"} VNĐ`,
       metadata: { oldSalary, newSalary },
-    });
+    }).catch((err) => console.error("[payroll] logActivity error", err));
 
     res.json({
       data: {
@@ -344,8 +360,11 @@ export const updateUserBaseSalary = async (req, res) => {
       message: "Đã cập nhật lương cơ bản thành công",
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error("[payroll] update user base salary error", error);
     res.status(500).json({ message: "Không cập nhật được lương cơ bản" });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -456,6 +475,36 @@ export const getUserSalaryHistory = async (req, res) => {
       message: "Không lấy được lịch sử thay đổi lương",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
+  }
+};
+
+export const updateUserDependents = async (req, res) => {
+  const { id } = req.params;
+  const requestingUserId = req.user._id?.toString() || req.user.id?.toString();
+  const requestingRole = req.user.role;
+
+  // Allow: ADMIN/SUPER_ADMIN can update anyone; user can update themselves
+  const isAdminRole = ["ADMIN", "SUPER_ADMIN"].includes(requestingRole);
+  if (!isAdminRole && requestingUserId !== id) {
+    return res.status(403).json({ message: "Không có quyền cập nhật thông tin này" });
+  }
+
+  const parse = updateUserDependentsSchema.safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({ message: parse.error.errors[0]?.message });
+  }
+
+  try {
+    const user = await UserModel.findByIdAndUpdate(
+      id,
+      { dependentCount: parse.data.dependentCount },
+      { new: true, select: "_id name dependentCount" }
+    );
+    if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    res.json({ data: user });
+  } catch (error) {
+    console.error("[payroll] update user dependents error", error);
+    res.status(500).json({ message: "Không cập nhật được người phụ thuộc" });
   }
 };
 
