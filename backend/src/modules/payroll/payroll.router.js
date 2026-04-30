@@ -11,11 +11,13 @@ import {
   approvePayrollRecord,
   markPayrollAsPaid,
   getDepartments,
+  getDepartmentsWithId,
   getPositions,
   generatePayroll,
   getMyPayslip,
   exportMyPayslipPdf,
   exportMyPayslipExcel,
+  previewPayroll,
 } from "./payroll.controller.js";
 import {
   getSalaryMatrix,
@@ -24,6 +26,7 @@ import {
   updateSalaryMatrix,
   deleteSalaryMatrix,
   updateUserBaseSalary,
+  updateUserDependents,
   getUserSalaryInfo,
   getUserSalaryHistory,
 } from "./payroll-salary.controller.js";
@@ -55,11 +58,18 @@ payrollRouter.get("/my-payslip/excel", exportMyPayslipExcel);
 // Specific routes (MUST be defined BEFORE dynamic routes like /:id)
 // ============================================================================
 
-// Get departments
+// Get departments (names only)
 payrollRouter.get(
   "/meta/departments",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   getDepartments
+);
+
+// Get departments with ID (for generate dialog)
+payrollRouter.get(
+  "/meta/departments-with-id",
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  getDepartmentsWithId
 );
 
 // Get positions
@@ -124,6 +134,16 @@ payrollRouter.put(
   "/users/:id/base-salary",
   requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   updateUserBaseSalary
+);
+
+// Update number of dependents (user can update own, admin can update any)
+payrollRouter.put("/users/:id/dependents", updateUserDependents);
+
+// Preview payroll (no DB write) — MUST be before /:id
+payrollRouter.get(
+  "/preview",
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  previewPayroll
 );
 
 // ============================================================================

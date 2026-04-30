@@ -29,6 +29,19 @@ export const authRateLimiter = buildLimiter({
   max: 20,
 });
 
+// Login limiter: count only failed login attempts to avoid blocking
+// legitimate users after successful sign-ins.
+export const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  handler: (_req, res) => {
+    res.status(429).json(limitExceededResponse);
+  },
+});
+
 
 // Attendance limiter: protect frequent scan/check-in flood attempts.
 export const attendanceRateLimiter = buildLimiter({

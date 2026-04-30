@@ -4,6 +4,7 @@ import {
   APP_CONFIG,
   FACE_RECOGNITION_CONFIG,
 } from "../../config/app.config.js";
+import { getGeofenceRadiusAsync } from "../config/config.service.js";
 import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
 import { AttendanceModel } from "./attendance.model.js";
 import { BranchModel } from "../branches/branch.model.js";
@@ -146,7 +147,8 @@ export const validateAndFindBranch = async (latitude, longitude) => {
 
   const nearest = findNearestBranch(branches, latitude, longitude);
 
-  if (!isValidLocation(nearest)) {
+  const maxDistance = await getGeofenceRadiusAsync();
+  if (!nearest || nearest.distance > maxDistance) {
     return {
       valid: false,
       branch: null,
@@ -825,17 +827,16 @@ export const processCheckIn = async (
       return { success: false, data: null, error: locationValidation.message };
     }
 
-    // Validate GPS accuracy
-    const accuracyValidation = validateGPSAccuracy(accuracy);
-    if (!accuracyValidation.valid) {
-      return { success: false, data: null, error: accuracyValidation.message };
-    }
-
-    // Find valid branch
+    // Find valid branch (geofence check — blocking)
     const branchResult = await validateAndFindBranch(latitude, longitude);
     if (!branchResult.valid) {
       return { success: false, data: null, error: branchResult.message };
     }
+
+    // GPS accuracy: warning only — nếu đã trong geofence thì không block
+    const lowGpsAccuracy =
+      !!accuracy &&
+      Number(accuracy) > ATTENDANCE_CONFIG.GPS_ACCURACY_THRESHOLD;
 
     // ── Face verification (optimized: static imports, single DB query, fast verify) ──
     let faceVerified = false;
@@ -845,9 +846,13 @@ export const processCheckIn = async (
 
     if (shouldAutoVerify || requireFaceVerification) {
       try {
-        // Single DB query for user face data (avoid duplicate queries)
-        const user = await UserModel.findById(userId).select("faceData").lean();
-        const hasRegisteredFace = user?.faceData?.isRegistered && user?.faceData?.embeddings?.length > 0;
+        // Load faceData from Redis cache (fall back to MongoDB on miss)
+        const faceData = await cacheAside(
+          `face_data:${userId}`,
+          600,
+          () => UserModel.findById(userId).select("faceData").lean().then((u) => u?.faceData ?? null)
+        );
+        const hasRegisteredFace = faceData?.isRegistered && faceData?.embeddings?.length > 0;
 
         if (hasRegisteredFace) {
           if (!photoFile) {
@@ -868,7 +873,7 @@ export const processCheckIn = async (
             const result = await faceService.verifyUserFaceOptimized(
               userId,
               photoFile,
-              user.faceData
+              faceData
             );
             faceVerified = result.match;
             faceSimilarity = result.similarity;
@@ -1040,6 +1045,7 @@ export const processCheckIn = async (
           locationId: branchResult.branch._id,
           status: isLate ? "late" : "present",
           notes: photoNotes,
+          lowGpsAccuracy,
         },
       },
       {
@@ -1167,13 +1173,7 @@ export const processCheckOut = async (
       return { success: false, data: null, error: locationValidation.message };
     }
 
-    // Validate GPS accuracy
-    const accuracyValidation = validateGPSAccuracy(accuracy);
-    if (!accuracyValidation.valid) {
-      return { success: false, data: null, error: accuracyValidation.message };
-    }
-
-    // Find valid branch
+    // Find valid branch (geofence check — blocking)
     const branchResult = await validateAndFindBranch(latitude, longitude);
     if (!branchResult.valid) {
       return {
@@ -1182,6 +1182,11 @@ export const processCheckOut = async (
         error: `Bạn cách văn phòng gần nhất ${branchResult.distance}m. Vui lòng đến gần hơn (trong vòng ${MAX_DISTANCE}m) để check-out.`,
       };
     }
+
+    // GPS accuracy: warning only — nếu đã trong geofence thì không block
+    const lowGpsAccuracy =
+      !!accuracy &&
+      Number(accuracy) > ATTENDANCE_CONFIG.GPS_ACCURACY_THRESHOLD;
 
     const now = new Date();
     const dateOnly = getDateOnly(now);
@@ -1202,15 +1207,19 @@ export const processCheckOut = async (
 
     if (shouldAutoVerify && photoFile) {
       try {
-        const user = await UserModel.findById(userId).select("faceData").lean();
-        const hasRegisteredFace = user?.faceData?.isRegistered && user?.faceData?.embeddings?.length > 0;
+        const faceData = await cacheAside(
+          `face_data:${userId}`,
+          600,
+          () => UserModel.findById(userId).select("faceData").lean().then((u) => u?.faceData ?? null)
+        );
+        const hasRegisteredFace = faceData?.isRegistered && faceData?.embeddings?.length > 0;
 
         if (hasRegisteredFace) {
           const faceService = getFaceService();
           const result = await faceService.verifyUserFaceOptimized(
             userId,
             photoFile,
-            user.faceData
+            faceData
           );
           faceVerified = result.match;
           faceSimilarity = result.similarity;
@@ -1341,11 +1350,13 @@ export const processCheckOut = async (
       attendance.earlyCheckoutReason = earlyCheckoutReason;
       attendance.approvalStatus = "PENDING";
       attendance.workCredit = 0; // Tạm thời = 0, chờ duyệt
+      if (lowGpsAccuracy) attendance.lowGpsAccuracy = true;
     } else {
       // Check-out bình thường (>= 30 phút)
       attendance.checkOut = now;
       attendance.checkOutLatitude = latitude;
       attendance.checkOutLongitude = longitude;
+      if (lowGpsAccuracy) attendance.lowGpsAccuracy = true;
     }
 
     // Tính work credit (nếu không phải early checkout cần duyệt)

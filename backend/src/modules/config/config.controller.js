@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SystemConfigModel } from "./config.model.js";
+import { invalidateConfigCache } from "./config.service.js";
 
 const VALID_CATEGORIES = ["attendance", "payroll", "general", "security", "notification"];
 const VALID_ROLES = ["SUPER_ADMIN", "ADMIN", "HR_MANAGER", "MANAGER"];
@@ -14,6 +15,7 @@ const upsertSchema = z.object({
 
 const updateSchema = z.object({
   value: z.any(),
+  category: z.enum(VALID_CATEGORIES).optional(),
   description: z.string().optional(),
   editableBy: z.array(z.enum(VALID_ROLES)).optional(),
 });
@@ -74,6 +76,7 @@ export const createConfig = async (req, res) => {
       key: data.key.toUpperCase(),
       updatedBy: req.user?.userId,
     });
+    invalidateConfigCache();
     return res.status(201).json({ data: created });
   } catch (error) {
     console.error("[config] create error", error);
@@ -97,11 +100,12 @@ export const updateConfig = async (req, res) => {
     }
 
     existing.value = parse.data.value;
+    if (parse.data.category !== undefined) existing.category = parse.data.category;
     if (parse.data.description !== undefined) existing.description = parse.data.description;
     if (parse.data.editableBy !== undefined) existing.editableBy = parse.data.editableBy;
     existing.updatedBy = req.user?.userId;
     await existing.save();
-
+    invalidateConfigCache();
     return res.json({ data: existing });
   } catch (error) {
     console.error("[config] update error", error);
@@ -115,6 +119,7 @@ export const deleteConfig = async (req, res) => {
     const existing = await SystemConfigModel.findOne({ key });
     if (!existing) return res.status(404).json({ message: "Không tìm thấy cấu hình" });
     await existing.deleteOne();
+    invalidateConfigCache();
     return res.json({ success: true });
   } catch (error) {
     console.error("[config] delete error", error);

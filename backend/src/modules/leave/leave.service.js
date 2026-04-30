@@ -257,3 +257,35 @@ export const getLeaveHistory = async (userId, options = {}) => {
     throw error;
   }
 };
+
+const VALID_LEAVE_TYPES = ["annual", "sick", "unpaid", "compensatory", "maternity"];
+
+/**
+ * Điều chỉnh quota (total) cho một loại phép của một user
+ * @param {string} userId
+ * @param {string} leaveType - annual | sick | unpaid | compensatory | maternity
+ * @param {number} newTotal - Số ngày quota mới
+ */
+export const adjustLeaveBalance = async (userId, leaveType, newTotal) => {
+  if (!VALID_LEAVE_TYPES.includes(leaveType)) {
+    throw new Error(`Loại phép không hợp lệ: ${leaveType}`);
+  }
+  if (typeof newTotal !== "number" || newTotal < 0 || newTotal > 365) {
+    throw new Error("Số ngày phép phải là số từ 0 đến 365");
+  }
+
+  const user = await UserModel.findById(userId);
+  if (!user) throw new Error("User not found");
+
+  user.initializeLeaveBalance();
+  user.leaveBalance[leaveType].total = newTotal;
+  user.recalculateLeaveBalance();
+  await user.save();
+
+  return {
+    leaveType,
+    total: user.leaveBalance[leaveType].total,
+    used: user.leaveBalance[leaveType].used,
+    remaining: user.leaveBalance[leaveType].remaining,
+  };
+};
