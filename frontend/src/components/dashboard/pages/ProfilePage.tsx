@@ -2,8 +2,10 @@ import React from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { Profile } from '@/components/dashboard/Profile'
 import { UserRole, type UserRoleType } from '@/utils/roles'
+import { useTranslation } from 'react-i18next'
 
 export default function ProfilePage(): React.JSX.Element {
+  useTranslation()
   const { user } = useAuth()
 
   // Map user role - Profile component will use roles.ts internally, but we keep this for compatibility

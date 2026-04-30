@@ -522,12 +522,7 @@ const CompanyCalendarPage: React.FC = () => {
                           <div
                             className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                           >
-                            <span
-                              className={`${event.color.replace(
-                                "bg-",
-                                "text-"
-                              )}`}
-                            >
+                            <span className="text-white">
                               {getTypeIcon(event.type)}
                             </span>
                           </div>
@@ -691,9 +686,7 @@ const CompanyCalendarPage: React.FC = () => {
                       <div
                         className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                       >
-                        <span
-                          className={`${event.color.replace("bg-", "text-")}`}
-                        >
+                        <span className="text-white">
                           {getTypeIcon(event.type)}
                         </span>
                       </div>
@@ -830,12 +823,7 @@ const CompanyCalendarPage: React.FC = () => {
                 <div
                   className={`h-12 w-12 rounded-lg ${eventToDelete.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                 >
-                  <span
-                    className={`${eventToDelete.color.replace(
-                      "bg-",
-                      "text-"
-                    )}`}
-                  >
+                  <span className="text-white">
                     {getTypeIcon(eventToDelete.type)}
                   </span>
                 </div>

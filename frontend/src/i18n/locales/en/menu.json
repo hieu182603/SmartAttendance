@@ -24,6 +24,10 @@
   "audit-logs": "Audit Logs",
   "camera-checkin": "Camera Check-in",
   "admin-reports": "Reports & Statistics",
-  "chatbot": "AI Assistant"
+  "chatbot": "AI Assistant",
+  "my-payslip": "Salary",
+  "payroll-group": "Payroll",
+  "leave-types": "Leave Type Management",
+  "system-config": "System Config"
 }
 

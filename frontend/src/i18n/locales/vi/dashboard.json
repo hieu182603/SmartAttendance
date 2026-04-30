@@ -1634,6 +1634,58 @@
     "customSalaryNote": "Lương này sẽ ưu tiên cao nhất, bỏ qua lương từ thang lương",
     "matrixSalaryNote": "Lương sẽ được tính từ thang lương (Department + Position). Nếu không có trong thang lương, sẽ dùng lương mặc định từ config."
   },
+  "systemConfig": {
+    "title": "Cấu hình hệ thống",
+    "seedDefaults": "Khởi tạo mặc định",
+    "addConfig": "Thêm cấu hình",
+    "listTitle": "Danh sách cấu hình",
+    "loading": "Đang tải...",
+    "empty": "Chưa có cấu hình nào.",
+    "filters": {
+      "all": "Tất cả"
+    },
+    "table": {
+      "name": "Name",
+      "category": "Danh mục",
+      "value": "Giá trị",
+      "description": "Mô tả",
+      "actions": "Thao tác",
+      "emptyDescription": "-"
+    },
+    "dialog": {
+      "createTitle": "Thêm cấu hình mới",
+      "editTitle": "Chỉnh sửa cấu hình",
+      "key": "Key",
+      "keyPlaceholder": "vd: payroll.late_penalty",
+      "category": "Danh mục",
+      "value": "Giá trị",
+      "valuePlaceholder": "Nhập giá trị...",
+      "description": "Mô tả",
+      "descriptionPlaceholder": "Mô tả ngắn...",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu..."
+    },
+    "deleteDialog": {
+      "title": "Xác nhận xóa",
+      "description": "Xóa cấu hình",
+      "warning": "Hệ thống sẽ dùng giá trị hardcode mặc định.",
+      "cancel": "Hủy",
+      "confirm": "Xóa"
+    },
+    "toasts": {
+      "loadError": "Không thể tải cấu hình hệ thống",
+      "keyValueRequired": "Key và giá trị không được để trống",
+      "createSuccess": "Đã tạo cấu hình mới",
+      "updateSuccess": "Đã cập nhật cấu hình",
+      "saveError": "Lưu thất bại",
+      "deleteSuccess": "Đã xóa cấu hình",
+      "deleteError": "Xóa thất bại",
+      "defaultsExist": "Tất cả cấu hình mặc định đã tồn tại",
+      "defaultsCreated": "Đã tạo {{count}} cấu hình mặc định",
+      "seedError": "Khởi tạo thất bại"
+    }
+  },
   "faceRegistration": {
     "title": "Đăng ký khuôn mặt",
     "description": "Chụp {{min}}-{{max}} ảnh khuôn mặt từ các góc độ khác nhau để đăng ký",
@@ -1874,6 +1926,237 @@
       "typing": "Đang suy nghĩ...",
       "newMessages": "{{count}} tin nhắn mới",
       "roleInfo": "Bạn có thể xem dữ liệu: {{scope}}"
+    }
+  },
+  "chatbotPage": {
+    "groups": {
+      "today": "Hôm nay",
+      "yesterday": "Hôm qua",
+      "week": "Trước đó"
+    },
+    "defaultUserName": "bạn",
+    "newConversation": "Hội thoại mới",
+    "searchPlaceholder": "Tìm hội thoại...",
+    "emptyConversations": "Chưa có hội thoại nào",
+    "greeting": "Xin chào",
+    "description": "Trợ lý AI giúp bạn tra cứu thông tin nhân sự, chấm công, lương thưởng và mọi nghiệp vụ HR chỉ bằng tin nhắn.",
+    "suggestionsTitle": "Gợi ý cho bạn",
+    "userLabel": "Bạn",
+    "assistantLabel": "SmartAttendance AI",
+    "typing": "đang trả lời...",
+    "noSuggestions": "Không có gợi ý phù hợp",
+    "composerPlaceholder": "Gõ / để hiện gợi ý",
+    "disclaimer": "Trợ lý có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.",
+    "aria": {
+      "closeConversationList": "Đóng danh sách hội thoại"
+    },
+    "actions": {
+      "toggleSidebar": "Ẩn/hiện danh sách",
+      "deleteConversation": "Xóa hội thoại",
+      "copy": "Sao chép",
+      "helpful": "Hữu ích",
+      "notHelpful": "Không hữu ích",
+      "attach": "Đính kèm",
+      "voiceInput": "Nhập bằng giọng nói"
+    },
+    "hints": {
+      "send": "gửi",
+      "newLine": "xuống dòng"
+    }
+  },
+  "transferEmployees": {
+    "title": "Chuyển nhân viên",
+    "selectTargetPlaceholder": "Chọn phòng ban để chuyển nhân viên...",
+    "actions": {
+      "cancel": "Hủy",
+      "back": "Quay lại"
+    },
+    "toasts": {
+      "loadDepartmentsError": "Không thể tải danh sách phòng ban",
+      "loadEmployeesError": "Không thể tải thông tin nhân viên",
+      "success": "Đã chuyển {{count}} nhân viên thành công",
+      "successSimple": "Đã chuyển nhân viên thành công",
+      "error": "Không thể chuyển nhân viên"
+    }
+  },
+  "transferResources": {
+    "title": "Chuyển tài nguyên",
+    "toasts": {
+      "loadBranchesError": "Không thể tải danh sách chi nhánh",
+      "loadResourcesError": "Không thể tải thông tin tài nguyên",
+      "success": "Đã chuyển tài nguyên thành công",
+      "error": "Không thể chuyển tài nguyên"
+    }
+  },
+  "manualAttendance": {
+    "title": "Thêm bản ghi chấm công thủ công",
+    "common": {
+      "loading": "Đang tải..."
+    },
+    "fields": {
+      "employee": "Nhân viên",
+      "employeePlaceholder": "Chọn nhân viên...",
+      "date": "Ngày",
+      "status": "Trạng thái",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "notes": "Ghi chú",
+      "notesPlaceholder": "Lý do tạo thủ công..."
+    },
+    "status": {
+      "present": "Có mặt",
+      "late": "Đi muộn",
+      "absent": "Vắng mặt",
+      "onLeave": "Nghỉ phép",
+      "overtime": "Làm thêm",
+      "weekend": "Cuối tuần"
+    },
+    "actions": {
+      "cancel": "Hủy",
+      "saving": "Đang lưu...",
+      "submit": "Tạo bản ghi"
+    },
+    "toasts": {
+      "loadUsersError": "Không thể tải danh sách nhân viên",
+      "selectUser": "Vui lòng chọn nhân viên",
+      "selectDate": "Vui lòng chọn ngày",
+      "invalidTimeRange": "Giờ ra phải sau giờ vào",
+      "createSuccess": "Đã tạo bản ghi chấm công thủ công",
+      "createFailed": "Tạo bản ghi thất bại. Có thể đã tồn tại bản ghi cho ngày này."
+    }
+  },
+  "generatePayroll": {
+    "title": "Tạo bảng lương tháng",
+    "description": "Tạo bảng lương cho nhân viên chưa có dữ liệu trong tháng đã chọn.",
+    "fields": {
+      "month": "Tháng",
+      "scope": "Phạm vi",
+      "department": "Phòng ban",
+      "departmentPlaceholder": "Chọn phòng ban...",
+      "user": "Nhân viên",
+      "userPlaceholder": "Chọn nhân viên..."
+    },
+    "scope": {
+      "all": "Toàn bộ nhân viên",
+      "department": "Theo phòng ban",
+      "user": "Một nhân viên"
+    },
+    "scopeWarning": "⚠ Sẽ tạo bảng lương cho toàn bộ nhân viên đang hoạt động trong tháng {{month}}.",
+    "result": {
+      "success": "Thành công",
+      "error": "Lỗi",
+      "errorDetail": "Chi tiết lỗi:"
+    },
+    "actions": {
+      "cancel": "Hủy",
+      "close": "Đóng",
+      "generate": "Tạo bảng lương",
+      "generating": "Đang tạo..."
+    },
+    "toasts": {
+      "selectMonth": "Vui lòng chọn tháng",
+      "selectDepartment": "Vui lòng chọn phòng ban",
+      "selectUser": "Vui lòng chọn nhân viên",
+      "success": "Tạo bảng lương thành công: {{count}} nhân viên",
+      "partial": "Hoàn tất với {{count}} lỗi",
+      "error": "Không thể tạo bảng lương"
+    }
+  },
+  "payrollPreview": {
+    "title": "Xem trước bảng lương",
+    "month": "Tháng",
+    "loading": "Đang tính toán...",
+    "salarySource": "Nguồn lương",
+    "warning": "⚠ Đây là bản xem trước, chưa ghi vào cơ sở dữ liệu.",
+    "actions": {
+      "close": "Đóng",
+      "generate": "Tạo bảng lương →"
+    },
+    "toasts": {
+      "loadError": "Không thể tải xem trước bảng lương"
+    }
+  },
+  "myPayslip": {
+    "title": "Phiếu lương của tôi",
+    "description": "Xem và tải xuống phiếu lương hàng tháng",
+    "loading": "Đang tải phiếu lương...",
+    "empty": "Chưa có phiếu lương tháng {{month}}/{{year}}",
+    "period": "Kỳ lương",
+    "netSalary": "Thực lĩnh",
+    "gross": "Gross",
+    "attendance": "Chấm công",
+    "workDays": "Ngày công",
+    "overtime": "Tăng ca",
+    "late": "Đi muộn",
+    "leave": "Nghỉ phép",
+    "daysValue": "{{count}} ngày",
+    "breakdown": "Chi tiết lương",
+    "baseSalary": "Lương cơ bản",
+    "overtimePay": "Tiền tăng ca",
+    "bonus": "Thưởng",
+    "deductions": "Khấu trừ",
+    "totalGross": "Tổng lương (gross)",
+    "insurance": "BHXH/BHYT/BHTN (10.5%)",
+    "tax": "Thuế TNCN",
+    "totalNet": "Thực lĩnh (net)",
+    "toasts": {
+      "loadError": "Không thể tải phiếu lương",
+      "exportPdfLoading": "Đang xuất PDF...",
+      "exportPdfSuccess": "Tải PDF thành công",
+      "exportPdfError": "Không thể tải PDF",
+      "exportExcelLoading": "Đang xuất Excel...",
+      "exportExcelSuccess": "Tải Excel thành công",
+      "exportExcelError": "Không thể tải Excel"
+    }
+  },
+  "leaveTypeMgmt": {
+    "title": "Quản lý loại phép",
+    "tabs": {
+      "types": "Loại phép",
+      "balance": "Điều chỉnh quota"
+    },
+    "listTitle": "Danh sách loại phép",
+    "add": "Thêm loại phép",
+    "loading": "Đang tải...",
+    "empty": "Chưa có loại phép nào",
+    "days": "{{count}} ngày",
+    "balanceTitle": "Điều chỉnh quota ngày phép cho nhân viên",
+    "fields": {
+      "employee": "Nhân viên",
+      "employeePlaceholder": "Chọn nhân viên...",
+      "leaveType": "Loại phép",
+      "quota": "Số ngày quota mới"
+    },
+    "actions": {
+      "updateQuota": "Cập nhật quota",
+      "updating": "Đang cập nhật...",
+      "cancel": "Hủy",
+      "saving": "Đang lưu...",
+      "save": "Lưu",
+      "delete": "Xóa"
+    },
+    "dialog": {
+      "editTitle": "Chỉnh sửa loại phép",
+      "createTitle": "Thêm loại phép mới"
+    },
+    "deleteDialog": {
+      "title": "Xác nhận xóa",
+      "description": "Xóa loại phép này? Hành động không thể hoàn tác."
+    },
+    "toasts": {
+      "loadTypesError": "Không thể tải danh sách loại phép",
+      "loadUsersError": "Không thể tải danh sách nhân viên",
+      "nameRequired": "Tên loại phép không được để trống",
+      "codeRequired": "Code không được để trống",
+      "createSuccess": "Đã tạo loại phép mới",
+      "updateSuccess": "Đã cập nhật loại phép",
+      "saveError": "Lưu thất bại",
+      "deleteSuccess": "Đã xóa loại phép",
+      "deleteError": "Xóa thất bại",
+      "selectUser": "Vui lòng chọn nhân viên",
+      "invalidQuota": "Số ngày phải từ 0 đến 365",
+      "adjustSuccess": "Cập nhật thành công: {{type}} — còn {{remaining}} ngày",
+      "adjustError": "Cập nhật thất bại"
     }
   }
 }

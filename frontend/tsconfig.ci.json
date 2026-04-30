@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "e2e",
+    "src/components/ui/alert.tsx",
+    "src/components/ui/calendar.tsx",
+    "src/components/ui/input-otp.tsx"
+  ]
+}

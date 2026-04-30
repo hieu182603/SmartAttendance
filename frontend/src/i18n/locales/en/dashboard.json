@@ -1626,6 +1626,58 @@
     "customSalaryNote": "This salary will have highest priority, overriding scale salary",
     "matrixSalaryNote": "Salary will be calculated from salary scale (Department + Position). If not found in scale, default salary from config will be used."
   },
+  "systemConfig": {
+    "title": "System Configuration",
+    "seedDefaults": "Seed defaults",
+    "addConfig": "Add config",
+    "listTitle": "Configuration list",
+    "loading": "Loading...",
+    "empty": "No configurations yet.",
+    "filters": {
+      "all": "All"
+    },
+    "table": {
+      "name": "Name",
+      "category": "Category",
+      "value": "Value",
+      "description": "Description",
+      "actions": "Actions",
+      "emptyDescription": "-"
+    },
+    "dialog": {
+      "createTitle": "Add new configuration",
+      "editTitle": "Edit configuration",
+      "key": "Key",
+      "keyPlaceholder": "e.g. payroll.late_penalty",
+      "category": "Category",
+      "value": "Value",
+      "valuePlaceholder": "Enter value...",
+      "description": "Description",
+      "descriptionPlaceholder": "Short description...",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving..."
+    },
+    "deleteDialog": {
+      "title": "Confirm delete",
+      "description": "Delete configuration",
+      "warning": "The system will fallback to hardcoded defaults.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "toasts": {
+      "loadError": "Failed to load system configurations",
+      "keyValueRequired": "Key and value are required",
+      "createSuccess": "Configuration created",
+      "updateSuccess": "Configuration updated",
+      "saveError": "Save failed",
+      "deleteSuccess": "Configuration deleted",
+      "deleteError": "Delete failed",
+      "defaultsExist": "All default configurations already exist",
+      "defaultsCreated": "Created {{count}} default configurations",
+      "seedError": "Failed to seed defaults"
+    }
+  },
   "faceRegistration": {
     "title": "Face Registration",
     "description": "Capture {{min}}-{{max}} face photos from different angles to register",
@@ -1866,6 +1918,237 @@
       "typing": "AI is thinking...",
       "newMessages": "{{count}} new messages",
       "roleInfo": "You can view: {{scope}}"
+    }
+  },
+  "chatbotPage": {
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Earlier"
+    },
+    "defaultUserName": "you",
+    "newConversation": "New conversation",
+    "searchPlaceholder": "Search conversations...",
+    "emptyConversations": "No conversations yet",
+    "greeting": "Hello",
+    "description": "AI assistant helps you check HR, attendance, payroll, and daily operations through chat.",
+    "suggestionsTitle": "Suggestions",
+    "userLabel": "You",
+    "assistantLabel": "SmartAttendance AI",
+    "typing": "typing...",
+    "noSuggestions": "No matching suggestions",
+    "composerPlaceholder": "Type / to show suggestions",
+    "disclaimer": "Assistant may make mistakes. Verify important information.",
+    "aria": {
+      "closeConversationList": "Close conversation list"
+    },
+    "actions": {
+      "toggleSidebar": "Toggle list",
+      "deleteConversation": "Delete conversation",
+      "copy": "Copy",
+      "helpful": "Helpful",
+      "notHelpful": "Not helpful",
+      "attach": "Attach",
+      "voiceInput": "Voice input"
+    },
+    "hints": {
+      "send": "send",
+      "newLine": "new line"
+    }
+  },
+  "transferEmployees": {
+    "title": "Transfer employees",
+    "selectTargetPlaceholder": "Select target department...",
+    "actions": {
+      "cancel": "Cancel",
+      "back": "Back"
+    },
+    "toasts": {
+      "loadDepartmentsError": "Failed to load departments",
+      "loadEmployeesError": "Failed to load employees",
+      "success": "Transferred {{count}} employees successfully",
+      "successSimple": "Employees transferred successfully",
+      "error": "Failed to transfer employees"
+    }
+  },
+  "transferResources": {
+    "title": "Transfer resources",
+    "toasts": {
+      "loadBranchesError": "Failed to load branches",
+      "loadResourcesError": "Failed to load resources",
+      "success": "Resources transferred successfully",
+      "error": "Failed to transfer resources"
+    }
+  },
+  "manualAttendance": {
+    "title": "Add manual attendance record",
+    "common": {
+      "loading": "Loading..."
+    },
+    "fields": {
+      "employee": "Employee",
+      "employeePlaceholder": "Select employee...",
+      "date": "Date",
+      "status": "Status",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "notes": "Notes",
+      "notesPlaceholder": "Reason for manual entry..."
+    },
+    "status": {
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent",
+      "onLeave": "On leave",
+      "overtime": "Overtime",
+      "weekend": "Weekend"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "submit": "Create record"
+    },
+    "toasts": {
+      "loadUsersError": "Failed to load employees",
+      "selectUser": "Please select employee",
+      "selectDate": "Please select date",
+      "invalidTimeRange": "Check-out time must be after check-in time",
+      "createSuccess": "Manual attendance record created",
+      "createFailed": "Failed to create record. A record may already exist for this date."
+    }
+  },
+  "generatePayroll": {
+    "title": "Generate monthly payroll",
+    "description": "Generate payroll for employees without data in selected month.",
+    "fields": {
+      "month": "Month",
+      "scope": "Scope",
+      "department": "Department",
+      "departmentPlaceholder": "Select department...",
+      "user": "Employee",
+      "userPlaceholder": "Select employee..."
+    },
+    "scope": {
+      "all": "All employees",
+      "department": "By department",
+      "user": "Single employee"
+    },
+    "scopeWarning": "Payroll will be generated for all active employees in {{month}}.",
+    "result": {
+      "success": "Success",
+      "error": "Error",
+      "errorDetail": "Error details:"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "close": "Close",
+      "generate": "Generate payroll",
+      "generating": "Generating..."
+    },
+    "toasts": {
+      "selectMonth": "Please select month",
+      "selectDepartment": "Please select department",
+      "selectUser": "Please select employee",
+      "success": "Payroll generated successfully: {{count}} employees",
+      "partial": "Completed with {{count}} errors",
+      "error": "Failed to generate payroll"
+    }
+  },
+  "payrollPreview": {
+    "title": "Payroll preview",
+    "month": "Month",
+    "loading": "Calculating...",
+    "salarySource": "Salary source",
+    "warning": "This is a preview and has not been saved to database.",
+    "actions": {
+      "close": "Close",
+      "generate": "Generate payroll →"
+    },
+    "toasts": {
+      "loadError": "Failed to load payroll preview"
+    }
+  },
+  "myPayslip": {
+    "title": "My payslip",
+    "description": "View and download monthly payslip",
+    "loading": "Loading payslip...",
+    "empty": "No payslip for {{month}}/{{year}}",
+    "period": "Payroll period",
+    "netSalary": "Net salary",
+    "gross": "Gross",
+    "attendance": "Attendance",
+    "workDays": "Work days",
+    "overtime": "Overtime",
+    "late": "Late",
+    "leave": "Leave",
+    "daysValue": "{{count}} days",
+    "breakdown": "Salary breakdown",
+    "baseSalary": "Base salary",
+    "overtimePay": "Overtime pay",
+    "bonus": "Bonus",
+    "deductions": "Deductions",
+    "totalGross": "Total gross salary",
+    "insurance": "Insurance (10.5%)",
+    "tax": "Personal income tax",
+    "totalNet": "Net take-home",
+    "toasts": {
+      "loadError": "Failed to load payslip",
+      "exportPdfLoading": "Exporting PDF...",
+      "exportPdfSuccess": "PDF downloaded successfully",
+      "exportPdfError": "Failed to download PDF",
+      "exportExcelLoading": "Exporting Excel...",
+      "exportExcelSuccess": "Excel downloaded successfully",
+      "exportExcelError": "Failed to download Excel"
+    }
+  },
+  "leaveTypeMgmt": {
+    "title": "Leave type management",
+    "tabs": {
+      "types": "Leave types",
+      "balance": "Adjust quota"
+    },
+    "listTitle": "Leave type list",
+    "add": "Add leave type",
+    "loading": "Loading...",
+    "empty": "No leave types yet",
+    "days": "{{count}} days",
+    "balanceTitle": "Adjust leave quota for employee",
+    "fields": {
+      "employee": "Employee",
+      "employeePlaceholder": "Select employee...",
+      "leaveType": "Leave type",
+      "quota": "New quota days"
+    },
+    "actions": {
+      "updateQuota": "Update quota",
+      "updating": "Updating...",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "save": "Save",
+      "delete": "Delete"
+    },
+    "dialog": {
+      "editTitle": "Edit leave type",
+      "createTitle": "Add new leave type"
+    },
+    "deleteDialog": {
+      "title": "Confirm delete",
+      "description": "Delete this leave type? This action cannot be undone."
+    },
+    "toasts": {
+      "loadTypesError": "Failed to load leave types",
+      "loadUsersError": "Failed to load employees",
+      "nameRequired": "Leave type name is required",
+      "codeRequired": "Code is required",
+      "createSuccess": "Leave type created",
+      "updateSuccess": "Leave type updated",
+      "saveError": "Save failed",
+      "deleteSuccess": "Leave type deleted",
+      "deleteError": "Delete failed",
+      "selectUser": "Please select employee",
+      "invalidQuota": "Days must be between 0 and 365",
+      "adjustSuccess": "Updated: {{type}} — remaining {{remaining}} days",
+      "adjustError": "Update failed"
     }
   }
 }

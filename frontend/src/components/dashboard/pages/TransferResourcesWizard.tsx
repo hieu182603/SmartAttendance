@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getBranchesList, getBranchResources, type BranchResources } from '@/services/branchService';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 interface TransferResourcesWizardProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export function TransferResourcesWizard({
   sourceBranchName,
   onTransfer,
 }: TransferResourcesWizardProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<WizardStep>('select');
   const [targetBranchId, setTargetBranchId] = useState('');
   const [branches, setBranches] = useState<Array<{ _id: string; name: string; code: string }>>([]);
@@ -59,7 +61,7 @@ export function TransferResourcesWizard({
       const filtered = response.branches.filter((b) => b._id !== sourceBranchId);
       setBranches(filtered);
     } catch (error: any) {
-      toast.error('Không thể tải danh sách chi nhánh');
+      toast.error(t('dashboard:transferResources.toasts.loadBranchesError'));
     }
   };
 
@@ -69,7 +71,7 @@ export function TransferResourcesWizard({
       const data = await getBranchResources(sourceBranchId);
       setResources(data);
     } catch (error: any) {
-      toast.error('Không thể tải thông tin tài nguyên');
+      toast.error(t('dashboard:transferResources.toasts.loadResourcesError'));
     } finally {
       setLoading(false);
     }
@@ -97,10 +99,10 @@ export function TransferResourcesWizard({
     try {
       setTransferring(true);
       await onTransfer(targetBranchId);
-      toast.success('Đã chuyển tài nguyên thành công');
+      toast.success(t('dashboard:transferResources.toasts.success'));
       onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Không thể chuyển tài nguyên');
+      toast.error(error.message || t('dashboard:transferResources.toasts.error'));
     } finally {
       setTransferring(false);
     }
@@ -114,7 +116,7 @@ export function TransferResourcesWizard({
         <DialogHeader>
           <DialogTitle className="text-[var(--text-main)] flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-[var(--primary)]" />
-            Chuyển tài nguyên
+            {t('dashboard:transferResources.title')}
           </DialogTitle>
           <DialogDescription className="text-[var(--text-sub)]">
             Chuyển nhân viên và phòng ban từ <strong>{sourceBranchName}</strong> sang chi nhánh khác

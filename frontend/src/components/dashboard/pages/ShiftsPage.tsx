@@ -11,6 +11,7 @@ import api from '@/services/api';
 import shiftService from '@/services/shiftService';
 import { getDepartmentsList, type DepartmentListResponse } from '@/services/departmentService';
 import { getAllUsers } from '@/services/userService';
+import { useTranslation } from 'react-i18next';
 
 interface Shift {
   _id?: string;
@@ -67,6 +68,7 @@ function calculateWorkHours(start: string, end: string, breakMinutes: number): s
 }
 
 export function ShiftsPage() {
+  const { t } = useTranslation();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -156,7 +158,10 @@ export function ShiftsPage() {
 
       setShifts(mappedShifts);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Không thể tải danh sách ca làm việc';
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        t('dashboard:shifts.loadError');
       toast.error(errorMessage);
       setShifts([]);
     } finally {
@@ -166,7 +171,7 @@ export function ShiftsPage() {
 
   const handleCreate = async () => {
     if (!formData.name || !formData.startTime || !formData.endTime || !formData.breakDuration) {
-      toast.error('Vui lòng điền đầy đủ thông tin');
+      toast.error(t('dashboard:shifts.fillAllFields'));
       return;
     }
 
@@ -344,8 +349,12 @@ export function ShiftsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl text-[var(--text-main)]">Quản lý ca làm việc</h1>
-          <p className="text-[var(--text-sub)]">Tạo và quản lý các ca làm việc</p>
+          <h1 className="text-3xl text-[var(--text-main)]">
+            {t('dashboard:shifts.title')}
+          </h1>
+          <p className="text-[var(--text-sub)]">
+            {t('dashboard:shifts.description')}
+          </p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

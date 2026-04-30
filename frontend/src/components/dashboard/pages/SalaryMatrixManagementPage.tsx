@@ -48,6 +48,9 @@ import {
   type UpdateSalaryMatrixPayload,
 } from "../../../services/payrollService";
 import { getAllDepartments } from "../../../services/departmentService";
+import { usePermissions } from "@/hooks/usePermissions";
+import { UserRole } from "@/utils/roles";
+import { useTranslation } from "react-i18next";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("vi-VN", {
@@ -58,6 +61,8 @@ const formatCurrency = (amount: number) => {
 };
 
 export default function SalaryMatrixManagementPage() {
+  const { t } = useTranslation();
+  const { hasMinimumRole } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterActive, setFilterActive] = useState<boolean | "all">("all");
@@ -87,6 +92,7 @@ export default function SalaryMatrixManagementPage() {
     notes: "",
     isActive: true,
   });
+  const canManageSalaryMatrix = hasMinimumRole(UserRole.ADMIN);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -142,7 +148,8 @@ export default function SalaryMatrixManagementPage() {
     } catch (error: any) {
       console.error("Error fetching salary matrix:", error);
       toast.error(
-        error.response?.data?.message || "Không lấy được danh sách thang lương"
+        error.response?.data?.message ||
+          t("dashboard:salaryMatrix.toasts.loadError")
       );
       setSalaryMatrix([]);
     } finally {
@@ -156,14 +163,14 @@ export default function SalaryMatrixManagementPage() {
 
   const handleCreate = async () => {
     if (!formData.departmentCode || !formData.position || formData.baseSalary <= 0) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
+      toast.error(t("dashboard:salaryMatrix.toasts.fillRequired"));
       return;
     }
 
     try {
       setLoadingAction(true);
       await createSalaryMatrix(formData);
-      toast.success("Đã tạo thang lương thành công");
+      toast.success(t("dashboard:salaryMatrix.toasts.createSuccess"));
       setIsCreateDialogOpen(false);
       setFormData({
         departmentCode: "",
@@ -176,7 +183,8 @@ export default function SalaryMatrixManagementPage() {
     } catch (error: any) {
       console.error("Error creating salary matrix:", error);
       toast.error(
-        error.response?.data?.message || "Không tạo được thang lương"
+        error.response?.data?.message ||
+          t("dashboard:salaryMatrix.toasts.createError")
       );
     } finally {
       setLoadingAction(false);
@@ -195,14 +203,15 @@ export default function SalaryMatrixManagementPage() {
     try {
       setLoadingAction(true);
       await updateSalaryMatrix(selectedRecord._id, updatePayload);
-      toast.success("Đã cập nhật thang lương thành công");
+      toast.success(t("dashboard:salaryMatrix.toasts.updateSuccess"));
       setIsEditDialogOpen(false);
       setSelectedRecord(null);
       fetchSalaryMatrix();
     } catch (error: any) {
       console.error("Error updating salary matrix:", error);
       toast.error(
-        error.response?.data?.message || "Không cập nhật được thang lương"
+        error.response?.data?.message ||
+          t("dashboard:salaryMatrix.toasts.updateError")
       );
     } finally {
       setLoadingAction(false);
@@ -215,14 +224,15 @@ export default function SalaryMatrixManagementPage() {
     try {
       setLoadingAction(true);
       await deleteSalaryMatrix(selectedRecord._id);
-      toast.success("Đã xóa thang lương thành công");
+      toast.success(t("dashboard:salaryMatrix.toasts.deleteSuccess"));
       setIsDeleteDialogOpen(false);
       setSelectedRecord(null);
       fetchSalaryMatrix();
     } catch (error: any) {
       console.error("Error deleting salary matrix:", error);
       toast.error(
-        error.response?.data?.message || "Không xóa được thang lương"
+        error.response?.data?.message ||
+          t("dashboard:salaryMatrix.toasts.deleteError")
       );
     } finally {
       setLoadingAction(false);
@@ -255,15 +265,17 @@ export default function SalaryMatrixManagementPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-[var(--text-main)]">
-            Quản Lý Thang Lương
+            {t("dashboard:salaryMatrix.title")}
           </h1>
           <p className="text-[var(--text-sub)] mt-2">
-            Quản lý lương cơ bản theo phòng ban và chức vụ
+            {t("dashboard:salaryMatrix.description")}
           </p>
         </div>
         <Button
           onClick={() => setIsCreateDialogOpen(true)}
+          disabled={!canManageSalaryMatrix}
           className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+          title={!canManageSalaryMatrix ? "Chỉ Admin/Super Admin mới có quyền thao tác thang lương" : undefined}
         >
           <Plus className="mr-2 h-4 w-4" />
           Thêm Thang Lương
@@ -383,22 +395,26 @@ export default function SalaryMatrixManagementPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditDialog(record)}
-                            className="h-8"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openDeleteDialog(record)}
-                            className="h-8 text-red-500 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canManageSalaryMatrix && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditDialog(record)}
+                                className="h-8"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openDeleteDialog(record)}
+                                className="h-8 text-red-500 hover:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

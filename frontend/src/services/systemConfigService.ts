@@ -29,6 +29,7 @@ export interface CreateSystemConfigPayload {
 
 export interface UpdateSystemConfigPayload {
   value: unknown;
+  category?: SystemConfigCategory;
   description?: string;
   editableBy?: string[];
 }
