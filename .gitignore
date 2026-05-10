@@ -10,6 +10,8 @@
 **/playwright-report/
 **/test-results/
 **/.pytest_cache/
+# Playwright auth state (contains tokens — never commit)
+**/.auth/
 
 # Environment files
 .env
@@ -41,6 +43,10 @@ Thumbs.db
 
 # Shared UI/UX
 .shared/ui-ux-pro-max/
+
+# Local AI/tooling workspace config
+.claude/
+.grapuco/
 
 # Python (Comprehensive AI/ML Service)
 **/venv/
@@ -148,5 +154,8 @@ CLAUDE.md
 .blackboxcli/
 LarkIntegrationGuide.md
 kehoach.md
-
+kehoachnangcap.md
+BAOCAO_TONGHOP.md
+baocao.md
+nhiemvu.md
 .scripts/

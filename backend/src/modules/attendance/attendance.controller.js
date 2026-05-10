@@ -237,6 +237,9 @@ export const checkIn = async (req, res) => {
           data: result.data,
         });
       }
+      if (result.code === "ALREADY_CHECKED_IN") {
+        return res.status(409).json({ success: false, message: result.error, code: result.code });
+      }
       return res.status(400).json({
         success: false,
         message: result.error,

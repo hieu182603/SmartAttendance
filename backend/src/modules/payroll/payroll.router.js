@@ -4,6 +4,8 @@ import {
   requireRole,
   ROLES,
 } from "../../middleware/role.middleware.js";
+import { requirePermission } from "../../middleware/permission.middleware.js";
+import { PERMISSIONS } from "../../config/permissions.config.js";
 import {
   getPayrollReports,
   getPayrollRecords,
@@ -17,6 +19,7 @@ import {
   getMyPayslip,
   exportMyPayslipPdf,
   exportMyPayslipExcel,
+  exportPayrollBulkExcel,
   previewPayroll,
 } from "./payroll.controller.js";
 import {
@@ -39,6 +42,7 @@ payrollRouter.use(authMiddleware);
 payrollRouter.get(
   "/reports",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.VIEW_REPORTS),
   getPayrollReports
 );
 
@@ -46,6 +50,7 @@ payrollRouter.get(
 payrollRouter.post(
   "/generate",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   generatePayroll
 );
 
@@ -53,6 +58,14 @@ payrollRouter.post(
 payrollRouter.get("/my-payslip", getMyPayslip);
 payrollRouter.get("/my-payslip/pdf", exportMyPayslipPdf);
 payrollRouter.get("/my-payslip/excel", exportMyPayslipExcel);
+
+// Xuất toàn bộ bảng lương tháng (HR/Admin)
+payrollRouter.get(
+  "/export/excel",
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_EXPORT),
+  exportPayrollBulkExcel
+);
 
 // ============================================================================
 // Specific routes (MUST be defined BEFORE dynamic routes like /:id)
@@ -62,6 +75,7 @@ payrollRouter.get("/my-payslip/excel", exportMyPayslipExcel);
 payrollRouter.get(
   "/meta/departments",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getDepartments
 );
 
@@ -69,6 +83,7 @@ payrollRouter.get(
 payrollRouter.get(
   "/meta/departments-with-id",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getDepartmentsWithId
 );
 
@@ -76,6 +91,7 @@ payrollRouter.get(
 payrollRouter.get(
   "/meta/positions",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getPositions
 );
 
@@ -87,30 +103,35 @@ payrollRouter.get(
 payrollRouter.get(
   "/salary-matrix",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getSalaryMatrix
 );
 
 payrollRouter.post(
   "/salary-matrix",
   requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   createSalaryMatrix
 );
 
 payrollRouter.get(
   "/salary-matrix/:id",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getSalaryMatrixById
 );
 
 payrollRouter.put(
   "/salary-matrix/:id",
   requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   updateSalaryMatrix
 );
 
 payrollRouter.delete(
   "/salary-matrix/:id",
   requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   deleteSalaryMatrix
 );
 
@@ -121,18 +142,21 @@ payrollRouter.delete(
 payrollRouter.get(
   "/users/:id/salary-info",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getUserSalaryInfo
 );
 
 payrollRouter.get(
   "/users/:userId/salary-history",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getUserSalaryHistory
 );
 
 payrollRouter.put(
   "/users/:id/base-salary",
   requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   updateUserBaseSalary
 );
 
@@ -143,6 +167,7 @@ payrollRouter.put("/users/:id/dependents", updateUserDependents);
 payrollRouter.get(
   "/preview",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   previewPayroll
 );
 
@@ -154,6 +179,7 @@ payrollRouter.get(
 payrollRouter.get(
   "/",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getPayrollRecords
 );
 
@@ -161,18 +187,21 @@ payrollRouter.get(
 payrollRouter.get(
   "/:id",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   getPayrollRecordById
 );
 
 payrollRouter.put(
   "/:id/approve",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   approvePayrollRecord
 );
 
 payrollRouter.put(
   "/:id/pay",
   requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   markPayrollAsPaid
 );
 

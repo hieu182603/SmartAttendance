@@ -7,6 +7,7 @@ import {
   FaceVerificationFailedError,
   AIServiceTimeoutError,
   AIServiceError,
+  SpoofDetectedError,
 } from "./face.service.js";
 import {
   FACE_RECOGNITION_CONFIG,
@@ -20,6 +21,7 @@ import { UserModel } from "../users/user.model.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail } from "../../utils/email.util.js";
 import crypto from "node:crypto";
+import { LogService } from "../logs/log.service.js";
 
 const FACE_FAIL_THRESHOLD = FACE_FALLBACK_CONFIG.FAIL_THRESHOLD;
 const FACE_FAIL_TTL = FACE_FALLBACK_CONFIG.FAIL_TTL_SECONDS;
@@ -485,7 +487,26 @@ export class FaceController {
         const newCount = current + 1;
         await redisSet(key, newCount, FACE_FAIL_TTL);
 
-        if (newCount >= FACE_FAIL_THRESHOLD) {
+        const requireOtpFallback = newCount >= FACE_FAIL_THRESHOLD;
+
+        await LogService.createLog({
+          userId,
+          action: "face_scan_failed",
+          entityType: "face_recognition",
+          details: {
+            errorCode: "FACE_VERIFICATION_FAILED",
+            failCount: newCount,
+            requireOtpFallback,
+            confidence: error.similarity,
+            threshold: error.threshold,
+          },
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"],
+          status: "failed",
+          errorMessage: error.message,
+        });
+
+        if (requireOtpFallback) {
           // Gửi OTP fallback qua email
           try {
             const user = await UserModel.findById(userId).select("email name").lean();
@@ -523,6 +544,25 @@ export class FaceController {
         });
       }
 
+      if (error instanceof SpoofDetectedError) {
+        await LogService.createLog({
+          userId: req.user.userId,
+          action: "face_spoof_detected",
+          entityType: "face_recognition",
+          details: { errorCode: error.errorCode || "SPOOF_DETECTED", description: "Anti-spoofing check failed" },
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"],
+          status: "failed",
+          errorMessage: error.message,
+        });
+        return res.status(error.statusCode || 403).json({
+          success: false,
+          errorCode: error.errorCode || "SPOOF_DETECTED",
+          message: error.message,
+          details: error.details || null,
+        });
+      }
+
       if (error instanceof FaceNotDetectedError) {
         return res.status(error.statusCode).json({
           success: false,
@@ -551,6 +591,16 @@ export class FaceController {
       }
 
       if (error instanceof AIServiceUnavailableError) {
+        await LogService.createLog({
+          userId: req.user.userId,
+          action: "face_scan_failed",
+          entityType: "face_recognition",
+          details: { errorCode: "AI_SERVICE_UNAVAILABLE" },
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"],
+          status: "failed",
+          errorMessage: "AI service unavailable",
+        });
         return res.status(error.statusCode).json({
           success: false,
           errorCode: error.errorCode,
@@ -559,6 +609,16 @@ export class FaceController {
       }
 
       if (error instanceof AIServiceTimeoutError) {
+        await LogService.createLog({
+          userId: req.user.userId,
+          action: "face_scan_failed",
+          entityType: "face_recognition",
+          details: { errorCode: "AI_SERVICE_TIMEOUT" },
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"],
+          status: "failed",
+          errorMessage: "AI service timeout",
+        });
         return res.status(error.statusCode).json({
           success: false,
           errorCode: error.errorCode,

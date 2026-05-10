@@ -7,7 +7,9 @@ import { redisDel } from "../../config/redis.js";
 import FormData from "form-data";
 import axios from "axios";
 
-// Average N embeddings into one vector — reduces AI service payload from N×2KB to 2KB
+// Average N L2-normalized embeddings and re-normalize the result.
+// InsightFace embeddings are unit vectors, so the mean must be re-normalized
+// before cosine similarity comparison to avoid magnitude bias.
 const computeMeanEmbedding = (embeddings) => {
   const dim = embeddings[0].length;
   const mean = new Array(dim).fill(0);
@@ -15,7 +17,9 @@ const computeMeanEmbedding = (embeddings) => {
     for (let i = 0; i < dim; i++) mean[i] += emb[i];
   }
   const n = embeddings.length;
-  return mean.map((v) => v / n);
+  const raw = mean.map((v) => v / n);
+  const norm = Math.sqrt(raw.reduce((s, v) => s + v * v, 0));
+  return norm > 0 ? raw.map((v) => v / norm) : raw;
 };
 
 /**
@@ -613,120 +617,114 @@ export class FaceService {
       // Delete old embeddings and register new ones
       return await this.registerUserFace(userId, newImageFiles, livenessData);
     } else if (mode === "append") {
-        // Add new embeddings to existing set
-        const MAX_EMBEDDINGS = 15;
-        const MIN_IMAGES = 1;
+      // Add new embeddings to existing set
+      const MAX_EMBEDDINGS = 15;
+      const MIN_IMAGES = 1;
 
-        if (!newImageFiles || newImageFiles.length < MIN_IMAGES) {
-          throw new Error(`At least ${MIN_IMAGES} image required for update`);
-        }
+      if (!newImageFiles || newImageFiles.length < MIN_IMAGES) {
+        throw new Error(`At least ${MIN_IMAGES} image required for update`);
+      }
 
-        // Upload new images and track publicIds
-        const uploadedImages = [];
-        const uploadedPublicIds = [];
-        try {
-          for (const file of newImageFiles) {
-            const result = await uploadFaceImage(file.buffer);
-            uploadedImages.push(result.url);
-            uploadedPublicIds.push(result.publicId);
-          }
-        } catch (uploadError) {
-          // If upload fails, clean up any images that were already uploaded
-          if (uploadedPublicIds.length > 0) {
-            try {
-              await deleteFaceImages(uploadedPublicIds);
-            } catch (cleanupError) {
-              console.error("Failed to cleanup uploaded images after upload failure:", cleanupError);
-            }
-          }
-          throw uploadError;
-        }
-
-        // Get new embeddings
-        const formData = new FormData();
+      // Upload new images and track publicIds
+      const uploadedImages = [];
+      const uploadedPublicIds = [];
+      try {
         for (const file of newImageFiles) {
-          formData.append("images", file.buffer, {
-            filename: file.originalname || "face.jpg",
-            contentType: file.mimetype || "image/jpeg",
-          });
+          const result = await uploadFaceImage(file.buffer);
+          uploadedImages.push(result.url);
+          uploadedPublicIds.push(result.publicId);
         }
-
-        // Append liveness verification data if provided
-        if (livenessData) {
-          if (livenessData.liveness_success !== undefined) {
-            formData.append("liveness_success", livenessData.liveness_success.toString());
-          }
-          if (livenessData.liveness_passed !== undefined) {
-            formData.append("liveness_passed", livenessData.liveness_passed.toString());
-          }
-          if (livenessData.liveness_confidence !== undefined) {
-            formData.append("liveness_confidence", livenessData.liveness_confidence.toString());
-          }
-          if (livenessData.liveness_challenge !== undefined) {
-            formData.append("liveness_challenge", livenessData.liveness_challenge);
+      } catch (uploadError) {
+        if (uploadedPublicIds.length > 0) {
+          try {
+            await deleteFaceImages(uploadedPublicIds);
+          } catch (cleanupError) {
+            console.error("Failed to cleanup uploaded images after upload failure:", cleanupError);
           }
         }
+        throw uploadError;
+      }
 
-        try {
-          const aiResponse = await aiServiceClient.registerFaces(formData);
-          if (!aiResponse.data.success) {
-            // Clean up uploaded images before throwing error
-            if (uploadedPublicIds.length > 0) {
-              try {
-                await deleteFaceImages(uploadedPublicIds);
-              } catch (cleanupError) {
-                console.error("Failed to cleanup uploaded images after AI validation failure:", cleanupError);
-              }
-            }
+      // Get new embeddings
+      const formData = new FormData();
+      for (const file of newImageFiles) {
+        formData.append("images", file.buffer, {
+          filename: file.originalname || "face.jpg",
+          contentType: file.mimetype || "image/jpeg",
+        });
+      }
 
-            // Categorize error from AI service
-            const errorCode = aiResponse.data.error_code || "AI_SERVICE_ERROR";
-            const errorMessage = aiResponse.data.error || "Face update failed";
-            const errorDetails = aiResponse.data.error_details || null;
+      // Append liveness verification data if provided
+      if (livenessData) {
+        if (livenessData.liveness_success !== undefined) {
+          formData.append("liveness_success", livenessData.liveness_success.toString());
+        }
+        if (livenessData.liveness_passed !== undefined) {
+          formData.append("liveness_passed", livenessData.liveness_passed.toString());
+        }
+        if (livenessData.liveness_confidence !== undefined) {
+          formData.append("liveness_confidence", livenessData.liveness_confidence.toString());
+        }
+        if (livenessData.liveness_challenge !== undefined) {
+          formData.append("liveness_challenge", livenessData.liveness_challenge);
+        }
+      }
 
-            // Map error codes to specific error classes
-            switch (errorCode) {
-              case "NO_FACE_DETECTED":
-                throw new FaceNotDetectedError(errorMessage, errorDetails);
-              case "MULTIPLE_FACES":
-                throw new MultipleFacesError(errorMessage, errorDetails);
-              case "POOR_IMAGE_QUALITY":
-                throw new PoorImageQualityError(errorMessage, errorDetails);
-              case "AI_SERVICE_ERROR":
-              default:
-                throw new AIServiceError(errorMessage, errorCode, errorDetails);
-            }
-          }
-
-          const newEmbeddings = aiResponse.data.faces.map((face) => face.embedding);
-          const totalEmbeddings = [...(user.faceData.embeddings || []), ...newEmbeddings];
-
-          // Limit to MAX_EMBEDDINGS (keep most recent)
-          user.faceData.embeddings = totalEmbeddings.slice(-MAX_EMBEDDINGS);
-          user.faceData.faceImages = [...(user.faceData.faceImages || []), ...uploadedImages].slice(-MAX_EMBEDDINGS);
-          user.faceData.faceImagePublicIds = [...(user.faceData.faceImagePublicIds || []), ...uploadedPublicIds].slice(-MAX_EMBEDDINGS);
-          user.faceData.registeredAt = new Date();
-          user.faceData.isRegistered = true;
-
-          await user.save();
-          redisDel(`face_data:${userId}`).catch(() => {});
-
-          return {
-            success: true,
-            embeddings: user.faceData.embeddings,
-            faceImages: user.faceData.faceImages,
-          };
-        } catch (aiError) {
-          // Clean up uploaded images if AI service call fails
+      try {
+        const aiResponse = await aiServiceClient.registerFaces(formData);
+        if (!aiResponse.data.success) {
           if (uploadedPublicIds.length > 0) {
             try {
               await deleteFaceImages(uploadedPublicIds);
             } catch (cleanupError) {
-              console.error("Failed to cleanup uploaded images after AI service failure:", cleanupError);
+              console.error("Failed to cleanup uploaded images after AI validation failure:", cleanupError);
             }
           }
-          throw aiError;
+
+          const errorCode = aiResponse.data.error_code || "AI_SERVICE_ERROR";
+          const errorMessage = aiResponse.data.error || "Face update failed";
+          const errorDetails = aiResponse.data.error_details || null;
+
+          switch (errorCode) {
+            case "NO_FACE_DETECTED":
+              throw new FaceNotDetectedError(errorMessage, errorDetails);
+            case "MULTIPLE_FACES":
+              throw new MultipleFacesError(errorMessage, errorDetails);
+            case "POOR_IMAGE_QUALITY":
+              throw new PoorImageQualityError(errorMessage, errorDetails);
+            case "AI_SERVICE_ERROR":
+            default:
+              throw new AIServiceError(errorMessage, errorCode, errorDetails);
+          }
         }
+
+        const newEmbeddings = aiResponse.data.faces.map((face) => face.embedding);
+        const totalEmbeddings = [...(user.faceData.embeddings || []), ...newEmbeddings];
+
+        user.faceData.embeddings = totalEmbeddings.slice(-MAX_EMBEDDINGS);
+        user.faceData.faceImages = [...(user.faceData.faceImages || []), ...uploadedImages].slice(-MAX_EMBEDDINGS);
+        user.faceData.faceImagePublicIds = [...(user.faceData.faceImagePublicIds || []), ...uploadedPublicIds].slice(-MAX_EMBEDDINGS);
+        user.faceData.registeredAt = new Date();
+        user.faceData.isRegistered = true;
+
+        await user.save();
+        redisDel(`face_data:${userId}`).catch(() => {});
+
+        return {
+          success: true,
+          embeddings: user.faceData.embeddings,
+          faceImages: user.faceData.faceImages,
+        };
+      } catch (aiError) {
+        if (uploadedPublicIds.length > 0) {
+          try {
+            await deleteFaceImages(uploadedPublicIds);
+          } catch (cleanupError) {
+            console.error("Failed to cleanup uploaded images after AI service failure:", cleanupError);
+          }
+        }
+        throw aiError;
+      }
     } else {
       throw new Error(`Invalid update mode: ${mode}`);
     }

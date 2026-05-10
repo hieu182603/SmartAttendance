@@ -838,6 +838,22 @@ export const processCheckIn = async (
       !!accuracy &&
       Number(accuracy) > ATTENDANCE_CONFIG.GPS_ACCURACY_THRESHOLD;
 
+    const now = new Date();
+    const dateOnly = getDateOnly(now);
+
+    // Early duplicate check — must run before time/shift validation so that
+    // "already checked in" takes priority over "too early" when re-hitting
+    // the endpoint outside of allowed check-in window.
+    const existingRecord = await AttendanceModel.findOne({ userId, date: dateOnly }).select("_id").lean();
+    if (existingRecord) {
+      return {
+        success: false,
+        data: null,
+        error: "Bạn đã chấm công vào hôm nay rồi.",
+        code: "ALREADY_CHECKED_IN",
+      };
+    }
+
     // ── Face verification (optimized: static imports, single DB query, fast verify) ──
     let faceVerified = false;
     let faceSimilarity = null;
@@ -934,9 +950,6 @@ export const processCheckIn = async (
         console.warn(`[attendance] Face verification error, proceeding with GPS-only: ${error.message}`);
       }
     }
-
-    const now = new Date();
-    const dateOnly = getDateOnly(now);
 
     // Thông tin ngày trong tuần
     const dayOfWeek = now.getDay();
@@ -1350,13 +1363,13 @@ export const processCheckOut = async (
       attendance.earlyCheckoutReason = earlyCheckoutReason;
       attendance.approvalStatus = "PENDING";
       attendance.workCredit = 0; // Tạm thời = 0, chờ duyệt
-      if (lowGpsAccuracy) attendance.lowGpsAccuracy = true;
+      attendance.lowGpsAccuracy = lowGpsAccuracy;
     } else {
       // Check-out bình thường (>= 30 phút)
       attendance.checkOut = now;
       attendance.checkOutLatitude = latitude;
       attendance.checkOutLongitude = longitude;
-      if (lowGpsAccuracy) attendance.lowGpsAccuracy = true;
+      attendance.lowGpsAccuracy = lowGpsAccuracy;
     }
 
     // Tính work credit (nếu không phải early checkout cần duyệt)

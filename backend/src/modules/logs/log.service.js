@@ -1,6 +1,9 @@
 import { LogModel } from "./log.model.js";
 import { UserModel } from "../users/user.model.js";
 
+// Escape regex special chars to prevent ReDoS from user-supplied search input.
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export class LogService {
   /**
    * Test function để verify warning detection logic
@@ -83,29 +86,28 @@ export class LogService {
 
     // Search filter - search in action, entityType, details, và userName
     if (search) {
-      // Tìm users có name/email match với search
+      const safeSearch = escapeRegex(search.slice(0, 200));
       try {
         const users = await UserModel.find({
           $or: [
-            { name: { $regex: search, $options: "i" } },
-            { email: { $regex: search, $options: "i" } }
+            { name: { $regex: safeSearch, $options: "i" } },
+            { email: { $regex: safeSearch, $options: "i" } }
           ]
         }).select('_id');
 
         const userIds = users.map(u => u._id);
 
         query.$or = [
-          { action: { $regex: search, $options: "i" } },
-          { entityType: { $regex: search, $options: "i" } },
-          { "details.description": { $regex: search, $options: "i" } },
+          { action: { $regex: safeSearch, $options: "i" } },
+          { entityType: { $regex: safeSearch, $options: "i" } },
+          { "details.description": { $regex: safeSearch, $options: "i" } },
           ...(userIds.length > 0 ? [{ userId: { $in: userIds } }] : [])
         ];
       } catch (err) {
-        // Nếu có lỗi khi tìm users, chỉ search trong các fields khác
         query.$or = [
-          { action: { $regex: search, $options: "i" } },
-          { entityType: { $regex: search, $options: "i" } },
-          { "details.description": { $regex: search, $options: "i" } },
+          { action: { $regex: safeSearch, $options: "i" } },
+          { entityType: { $regex: safeSearch, $options: "i" } },
+          { "details.description": { $regex: safeSearch, $options: "i" } },
         ];
       }
     }
@@ -200,6 +202,7 @@ export class LogService {
       auth: "auth",
       settings: "settings",
       system: "system",
+      face_recognition: "face_recognition",
     };
 
     return categoryMap[entityType.toLowerCase()] || "system";

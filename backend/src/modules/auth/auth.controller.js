@@ -200,7 +200,10 @@ export class AuthController {
             parsedData = parse.data;
 
             // Login user
-            const result = await AuthService.login(parsedData);
+            const result = await AuthService.login(parsedData, {
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"],
+            });
 
             // Log successful login
             await logActivity(req, {
@@ -567,6 +570,30 @@ export class AuthController {
             return res.status(200).json({ message: "Logged out successfully" });
         } catch (error) {
             console.error("Logout error:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    static async getAdminSessions(req, res) {
+        try {
+            const sessions = await AuthService.getActiveSessions();
+            return res.status(200).json({ sessions });
+        } catch (error) {
+            console.error("getAdminSessions error:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    static async forceLogoutUser(req, res) {
+        try {
+            const { userId } = req.params;
+            if (userId === req.user.userId.toString()) {
+                return res.status(400).json({ message: "Không thể tự force logout chính mình" });
+            }
+            const result = await AuthService.forceLogout(userId);
+            return res.status(200).json({ message: `Đã đăng xuất ${result.userName || userId}`, ...result });
+        } catch (error) {
+            console.error("forceLogoutUser error:", error);
             return res.status(500).json({ message: "Internal server error" });
         }
     }
