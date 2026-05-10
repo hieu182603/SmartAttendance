@@ -37,23 +37,7 @@ import { useMemo } from 'react'
 
 interface ProfileProps {
   role?: string;
-  user?: UserType & {
-    phone?: string;
-    address?: string;
-    birthday?: string;
-    department?: string;
-    createdAt?: string;
-    avatar?: string;
-    avatarUrl?: string;
-    bankAccount?: string;
-    bankName?: string;
-    leaveBalance?: {
-      annual?: {
-        used: number;
-        total: number;
-      };
-    };
-  };
+  user?: UserType;
 }
 
 interface ProfileData {

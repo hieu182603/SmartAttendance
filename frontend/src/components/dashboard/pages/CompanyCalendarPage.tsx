@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
@@ -128,43 +128,32 @@ const CompanyCalendarPage: React.FC = () => {
     ? hasMinimumLevel(user.role as UserRoleType, UserRole.HR_MANAGER)
     : false;
 
-  // Fetch data on mount and when month changes
+  const refreshCalendarData = useCallback(async (month: number, year: number) => {
+    try {
+      setLoading(true);
+      const [upcoming, monthEvents, eventStats] = await Promise.all([
+        eventService.getUpcomingEvents(),
+        eventService.getMonthEvents(month, year),
+        eventService.getEventStats(month, year),
+      ]);
+
+      setUpcomingEvents(upcoming.map(mapEvent));
+      setEvents(monthEvents.map(mapEvent));
+      setStats(eventStats);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+      toast.error(t("dashboard:companyCalendar.loadError"));
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
+  // Fetch data on mount and when month/year changes
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const currentMonth = selectedDate.getMonth() + 1;
-        const currentYear = selectedDate.getFullYear();
-
-        // Fetch upcoming events (next 7 days)
-        const upcoming = await eventService.getUpcomingEvents();
-        setUpcomingEvents(upcoming.map(mapEvent));
-
-        // Fetch month events
-        const month = await eventService.getMonthEvents(
-          currentMonth,
-          currentYear
-        );
-
-        // Fetch stats
-        const eventStats = await eventService.getEventStats(
-          currentMonth,
-          currentYear
-        );
-        setStats(eventStats);
-
-        // Set all events for filtering
-        setEvents(month.map(mapEvent));
-      } catch (error) {
-        console.error("Error fetching events:", error);
-        toast.error(t("dashboard:companyCalendar.loadError"));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [selectedDate]);
+    const currentMonth = selectedDate.getMonth() + 1;
+    const currentYear = selectedDate.getFullYear();
+    refreshCalendarData(currentMonth, currentYear);
+  }, [refreshCalendarData, selectedDate.getMonth(), selectedDate.getFullYear()]);
 
 
   // Get events for selected date
@@ -211,19 +200,9 @@ const CompanyCalendarPage: React.FC = () => {
   };
 
   const handleCreateSuccess = (): void => {
-    // Refresh data after creating event
     const currentMonth = selectedDate.getMonth() + 1;
     const currentYear = selectedDate.getFullYear();
-
-    Promise.all([
-      eventService.getUpcomingEvents(),
-      eventService.getMonthEvents(currentMonth, currentYear),
-      eventService.getEventStats(currentMonth, currentYear),
-    ]).then(([upcoming, month, eventStats]) => {
-      setUpcomingEvents(upcoming.map(mapEvent));
-      setEvents(month.map(mapEvent));
-      setStats(eventStats);
-    });
+    void refreshCalendarData(currentMonth, currentYear);
   };
 
   const handleViewEvent = (event: ReturnType<typeof mapEvent>): void => {

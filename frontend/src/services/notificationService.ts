@@ -7,7 +7,7 @@ export interface Notification {
   type: 'request_approved' | 'request_rejected' | 'attendance_reminder' | 'system' | 'other'
   title: string
   message: string
-  relatedEntityType?: 'request' | 'attendance' | 'user' | 'other'
+  relatedEntityType?: 'request' | 'attendance' | 'user' | 'other' | 'payroll'
   relatedEntityId?: string
   isRead: boolean
   readAt?: string

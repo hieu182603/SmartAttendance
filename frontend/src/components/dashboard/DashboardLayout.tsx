@@ -46,6 +46,7 @@ import {
   getRoleBasePath,
 } from "@/utils/roles";
 import { getMenuByPermissionsWithTranslations, type MenuItem } from "@/utils/menuItems";
+import { usePermissionsOverride } from "@/context/PermissionsContext";
 
 
 interface NotificationBellProps {
@@ -89,10 +90,12 @@ const DashboardLayout: React.FC = () => {
   const userRole: UserRoleType = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
   
   const basePath = useMemo(() => getRoleBasePath(userRole), [userRole]);
+  const { getEffectivePermissions } = usePermissionsOverride();
+  const effectivePerms = useMemo(() => getEffectivePermissions(userRole), [getEffectivePermissions, userRole]);
   const tMenu = useTranslation("menu").t;
   const menu = useMemo(
-    () => getMenuByPermissionsWithTranslations(tMenu, userRole, basePath),
-    [tMenu, userRole, basePath]
+    () => getMenuByPermissionsWithTranslations(tMenu, userRole, basePath, effectivePerms),
+    [tMenu, userRole, basePath, effectivePerms]
   );
   const roleInfo = useMemo(() => getRoleColor(userRole), [userRole]);
   const roleName = useMemo(() => getRoleName(userRole), [userRole]);

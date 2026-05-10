@@ -127,6 +127,31 @@ export const activateUser = async (id: string): Promise<unknown> => {
   return data
 }
 
+export interface BulkImportResult {
+  message: string
+  created: Array<{ row: number; email: string; name: string }>
+  failed: Array<{ row: number; email: string; reason: string }>
+}
+
+export const bulkImportUsers = async (file: File): Promise<BulkImportResult> => {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.post('/users/bulk-import', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data as BulkImportResult
+}
+
+export const downloadImportTemplate = async (): Promise<void> => {
+  const res = await api.get('/users/import-template', { responseType: 'blob' })
+  const url = URL.createObjectURL(new Blob([res.data]))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'import-template.xlsx'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export const createUserByAdmin = async (userData: CreateUserByAdminData): Promise<unknown> => {
   try {
     const { data } = await api.post('/users', userData)

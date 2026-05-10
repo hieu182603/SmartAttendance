@@ -90,8 +90,8 @@ class FaceDetectionService {
     // BlazeFace returns predictions with topLeft and bottomRight directly
     if (face.topLeft && face.bottomRight) {
       return {
-        topLeft: face.topLeft,
-        bottomRight: face.bottomRight,
+        topLeft: face.topLeft as [number, number],
+        bottomRight: face.bottomRight as [number, number],
       };
     }
 

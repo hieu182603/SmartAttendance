@@ -57,7 +57,7 @@ export default function ProtectedRoute({
 
     // Priority 3: Check minimum role level (backward compatibility)
     if (minimumRole) {
-      return hasMinimumRole(minimumRole)
+      return hasMinimumRole(minimumRole as UserRoleType)
     }
 
     // Priority 4: Check allowed roles (backward compatibility)

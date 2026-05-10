@@ -18,7 +18,11 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  DollarSign
+  DollarSign,
+  Upload,
+  Download,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from 'sonner'
-import { getAllUsers, getUserById, updateUserByAdmin, createUserByAdmin } from '@/services/userService'
+import { getAllUsers, getUserById, updateUserByAdmin, createUserByAdmin, bulkImportUsers, downloadImportTemplate, type BulkImportResult } from '@/services/userService'
 import { getAllDepartments, type Department as DepartmentType } from '@/services/departmentService'
 import shiftService, { type Shift } from '@/services/shiftService'
 import { getPositions } from '@/services/payrollService'
@@ -66,6 +70,7 @@ interface User {
   name?: string
   email?: string
   department?: string | { _id: string; name: string; code?: string }
+  position?: string
   role?: UserRoleType
   phone?: string
   taxId?: string
@@ -201,6 +206,9 @@ const EmployeeManagementPage: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditSalaryDialogOpen, setIsEditSalaryDialogOpen] = useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+  const [importResult, setImportResult] = useState<BulkImportResult | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [usersList, setUsersList] = useState<User[]>([])
   const [departments, setDepartments] = useState<DepartmentType[]>([])
@@ -269,7 +277,8 @@ const EmployeeManagementPage: React.FC = () => {
 
       // For SUPERVISOR, only show users in their department
       if (currentUser?.role === 'SUPERVISOR' && currentUser?.department) {
-        params.department = currentUser.department
+        const dept = currentUser.department
+        params.department = typeof dept === 'object' ? dept._id : dept
       }
 
       const result = await getAllUsers(params) as GetAllUsersResponse
@@ -430,6 +439,26 @@ const EmployeeManagementPage: React.FC = () => {
   const handleEditSalary = (user: User): void => {
     setSelectedUser(user)
     setIsEditSalaryDialogOpen(true)
+  }
+
+  const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setIsImporting(true)
+    try {
+      const result = await bulkImportUsers(file)
+      setImportResult(result)
+      setIsImportDialogOpen(true)
+      if (result.created.length > 0) {
+        toast.success(`Import ${result.created.length} nhân viên thành công`)
+        fetchUsers()
+      }
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Lỗi khi import file')
+    } finally {
+      setIsImporting(false)
+    }
   }
 
   const confirmDelete = async (): Promise<void> => {
@@ -638,13 +667,42 @@ const EmployeeManagementPage: React.FC = () => {
           </h1>
         </div>
         <RoleGuard permission={Permission.USERS_CREATE}>
-          <Button
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:from-[var(--primary)]/90 hover:to-[var(--accent-cyan)]/90 text-white px-4 py-2 h-9"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            {t('dashboard:employeeManagement.createUser.button', 'Tạo tài khoản')}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadImportTemplate()}
+              title="Tải file mẫu"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Mẫu
+            </Button>
+            <label>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isImporting}
+                onClick={() => document.getElementById('bulk-import-input')?.click()}
+              >
+                <Upload className="h-4 w-4 mr-1" />
+                {isImporting ? 'Đang import...' : 'Import CSV'}
+              </Button>
+              <input
+                id="bulk-import-input"
+                type="file"
+                accept=".csv,.xls,.xlsx"
+                className="hidden"
+                onChange={handleBulkImport}
+              />
+            </label>
+            <Button
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:from-[var(--primary)]/90 hover:to-[var(--accent-cyan)]/90 text-white px-4 py-2 h-9"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {t('dashboard:employeeManagement.createUser.button', 'Tạo tài khoản')}
+            </Button>
+          </div>
         </RoleGuard>
       </div>
       {/* Search & Filters */}
@@ -1681,6 +1739,55 @@ const EmployeeManagementPage: React.FC = () => {
           }}
         />
       )}
+
+      {/* Bulk Import Result Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Kết quả import nhân viên</DialogTitle>
+            <DialogDescription>
+              {importResult && `${importResult.created.length} thành công · ${importResult.failed.length} thất bại`}
+            </DialogDescription>
+          </DialogHeader>
+          {importResult && (
+            <div className="space-y-4 max-h-80 overflow-y-auto">
+              {importResult.created.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-green-600 flex items-center gap-1 mb-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Tạo thành công ({importResult.created.length})
+                  </p>
+                  <div className="space-y-1">
+                    {importResult.created.map((r, i) => (
+                      <div key={i} className="text-sm text-[var(--text-sub)] pl-5">
+                        Dòng {r.row}: {r.name} ({r.email})
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {importResult.failed.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-red-600 flex items-center gap-1 mb-2">
+                    <XCircle className="h-4 w-4" />
+                    Thất bại ({importResult.failed.length})
+                  </p>
+                  <div className="space-y-1">
+                    {importResult.failed.map((r, i) => (
+                      <div key={i} className="text-sm text-red-500 pl-5">
+                        Dòng {r.row} {r.email ? `(${r.email})` : ''}: {r.reason}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>Đóng</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div >
   )
 }

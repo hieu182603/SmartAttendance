@@ -356,6 +356,7 @@ export const faceService = {
       roll: number;
     };
     instruction: string;
+    error?: string;
   }> => {
     const formData = new FormData();
     if (typeof image === "string") {

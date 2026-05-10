@@ -326,6 +326,9 @@ export const downloadMyPayslipPdf = (month?: string) =>
 export const downloadMyPayslipExcel = (month?: string) =>
   downloadPayslip("/payroll/my-payslip/excel", `payslip-${month || "current"}.xlsx`, month);
 
+export const downloadPayrollBulkExcel = (month?: string) =>
+  downloadPayslip("/payroll/export/excel", `payroll-${month || "current"}.xlsx`, month);
+
 // ============================================================================
 // Preview Payroll
 // ============================================================================
