@@ -285,7 +285,7 @@ async function seed() {
 
         // ========== 3. TẠO USERS (Người dùng) - 191 users ==========
         console.log('👥 Creating users...');
-        const hashedPassword = await hashPassword('password123');
+        const hashedPassword = await hashPassword('SmartAttendance@2026!');
 
         const firstNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Đinh'];
         const lastNames = ['Văn', 'Thị', 'Minh', 'Hồng', 'Anh', 'Linh', 'Dũng', 'Hùng', 'Lan', 'Hương', 'Tuấn', 'Hải', 'Nam', 'Phương', 'Quang'];

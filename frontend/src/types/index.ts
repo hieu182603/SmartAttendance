@@ -4,12 +4,31 @@
 export interface User {
   _id: string
   id?: string
+  userId?: string
   name: string
   email: string
   role: string
   isVerified?: boolean
+  isActive?: boolean
   avatar?: string
   avatarUrl?: string
+  phone?: string
+  address?: string
+  birthday?: string
+  position?: string
+  department?: string | { _id: string; name: string; code?: string }
+  branchId?: string | { _id: string; name: string }
+  defaultShiftId?: string | { _id: string; name: string }
+  createdAt?: string
+  bankAccount?: string
+  bankName?: string
+  taxId?: string
+  leaveBalance?: {
+    annual?: {
+      used: number
+      total: number
+    }
+  }
 }
 
 // API Response types
@@ -63,10 +82,23 @@ export interface LocationState {
   resetToken?: string
 }
 
+export interface ValidationError {
+  message?: string
+  fieldErrors?: Record<string, string | string[]>
+  response?: {
+    status?: number
+    data?: {
+      message?: string
+      errors?: Record<string, string>
+    }
+  }
+}
+
 // Error types
 export interface ErrorWithMessage extends Error {
   message: string
   response?: {
+    status?: number
     data?: {
       message?: string
     }

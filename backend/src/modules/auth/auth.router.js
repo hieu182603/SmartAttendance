@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { AuthController } from "./auth.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
+import { requireRole } from "../../middleware/role.middleware.js";
 import {
   loginRateLimiter,
   otpRateLimiter,
   trialRegisterRateLimiter,
+  refreshRateLimiter,
 } from "../../middleware/security.middleware.js";
 
 
@@ -36,7 +38,23 @@ authRouter.post("/reset-password", otpRateLimiter, AuthController.resetPassword)
 authRouter.get("/me", authMiddleware, AuthController.getCurrentUser);
 
 // Đổi access token mới từ refresh token
-authRouter.post("/refresh", AuthController.refresh);
+authRouter.post("/refresh", refreshRateLimiter, AuthController.refresh);
 
 // Đăng xuất (thu hồi refresh token)
 authRouter.post("/logout", authMiddleware, AuthController.logout);
+
+// Admin: xem tất cả sessions đang online
+authRouter.get(
+  "/admin/sessions",
+  authMiddleware,
+  requireRole(["SUPER_ADMIN", "ADMIN"]),
+  (req, res) => AuthController.getAdminSessions(req, res)
+);
+
+// Admin: force logout một user
+authRouter.delete(
+  "/admin/sessions/:userId",
+  authMiddleware,
+  requireRole(["SUPER_ADMIN", "ADMIN"]),
+  (req, res) => AuthController.forceLogoutUser(req, res)
+);

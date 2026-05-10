@@ -3,7 +3,7 @@ import { OTPInput, OTPInputContext } from 'input-otp'
 import { Minus } from 'lucide-react'
 import { cn } from '@/components/ui/utils'
 
-interface InputOTPProps extends React.ComponentProps<typeof OTPInput> {
+type InputOTPProps = React.ComponentProps<typeof OTPInput> & {
   containerClassName?: string
 }
 

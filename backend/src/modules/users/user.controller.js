@@ -2,6 +2,7 @@ import { UserService } from "./user.service.js";
 import { UserModel } from "./user.model.js";
 import { z } from "zod";
 import { logActivity } from "../../utils/logger.util.js";
+import * as XLSX from "xlsx";
 
 const updateUserSchema = z.object({
   name: z.string().min(1, "Tên không được để trống").optional(),
@@ -71,7 +72,71 @@ const createUserByAdminSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const rolePermissionPayloadSchema = z.object({
+  rolePerms: z.record(z.array(z.string())),
+});
+
 export class UserController {
+  static async getRolePermissions(req, res) {
+    try {
+      const rolePerms = await UserService.getRolePermissions();
+      return res.status(200).json({ rolePerms });
+    } catch (error) {
+      console.error("[UserController] Get role permissions error:", error);
+      return res.status(500).json({
+        message: error.message || "Không thể tải cấu hình quyền",
+      });
+    }
+  }
+
+  static async updateRolePermissions(req, res) {
+    try {
+      const parse = rolePermissionPayloadSchema.safeParse(req.body);
+      if (!parse.success) {
+        return res.status(400).json({
+          message: "Dữ liệu không hợp lệ",
+          errors: parse.error.flatten(),
+        });
+      }
+
+      const rolePerms = await UserService.updateRolePermissions(
+        parse.data.rolePerms,
+        req.user?.userId
+      );
+
+      await logActivity(req, {
+        action: "update_role_permissions",
+        entityType: "system_config",
+        details: {
+          description: "Đã cập nhật cấu hình role permissions",
+          updatedRoles: Object.keys(parse.data.rolePerms),
+        },
+        status: "success",
+      });
+
+      return res.status(200).json({
+        message: "Đã cập nhật quyền backend thành công",
+        rolePerms,
+      });
+    } catch (error) {
+      await logActivity(req, {
+        action: "update_role_permissions",
+        entityType: "system_config",
+        details: {
+          description: "Cập nhật role permissions thất bại",
+          error: error.message,
+        },
+        status: "failed",
+        errorMessage: error.message,
+      });
+
+      console.error("[UserController] Update role permissions error:", error);
+      return res.status(500).json({
+        message: error.message || "Không thể cập nhật cấu hình quyền",
+      });
+    }
+  }
+
   /**
    * @swagger
    * /api/users/me:
@@ -655,10 +720,10 @@ export class UserController {
       const currentUser = await UserService.getUserById(req.user.userId);
       const currentUserRole = currentUser.role;
 
-      // Only SUPER_ADMIN and ADMIN can create users
-      if (!["SUPER_ADMIN", "ADMIN"].includes(currentUserRole)) {
+      // Only privileged roles can create users (must match requireRole on the route)
+      if (!["SUPER_ADMIN", "ADMIN", "HR_MANAGER"].includes(currentUserRole)) {
         return res.status(403).json({
-          message: "Chỉ SUPER_ADMIN và ADMIN mới có quyền tạo tài khoản",
+          message: "Chỉ SUPER_ADMIN, ADMIN và HR_MANAGER mới có quyền tạo tài khoản",
         });
       }
 
@@ -855,6 +920,62 @@ export class UserController {
         message: error.message || "Lỗi server. Vui lòng thử lại sau.",
       });
     }
+  }
+
+  // POST /api/users/bulk-import
+  static async bulkImport(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Vui lòng upload file CSV hoặc Excel" });
+      }
+
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+      if (!rows || rows.length === 0) {
+        return res.status(400).json({ message: "File không có dữ liệu" });
+      }
+      if (rows.length > 500) {
+        return res.status(400).json({ message: "Tối đa 500 nhân viên mỗi lần import" });
+      }
+
+      const adminRole = req.user.role;
+      const results = await UserService.bulkImportUsers(rows, adminRole);
+
+      await logActivity(req, {
+        action: "bulk_import_users",
+        entityType: "user",
+        details: {
+          description: `Import ${results.created.length} nhân viên thành công, ${results.failed.length} thất bại`,
+          created: results.created.length,
+          failed: results.failed.length,
+        },
+        status: results.failed.length === 0 ? "success" : "warning",
+      });
+
+      return res.status(200).json({
+        message: `Import hoàn tất: ${results.created.length} thành công, ${results.failed.length} thất bại`,
+        created: results.created,
+        failed: results.failed,
+      });
+    } catch (error) {
+      console.error("bulkImport error:", error);
+      return res.status(500).json({ message: error.message || "Lỗi server khi import" });
+    }
+  }
+
+  // GET /api/users/import-template
+  static getImportTemplate(req, res) {
+    const headers = [["name", "email", "password", "role", "department", "branch", "position", "phone", "taxId"]];
+    const example = [["Nguyễn Văn A", "nva@company.com", "password123", "EMPLOYEE", "Phòng Kỹ thuật", "Hà Nội", "Developer", "0912345678", ""]];
+    const ws = XLSX.utils.aoa_to_sheet([...headers, ...example]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "NhanVien");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    res.setHeader("Content-Disposition", 'attachment; filename="import-template.xlsx"');
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    return res.send(buf);
   }
 }
 

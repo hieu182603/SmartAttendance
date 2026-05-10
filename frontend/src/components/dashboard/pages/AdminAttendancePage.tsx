@@ -319,8 +319,8 @@ export default function AdminAttendancePage() {
       });
 
       const fallbackName = t('dashboard:adminAttendance.fallbackName');
-      const normalized: AttendanceRecordItem[] = (response?.records ?? []).map(
-        (item: Record<string, unknown>, index: number) => {
+      const normalized: AttendanceRecordItem[] = ((response?.records ?? []) as unknown as Record<string, unknown>[]).map(
+        (item, index) => {
           const safeName =
             pickString(item.name) ??
             pickString(item.userName) ??

@@ -255,6 +255,29 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
 
 // Helper Functions
 
+// Shared permission hierarchy for both hasPermission and hasPermissionFromList
+const PERMISSION_HIERARCHY: Record<string, string[]> = {
+    [Permission.REQUESTS_APPROVE_DEPARTMENT]: [Permission.REQUESTS_APPROVE_ALL],
+    [Permission.ATTENDANCE_VIEW_DEPARTMENT]: [Permission.ATTENDANCE_VIEW_ALL],
+    [Permission.ATTENDANCE_VIEW_OWN]: [Permission.ATTENDANCE_VIEW_DEPARTMENT, Permission.ATTENDANCE_VIEW_ALL],
+    [Permission.ANALYTICS_VIEW_DEPARTMENT]: [Permission.ANALYTICS_VIEW_ALL],
+    [Permission.REQUESTS_VIEW_OWN]: [Permission.REQUESTS_APPROVE_DEPARTMENT, Permission.REQUESTS_APPROVE_ALL],
+    [Permission.USERS_VIEW_DEPARTMENT]: [Permission.USERS_VIEW],
+    [Permission.USERS_UPDATE_DEPARTMENT]: [Permission.USERS_UPDATE],
+    [Permission.SCHEDULE_VIEW_DEPARTMENT]: [Permission.SCHEDULE_MANAGE_DEPARTMENT],
+    [Permission.PERFORMANCE_VIEW_DEPARTMENT]: [Permission.PERFORMANCE_MANAGE_DEPARTMENT],
+};
+
+/**
+ * Check if an explicit permissions list grants a specific permission (with hierarchy support)
+ * Used by usePermissions hook to support runtime permission overrides.
+ */
+export function hasPermissionFromList(permissions: PermissionType[], permission: PermissionType): boolean {
+    if (permissions.includes(permission)) return true;
+    const higher = PERMISSION_HIERARCHY[permission] || [];
+    return higher.some(p => permissions.includes(p as PermissionType));
+}
+
 /**
  * Check if a role has a specific permission (with hierarchy support)
  * Higher level permissions automatically grant access to lower level permissions
@@ -262,25 +285,7 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
 export function hasPermission(role: UserRoleType, permission: PermissionType): boolean {
     const permissions = ROLE_PERMISSIONS[role];
     if (!permissions) return false;
-    
-    // Direct permission check
-    if (permissions.includes(permission)) return true;
-    
-    // Check for higher level permissions (hierarchy)
-    const permissionHierarchy: Record<string, string[]> = {
-        [Permission.REQUESTS_APPROVE_DEPARTMENT]: [Permission.REQUESTS_APPROVE_ALL],
-        [Permission.ATTENDANCE_VIEW_DEPARTMENT]: [Permission.ATTENDANCE_VIEW_ALL],
-        [Permission.ATTENDANCE_VIEW_OWN]: [Permission.ATTENDANCE_VIEW_DEPARTMENT, Permission.ATTENDANCE_VIEW_ALL],
-        [Permission.ANALYTICS_VIEW_DEPARTMENT]: [Permission.ANALYTICS_VIEW_ALL],
-        [Permission.REQUESTS_VIEW_OWN]: [Permission.REQUESTS_APPROVE_DEPARTMENT, Permission.REQUESTS_APPROVE_ALL],
-        [Permission.USERS_VIEW_DEPARTMENT]: [Permission.USERS_VIEW],
-        [Permission.USERS_UPDATE_DEPARTMENT]: [Permission.USERS_UPDATE],
-        [Permission.SCHEDULE_VIEW_DEPARTMENT]: [Permission.SCHEDULE_MANAGE_DEPARTMENT],
-        [Permission.PERFORMANCE_VIEW_DEPARTMENT]: [Permission.PERFORMANCE_MANAGE_DEPARTMENT],
-    };
-    
-    const higherPermissions = permissionHierarchy[permission] || [];
-    return higherPermissions.some(perm => permissions.includes(perm as PermissionType));
+    return hasPermissionFromList(permissions, permission);
 }
 
 /**

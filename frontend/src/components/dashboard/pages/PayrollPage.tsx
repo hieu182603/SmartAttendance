@@ -51,6 +51,7 @@ import {
   getPayrollById,
   approvePayroll,
   markAsPaid,
+  downloadPayrollBulkExcel,
   type PayrollRecord,
 } from "../../../services/payrollService";
 import { PayrollPreviewDialog } from "./PayrollPreviewDialog";
@@ -516,6 +517,16 @@ export default function PayrollPage() {
               >
                 <Download className="h-4 w-4 mr-2" />
                 {t("payroll.export")}
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                onClick={() => downloadPayrollBulkExcel(selectedMonth)}
+                variant="outline"
+                className="border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)]/10 shadow-lg"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Xuất Excel (Server)
               </Button>
             </motion.div>
           </div>

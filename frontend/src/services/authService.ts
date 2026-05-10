@@ -40,3 +40,24 @@ export const refreshTokenApi = async (refreshToken: string): Promise<{ token: st
 export const logoutApi = async (): Promise<void> => {
     await api.post('/auth/logout')
 }
+
+export interface ActiveSession {
+    userId: string
+    userName: string
+    userEmail: string
+    userRole: string
+    ipAddress: string | null
+    userAgent: string | null
+    loginAt: string
+    lastActiveAt: string
+}
+
+export const getAdminSessions = async (): Promise<ActiveSession[]> => {
+    const { data } = await api.get('/auth/admin/sessions')
+    return data.sessions as ActiveSession[]
+}
+
+export const forceLogoutUser = async (userId: string): Promise<{ message: string }> => {
+    const { data } = await api.delete(`/auth/admin/sessions/${userId}`)
+    return data
+}

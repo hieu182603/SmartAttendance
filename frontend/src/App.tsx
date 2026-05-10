@@ -64,6 +64,18 @@ const SalaryMatrixManagementPage = lazy(() =>
 const SystemConfigPage = lazy(() =>
   import("@/components/dashboard/pages/SystemConfigPage")
 );
+const RoleManagementPage = lazy(() =>
+  import("@/components/dashboard/pages/RoleManagementPage")
+);
+const FaceRecognitionLogPage = lazy(() =>
+  import("@/components/dashboard/pages/FaceRecognitionLogPage")
+);
+const ActiveSessionsPage = lazy(() =>
+  import("@/components/dashboard/pages/ActiveSessionsPage")
+);
+const SystemHealthPage = lazy(() =>
+  import("@/components/dashboard/pages/SystemHealthPage")
+);
 const LeaveTypeManagementPage = lazy(() =>
   import("@/components/dashboard/pages/LeaveTypeManagementPage")
 );
@@ -364,6 +376,27 @@ export default function App() {
                   </Route>
                   <Route path="leave-types">
                     <Route index element={<LeaveTypeManagementPage />} />
+                  </Route>
+                  <Route path="role-management">
+                    <Route index element={<RoleManagementPage />} />
+                  </Route>
+                  <Route
+                    path="face-recognition-logs"
+                    element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}
+                  >
+                    <Route index element={<FaceRecognitionLogPage />} />
+                  </Route>
+                  <Route
+                    path="active-sessions"
+                    element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}
+                  >
+                    <Route index element={<ActiveSessionsPage />} />
+                  </Route>
+                  <Route
+                    path="system-health"
+                    element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}
+                  >
+                    <Route index element={<SystemHealthPage />} />
                   </Route>
                   {/* Catch-all: redirect invalid admin routes to 404 */}
                   <Route path="*" element={<Navigate to="/not-found" replace />} />

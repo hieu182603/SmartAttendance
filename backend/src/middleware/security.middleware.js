@@ -5,17 +5,22 @@ const limitExceededResponse = {
   code: "RATE_LIMIT_EXCEEDED",
 };
 
-const buildLimiter = ({ windowMs, max }) =>
-  rateLimit({
+const noopLimiter = (_req, _res, next) => next();
+
+const buildLimiter = ({ windowMs, max }) => {
+  if (process.env.NODE_ENV === "test") return noopLimiter;
+  // In development, allow 10× the limit so E2E test suites don't hit rate caps.
+  const effectiveMax = process.env.NODE_ENV === "development" ? max * 10 : max;
+  return rateLimit({
     windowMs,
-    max,
+    max: effectiveMax,
     standardHeaders: true,
     legacyHeaders: false,
-    // Keep responses consistent and easy to parse on frontend/monitoring.
     handler: (_req, res) => {
       res.status(429).json(limitExceededResponse);
     },
   });
+};
 
 // Global limiter: protects all routes from basic burst traffic/DoS.
 export const globalRateLimiter = buildLimiter({
@@ -31,7 +36,7 @@ export const authRateLimiter = buildLimiter({
 
 // Login limiter: count only failed login attempts to avoid blocking
 // legitimate users after successful sign-ins.
-export const loginRateLimiter = rateLimit({
+export const loginRateLimiter = process.env.NODE_ENV === "test" ? noopLimiter : rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
   standardHeaders: true,
@@ -61,11 +66,14 @@ export const otpRateLimiter = buildLimiter({
   max: 20,
 });
 
-// Per-user check-in limiter (kehoach.md Phase 3.4).
-// Keyed by userId (from authMiddleware) so one misbehaving user can't burn
-// through the shared attendance IP bucket. Also catches a stuck client
-// auto-capturing in a loop.
-export const checkinRateLimiter = rateLimit({
+// Refresh token limiter: prevent token farming / refresh flooding.
+export const refreshRateLimiter = buildLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+});
+
+// Per-user check-in limiter. Keyed by userId; IP is only a fallback.
+export const checkinRateLimiter = process.env.NODE_ENV === "test" ? noopLimiter : rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 5,
   standardHeaders: true,

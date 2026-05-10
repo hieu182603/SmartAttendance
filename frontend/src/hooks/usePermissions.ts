@@ -1,41 +1,43 @@
 import { useAuth } from '@/context/AuthContext';
-import { 
-  hasPermission, 
-  hasMinimumLevel, 
+import {
+  hasPermissionFromList,
+  hasMinimumLevel,
   canManageRole,
   getRoleScope,
   canAccessAdminPanel,
   type UserRoleType,
-  type PermissionType 
+  type PermissionType,
+  UserRole,
 } from '@/utils/roles';
-import { UserRole } from '@/utils/roles';
+import { usePermissionsOverride } from '@/context/PermissionsContext';
 
 export function usePermissions() {
   const { user } = useAuth();
+  const { getEffectivePermissions } = usePermissionsOverride();
   const role = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
-  
+  const effectivePerms = getEffectivePermissions(role);
+
   return {
-    hasPermission: (permission: PermissionType) => 
-      hasPermission(role, permission),
-    
+    hasPermission: (permission: PermissionType) =>
+      hasPermissionFromList(effectivePerms, permission),
+
     hasAnyPermission: (permissions: PermissionType[]) =>
-      permissions.some(p => hasPermission(role, p)),
-    
+      permissions.some(p => hasPermissionFromList(effectivePerms, p)),
+
     hasAllPermissions: (permissions: PermissionType[]) =>
-      permissions.every(p => hasPermission(role, p)),
-    
+      permissions.every(p => hasPermissionFromList(effectivePerms, p)),
+
     hasMinimumRole: (requiredRole: UserRoleType) =>
       hasMinimumLevel(role, requiredRole),
-    
+
     canManageRole: (targetRole: UserRoleType) =>
       canManageRole(role, targetRole),
-    
+
     getScope: () => getRoleScope(role),
-    
+
     isAdmin: () => canAccessAdminPanel(role),
-    
+
     role,
     user,
   };
 }
-

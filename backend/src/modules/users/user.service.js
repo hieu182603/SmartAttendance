@@ -3,8 +3,73 @@ import { UserModel } from "./user.model.js";
 import { DepartmentModel } from "../departments/department.model.js";
 import { BranchModel } from "../branches/branch.model.js";
 import { canManageRole } from "../../config/roles.config.js";
+import { SystemConfigModel } from "../config/config.model.js";
+import { ROLE_PERMISSIONS, PERMISSIONS } from "../../config/permissions.config.js";
+import { invalidatePermissionCache } from "../../middleware/permission.middleware.js";
+
+const ROLE_PERMISSION_CONFIG_KEY = "SECURITY_ROLE_PERMISSIONS";
 
 export class UserService {
+  static async getRolePermissions() {
+    const base = {};
+    for (const [role, perms] of Object.entries(ROLE_PERMISSIONS)) {
+      base[role] = [...perms];
+    }
+
+    const doc = await SystemConfigModel.findOne({ key: ROLE_PERMISSION_CONFIG_KEY }).lean();
+    if (!doc || typeof doc.value !== "object" || doc.value == null) {
+      return base;
+    }
+
+    const merged = { ...base };
+    for (const [role, perms] of Object.entries(doc.value)) {
+      if (Array.isArray(perms)) {
+        merged[role] = Array.from(new Set(perms.filter((p) => typeof p === "string")));
+      }
+    }
+
+    return merged;
+  }
+
+  static async updateRolePermissions(nextRolePerms, updatedBy) {
+    const allowedRoles = new Set(Object.keys(ROLE_PERMISSIONS));
+    const allowedPermissions = new Set(Object.values(PERMISSIONS));
+
+    const normalized = {};
+    for (const [role, perms] of Object.entries(nextRolePerms)) {
+      if (!allowedRoles.has(role)) continue;
+      if (!Array.isArray(perms)) continue;
+      normalized[role] = Array.from(
+        new Set(perms.filter((perm) => typeof perm === "string" && allowedPermissions.has(perm)))
+      );
+    }
+
+    const merged = await UserService.getRolePermissions();
+    for (const role of Object.keys(merged)) {
+      if (normalized[role]) {
+        merged[role] = normalized[role];
+      }
+    }
+
+    await SystemConfigModel.findOneAndUpdate(
+      { key: ROLE_PERMISSION_CONFIG_KEY },
+      {
+        $set: {
+          key: ROLE_PERMISSION_CONFIG_KEY,
+          category: "security",
+          value: merged,
+          description: "Role permission overrides for backend authorization",
+          editableBy: ["SUPER_ADMIN", "ADMIN"],
+          updatedBy,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    invalidatePermissionCache();
+    return merged;
+  }
+
   /**
    * Cập nhật thông tin user
    */
@@ -561,6 +626,78 @@ export class UserService {
     });
 
     return user;
+  }
+
+  /**
+   * Bulk import users từ array rows (parsed từ CSV/Excel)
+   * Mỗi row: { name, email, password, role, department?, branch?, position?, phone? }
+   * department/branch có thể là tên (string) — sẽ tự lookup ID
+   */
+  static async bulkImportUsers(rows, adminRole) {
+    // Pre-load tất cả departments và branches để tránh N+1 queries
+    const [allDepts, allBranches] = await Promise.all([
+      DepartmentModel.find({}, "_id name").lean(),
+      BranchModel.find({}, "_id name").lean(),
+    ]);
+
+    const deptMap = Object.fromEntries(
+      allDepts.map(d => [d.name.trim().toLowerCase(), d._id])
+    );
+    const branchMap = Object.fromEntries(
+      allBranches.map(b => [b.name.trim().toLowerCase(), b._id])
+    );
+
+    const results = { created: [], failed: [] };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2; // 1-indexed + header row
+
+      try {
+        const { name, email, password, role, department, branch, position, phone, taxId } = row;
+
+        if (!name || !email || !password || !role) {
+          results.failed.push({ row: rowNum, email: email || '', reason: 'Thiếu name, email, password hoặc role' });
+          continue;
+        }
+
+        // Resolve department/branch name → ObjectId
+        let deptId = null;
+        if (department && department.trim()) {
+          const key = department.trim().toLowerCase();
+          deptId = mongoose.Types.ObjectId.isValid(department)
+            ? department
+            : deptMap[key] || null;
+          if (!deptId) {
+            results.failed.push({ row: rowNum, email, reason: `Không tìm thấy phòng ban: "${department}"` });
+            continue;
+          }
+        }
+
+        let branchId = null;
+        if (branch && branch.trim()) {
+          const key = branch.trim().toLowerCase();
+          branchId = mongoose.Types.ObjectId.isValid(branch)
+            ? branch
+            : branchMap[key] || null;
+          if (!branchId) {
+            results.failed.push({ row: rowNum, email, reason: `Không tìm thấy chi nhánh: "${branch}"` });
+            continue;
+          }
+        }
+
+        const user = await UserService.createUserByAdmin(
+          { email, password, name, role, department: deptId, branch: branchId, position, phone, taxId },
+          adminRole
+        );
+
+        results.created.push({ row: rowNum, email: user.email, name: user.name });
+      } catch (err) {
+        results.failed.push({ row: rowNum, email: row.email || '', reason: err.message });
+      }
+    }
+
+    return results;
   }
 }
 

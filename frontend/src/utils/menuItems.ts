@@ -2,10 +2,10 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Home, Camera, History, FileText, Clock, CalendarDays, Calendar,
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
-  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot, Wallet, Settings
+  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot, Wallet, Settings, ShieldCheck, ScanFace, Monitor, Activity
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
-import { Permission, type PermissionType, UserRole, ROLE_PERMISSIONS, type UserRoleType } from '@/utils/roles';
+import { Permission, type PermissionType, UserRole, ROLE_PERMISSIONS, type UserRoleType, hasMinimumLevel } from '@/utils/roles';
 
 export interface MenuItem {
   id: string;
@@ -13,6 +13,7 @@ export interface MenuItem {
   icon: LucideIcon;
   path: string;
   permission?: PermissionType;
+  minimumRole?: UserRoleType;
   section: 'admin' | 'employee' | 'system';
 }
 
@@ -218,6 +219,38 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.AUDIT_LOGS_VIEW,
     section: 'system',
   },
+  {
+    id: 'role-management',
+    label: 'Phân quyền hệ thống',
+    icon: ShieldCheck,
+    path: '/admin/role-management',
+    minimumRole: UserRole.ADMIN,
+    section: 'system',
+  },
+  {
+    id: 'face-recognition-logs',
+    label: 'Nhật ký khuôn mặt',
+    icon: ScanFace,
+    path: '/admin/face-recognition-logs',
+    minimumRole: UserRole.ADMIN,
+    section: 'system',
+  },
+  {
+    id: 'active-sessions',
+    label: 'Phiên đăng nhập',
+    icon: Monitor,
+    path: '/admin/active-sessions',
+    minimumRole: UserRole.ADMIN,
+    section: 'system',
+  },
+  {
+    id: 'system-health',
+    label: 'Trạng thái hệ thống',
+    icon: Activity,
+    path: '/admin/system-health',
+    minimumRole: UserRole.ADMIN,
+    section: 'system',
+  },
   // trial-analytics removed
 ];
 
@@ -244,12 +277,14 @@ function hasPermission(userPermissions: PermissionType[], requiredPermission: Pe
 
 export function getMenuByPermissions(
   userRole: UserRoleType,
-  basePath: string
+  basePath: string,
+  overridePermissions?: PermissionType[]
 ): MenuItem[] {
-  const userPermissions = ROLE_PERMISSIONS[userRole] || [];
-  
+  const userPermissions = overridePermissions ?? ROLE_PERMISSIONS[userRole] ?? [];
+
   return MENU_ITEMS
     .filter(item => {
+      if (item.minimumRole && !hasMinimumLevel(userRole, item.minimumRole)) return false;
       if (!item.permission) return true;
       return hasPermission(userPermissions, item.permission);
     })
@@ -269,9 +304,10 @@ export function getMenuByPermissions(
 export function getMenuByPermissionsWithTranslations(
   t: TFunction<any, undefined>,
   userRole: UserRoleType,
-  basePath: string
+  basePath: string,
+  overridePermissions?: PermissionType[]
 ): MenuItem[] {
-  const menu = getMenuByPermissions(userRole, basePath);
+  const menu = getMenuByPermissions(userRole, basePath, overridePermissions);
   
   // Move "Trang chủ" (home) from employee section to admin section for admin roles
   const adminRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.SUPERVISOR];

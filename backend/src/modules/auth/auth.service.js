@@ -4,10 +4,12 @@ import { OtpModel } from "../otp/otp.model.js";
 import { generateTokenFromUser, verifyRefreshToken, generateAccessToken, generateRefreshToken } from "../../utils/jwt.util.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail, sendResetPasswordEmail } from "../../utils/email.util.js";
-import { redisSet, redisDel, redisGet } from "../../config/redis.js";
+import { redisSet, redisDel, redisGet, redisSAdd, redisSRem, redisSMembers } from "../../config/redis.js";
 
 const REFRESH_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 const refreshKey = (userId) => `refresh:${userId}`;
+const sessionMetaKey = (userId) => `session_meta:${userId}`;
+const ACTIVE_SESSIONS_SET = "active_sessions";
 
 export class AuthService {
     // Đăng ký tài khoản mới
@@ -183,12 +185,12 @@ export class AuthService {
     }
 
     // Đăng nhập
-    static async login(credentials) {
+    static async login(credentials, meta = {}) {
         const { email, password } = credentials;
         const normalizedEmail = email.toLowerCase().trim();
         const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("Invalid credentials");
-        if (!user.isVerified) throw new Error("Email not verified");
+        if (!user.isVerified) throw new Error("Email not verified. Please verify your email first.");
         if (user.isActive === false) {
             throw new Error("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
         }
@@ -198,6 +200,20 @@ export class AuthService {
 
         const { accessToken, refreshToken } = generateTokenFromUser(user);
         await redisSet(refreshKey(user._id), refreshToken, REFRESH_TTL);
+
+        const userId = user._id.toString();
+        await redisSet(sessionMetaKey(userId), {
+            userId,
+            userName: user.name,
+            userEmail: user.email,
+            userRole: user.role,
+            ipAddress: meta.ipAddress || null,
+            userAgent: meta.userAgent || null,
+            loginAt: new Date().toISOString(),
+            lastActiveAt: new Date().toISOString(),
+        }, REFRESH_TTL);
+        await redisSAdd(ACTIVE_SESSIONS_SET, userId);
+
         return {
             token: accessToken,
             refreshToken,
@@ -348,7 +364,40 @@ export class AuthService {
 
     // Thu hồi refresh token (logout)
     static async logout(userId) {
-        await redisDel(refreshKey(userId));
+        const id = userId.toString();
+        await redisDel(refreshKey(id), sessionMetaKey(id));
+        await redisSRem(ACTIVE_SESSIONS_SET, id);
+    }
+
+    // Lấy tất cả sessions đang active (admin only)
+    static async getActiveSessions() {
+        const userIds = await redisSMembers(ACTIVE_SESSIONS_SET);
+        if (!userIds || userIds.length === 0) return [];
+
+        const sessions = await Promise.all(
+            userIds.map(async (uid) => {
+                const meta = await redisGet(sessionMetaKey(uid));
+                if (!meta) {
+                    // Session expired but set not cleaned — remove stale entry
+                    await redisSRem(ACTIVE_SESSIONS_SET, uid);
+                    return null;
+                }
+                return meta;
+            })
+        );
+
+        return sessions.filter(Boolean).sort((a, b) =>
+            new Date(b.loginAt) - new Date(a.loginAt)
+        );
+    }
+
+    // Force logout một user cụ thể (admin only)
+    static async forceLogout(userId) {
+        const id = userId.toString();
+        const meta = await redisGet(sessionMetaKey(id));
+        await redisDel(refreshKey(id), sessionMetaKey(id));
+        await redisSRem(ACTIVE_SESSIONS_SET, id);
+        return { userId: id, userName: meta?.userName || null };
     }
 
     // Đặt lại mật khẩu mới

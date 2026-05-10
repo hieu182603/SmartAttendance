@@ -27,35 +27,45 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     const bootstrap = async () => {
-      // If no token, immediately set user to null without loading state
       if (!token) {
         setUser(null)
         setLoading(false)
         return
       }
 
-      // Only show loading when we actually need to fetch user data
       setLoading(true)
-      try {
-        const me = await getMe()
-        setUser(me)
-        // Update role in localStorage when user data is refreshed
-        // Update role in localStorage when user data is refreshed
-        if (me?.role) {
-          localStorage.setItem('sa_user_role', me.role)
+
+      // Retry once on transient errors (network blip, 5xx, 429).
+      // Only give up immediately on 401 (the api interceptor already tried refresh).
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) {
+          await new Promise<void>((r) => setTimeout(r, 1500))
         }
-      } catch (e) {
-        // Token invalid or expired - clear auth state
-        localStorage.removeItem('sa_token')
-        localStorage.removeItem('sa_user_role')
-        setToken('')
-        setUser(null)
-      } finally {
-        setLoading(false)
+        try {
+          const me = await getMe()
+          setUser(me)
+          if (me?.role) {
+            localStorage.setItem('sa_user_role', me.role)
+          }
+          setLoading(false)
+          return
+        } catch (e: any) {
+          const status = (e as any)?.response?.status
+          // 401 = definitive auth failure (interceptor already tried refresh) → bail out
+          if (status === 401) break
+          // Any other error → retry once, then bail
+        }
       }
+
+      // All attempts failed → clear auth state
+      localStorage.removeItem('sa_token')
+      localStorage.removeItem('sa_user_role')
+      setToken('')
+      setUser(null)
+      setLoading(false)
     }
     bootstrap()
-  }, [token]) // Re-run when token changes
+  }, [token])
 
   useEffect(() => {
     if (token) localStorage.setItem('sa_token', token)
