@@ -25,8 +25,8 @@ async function fillLoginForm(page: Page, email: string, password: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe("TC-E2E-001: Login flow", () => {
   test("employee login → redirect /employee", async ({ page }) => {
-    const email = process.env.E2E_EMPLOYEE_EMAIL || "employee@test.com";
-    const password = process.env.E2E_EMPLOYEE_PASSWORD || "Test@123456";
+    const email = process.env.E2E_EMPLOYEE_EMAIL || "employee1@smartattendance.com";
+    const password = process.env.E2E_EMPLOYEE_PASSWORD || "SmartAttendance@2026!";
 
     await fillLoginForm(page, email, password);
     await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15_000 });
@@ -37,8 +37,8 @@ test.describe("TC-E2E-001: Login flow", () => {
   });
 
   test("hr login → redirect /hr", async ({ page }) => {
-    const email = process.env.E2E_HR_EMAIL || "hr_manager@test.com";
-    const password = process.env.E2E_HR_PASSWORD || "Test@123456";
+    const email = process.env.E2E_HR_EMAIL || "hr@smartattendance.com";
+    const password = process.env.E2E_HR_PASSWORD || "SmartAttendance@2026!";
 
     await fillLoginForm(page, email, password);
     await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15_000 });
@@ -47,23 +47,20 @@ test.describe("TC-E2E-001: Login flow", () => {
     expect(page.url()).toContain("/hr");
   });
 
-  test("sai mật khẩu → vẫn ở /login, hiện thông báo lỗi", async ({ page }) => {
-    await fillLoginForm(page, "someone@test.com", "wrongpassword123");
+  test("sai mật khẩu → vẫn ở /login, hiện toast lỗi", async ({ page }) => {
+    await fillLoginForm(page, "someone@test.com", "wrongpassword_xyz");
 
-    await expect(page.locator("body")).toContainText(
-      /invalid|incorrect|sai|lỗi|không đúng|not found/i,
-      { timeout: 8_000 }
-    );
+    // Login dùng toast.error() từ Sonner — toast notification phải xuất hiện
+    await expect(page.locator("[data-sonner-toast], li[data-title]").first())
+      .toBeVisible({ timeout: 8_000 });
     expect(page.url()).toContain("/login");
   });
 
-  test("email không tồn tại → hiện thông báo lỗi", async ({ page }) => {
-    await fillLoginForm(page, "nonexistent_xyz_abc@test.com", "Test@123456");
+  test("email không tồn tại → hiện toast lỗi", async ({ page }) => {
+    await fillLoginForm(page, "nonexistent_xyz_abc@test.com", "SmartAttendance@2026!");
 
-    await expect(page.locator("body")).toContainText(
-      /invalid|not found|sai|lỗi|không tìm thấy/i,
-      { timeout: 8_000 }
-    );
+    await expect(page.locator("[data-sonner-toast], li[data-title]").first())
+      .toBeVisible({ timeout: 8_000 });
     expect(page.url()).toContain("/login");
   });
 });
@@ -73,8 +70,8 @@ test.describe("TC-E2E-001: Login flow", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe("TC-E2E-006: Logout flow", () => {
   test("click logout → redirect /login", async ({ page }) => {
-    const email = process.env.E2E_EMPLOYEE_EMAIL || "employee@test.com";
-    const password = process.env.E2E_EMPLOYEE_PASSWORD || "Test@123456";
+    const email = process.env.E2E_EMPLOYEE_EMAIL || "employee1@smartattendance.com";
+    const password = process.env.E2E_EMPLOYEE_PASSWORD || "SmartAttendance@2026!";
 
     await fillLoginForm(page, email, password);
     await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15_000 });
@@ -101,8 +98,8 @@ test.describe("TC-E2E-006: Logout flow", () => {
   });
 
   test("sau logout, truy cập /employee redirect về /login", async ({ page }) => {
-    const email = process.env.E2E_EMPLOYEE_EMAIL || "employee@test.com";
-    const password = process.env.E2E_EMPLOYEE_PASSWORD || "Test@123456";
+    const email = process.env.E2E_EMPLOYEE_EMAIL || "employee1@smartattendance.com";
+    const password = process.env.E2E_EMPLOYEE_PASSWORD || "SmartAttendance@2026!";
 
     await fillLoginForm(page, email, password);
     await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15_000 });

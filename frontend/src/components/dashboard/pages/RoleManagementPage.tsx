@@ -4,7 +4,12 @@ import {
   Search, Shield, RefreshCw, ChevronDown, AlertTriangle,
   Plus, Settings, Users, X, Trash2, Save, Check,
 } from "lucide-react";
-import { getAllUsers, updateUserByAdmin } from "@/services/userService";
+import {
+  getAllUsers,
+  getRolePermissions,
+  updateRolePermissions,
+  updateUserByAdmin,
+} from "@/services/userService";
 import {
   UserRole,
   Permission,
@@ -395,12 +400,14 @@ function PermissionsTab({
   rolePerms,
   onRolePermsChange,
   onCreateRole,
+  onPersistRolePerms,
 }: {
   customRoles: CustomRole[];
   onCustomRolesChange: (roles: CustomRole[]) => void;
   rolePerms: Record<string, PermissionType[]>;
   onRolePermsChange: (perms: Record<string, PermissionType[]>) => void;
   onCreateRole: () => void;
+  onPersistRolePerms: (perms: Record<string, PermissionType[]>) => Promise<void>;
 }) {
   const [selectedKey, setSelectedKey] = useState<string>(UserRole.EMPLOYEE);
   const [hasChanges, setHasChanges] = useState(false);
@@ -435,7 +442,7 @@ function PermissionsTab({
     setHasChanges(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const overrides: Record<string, PermissionType[]> = {};
     for (const role of Object.values(UserRole)) {
       const perms = rolePerms[role];
@@ -455,8 +462,13 @@ function PermissionsTab({
       try { localStorage.setItem(LS_CUSTOM_ROLES_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
     }
 
-    setHasChanges(false);
-    toast.success("Đã lưu cấu hình quyền");
+    try {
+      await onPersistRolePerms(rolePerms);
+      setHasChanges(false);
+      toast.success("Đã lưu cấu hình quyền");
+    } catch {
+      toast.error("Không thể lưu cấu hình quyền lên máy chủ");
+    }
   };
 
   const handleReset = () => {
@@ -590,22 +602,36 @@ function PermissionsTab({
                 </button>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 ml-6">
                   {group.items.map(item => (
-                    <label
+                    <button
                       key={item.key}
-                      className="flex items-center gap-2 cursor-pointer group p-1.5 rounded-lg hover:bg-[var(--surface)] transition-colors"
+                      type="button"
+                      onClick={() => togglePerm(item.key)}
+                      className={`w-full flex items-center justify-between gap-3 p-1.5 rounded-lg transition-colors ${
+                        currentPerms.has(item.key)
+                          ? "bg-purple-500/10 hover:bg-purple-500/20"
+                          : "hover:bg-[var(--surface)]"
+                      }`}
                     >
-                      <div
-                        onClick={() => togglePerm(item.key)}
-                        className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer ${
-                          currentPerms.has(item.key) ? "bg-purple-500 border-purple-500" : "border-[var(--border)] group-hover:border-purple-500/50"
-                        }`}
-                      >
-                        {currentPerms.has(item.key) && <Check className="w-2.5 h-2.5 text-white" />}
-                      </div>
-                      <span onClick={() => togglePerm(item.key)} className="text-xs text-[var(--text-main)] leading-tight select-none">
+                      <span className="text-xs text-[var(--text-main)] leading-tight text-left select-none">
                         {item.label}
                       </span>
-                    </label>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[10px] font-semibold ${currentPerms.has(item.key) ? "text-purple-500" : "text-[var(--text-sub)]"}`}>
+                          {currentPerms.has(item.key) ? "ON" : "OFF"}
+                        </span>
+                        <span
+                          className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+                            currentPerms.has(item.key) ? "bg-purple-500" : "bg-[var(--border)]"
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              currentPerms.has(item.key) ? "translate-x-5" : "translate-x-1"
+                            }`}
+                          />
+                        </span>
+                      </span>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -614,13 +640,6 @@ function PermissionsTab({
         </div>
       </div>
 
-      <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-        <AlertTriangle className="h-4 w-4 text-blue-400 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-blue-400">
-          Cấu hình quyền được lưu trong trình duyệt này và chỉ ảnh hưởng đến giao diện UI.
-          Quyền trên máy chủ được quản lý độc lập.
-        </p>
-      </div>
     </div>
   );
 }
@@ -641,6 +660,17 @@ export default function RoleManagementPage() {
   const [confirm, setConfirm] = useState<{ userId: string; userName: string; newRole: UserRoleType } | null>(null);
   const [showCreateRole, setShowCreateRole] = useState(false);
 
+  const loadRolePermissions = useCallback(async () => {
+    try {
+      const res = await getRolePermissions();
+      if (res?.rolePerms && typeof res.rolePerms === "object") {
+        setRolePerms((prev) => ({ ...prev, ...res.rolePerms }));
+      }
+    } catch {
+      toast.error("Không thể tải cấu hình quyền từ máy chủ");
+    }
+  }, [setRolePerms]);
+
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -656,6 +686,11 @@ export default function RoleManagementPage() {
   }, []);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => { loadRolePermissions(); }, [loadRolePermissions]);
+
+  const persistRolePerms = useCallback(async (perms: Record<string, PermissionType[]>) => {
+    await updateRolePermissions(perms);
+  }, []);
 
   const applyRoleChange = async (userId: string, newRole: UserRoleType) => {
     setUpdating(userId);
@@ -895,6 +930,7 @@ export default function RoleManagementPage() {
           rolePerms={rolePerms}
           onRolePermsChange={setRolePerms}
           onCreateRole={() => setShowCreateRole(true)}
+          onPersistRolePerms={persistRolePerms}
         />
       )}
     </div>

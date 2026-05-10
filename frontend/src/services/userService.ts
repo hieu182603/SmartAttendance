@@ -1,6 +1,6 @@
 import api from '@/services/api'
 import type { User, ValidationError } from '@/types'
-import type { AxiosRequestConfig } from 'axios'
+import type { PermissionType } from '@/utils/roles'
 
 interface UpdateUserData {
   name?: string
@@ -42,6 +42,10 @@ interface CreateUserByAdminData {
 
 interface UpdateUserResponse {
   user: User
+}
+
+interface RolePermissionsResponse {
+  rolePerms: Record<string, PermissionType[]>
 }
 
 export const updateUserProfile = async (userData: UpdateUserData): Promise<UpdateUserResponse> => {
@@ -176,6 +180,18 @@ export const createUserByAdmin = async (userData: CreateUserByAdminData): Promis
     }
     throw err
   }
+}
+
+export const getRolePermissions = async (): Promise<RolePermissionsResponse> => {
+  const { data } = await api.get('/users/role-permissions')
+  return data
+}
+
+export const updateRolePermissions = async (
+  rolePerms: Record<string, PermissionType[]>
+): Promise<RolePermissionsResponse> => {
+  const { data } = await api.put('/users/role-permissions', { rolePerms })
+  return data
 }
 
 

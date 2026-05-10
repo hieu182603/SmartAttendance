@@ -26,13 +26,20 @@ test.describe("Frontend smoke", () => {
     await expect(page.locator("body")).not.toContainText("Cannot GET");
   });
 
-  test("route không tồn tại redirect về 404 page", async ({ page }) => {
+  test("route không tồn tại hiển thị trang 404", async ({ page }) => {
     await page.goto("/this-route-does-not-exist-xyz");
-    await expect(page.locator("body")).toBeVisible({ timeout: 10_000 });
-    // Expect either a 404 message or redirect to /not-found
+    // Wait for React to hydrate — the app shows "Loading..." during chunk loading
+    await page.locator("text=Loading").waitFor({ state: "hidden", timeout: 15_000 }).catch(() => {});
+    await expect(page.locator("body")).toBeVisible();
+    // Root catch-all renders NotFoundPage in-place (URL stays, content shows 404)
+    // Sub-routes (e.g. /employee/*) redirect to /not-found — both are acceptable
+    const bodyText = (await page.locator("body").textContent()) || "";
     const url = page.url();
-    const bodyText = await page.locator("body").textContent();
-    const is404 = url.includes("not-found") || (bodyText || "").toLowerCase().includes("404") || (bodyText || "").toLowerCase().includes("không tìm thấy");
-    expect(is404, `Expected 404 behavior, got URL: ${url}`).toBe(true);
+    const is404 =
+      url.includes("not-found") ||
+      bodyText.includes("404") ||
+      bodyText.toLowerCase().includes("không tìm thấy") ||
+      bodyText.toLowerCase().includes("page not found");
+    expect(is404, `Expected 404 page content, got URL: ${url}, body snippet: ${bodyText.slice(0, 200)}`).toBe(true);
   });
 });

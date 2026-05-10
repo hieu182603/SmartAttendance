@@ -17,18 +17,18 @@ const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:5173";
 const ROLES = [
   {
     key: "employee",
-    email: process.env.E2E_EMPLOYEE_EMAIL || "employee@test.com",
-    password: process.env.E2E_EMPLOYEE_PASSWORD || "Test@123456",
+    email: process.env.E2E_EMPLOYEE_EMAIL || "employee1@smartattendance.com",
+    password: process.env.E2E_EMPLOYEE_PASSWORD || "SmartAttendance@2026!",
   },
   {
     key: "hr",
-    email: process.env.E2E_HR_EMAIL || "hr_manager@test.com",
-    password: process.env.E2E_HR_PASSWORD || "Test@123456",
+    email: process.env.E2E_HR_EMAIL || "hr@smartattendance.com",
+    password: process.env.E2E_HR_PASSWORD || "SmartAttendance@2026!",
   },
   {
     key: "manager",
-    email: process.env.E2E_MANAGER_EMAIL || "manager@test.com",
-    password: process.env.E2E_MANAGER_PASSWORD || "Test@123456",
+    email: process.env.E2E_MANAGER_EMAIL || "manager@smartattendance.com",
+    password: process.env.E2E_MANAGER_PASSWORD || "SmartAttendance@2026!",
   },
 ];
 
@@ -40,12 +40,12 @@ async function saveAuth(key: string, email: string, password: string, outPath: s
   const page = await context.newPage();
 
   try {
-    await page.goto(`${BASE_URL}/login`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE_URL}/login`, { waitUntil: "domcontentloaded", timeout: 10_000 });
     await page.locator('input[type="email"], input[name="email"]').first().fill(email);
     await page.locator('input[type="password"]').first().fill(password);
     await page.locator('button[type="submit"]').click();
 
-    await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15_000 });
+    await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 12_000 });
 
     // Wait a moment for localStorage to be fully written
     await page.waitForTimeout(500);
