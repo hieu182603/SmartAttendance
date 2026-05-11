@@ -28,6 +28,10 @@
   "my-payslip": "Salary",
   "payroll-group": "Payroll",
   "leave-types": "Leave Type Management",
-  "system-config": "System Config"
+  "system-config": "System Config",
+  "role-management": "Role permission defaults",
+  "face-recognition-logs": "Face recognition logs",
+  "active-sessions": "Active sessions",
+  "system-health": "System health"
 }
 

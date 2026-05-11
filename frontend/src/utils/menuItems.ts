@@ -221,7 +221,7 @@ export const MENU_ITEMS: MenuItem[] = [
   },
   {
     id: 'role-management',
-    label: 'Phân quyền hệ thống',
+    label: 'Cấu hình quyền theo role',
     icon: ShieldCheck,
     path: '/admin/role-management',
     minimumRole: UserRole.ADMIN,

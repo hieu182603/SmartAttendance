@@ -993,8 +993,9 @@
       "shift": "Ca làm việc",
       "selectShift": "Chọn ca làm việc",
       "noShift": "Không có ca",
+      "permissions": "Phân quyền",
       "role": "Vai trò",
-      "selectRole": "Chọn vai trò",
+      "selectRole": "Chọn role",
       "accountStatus": "Trạng thái tài khoản",
       "selectStatus": "Chọn trạng thái",
       "roleChangeWarning": "⚠️ Chỉ Admin và Super Admin mới có quyền thay đổi vai trò",
@@ -1851,7 +1852,15 @@
     "toasts": {
       "autoCaptureSuccess": "Đã tự động chụp ảnh {{current}}/{{max}} (Chất lượng: {{quality}}%)",
       "captureSuccess": "Đã chụp ảnh {{current}}/{{max}} (Chất lượng: {{quality}}%)",
-      "lowQualityRemoved": "Đã tự động loại bỏ {{count}} ảnh chất lượng thấp. Vui lòng chụp lại."
+      "lowQualityRemoved": "Đã tự động loại bỏ {{count}} ảnh chất lượng thấp. Vui lòng chụp lại.",
+      "networkRetrying": "Lỗi mạng. Đang thử lại sau {{delay}} giây... ({{attempt}}/{{max}})",
+      "offlineSaved": "Bạn đang offline. Dữ liệu đã được lưu cục bộ. Vui lòng thử lại khi có kết nối.",
+      "livenessRequired": "Vui lòng hoàn tất xác thực khuôn mặt trước khi đăng ký"
+    },
+    "offlineStorage": {
+      "pendingFound": "Có dữ liệu đăng ký khuôn mặt chưa gửi. Đang gửi lại...",
+      "submitSuccess": "Đã gửi dữ liệu đăng ký khuôn mặt thành công!",
+      "submitFailed": "Gửi dữ liệu đăng ký thất bại. Vui lòng thử lại."
     },
     "preview": {
       "title": "Xem trước ảnh",
@@ -2107,6 +2116,40 @@
       "exportExcelLoading": "Đang xuất Excel...",
       "exportExcelSuccess": "Tải Excel thành công",
       "exportExcelError": "Không thể tải Excel"
+    }
+  },
+  "activeSessionsPage": {
+    "title": "Phiên đăng nhập đang hoạt động",
+    "subtitle": "Quản lý các phiên đang online và buộc đăng xuất khi cần",
+    "refresh": "Làm mới",
+    "stats": {
+      "online": "Đang online",
+      "adminOnline": "Admin đang online",
+      "employeeOnline": "Nhân viên đang online"
+    },
+    "table": {
+      "user": "Người dùng",
+      "role": "Vai trò",
+      "loginAt": "Đăng nhập lúc",
+      "device": "Thiết bị",
+      "ip": "IP",
+      "actions": "Thao tác",
+      "loading": "Đang tải...",
+      "empty": "Không có phiên đăng nhập nào"
+    },
+    "self": "(bạn)",
+    "forceLogout": "Buộc đăng xuất",
+    "confirmLogout": "Bạn chắc chắn muốn đăng xuất {{name}}?",
+    "device": {
+      "mobile": "Di động",
+      "tablet": "Máy tính bảng",
+      "desktop": "Máy tính",
+      "unknown": "Không xác định"
+    },
+    "toasts": {
+      "loadError": "Không thể tải danh sách phiên đăng nhập",
+      "logoutSuccess": "Đã đăng xuất {{name}}",
+      "logoutError": "Không thể buộc đăng xuất"
     }
   },
   "leaveTypeMgmt": {

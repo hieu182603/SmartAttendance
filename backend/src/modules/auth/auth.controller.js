@@ -1,11 +1,28 @@
 import { AuthService } from "./auth.service.js";
 import { z } from "zod";
 import { logActivity } from "../../utils/logger.util.js";
+import { isRedisEnabled } from "../../config/redis.js";
+
+const REFRESH_COOKIE = "sa_refresh";
+const COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: "/api/auth",
+};
+
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$/;
+const PASSWORD_MSG = "Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt";
 
 // Validation schemas
 export const registerSchema = z.object({
     email: z.string().email("Email không hợp lệ").min(1, "Email không được để trống"),
-    password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự").max(100, "Mật khẩu không được vượt quá 100 ký tự"),
+    password: z
+        .string()
+        .min(8, PASSWORD_MSG)
+        .max(100, "Mật khẩu không được vượt quá 100 ký tự")
+        .regex(PASSWORD_REGEX, PASSWORD_MSG),
     name: z.string().min(2, "Họ và tên phải có ít nhất 2 ký tự").max(100, "Họ và tên không được vượt quá 100 ký tự")
 });
 
@@ -34,12 +51,16 @@ export const verifyResetOTPSchema = z.object({
 
 export const resetPasswordSchema = z.object({
     email: z.string().email("Invalid email"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: z
+        .string()
+        .min(8, PASSWORD_MSG)
+        .max(100)
+        .regex(PASSWORD_REGEX, PASSWORD_MSG),
     resetToken: z.string().min(1, "Reset token is required"),
 });
 
 const refreshBodySchema = z.object({
-    refreshToken: z.string().min(1, "refreshToken is required"),
+    refreshToken: z.string().min(1).optional(),
 });
 
 /**
@@ -221,7 +242,10 @@ export class AuthController {
             // Set userId trong req để logActivity có thể sử dụng
             req.user = { userId: result.user?.id };
 
-            return res.status(200).json(result);
+            // Move refresh token to httpOnly cookie — never expose to JS
+            res.cookie(REFRESH_COOKIE, result.refreshToken, COOKIE_OPTIONS);
+            const { refreshToken: _rt, ...safeResult } = result;
+            return res.status(200).json(safeResult);
         } catch (error) {
             // Log failed login attempt
             await logActivity(req, {
@@ -287,8 +311,16 @@ export class AuthController {
             }
 
             // Verify OTP
-            const result = await AuthService.verifyOTP(parse.data.email, parse.data.otp);
+            const result = await AuthService.verifyOTP(parse.data.email, parse.data.otp, {
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"],
+            });
 
+            if (result.refreshToken) {
+                res.cookie(REFRESH_COOKIE, result.refreshToken, COOKIE_OPTIONS);
+                const { refreshToken: _rt, ...safeResult } = result;
+                return res.status(200).json(safeResult);
+            }
             return res.status(200).json(result);
         } catch (error) {
             if (error.message === "User not found") {
@@ -553,13 +585,25 @@ export class AuthController {
      */
     static async refresh(req, res) {
         try {
+            // Prefer httpOnly cookie; fall back to body for old clients during migration
+            const tokenFromCookie = req.cookies?.[REFRESH_COOKIE];
             const parse = refreshBodySchema.safeParse(req.body);
-            if (!parse.success) {
-                return res.status(400).json({ message: "refreshToken is required" });
+            const tokenFromBody = parse.success ? parse.data.refreshToken : undefined;
+            const refreshToken = tokenFromCookie || tokenFromBody;
+
+            if (!refreshToken) {
+                return res.status(401).json({ message: "No refresh token provided" });
             }
-            const result = await AuthService.refreshToken(parse.data.refreshToken);
-            return res.status(200).json(result);
+
+            const result = await AuthService.refreshToken(refreshToken);
+
+            // Rotate: set new refresh token as httpOnly cookie
+            res.cookie(REFRESH_COOKIE, result.refreshToken, COOKIE_OPTIONS);
+            const { refreshToken: _rt, ...safeResult } = result;
+            return res.status(200).json(safeResult);
         } catch (error) {
+            // Clear stale cookie on invalid/revoked token
+            res.clearCookie(REFRESH_COOKIE, { path: COOKIE_OPTIONS.path });
             return res.status(401).json({ message: error.message });
         }
     }
@@ -567,6 +611,7 @@ export class AuthController {
     static async logout(req, res) {
         try {
             await AuthService.logout(req.user.userId);
+            res.clearCookie(REFRESH_COOKIE, { path: COOKIE_OPTIONS.path });
             return res.status(200).json({ message: "Logged out successfully" });
         } catch (error) {
             console.error("Logout error:", error);
@@ -576,6 +621,14 @@ export class AuthController {
 
     static async getAdminSessions(req, res) {
         try {
+            if (!isRedisEnabled()) {
+                return res.status(200).json({
+                    sessions: [],
+                    sessionsUnavailableReason: "REDIS_DISABLED",
+                    message:
+                        "Theo dõi phiên đăng nhập cần Redis (REDIS_URL hoặc REDIS_HOST). Bật Redis để ghi nhận và xem phiên.",
+                });
+            }
             const sessions = await AuthService.getActiveSessions();
             return res.status(200).json({ sessions });
         } catch (error) {

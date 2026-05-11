@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Clock,
   Bot,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,17 +32,6 @@ interface HealthData {
   };
   node: string;
   env: string;
-}
-
-function formatUptime(seconds: number): string {
-  const d = Math.floor(seconds / 86400);
-  const h = Math.floor((seconds % 86400) / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const parts = [];
-  if (d > 0) parts.push(`${d}d`);
-  if (h > 0) parts.push(`${h}h`);
-  parts.push(`${m}m`);
-  return parts.join(' ');
 }
 
 type ServiceStatus = 'connected' | 'connecting' | 'disconnected' | 'degraded' | 'disabled' | 'unavailable' | 'unknown';
@@ -131,29 +119,6 @@ export default function SystemHealthPage() {
           <XCircle className="inline h-4 w-4 mr-2" />
           {error}
         </div>
-      )}
-
-      {/* Overall status */}
-      {health && (
-        <Card className={health.status === 'ok' ? 'border-green-300' : 'border-orange-300'}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {health.status === 'ok'
-                ? <CheckCircle2 className="h-6 w-6 text-green-500" />
-                : <AlertTriangle className="h-6 w-6 text-orange-500" />}
-              <div>
-                <p className="font-semibold text-(--text-primary)">
-                  {health.status === 'ok' ? 'Tất cả dịch vụ hoạt động bình thường' : 'Một số dịch vụ đang có vấn đề'}
-                </p>
-                <p className="text-xs text-(--text-sub)">Node {health.node} · {health.env}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-(--text-sub) text-sm">
-              <Clock className="h-4 w-4" />
-              Uptime: {formatUptime(health.uptime)}
-            </div>
-          </CardContent>
-        </Card>
       )}
 
       {/* Services */}

@@ -12,8 +12,8 @@
  * here and write the final, valid storageState.
  */
 import { test as setup } from "@playwright/test";
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 
 const EMPTY_STATE = JSON.stringify({ cookies: [], origins: [] });
 
@@ -66,5 +66,14 @@ setup("setup: manager auth", async ({ page }) => {
     process.env.E2E_MANAGER_EMAIL || "manager@smartattendance.com",
     process.env.E2E_MANAGER_PASSWORD || "SmartAttendance@2026!",
     path.resolve(".auth/manager.json")
+  );
+});
+
+setup("setup: admin auth", async ({ page }) => {
+  await loginAndSave(
+    page,
+    process.env.E2E_ADMIN_EMAIL || "admin@smartattendance.com",
+    process.env.E2E_ADMIN_PASSWORD || "SmartAttendance@2026!",
+    path.resolve(".auth/admin.json")
   );
 });

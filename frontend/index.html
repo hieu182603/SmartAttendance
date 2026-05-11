@@ -71,17 +71,18 @@
     <!-- Canonical URL -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="canonical" href="https://www.smart-attendance.com/" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
   </head>
   <body>
     <div id="root"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/favico.js/0.3.10/favico.min.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/favico.js/0.3.10/favico.min.js"></script>
     <script>
       (function () {
         function init() {
           if (globalThis.Favico) {
             // eslint-disable-next-line no-undef
             globalThis._fav = new globalThis.Favico({ animation: "popFade" });
-            // expose a simple global setter for other scripts/React to call
             globalThis.setFaviconBadge = function (count) {
               try {
                 if (typeof count === "number") {
@@ -93,17 +94,15 @@
                   globalThis._fav.reset();
                 }
               } catch (e) {
-                // swallow errors to avoid breaking the app load
                 console.warn("setFaviconBadge error", e);
               }
             };
           } else {
-            setTimeout(init, 50);
+            setTimeout(init, 200);
           }
         }
-        init();
+        window.addEventListener("load", init);
       })();
     </script>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

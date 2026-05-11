@@ -1358,8 +1358,9 @@
       "shift": "Shift",
       "selectShift": "Select Shift",
       "noShift": "No Shift",
+      "permissions": "Permissions",
       "role": "Role",
-      "selectRole": "Select Role",
+      "selectRole": "Select role",
       "accountStatus": "Account Status",
       "selectStatus": "Select Status",
       "roleChangeWarning": "⚠️ Only Admin and Super Admin can change roles",
@@ -1843,7 +1844,15 @@
     "toasts": {
       "autoCaptureSuccess": "Auto captured photo {{current}}/{{max}} (Quality: {{quality}}%)",
       "captureSuccess": "Captured photo {{current}}/{{max}} (Quality: {{quality}}%)",
-      "lowQualityRemoved": "Automatically removed {{count}} low quality images. Please capture again."
+      "lowQualityRemoved": "Automatically removed {{count}} low quality images. Please capture again.",
+      "networkRetrying": "Network error. Retrying in {{delay}}s... ({{attempt}}/{{max}})",
+      "offlineSaved": "You are offline. Data saved locally. Please retry when back online.",
+      "livenessRequired": "Please complete liveness verification before registering"
+    },
+    "offlineStorage": {
+      "pendingFound": "Pending face registration data found. Submitting...",
+      "submitSuccess": "Face registration data submitted successfully!",
+      "submitFailed": "Failed to submit registration data. Please try again."
     },
     "preview": {
       "title": "Photo Preview",
@@ -2099,6 +2108,40 @@
       "exportExcelLoading": "Exporting Excel...",
       "exportExcelSuccess": "Excel downloaded successfully",
       "exportExcelError": "Failed to download Excel"
+    }
+  },
+  "activeSessionsPage": {
+    "title": "Active Login Sessions",
+    "subtitle": "Manage active online sessions and force logout when needed",
+    "refresh": "Refresh",
+    "stats": {
+      "online": "Online",
+      "adminOnline": "Admins Online",
+      "employeeOnline": "Employees Online"
+    },
+    "table": {
+      "user": "User",
+      "role": "Role",
+      "loginAt": "Login Time",
+      "device": "Device",
+      "ip": "IP",
+      "actions": "Actions",
+      "loading": "Loading...",
+      "empty": "No active sessions"
+    },
+    "self": "(you)",
+    "forceLogout": "Force Logout",
+    "confirmLogout": "Are you sure you want to log out {{name}}?",
+    "device": {
+      "mobile": "Mobile",
+      "tablet": "Tablet",
+      "desktop": "Desktop",
+      "unknown": "Unknown"
+    },
+    "toasts": {
+      "loadError": "Failed to load active sessions",
+      "logoutSuccess": "Logged out {{name}}",
+      "logoutError": "Failed to force logout"
     }
   },
   "leaveTypeMgmt": {

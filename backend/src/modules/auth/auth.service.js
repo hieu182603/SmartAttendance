@@ -12,6 +12,29 @@ const sessionMetaKey = (userId) => `session_meta:${userId}`;
 const ACTIVE_SESSIONS_SET = "active_sessions";
 
 export class AuthService {
+    /**
+     * Ghi nhận phiên đăng nhập (Redis): metadata + tập active_sessions.
+     * Phiên đăng nhập / admin sessions API phụ thuộc Redis — không gọi được nếu Redis tắt.
+     */
+    static async registerActiveSession(user, meta = {}) {
+        const userId = user._id.toString();
+        await redisSet(
+            sessionMetaKey(userId),
+            {
+                userId,
+                userName: user.name,
+                userEmail: user.email,
+                userRole: user.role,
+                ipAddress: meta.ipAddress || null,
+                userAgent: meta.userAgent || null,
+                loginAt: new Date().toISOString(),
+                lastActiveAt: new Date().toISOString(),
+            },
+            REFRESH_TTL
+        );
+        await redisSAdd(ACTIVE_SESSIONS_SET, userId);
+    }
+
     // Đăng ký tài khoản mới
     static async register(userData) {
         const { email, password, name } = userData;
@@ -98,7 +121,7 @@ export class AuthService {
     }
 
     // Xác thực OTP
-    static async verifyOTP(email, otp) {
+    static async verifyOTP(email, otp, meta = {}) {
         const normalizedEmail = email.toLowerCase().trim();
         const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("User not found");
@@ -139,6 +162,7 @@ export class AuthService {
 
         const { accessToken, refreshToken } = generateTokenFromUser(user);
         await redisSet(refreshKey(user._id), refreshToken, REFRESH_TTL);
+        await AuthService.registerActiveSession(user, meta);
         return {
             message: "Email verified successfully",
             token: accessToken,
@@ -200,19 +224,7 @@ export class AuthService {
 
         const { accessToken, refreshToken } = generateTokenFromUser(user);
         await redisSet(refreshKey(user._id), refreshToken, REFRESH_TTL);
-
-        const userId = user._id.toString();
-        await redisSet(sessionMetaKey(userId), {
-            userId,
-            userName: user.name,
-            userEmail: user.email,
-            userRole: user.role,
-            ipAddress: meta.ipAddress || null,
-            userAgent: meta.userAgent || null,
-            loginAt: new Date().toISOString(),
-            lastActiveAt: new Date().toISOString(),
-        }, REFRESH_TTL);
-        await redisSAdd(ACTIVE_SESSIONS_SET, userId);
+        await AuthService.registerActiveSession(user, meta);
 
         return {
             token: accessToken,
@@ -358,6 +370,14 @@ export class AuthService {
         });
         const newRefresh = generateRefreshToken({ userId: user._id });
         await redisSet(refreshKey(user._id), newRefresh, REFRESH_TTL);
+
+        const sid = user._id.toString();
+        const existingMeta = await redisGet(sessionMetaKey(sid));
+        if (existingMeta) {
+            existingMeta.lastActiveAt = new Date().toISOString();
+            await redisSet(sessionMetaKey(sid), existingMeta, REFRESH_TTL);
+            await redisSAdd(ACTIVE_SESSIONS_SET, sid);
+        }
 
         return { token: newAccess, refreshToken: newRefresh };
     }

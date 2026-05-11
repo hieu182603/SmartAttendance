@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
-  Search, Shield, RefreshCw, ChevronDown, AlertTriangle,
-  Plus, Settings, Users, X, Trash2, Save, Check,
+  Shield, RefreshCw,
+  Plus, X, Trash2, Save, Check,
 } from "lucide-react";
 import {
-  getAllUsers,
   getRolePermissions,
   updateRolePermissions,
-  updateUserByAdmin,
 } from "@/services/userService";
 import {
   UserRole,
@@ -17,11 +15,8 @@ import {
   type PermissionType,
   ROLE_NAMES,
   ROLE_COLORS,
-  ROLE_HIERARCHY,
   ROLE_PERMISSIONS,
-  canManageRole,
 } from "@/utils/roles";
-import { useAuth } from "@/context/AuthContext";
 import {
   usePermissionsOverride,
   type CustomRole,
@@ -30,20 +25,6 @@ import {
 } from "@/context/PermissionsContext";
 
 // ─── Types ───────────────────────────────────────────────
-
-interface UserRow {
-  _id: string;
-  name: string;
-  email: string;
-  role: UserRoleType;
-  isActive: boolean;
-  department?: { name: string } | null;
-}
-
-interface ApiUsersResponse {
-  data?: unknown[];
-  users?: unknown[];
-}
 
 interface PermissionGroupItem {
   key: PermissionType;
@@ -55,12 +36,6 @@ interface PermissionGroupItem {
 const BUILTIN_ROLES = Object.values(UserRole).filter(
   (r) => r !== UserRole.TRIAL
 ) as UserRoleType[];
-
-const ASSIGNABLE_ROLES = [...BUILTIN_ROLES].sort(
-  (a, b) => ROLE_HIERARCHY[b] - ROLE_HIERARCHY[a]
-);
-
-const HIGH_PRIVILEGE_ROLES: UserRoleType[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 
 const PRESET_COLORS = [
   { bg: "bg-indigo-500/20", text: "text-indigo-500" },
@@ -160,57 +135,6 @@ const PERMISSION_GROUPS: Array<{ id: string; label: string; items: PermissionGro
     ],
   },
 ];
-
-// ─── Helpers ─────────────────────────────────────────────
-
-function isUserRow(v: unknown): v is UserRow {
-  if (!v || typeof v !== "object") return false;
-  const u = v as Record<string, unknown>;
-  return typeof u._id === "string" && typeof u.name === "string" && typeof u.email === "string";
-}
-
-function extractUsers(res: unknown): UserRow[] {
-  const candidates =
-    (res as ApiUsersResponse)?.data ??
-    (res as ApiUsersResponse)?.users ??
-    (Array.isArray(res) ? res : []);
-  return (candidates as unknown[]).filter(isUserRow);
-}
-
-// ─── ConfirmDialog ────────────────────────────────────────
-
-function ConfirmDialog({
-  userName, newRole, onConfirm, onCancel,
-}: {
-  userName: string; newRole: UserRoleType; onConfirm: () => void; onCancel: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-[var(--background)] border border-[var(--border)] rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 rounded-lg bg-yellow-500/20">
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-          </div>
-          <h2 className="font-semibold text-[var(--text-main)]">Xác nhận thay đổi</h2>
-        </div>
-        <p className="text-sm text-[var(--text-sub)] mb-6">
-          Bạn có chắc muốn gán role{" "}
-          <span className={`font-semibold ${ROLE_COLORS[newRole].text}`}>{ROLE_NAMES[newRole]}</span>{" "}
-          cho <span className="font-semibold text-[var(--text-main)]">{userName}</span>?
-          Đây là role có quyền cao và không thể hoàn tác dễ dàng.
-        </p>
-        <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 text-sm rounded-lg border border-[var(--border)] text-[var(--text-sub)] hover:bg-[var(--surface)] transition-colors">
-            Huỷ
-          </button>
-          <button onClick={onConfirm} className="flex-1 px-4 py-2 text-sm rounded-lg bg-yellow-500 text-white font-medium hover:bg-yellow-600 transition-colors">
-            Xác nhận
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── CreateRoleDialog ─────────────────────────────────────
 
@@ -580,7 +504,7 @@ function PermissionsTab({
           </div>
         </div>
 
-        <div className="p-4 space-y-4 max-h-[55vh] overflow-y-auto">
+        <div className="p-4 space-y-4">
           {PERMISSION_GROUPS.map(group => {
             const groupKeys = group.items.map(i => i.key);
             const allOn = groupKeys.every(k => currentPerms.has(k));
@@ -647,17 +571,7 @@ function PermissionsTab({
 // ─── Main Page ────────────────────────────────────────────
 
 export default function RoleManagementPage() {
-  const { user: currentUser } = useAuth();
   const { rolePerms, setRolePerms, customRoles, setCustomRoles } = usePermissionsOverride();
-  const [activeTab, setActiveTab] = useState<"users" | "permissions">("users");
-
-  // Users tab
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState<UserRoleType | "ALL">("ALL");
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<{ userId: string; userName: string; newRole: UserRoleType } | null>(null);
   const [showCreateRole, setShowCreateRole] = useState(false);
 
   const loadRolePermissions = useCallback(async () => {
@@ -671,53 +585,11 @@ export default function RoleManagementPage() {
     }
   }, [setRolePerms]);
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await getAllUsers({ limit: 500 });
-      const list = extractUsers(res);
-      if (list.length === 0 && res) toast.error("Dữ liệu người dùng không đúng định dạng");
-      setUsers(list);
-    } catch {
-      toast.error("Không thể tải danh sách người dùng");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadUsers(); }, [loadUsers]);
   useEffect(() => { loadRolePermissions(); }, [loadRolePermissions]);
 
   const persistRolePerms = useCallback(async (perms: Record<string, PermissionType[]>) => {
     await updateRolePermissions(perms);
   }, []);
-
-  const applyRoleChange = async (userId: string, newRole: UserRoleType) => {
-    setUpdating(userId);
-    try {
-      await updateUserByAdmin(userId, { role: newRole });
-      setUsers(prev => prev.map(u => u._id === userId ? { ...u, role: newRole } : u));
-      toast.success(`Đã cập nhật role thành ${ROLE_NAMES[newRole]}`);
-    } catch (err: unknown) {
-      toast.error((err as { message?: string })?.message ?? "Cập nhật role thất bại");
-    } finally {
-      setUpdating(null);
-    }
-  };
-
-  const handleRoleChange = (userId: string, userName: string, newRole: UserRoleType) => {
-    if (!currentUser) return;
-    if (!canManageRole(currentUser.role as UserRoleType, newRole)) {
-      toast.error("Bạn không có quyền gán role này"); return;
-    }
-    if (userId === currentUser._id) {
-      toast.error("Không thể tự thay đổi role của mình"); return;
-    }
-    if (HIGH_PRIVILEGE_ROLES.includes(newRole)) {
-      setConfirm({ userId, userName, newRole }); return;
-    }
-    applyRoleChange(userId, newRole);
-  };
 
   const handleCreateRole = (role: CustomRole) => {
     const updated = [...customRoles, role];
@@ -727,22 +599,8 @@ export default function RoleManagementPage() {
     toast.success(`Đã tạo role "${role.name}"`);
   };
 
-  const filtered = users.filter(u => {
-    const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = filterRole === "ALL" || u.role === filterRole;
-    return matchSearch && matchRole;
-  });
-
   return (
     <div className="p-6 space-y-6">
-      {confirm && (
-        <ConfirmDialog
-          userName={confirm.userName}
-          newRole={confirm.newRole}
-          onConfirm={() => { applyRoleChange(confirm.userId, confirm.newRole); setConfirm(null); }}
-          onCancel={() => setConfirm(null)}
-        />
-      )}
       {showCreateRole && (
         <CreateRoleDialog
           onClose={() => setShowCreateRole(false)}
@@ -750,189 +608,37 @@ export default function RoleManagementPage() {
         />
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-purple-500/20">
             <Shield className="h-5 w-5 text-purple-500" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-[var(--text-main)]">Phân quyền hệ thống</h1>
-            <p className="text-sm text-[var(--text-sub)]">Quản lý role và quyền hạn của tất cả người dùng</p>
+            <h1 className="text-xl font-semibold text-[var(--text-main)]">Cấu hình quyền theo role</h1>
+            <p className="text-sm text-[var(--text-sub)]">
+              Thiết lập bộ quyền mặc định cho từng vai trò. Gán vai trò cho từng nhân viên thực hiện tại{" "}
+              <span className="text-[var(--text-main)] font-medium">Quản lý nhân viên → Chỉnh sửa → Phân quyền</span>.
+            </p>
           </div>
         </div>
-        {activeTab === "users" && (
-          <button
-            onClick={loadUsers}
-            className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-[var(--border)] text-[var(--text-sub)] hover:bg-[var(--surface)] transition-colors"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Làm mới
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => { void loadRolePermissions(); }}
+          className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-[var(--border)] text-[var(--text-sub)] hover:bg-[var(--surface)] transition-colors"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Làm mới từ máy chủ
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-[var(--surface)] rounded-xl w-fit">
-        {(["users", "permissions"] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-all ${
-              activeTab === tab ? "bg-[var(--background)] text-[var(--text-main)] shadow-sm font-medium" : "text-[var(--text-sub)] hover:text-[var(--text-main)]"
-            }`}
-          >
-            {tab === "users" ? <Users className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
-            {tab === "users" ? "Phân quyền người dùng" : "Cấu hình quyền"}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "users" ? (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {BUILTIN_ROLES.map(role => {
-              const count = users.filter(u => u.role === role).length;
-              const color = ROLE_COLORS[role];
-              return (
-                <div
-                  key={role}
-                  className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] cursor-pointer hover:border-purple-500/40 transition-colors"
-                  onClick={() => setFilterRole(prev => prev === role ? "ALL" : role)}
-                >
-                  <p className={`text-xs font-medium ${color.text}`}>{ROLE_NAMES[role]}</p>
-                  <p className="text-2xl font-bold text-[var(--text-main)] mt-1">{count}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
-              <input
-                type="text"
-                placeholder="Tìm theo tên hoặc email..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-main)] placeholder:text-[var(--text-sub)] focus:outline-none focus:border-purple-500/60"
-              />
-            </div>
-            <div className="relative">
-              <select
-                value={filterRole}
-                onChange={e => setFilterRole(e.target.value as UserRoleType | "ALL")}
-                className="appearance-none pl-3 pr-8 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-main)] focus:outline-none focus:border-purple-500/60 cursor-pointer"
-              >
-                <option value="ALL">Tất cả role</option>
-                {BUILTIN_ROLES.map(r => <option key={r} value={r}>{ROLE_NAMES[r]}</option>)}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-sub)] pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="rounded-xl border border-[var(--border)] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--surface)]">
-                  <th className="text-left px-4 py-3 font-medium text-[var(--text-sub)]">Người dùng</th>
-                  <th className="text-left px-4 py-3 font-medium text-[var(--text-sub)] hidden sm:table-cell">Phòng ban</th>
-                  <th className="text-left px-4 py-3 font-medium text-[var(--text-sub)]">Role hiện tại</th>
-                  <th className="text-left px-4 py-3 font-medium text-[var(--text-sub)]">Thay đổi role</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-12 text-center text-[var(--text-sub)]">
-                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
-                      Đang tải...
-                    </td>
-                  </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-12 text-center text-[var(--text-sub)]">
-                      Không tìm thấy người dùng nào
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map(u => {
-                    const roleColor = ROLE_COLORS[u.role];
-                    const isSelf = u._id === currentUser?._id;
-                    const isUpdating = updating === u._id;
-                    return (
-                      <tr key={u._id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface)] transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-500 font-semibold text-xs shrink-0">
-                              {u.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-[var(--text-main)]">
-                                {u.name}
-                                {isSelf && <span className="ml-1 text-xs text-purple-500">(bạn)</span>}
-                              </p>
-                              <p className="text-xs text-[var(--text-sub)]">{u.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-[var(--text-sub)] hidden sm:table-cell">
-                          {u.department?.name ?? "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${roleColor.bg} ${roleColor.text}`}>
-                            {ROLE_NAMES[u.role]}
-                          </span>
-                          {!u.isActive && (
-                            <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/20 text-gray-400">
-                              Vô hiệu
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isSelf ? (
-                            <span className="text-xs text-[var(--text-sub)] italic">Không thể tự đổi</span>
-                          ) : (
-                            <div className="relative inline-block">
-                              <select
-                                value={u.role}
-                                disabled={isUpdating}
-                                onChange={e => handleRoleChange(u._id, u.name, e.target.value as UserRoleType)}
-                                className={`appearance-none pl-2 pr-6 py-1 text-xs rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--text-main)] focus:outline-none focus:border-purple-500/60 cursor-pointer transition-opacity ${isUpdating ? "opacity-50" : ""}`}
-                              >
-                                {ASSIGNABLE_ROLES.map(r => <option key={r} value={r}>{ROLE_NAMES[r]}</option>)}
-                              </select>
-                              <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--text-sub)] pointer-events-none" />
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {!loading && (
-            <p className="text-xs text-[var(--text-sub)] text-right">
-              Hiển thị {filtered.length} / {users.length} người dùng
-            </p>
-          )}
-        </>
-      ) : (
-        <PermissionsTab
-          customRoles={customRoles}
-          onCustomRolesChange={setCustomRoles}
-          rolePerms={rolePerms}
-          onRolePermsChange={setRolePerms}
-          onCreateRole={() => setShowCreateRole(true)}
-          onPersistRolePerms={persistRolePerms}
-        />
-      )}
+      <PermissionsTab
+        customRoles={customRoles}
+        onCustomRolesChange={setCustomRoles}
+        rolePerms={rolePerms}
+        onRolePermsChange={setRolePerms}
+        onCreateRole={() => setShowCreateRole(true)}
+        onPersistRolePerms={persistRolePerms}
+      />
     </div>
   );
 }

@@ -52,9 +52,20 @@ export interface ActiveSession {
     lastActiveAt: string
 }
 
-export const getAdminSessions = async (): Promise<ActiveSession[]> => {
+export interface AdminSessionsPayload {
+    sessions: ActiveSession[]
+    /** Backend: REDIS_DISABLED — cần cấu hình Redis để lưu phiên */
+    sessionsUnavailableReason?: string
+    message?: string
+}
+
+export const getAdminSessions = async (): Promise<AdminSessionsPayload> => {
     const { data } = await api.get('/auth/admin/sessions')
-    return data.sessions as ActiveSession[]
+    return {
+        sessions: Array.isArray(data?.sessions) ? (data.sessions as ActiveSession[]) : [],
+        sessionsUnavailableReason: data?.sessionsUnavailableReason as string | undefined,
+        message: data?.message as string | undefined,
+    }
 }
 
 export const forceLogoutUser = async (userId: string): Promise<{ message: string }> => {

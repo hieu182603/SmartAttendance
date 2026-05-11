@@ -13,6 +13,11 @@ import { useFaceValidation } from "@/hooks/useFaceValidation";
 import { useAuth } from "@/context/AuthContext";
 import { useRolePath } from "@/hooks/useRolePath";
 import { CameraPreview, CaptureControls, CapturedGallery, InstructionSidebar } from "../faceRegistration";
+import {
+  savePendingRegistration,
+  getPendingRegistration,
+  clearPendingRegistration,
+} from "@/utils/offlineFaceStorage";
 
 // Face registration image limits - must match backend config (FACE_RECOGNITION_CONFIG.MIN/MAX_REGISTRATION_IMAGES)
 // These values should be kept in sync with backend/src/config/app.config.js
@@ -191,6 +196,35 @@ const FaceRegistrationPage: React.FC = () => {
 
     checkFaceStatus();
   }, []);
+
+  // When the device comes back online, retry any pending offline registration
+  useEffect(() => {
+    if (!user?.id) return;
+    const userId = (user as any).id ?? (user as any)._id;
+    if (!userId) return;
+
+    const handleOnline = async () => {
+      try {
+        const pending = await getPendingRegistration(userId);
+        if (!pending) return;
+
+        toast.info(t("dashboard:faceRegistration.offlineStorage.pendingFound"));
+
+        const files = pending.images.map((blob, idx) =>
+          new File([blob], `face-${idx + 1}.jpg`, { type: blob.type || "image/jpeg" })
+        );
+        await faceService.registerFace(files, pending.metadata);
+        await clearPendingRegistration(userId);
+        toast.success(t("dashboard:faceRegistration.offlineStorage.submitSuccess"));
+        setTimeout(() => navigate(`${basePath}/scan`), 1500);
+      } catch {
+        toast.error(t("dashboard:faceRegistration.offlineStorage.submitFailed"));
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [user, basePath, navigate, t]);
 
   // Initialize Web Speech API
   useEffect(() => {
@@ -1378,9 +1412,22 @@ const FaceRegistrationPage: React.FC = () => {
     return new File([u8arr], filename, { type: mime });
   };
 
+  const dataURLtoBlob = (dataURL: string): Blob => {
+    const arr = dataURL.split(",");
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
   const handleSubmit = async () => {
     if (!hasRegisteredFace && !livenessVerified) {
-      toast.warning("Vui lòng hoàn tất xác thực khuôn mặt trước khi đăng ký");
+      toast.warning(t("dashboard:faceRegistration.toasts.livenessRequired"));
       return;
     }
 
@@ -1451,8 +1498,15 @@ const FaceRegistrationPage: React.FC = () => {
           error.response?.status >= 500;
 
         if (isNetworkError && retryCount < 3) {
-          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
-          toast.info(`Network error. Retrying in ${delay / 1000}s... (${retryCount + 1}/3)`, { duration: delay });
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          toast.info(
+            t("dashboard:faceRegistration.toasts.networkRetrying", {
+              delay: Math.round(delay / 1000),
+              attempt: retryCount + 1,
+              max: 3,
+            }),
+            { duration: delay }
+          );
 
           setTimeout(() => {
             submitWithRetry(retryCount + 1);
@@ -1460,10 +1514,23 @@ const FaceRegistrationPage: React.FC = () => {
           return;
         }
 
-        // Final failure - could implement offline storage here
-        if (!navigator.onLine) {
-          toast.error("You're offline. Registration data saved locally. Please try again when online.");
-          // TODO: Implement offline storage
+        // Final failure — save to IndexedDB when offline so the user can retry later
+        if (!navigator.onLine && user?.id) {
+          const blobs = validImages.map((img) =>
+            dataURLtoBlob(img.dataURL)
+          );
+          await savePendingRegistration({
+            userId: user.id,
+            images: blobs,
+            metadata: validImages.map((img) => ({
+              qualityScore: img.qualityScore,
+              detectionConfidence: img.detectionConfidence,
+              timestamp: img.timestamp,
+              validationScore: imageSetValidation.averageScore,
+            })),
+            savedAt: Date.now(),
+          }).catch(() => {/* non-critical */});
+          toast.error(t("dashboard:faceRegistration.toasts.offlineSaved"));
         } else {
           const parsedError = parseFaceRegistrationError(error);
           toast.error(formatFaceError(parsedError));
