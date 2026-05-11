@@ -1,7 +1,13 @@
 import jwt from "jsonwebtoken";
 
-const getJWTSecret = () => process.env.JWT_SECRET || "dev_secret";
-const getRefreshSecret = () => process.env.REFRESH_TOKEN_SECRET || "dev_refresh_secret";
+const getJWTSecret = () => {
+    if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET is not configured");
+    return process.env.JWT_SECRET;
+};
+const getRefreshSecret = () => {
+    if (!process.env.REFRESH_TOKEN_SECRET) throw new Error("REFRESH_TOKEN_SECRET is not configured");
+    return process.env.REFRESH_TOKEN_SECRET;
+};
 
 export const generateAccessToken = (payload) => {
     return jwt.sign(payload, getJWTSecret(), { expiresIn: "15m" });

@@ -3,6 +3,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import slowDown from "express-slow-down";
 import swaggerUi from "swagger-ui-express";
 
@@ -57,7 +58,24 @@ app.use("/api/auth", speedLimiter);
 app.use("/api/attendance", speedLimiter);
 app.use("/api/face", speedLimiter);
 
-app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(cookieParser());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline needed for Swagger UI
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", "https:"],
+        objectSrc: ["'none'"],
+        frameSrc: ["'none'"],
+      },
+    },
+  })
+);
 
 // NoSQL injection sanitizer
 const sanitizeMongoKeysInPlace = (value) => {

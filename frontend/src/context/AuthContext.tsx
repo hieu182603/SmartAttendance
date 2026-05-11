@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { getMe, login as loginApi, logoutApi } from '@/services/authService'
+import { setAccessToken } from '@/services/api'
 import type { User, LoginResponse } from '@/types'
-
-const REFRESH_TOKEN_KEY = 'sa_refresh_token'
 
 interface AuthContextType {
   token: string
@@ -16,96 +15,72 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-interface AuthProviderProps {
-  children: React.ReactNode
-}
-
-export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [token, setToken] = useState(() => localStorage.getItem('sa_token') || '')
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  // Access token in React state only — NOT in localStorage
+  const [token, setTokenState] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Keep api.ts in-memory variable in sync with React state
+  useEffect(() => {
+    setAccessToken(token)
+  }, [token])
+
+  // On mount: call /me — if 401, interceptor silently refreshes via httpOnly cookie
   useEffect(() => {
     const bootstrap = async () => {
-      if (!token) {
-        setUser(null)
-        setLoading(false)
-        return
-      }
-
       setLoading(true)
-
-      // Retry once on transient errors (network blip, 5xx, 429).
-      // Only give up immediately on 401 (the api interceptor already tried refresh).
-      for (let attempt = 0; attempt < 2; attempt++) {
-        if (attempt > 0) {
-          await new Promise<void>((r) => setTimeout(r, 1500))
-        }
-        try {
-          const me = await getMe()
-          setUser(me)
-          if (me?.role) {
-            localStorage.setItem('sa_user_role', me.role)
-          }
-          setLoading(false)
-          return
-        } catch (e: any) {
-          const status = (e as any)?.response?.status
-          // 401 = definitive auth failure (interceptor already tried refresh) → bail out
-          if (status === 401) break
-          // Any other error → retry once, then bail
-        }
+      try {
+        const me = await getMe()
+        setUser(me)
+        if (me?.role) localStorage.setItem('sa_user_role', me.role)
+      } catch {
+        setUser(null)
+        localStorage.removeItem('sa_user_role')
+      } finally {
+        setLoading(false)
       }
-
-      // All attempts failed → clear auth state
-      localStorage.removeItem('sa_token')
-      localStorage.removeItem('sa_user_role')
-      setToken('')
-      setUser(null)
-      setLoading(false)
     }
     bootstrap()
-  }, [token])
 
-  useEffect(() => {
-    if (token) localStorage.setItem('sa_token', token)
-  }, [token])
+    // Sync token state when interceptor silently refreshes it
+    const onRefresh = (e: Event) => {
+      const newToken = (e as CustomEvent<{ token: string }>).detail.token
+      setTokenState(newToken)
+    }
+    window.addEventListener('auth-token-refreshed', onRefresh)
+    return () => window.removeEventListener('auth-token-refreshed', onRefresh)
+  }, [])
+
+  const setToken = (t: string) => setTokenState(t)
 
   const login = async ({ email, password }: { email: string; password: string }) => {
     const data = await loginApi({ email, password })
-    setToken(data.token)
+    // refreshToken is now an httpOnly cookie set by backend — no localStorage
+    setTokenState(data.token)
     setUser(data.user)
-    if (data.user?.role) {
-      localStorage.setItem('sa_user_role', data.user.role)
-    }
-    if (data.refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken)
-    }
+    if (data.user?.role) localStorage.setItem('sa_user_role', data.user.role)
     window.dispatchEvent(new CustomEvent('auth-token-changed'))
     return data
   }
 
   const logout = () => {
-    // Best-effort server-side revoke (fire-and-forget)
     logoutApi().catch(() => {})
-
-    localStorage.removeItem('sa_token')
-    localStorage.removeItem('sa_user_role')
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
-    sessionStorage.clear()
-
-    setToken('')
+    setAccessToken('')
+    setTokenState('')
     setUser(null)
     setLoading(false)
-
+    localStorage.removeItem('sa_user_role')
     window.dispatchEvent(new CustomEvent('auth-token-changed'))
-
     if (window.location.pathname !== '/login') {
       window.location.href = '/login'
     }
   }
 
-  const value = useMemo(() => ({ token, user, loading, login, logout, setUser, setToken }), [token, user, loading])
+  const value = useMemo(
+    () => ({ token, user, loading, login, logout, setUser, setToken }),
+    [token, user, loading],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -115,4 +90,3 @@ export const useAuth = () => {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')
   return ctx
 }
-

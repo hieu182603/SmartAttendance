@@ -23,6 +23,9 @@ import {
   Download,
   CheckCircle2,
   XCircle,
+  AlertTriangle,
+  UserCheck,
+  Sparkles,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -41,7 +44,7 @@ import shiftService, { type Shift } from '@/services/shiftService'
 import { getPositions } from '@/services/payrollService'
 import api from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
-import { UserRole, ROLE_NAMES, canManageRole, type UserRoleType } from '@/utils/roles'
+import { UserRole, ROLE_NAMES, ROLE_COLORS, canManageRole, type UserRoleType } from '@/utils/roles'
 import { Permission } from '@/utils/roles'
 import { usePermissions } from '@/hooks/usePermissions'
 import RoleGuard from '@/components/RoleGuard'
@@ -56,13 +59,18 @@ interface RoleConfig {
   icon: LucideIcon
 }
 
+/** Roles shown in badges; TRIAL included for display only (not assignable in selects). */
 const ROLES: RoleConfig[] = [
   { value: UserRole.SUPER_ADMIN, label: ROLE_NAMES[UserRole.SUPER_ADMIN], color: 'error', icon: ShieldAlert },
   { value: UserRole.ADMIN, label: ROLE_NAMES[UserRole.ADMIN], color: 'primary', icon: Shield },
   { value: UserRole.HR_MANAGER, label: ROLE_NAMES[UserRole.HR_MANAGER], color: 'warning', icon: ShieldCheck },
   { value: UserRole.MANAGER, label: ROLE_NAMES[UserRole.MANAGER], color: 'accent-cyan', icon: ShieldCheck },
+  { value: UserRole.SUPERVISOR, label: ROLE_NAMES[UserRole.SUPERVISOR], color: 'success', icon: UserCheck },
   { value: UserRole.EMPLOYEE, label: ROLE_NAMES[UserRole.EMPLOYEE], color: 'text-sub', icon: Shield },
+  { value: UserRole.TRIAL, label: ROLE_NAMES[UserRole.TRIAL], color: 'warning', icon: Sparkles },
 ]
+
+const HIGH_PRIVILEGE_ROLES: UserRoleType[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN]
 
 interface User {
   _id?: string
@@ -209,6 +217,9 @@ const EmployeeManagementPage: React.FC = () => {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [importResult, setImportResult] = useState<BulkImportResult | null>(null)
   const [isImporting, setIsImporting] = useState(false)
+  /** Role at the moment the edit dialog opened — used for high-privilege change confirmation. */
+  const [editInitialRole, setEditInitialRole] = useState('')
+  const [showHighRoleConfirm, setShowHighRoleConfirm] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [usersList, setUsersList] = useState<User[]>([])
   const [departments, setDepartments] = useState<DepartmentType[]>([])
@@ -428,6 +439,8 @@ const EmployeeManagementPage: React.FC = () => {
       defaultShiftId: shiftId,
     })
     setValidationErrors({})
+    setEditInitialRole(user.role || '')
+    setShowHighRoleConfirm(false)
     setIsEditDialogOpen(true)
   }
 
@@ -460,6 +473,47 @@ const EmployeeManagementPage: React.FC = () => {
       setIsImporting(false)
     }
   }
+
+  /** Persist employee edit after validation (and optional high-role confirmation). */
+  const persistEmployeeEdit = useCallback(async (): Promise<void> => {
+    if (!selectedUser) return
+    const targetUserId = selectedUser._id || selectedUser.id || ''
+    try {
+      await updateUserByAdmin(targetUserId, formData)
+      toast.success(t('dashboard:employeeManagement.success.updateSuccess'))
+      setIsEditDialogOpen(false)
+      setSelectedUser(null)
+      setValidationErrors({})
+      setShowHighRoleConfirm(false)
+      fetchUsers()
+    } catch (error) {
+      console.error('[EmployeeManagement] update error:', error)
+      const err = error as ErrorWithMessage & { fieldErrors?: FieldErrors; response?: { status?: number } }
+
+      if (err.response?.status === 403 || err.message?.includes('Insufficient permissions') || err.message?.includes('403')) {
+        const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.noPermission')
+        toast.error(errorMessage)
+        return
+      }
+
+      if (err.fieldErrors) {
+        const backendErrors: ValidationErrors = {}
+        Object.keys(err.fieldErrors).forEach(field => {
+          if (err.fieldErrors?.[field]?.[0]) {
+            backendErrors[field] = err.fieldErrors[field][0]
+          }
+        })
+        if (Object.keys(backendErrors).length > 0) {
+          setValidationErrors(backendErrors)
+          toast.error(t('dashboard:employeeManagement.validation.checkInfo'))
+          return
+        }
+      }
+
+      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.updateError')
+      toast.error(errorMessage)
+    }
+  }, [selectedUser, formData, t, fetchUsers])
 
   const confirmDelete = async (): Promise<void> => {
     if (!selectedUser) return
@@ -511,40 +565,24 @@ const EmployeeManagementPage: React.FC = () => {
       return
     }
 
-    try {
-      await updateUserByAdmin(selectedUser._id || selectedUser.id || '', formData)
-      toast.success(t('dashboard:employeeManagement.success.updateSuccess'))
-      setIsEditDialogOpen(false)
-      setSelectedUser(null)
-      setValidationErrors({})
-      fetchUsers()
-    } catch (error) {
-      console.error('[EmployeeManagement] update error:', error)
-      const err = error as ErrorWithMessage & { fieldErrors?: FieldErrors; response?: { status?: number } }
-      
-      if (err.response?.status === 403 || err.message?.includes('Insufficient permissions') || err.message?.includes('403')) {
-        const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.noPermission')
-        toast.error(errorMessage)
-        return
-      }
-      
-      if (err.fieldErrors) {
-        const backendErrors: ValidationErrors = {}
-        Object.keys(err.fieldErrors).forEach(field => {
-          if (err.fieldErrors?.[field]?.[0]) {
-            backendErrors[field] = err.fieldErrors[field][0]
-          }
-        })
-        if (Object.keys(backendErrors).length > 0) {
-          setValidationErrors(backendErrors)
-          toast.error(t('dashboard:employeeManagement.validation.checkInfo'))
-          return
-        }
-      }
-      
-      const errorMessage = err.message || (err.response?.data as { message?: string })?.message || t('dashboard:employeeManagement.errors.updateError')
-      toast.error(errorMessage)
+    const targetUserId = selectedUser._id || selectedUser.id || ''
+    const selfId = currentUser?._id || currentUser?.id
+    const isEditingSelf = Boolean(selfId && targetUserId && targetUserId === selfId)
+    if (isEditingSelf && formData.role !== editInitialRole) {
+      toast.error('Không thể tự thay đổi role của tài khoản đang đăng nhập.')
+      return
     }
+
+    const newRole = formData.role as UserRoleType
+    if (
+      formData.role !== editInitialRole &&
+      HIGH_PRIVILEGE_ROLES.includes(newRole)
+    ) {
+      setShowHighRoleConfirm(true)
+      return
+    }
+
+    await persistEmployeeEdit()
   }
 
   const handleSubmitCreate = async (): Promise<void> => {
@@ -1162,8 +1200,57 @@ const EmployeeManagementPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      {showHighRoleConfirm && selectedUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 max-w-md w-full shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-yellow-500/20">
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              </div>
+              <h2 className="font-semibold text-[var(--text-main)]">Xác nhận gán quyền cao</h2>
+            </div>
+            <p className="text-sm text-[var(--text-sub)] mb-2">
+              Bạn sắp gán vai trò{' '}
+              <span className={`font-semibold ${ROLE_COLORS[formData.role as UserRoleType]?.text ?? 'text-[var(--text-main)]'}`}>
+                {ROLE_NAMES[formData.role as UserRoleType] ?? formData.role}
+              </span>{' '}
+              cho <span className="font-semibold text-[var(--text-main)]">{selectedUser.name}</span>.
+            </p>
+            <p className="text-xs text-[var(--text-sub)] mb-6">
+              Vai trò này có quyền hệ thống rất cao. Tiếp tục chỉ khi bạn chắc chắn.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 border-[var(--border)]"
+                onClick={() => setShowHighRoleConfirm(false)}
+              >
+                Huỷ
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white"
+                onClick={() => {
+                  setShowHighRoleConfirm(false)
+                  void persistEmployeeEdit()
+                }}
+              >
+                Xác nhận lưu
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open)
+          if (!open) setShowHighRoleConfirm(false)
+        }}
+      >
         <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
           <DialogHeader>
             <DialogTitle className="text-lg md:text-xl">{t('dashboard:employeeManagement.editDialog.title')}</DialogTitle>
@@ -1313,7 +1400,9 @@ const EmployeeManagementPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">{t('dashboard:employeeManagement.editDialog.role')} <span className="text-red-500">*</span></Label>
+                <Label className="text-sm font-medium">
+                  {t('dashboard:employeeManagement.editDialog.permissions', 'Phân quyền')}
+                </Label>
                 <RoleGuard permission={Permission.USERS_MANAGE_ROLE} showDisabled>
                   <Select
                     value={formData.role}
@@ -1323,16 +1412,30 @@ const EmployeeManagementPage: React.FC = () => {
                         setValidationErrors({ ...validationErrors, role: null })
                       }
                     }}
-                    disabled={!canChangeRole()}
+                    disabled={
+                      !canChangeRole() ||
+                      Boolean(
+                        (currentUser?._id || currentUser?.id) &&
+                          (selectedUser?._id || selectedUser?.id) === (currentUser?._id || currentUser?.id)
+                      )
+                    }
                   >
-                    <SelectTrigger 
+                    <SelectTrigger
                       className={`bg-[var(--shell)] border-[var(--border)] h-9 ${validationErrors.role ? 'border-red-500' : ''}`}
-                      disabled={!canChangeRole()}
+                      disabled={
+                        !canChangeRole() ||
+                        Boolean(
+                          (currentUser?._id || currentUser?.id) &&
+                            (selectedUser?._id || selectedUser?.id) === (currentUser?._id || currentUser?.id)
+                        )
+                      }
                     >
                       <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectRole')} />
                     </SelectTrigger>
                     <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
-                      {ROLES.filter(role => canAssignRole(role.value)).map(role => {
+                      {ROLES.filter(
+                        (role) => role.value !== UserRole.TRIAL && canAssignRole(role.value)
+                      ).map((role) => {
                         const RoleIcon = role.icon
                         return (
                           <SelectItem key={role.value} value={role.value}>
@@ -1346,6 +1449,9 @@ const EmployeeManagementPage: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </RoleGuard>
+                {(currentUser?._id || currentUser?.id) === (selectedUser?._id || selectedUser?.id) && (
+                  <p className="text-xs text-[var(--text-sub)] italic">Không thể tự thay đổi role của chính mình.</p>
+                )}
                 {!canChangeRole() && (
                   <p className="text-xs text-[var(--text-sub)]">
                     {t('dashboard:employeeManagement.editDialog.roleChangeWarning')}
@@ -1596,7 +1702,9 @@ const EmployeeManagementPage: React.FC = () => {
                     <SelectValue placeholder={t('dashboard:employeeManagement.editDialog.selectRole')} />
                   </SelectTrigger>
                   <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
-                    {ROLES.filter(role => canAssignRole(role.value)).map(role => {
+                    {ROLES.filter(
+                      (role) => role.value !== UserRole.TRIAL && canAssignRole(role.value)
+                    ).map((role) => {
                       const RoleIcon = role.icon
                       return (
                         <SelectItem key={role.value} value={role.value}>

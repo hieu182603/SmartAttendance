@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import {
   Monitor,
   RefreshCw,
@@ -36,13 +37,6 @@ const ROLE_LABELS: Record<string, string> = {
   EMPLOYEE: 'Nhân viên',
 };
 
-function parseUserAgent(ua: string | null): string {
-  if (!ua) return 'Không xác định';
-  if (/mobile/i.test(ua)) return 'Di động';
-  if (/tablet/i.test(ua)) return 'Máy tính bảng';
-  return 'Máy tính';
-}
-
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -51,34 +45,47 @@ function formatTime(iso: string): string {
 }
 
 export default function ActiveSessionsPage() {
+  const { t } = useTranslation(['dashboard']);
   const { user: currentUser } = useAuth();
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(false);
   const [logoutingId, setLogoutingId] = useState<string | null>(null);
+  const [sessionsNote, setSessionsNote] = useState<string | null>(null);
+
+  function parseUserAgent(ua: string | null): string {
+    if (!ua) return t('dashboard:activeSessionsPage.device.unknown');
+    if (/mobile/i.test(ua)) return t('dashboard:activeSessionsPage.device.mobile');
+    if (/tablet/i.test(ua)) return t('dashboard:activeSessionsPage.device.tablet');
+    return t('dashboard:activeSessionsPage.device.desktop');
+  }
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
+    setSessionsNote(null);
     try {
-      const data = await getAdminSessions();
-      setSessions(data);
+      const { sessions, sessionsUnavailableReason, message } = await getAdminSessions();
+      setSessions(sessions);
+      if (sessionsUnavailableReason === 'REDIS_DISABLED') {
+        setSessionsNote(message ?? 'Theo dõi phiên đăng nhập cần Redis. Cấu hình REDIS_URL hoặc REDIS_HOST trên backend.');
+      }
     } catch {
-      toast.error('Không thể tải danh sách sessions');
+      toast.error(t('dashboard:activeSessionsPage.toasts.loadError'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
   const handleForceLogout = async (session: ActiveSession) => {
-    if (!confirm(`Bạn chắc chắn muốn đăng xuất ${session.userName}?`)) return;
+    if (!confirm(t('dashboard:activeSessionsPage.confirmLogout', { name: session.userName }))) return;
     setLogoutingId(session.userId);
     try {
       await forceLogoutUser(session.userId);
-      toast.success(`Đã đăng xuất ${session.userName}`);
+      toast.success(t('dashboard:activeSessionsPage.toasts.logoutSuccess', { name: session.userName }));
       setSessions(prev => prev.filter(s => s.userId !== session.userId));
     } catch {
-      toast.error('Không thể force logout');
+      toast.error(t('dashboard:activeSessionsPage.toasts.logoutError'));
     } finally {
       setLogoutingId(null);
     }
@@ -97,23 +104,31 @@ export default function ActiveSessionsPage() {
         <div>
           <h1 className="text-2xl font-bold text-(--text-primary) flex items-center gap-2">
             <Monitor className="h-6 w-6 text-(--primary)" />
-            Phiên đăng nhập đang hoạt động
+            {t('dashboard:activeSessionsPage.title')}
           </h1>
           <p className="text-sm text-(--text-sub) mt-1">
-            Quản lý các phiên đang online và buộc đăng xuất khi cần
+            {t('dashboard:activeSessionsPage.subtitle')}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchSessions} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => { void fetchSessions(); }} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Làm mới
+          {t('dashboard:activeSessionsPage.refresh')}
         </Button>
       </div>
+
+      {sessionsNote && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          {sessionsNote}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-(--text-sub)">Đang online</CardTitle>
+            <CardTitle className="text-sm font-medium text-(--text-sub)">
+              {t('dashboard:activeSessionsPage.stats.online')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-(--text-primary)">{sessions.length}</div>
@@ -123,7 +138,7 @@ export default function ActiveSessionsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-(--text-sub) flex items-center gap-1">
               <Shield className="h-4 w-4 text-orange-500" />
-              Admin đang online
+              {t('dashboard:activeSessionsPage.stats.adminOnline')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -136,7 +151,7 @@ export default function ActiveSessionsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-(--text-sub) flex items-center gap-1">
               <AlertTriangle className="h-4 w-4 text-(--text-sub)" />
-              Nhân viên đang online
+              {t('dashboard:activeSessionsPage.stats.employeeOnline')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -153,26 +168,26 @@ export default function ActiveSessionsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Người dùng</TableHead>
-                <TableHead>Vai trò</TableHead>
-                <TableHead>Đăng nhập lúc</TableHead>
-                <TableHead>Thiết bị</TableHead>
-                <TableHead>IP</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
+                <TableHead>{t('dashboard:activeSessionsPage.table.user')}</TableHead>
+                <TableHead>{t('dashboard:activeSessionsPage.table.role')}</TableHead>
+                <TableHead>{t('dashboard:activeSessionsPage.table.loginAt')}</TableHead>
+                <TableHead>{t('dashboard:activeSessionsPage.table.device')}</TableHead>
+                <TableHead>{t('dashboard:activeSessionsPage.table.ip')}</TableHead>
+                <TableHead className="text-right">{t('dashboard:activeSessionsPage.table.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-(--text-sub)">
-                    Đang tải...
+                    {t('dashboard:activeSessionsPage.table.loading')}
                   </TableCell>
                 </TableRow>
               )}
               {!loading && sessions.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-(--text-sub)">
-                    Không có phiên đăng nhập nào
+                    {t('dashboard:activeSessionsPage.table.empty')}
                   </TableCell>
                 </TableRow>
               )}
@@ -187,7 +202,9 @@ export default function ActiveSessionsPage() {
                         <div className="text-sm font-medium text-(--text-primary)">
                           {session.userName}
                           {isSelf(session) && (
-                            <span className="ml-2 text-xs text-blue-500">(bạn)</span>
+                            <span className="ml-2 text-xs text-blue-500">
+                              {t('dashboard:activeSessionsPage.self')}
+                            </span>
                           )}
                         </div>
                         <div className="text-xs text-(--text-sub)">{session.userEmail}</div>
@@ -227,7 +244,9 @@ export default function ActiveSessionsPage() {
                         disabled={logoutingId === session.userId}
                       >
                         <LogOut className="h-3 w-3 mr-1" />
-                        {logoutingId === session.userId ? 'Đang xử lý...' : 'Đăng xuất'}
+                        {logoutingId === session.userId
+                          ? t('dashboard:common.loading', 'Đang xử lý...')
+                          : t('dashboard:activeSessionsPage.forceLogout')}
                       </Button>
                     )}
                   </TableCell>

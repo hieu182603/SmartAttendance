@@ -1,6 +1,10 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosError, type AxiosResponse } from 'axios'
 
-const REFRESH_TOKEN_KEY = 'sa_refresh_token'
+// Access token stored in memory only — never in localStorage/sessionStorage
+let _memToken = ''
+export const setAccessToken = (token: string) => { _memToken = token }
+export const getAccessToken = () => _memToken
+
 let _isRefreshing = false
 let _failQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
 
@@ -10,8 +14,7 @@ const processQueue = (err: unknown, token: string | null) => {
 }
 
 const forceLogout = () => {
-  localStorage.removeItem('sa_token')
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
+  _memToken = ''
   localStorage.removeItem('sa_user_role')
   if (window.location.pathname !== '/login') {
     setTimeout(() => { window.location.href = '/login' }, 0)
@@ -42,8 +45,8 @@ const getBaseURL = (url: string) => {
 };
 
 export const api = axios.create({
-    baseURL: backendBaseURL, // Default to backend
-    withCredentials: false,
+    baseURL: backendBaseURL,
+    withCredentials: true, // send httpOnly refresh cookie automatically
 })
 
 // Override baseURL dynamically based on request URL
@@ -55,9 +58,8 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('sa_token')
-    if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`
+    if (_memToken && config.headers) {
+        config.headers.Authorization = `Bearer ${_memToken}`
     }
     return config
 })
@@ -86,12 +88,6 @@ api.interceptors.response.use(
                 return Promise.reject(error)
             }
 
-            const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
-            if (!refreshToken) {
-                forceLogout()
-                return Promise.reject(error)
-            }
-
             if (_isRefreshing) {
                 // Queue this request until refresh completes
                 return new Promise((resolve, reject) => {
@@ -104,14 +100,15 @@ api.interceptors.response.use(
 
             _isRefreshing = true
             try {
+                // httpOnly cookie is sent automatically (withCredentials: true)
                 const { data } = await axios.post(
                     `${backendBaseURL}/auth/refresh`,
-                    { refreshToken },
+                    {},
+                    { withCredentials: true },
                 )
                 const newToken: string = data.token
-                const newRefresh: string = data.refreshToken
-                localStorage.setItem('sa_token', newToken)
-                localStorage.setItem(REFRESH_TOKEN_KEY, newRefresh)
+                _memToken = newToken
+                window.dispatchEvent(new CustomEvent('auth-token-refreshed', { detail: { token: newToken } }))
                 processQueue(null, newToken)
                 if (error.config?.headers) error.config.headers.Authorization = `Bearer ${newToken}`
                 return api(error.config!)

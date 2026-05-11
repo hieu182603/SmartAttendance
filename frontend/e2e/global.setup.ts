@@ -9,8 +9,8 @@
  */
 
 import { chromium } from "@playwright/test";
-import path from "path";
-import fs from "fs";
+import path from "node:path";
+import fs from "node:fs";
 
 const BASE_URL = process.env.E2E_BASE_URL || "http://localhost:5173";
 
@@ -29,6 +29,11 @@ const ROLES = [
     key: "manager",
     email: process.env.E2E_MANAGER_EMAIL || "manager@smartattendance.com",
     password: process.env.E2E_MANAGER_PASSWORD || "SmartAttendance@2026!",
+  },
+  {
+    key: "admin",
+    email: process.env.E2E_ADMIN_EMAIL || "admin@smartattendance.com",
+    password: process.env.E2E_ADMIN_PASSWORD || "SmartAttendance@2026!",
   },
 ];
 

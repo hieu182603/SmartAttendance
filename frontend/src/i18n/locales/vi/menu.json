@@ -27,6 +27,10 @@
   "my-payslip": "Lương",
   "payroll-group": "Lương",
   "leave-types": "Quản lý loại phép",
-  "system-config": "Cấu hình hệ thống"
+  "system-config": "Cấu hình hệ thống",
+  "role-management": "Cấu hình quyền theo role",
+  "face-recognition-logs": "Nhật ký khuôn mặt",
+  "active-sessions": "Phiên đăng nhập",
+  "system-health": "Trạng thái hệ thống"
 }
 

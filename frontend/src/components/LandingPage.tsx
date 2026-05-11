@@ -53,43 +53,10 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background overflow-hidden relative" style={{ backgroundColor: 'var(--background)' }}>
       {/* Animated Background */}
       <div className="fixed inset-0 -z-10">
-        {/* Gradient Orbs */}
-        <motion.div
-          className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] rounded-full blur-[120px] opacity-20"
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        <motion.div
-          className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-[var(--accent-cyan)] to-[var(--success)] rounded-full blur-[100px] opacity-20"
-          animate={{
-            scale: [1, 1.3, 1],
-            rotate: [0, -90, 0],
-          }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        <motion.div
-          className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-gradient-to-r from-[var(--warning)] to-[var(--error)] rounded-full blur-[80px] opacity-10"
-          animate={{
-            x: [-200, 200, -200],
-            y: [-100, 100, -100],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
+        {/* Gradient Orbs — CSS animations (off JS main thread) */}
+        <div className="animate-orb-1 absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] rounded-full blur-[120px] opacity-20" />
+        <div className="animate-orb-2 absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-[var(--accent-cyan)] to-[var(--success)] rounded-full blur-[100px] opacity-20" />
+        <div className="animate-orb-3 absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-gradient-to-r from-[var(--warning)] to-[var(--error)] rounded-full blur-[80px] opacity-10" />
 
         {/* Grid Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10" />
@@ -321,15 +288,7 @@ export default function LandingPage() {
             className="relative"
           >
             {/* Main Card */}
-            <motion.div
-              animate={{ y: [0, -20, 0] }}
-              transition={{
-                duration: 6,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              className="relative z-10 bg-gradient-to-br from-[var(--surface)] to-[var(--shell)] rounded-3xl border border-[var(--border)] p-8 shadow-2xl overflow-hidden"
-            >
+            <div className="animate-float-card relative z-10 bg-gradient-to-br from-[var(--surface)] to-[var(--shell)] rounded-3xl border border-[var(--border)] p-8 shadow-2xl overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-[var(--accent-cyan)]/5" />
               <div className="relative">
                 <div className="flex items-center space-x-3 mb-6">
@@ -347,21 +306,11 @@ export default function LandingPage() {
                 </div>
 
                 <div className="aspect-square bg-[var(--input-bg)] rounded-2xl border-2 border-[var(--accent-cyan)] relative overflow-hidden mb-6 animate-glow">
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/20 to-[var(--accent-cyan)]/20"
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      rotate: [0, 180, 360],
-                    }}
-                    transition={{
-                      duration: 10,
-                      repeat: Infinity,
-                    }}
-                  />
                 <img
                   src="/ảnh/FACEid1.gif"
                   alt="Face recognition demo"
                   className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  fetchPriority="high"
                   style={{ display: 'block' }}
                 />
                 </div>
@@ -376,45 +325,22 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
 
             {/* Floating Elements */}
-            <motion.div
-              animate={{
-                y: [0, -30, 0],
-                rotate: [0, 5, 0],
-              }}
-              transition={{
-                duration: 8,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              className="absolute top-10 -right-10 z-20 bg-gradient-to-br from-[var(--success)]/90 to-[var(--accent-cyan)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--success)]/30"
-            >
+            <div className="animate-float-badge-up absolute top-10 -right-10 z-20 bg-gradient-to-br from-[var(--success)]/90 to-[var(--accent-cyan)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--success)]/30">
               <MapPin className="h-8 w-8 text-white mb-2" />
               <div className="text-white text-sm">
                 GPS Active
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              animate={{
-                y: [0, 30, 0],
-                rotate: [0, -5, 0],
-              }}
-              transition={{
-                duration: 7,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 1,
-              }}
-              className="absolute bottom-10 -left-10 z-20 bg-gradient-to-br from-[var(--primary)]/90 to-[var(--warning)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--primary)]/30"
-            >
+            <div className="animate-float-badge-down absolute bottom-10 -left-10 z-20 bg-gradient-to-br from-[var(--primary)]/90 to-[var(--warning)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--primary)]/30">
               <Users className="h-8 w-8 text-white mb-2" />
               <div className="text-white text-sm">
                 52 Online
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -499,18 +425,7 @@ export default function LandingPage() {
                   transition={{ type: "spring", stiffness: 300 }}
                 >
                   {/* Pulse effect */}
-                  <motion.div
-                    className="absolute inset-0 rounded-full bg-white/30"
-                    animate={{
-                      scale: [1, 1.5, 1],
-                      opacity: [0.5, 0, 0.5],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
+                  <div className="animate-pulse-play absolute inset-0 rounded-full bg-white/30" />
 
                   {/* Play button */}
                   <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-white shadow-2xl flex items-center justify-center group-hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all duration-300">

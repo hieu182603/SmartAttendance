@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { Suspense, useState, useMemo } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Home,
   Camera,
+  Loader2,
   History,
   FileText,
   Clock,
@@ -51,6 +52,17 @@ import { usePermissionsOverride } from "@/context/PermissionsContext";
 
 interface NotificationBellProps {
   onClick: () => void;
+}
+
+/** Chỉ chiếm vùng main — lazy route con bắt Suspense này thay vì Suspense bọc cả Routes ở App (tránh full màn hình). */
+function OutletFallback() {
+  const { t } = useTranslation("common");
+  return (
+    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-[var(--text-sub)]">
+      <Loader2 className="h-10 w-10 animate-spin text-[var(--primary)]" aria-hidden />
+      <span className="text-sm">{t("messages.loading")}</span>
+    </div>
+  );
 }
 
 const NotificationBell: React.FC<NotificationBellProps> = ({ onClick }) => {
@@ -448,7 +460,9 @@ const DashboardLayout: React.FC = () => {
         } ${
           isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
         }`}>
-          <Outlet />
+          <Suspense fallback={<OutletFallback />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <NotificationCenter
