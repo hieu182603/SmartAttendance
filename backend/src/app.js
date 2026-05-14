@@ -36,9 +36,12 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-const BLOCKED_IPS = new Set(["118.70.211.226"]);
+const BLOCKED_IPS = new Set(
+  (process.env.BLOCKED_IPS || "").split(",").map((s) => s.trim()).filter(Boolean)
+);
 
 app.use((req, res, next) => {
+  if (BLOCKED_IPS.size === 0) return next();
   const clientIP =
     req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim();
   if (BLOCKED_IPS.has(clientIP)) {
@@ -65,7 +68,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline needed for Swagger UI
+        scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'"],
@@ -191,6 +194,14 @@ app.get("/api/health", async (_req, res) => {
 
 app.use(
   "/api/docs",
+  // Swagger UI requires 'unsafe-inline' for its inline scripts — scope it here only
+  (_req, res, next) => {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; object-src 'none';"
+    );
+    next();
+  },
   swaggerUi.serve,
   swaggerUi.setup(swaggerSpec, {
     customCss: ".swagger-ui .topbar { display: none }",

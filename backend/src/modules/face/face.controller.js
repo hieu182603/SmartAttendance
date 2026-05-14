@@ -22,10 +22,12 @@ import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail } from "../../utils/email.util.js";
 import crypto from "node:crypto";
 import { LogService } from "../logs/log.service.js";
+import { uploadFaceImage } from "../../utils/cloudinary.js";
 
 const FACE_FAIL_THRESHOLD = FACE_FALLBACK_CONFIG.FAIL_THRESHOLD;
 const FACE_FAIL_TTL = FACE_FALLBACK_CONFIG.FAIL_TTL_SECONDS;
 const faceFailKey = (userId) => `face_fail:${userId}`;
+const faceFailImagesKey = (userId) => `face_fail_images:${userId}`;
 
 export class FaceController {
   /**
@@ -487,6 +489,23 @@ export class FaceController {
         const newCount = current + 1;
         await redisSet(key, newCount, FACE_FAIL_TTL);
 
+        // Lưu ảnh thất bại vào Cloudinary và Redis để ghi vào attendance khi OTP thành công
+        try {
+          const files = req.files || [];
+          const newUrls = [];
+          for (const file of files) {
+            const uploaded = await uploadFaceImage(file.buffer);
+            newUrls.push(uploaded.url);
+          }
+          if (newUrls.length > 0) {
+            const imagesKey = faceFailImagesKey(userId);
+            const existing = (await redisGet(imagesKey)) || [];
+            await redisSet(imagesKey, [...existing, ...newUrls], FACE_FAIL_TTL);
+          }
+        } catch (uploadErr) {
+          console.error("Failed to save failed face image:", uploadErr);
+        }
+
         const requireOtpFallback = newCount >= FACE_FAIL_THRESHOLD;
 
         await LogService.createLog({
@@ -682,8 +701,11 @@ export class FaceController {
       await OtpModel.deleteMany({ userId, purpose: "face_fallback" });
       await redisDel(faceFailKey(userId));
 
+      const failedFaceImages = (await redisGet(faceFailImagesKey(userId))) || [];
+      await redisDel(faceFailImagesKey(userId));
+
       const faceService = new FaceService();
-      const result = await faceService.recordAttendanceWithOtpFallback(userId);
+      const result = await faceService.recordAttendanceWithOtpFallback(userId, failedFaceImages);
 
       return res.status(200).json({ success: true, ...result });
     } catch (error) {

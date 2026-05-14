@@ -88,6 +88,12 @@ const attendanceSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Ảnh chấm công thất bại trước khi chuyển sang OTP (lưu để xác minh)
+    failedFaceImages: {
+      type: [String],
+      default: [],
+    },
+
     // GPS accuracy warning: true nếu check-in/out với tín hiệu GPS yếu nhưng vẫn trong geofence
     lowGpsAccuracy: {
       type: Boolean,

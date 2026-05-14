@@ -81,12 +81,7 @@ export default function ProtectedRoute({
     }
   }, [hasAccess, userRole, navigate])
 
-  // Not authenticated - check this FIRST to avoid showing loading screen on logout
-  if (!token) {
-    return <Navigate to="/login" replace />
-  }
-
-  // Loading state - show while checking authentication or access
+  // Loading state - wait for auth bootstrap (including silent refresh) to complete FIRST
   if (loading || hasAccess === null) {
     return (
       <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
@@ -108,6 +103,11 @@ export default function ProtectedRoute({
         </motion.div>
       </div>
     )
+  }
+
+  // Not authenticated - only check AFTER loading is done to allow bootstrap to refresh token
+  if (!user) {
+    return <Navigate to="/login" replace />
   }
 
   // Show unauthorized message if needed

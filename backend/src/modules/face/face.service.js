@@ -1151,7 +1151,7 @@ export class FaceService {
    * Record attendance after OTP fallback verification (no AI face check).
    * Called by FaceController after user passes the 6-digit email OTP.
    */
-  async recordAttendanceWithOtpFallback(userId) {
+  async recordAttendanceWithOtpFallback(userId, failedFaceImages = []) {
     const { AttendanceModel } = await import("../attendance/attendance.model.js");
 
     const now = new Date();
@@ -1167,10 +1167,14 @@ export class FaceService {
         checkIn: now,
         status: "present",
         verificationFallback: "otp",
+        failedFaceImages,
       });
     } else if (!attendance.checkOut) {
       attendance.checkOut = now;
       attendance.verificationFallback = "otp";
+      if (failedFaceImages.length > 0) {
+        attendance.failedFaceImages = [...(attendance.failedFaceImages || []), ...failedFaceImages];
+      }
       attendance.calculateWorkHours();
       action = "check_out";
     } else {
