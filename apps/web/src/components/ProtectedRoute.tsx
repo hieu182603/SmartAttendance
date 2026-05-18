@@ -82,7 +82,7 @@ export default function ProtectedRoute({
   }, [hasAccess, userRole, navigate])
 
   // Loading state - wait for auth bootstrap (including silent refresh) to complete FIRST
-  if (loading || hasAccess === null) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <motion.div
@@ -105,8 +105,13 @@ export default function ProtectedRoute({
     )
   }
 
-  // Not authenticated - only check AFTER loading is done to allow bootstrap to refresh token
+  // Not authenticated - redirect BEFORE checking hasAccess (which is null when user is null)
   if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  // hasAccess can only be null here if userRole is missing while user exists — defensive fallback
+  if (hasAccess === null) {
     return <Navigate to="/login" replace />
   }
 
