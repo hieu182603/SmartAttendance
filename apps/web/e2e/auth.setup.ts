@@ -11,11 +11,9 @@
  * that auth.spec.ts has already run (and overwritten Redis) before we log in
  * here and write the final, valid storageState.
  */
-import { test as setup } from "@playwright/test";
+import { test as setup, expect } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-
-const EMPTY_STATE = JSON.stringify({ cookies: [], origins: [] });
 
 async function loginAndSave(
   page: import("@playwright/test").Page,
@@ -26,20 +24,24 @@ async function loginAndSave(
   const dir = path.dirname(outPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  try {
-    await page.goto("/login", { waitUntil: "domcontentloaded", timeout: 10_000 });
-    await page.locator('input[type="email"], input[name="email"]').first().fill(email);
-    await page.locator('input[type="password"]').first().fill(password);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 12_000 });
-    // Wait for localStorage to be fully written (token + refresh_token)
-    await page.waitForTimeout(500);
-    await page.context().storageState({ path: outPath });
-    console.log(`[auth.setup] ✓ saved → ${path.basename(outPath)}`);
-  } catch (err) {
-    console.warn(`[auth.setup] ⚠ Could not authenticate (${email}): ${(err as Error).message}`);
-    fs.writeFileSync(outPath, EMPTY_STATE);
-  }
+  // No try/catch fallback: if login fails, the setup test must fail loudly so
+  // we don't end up with an EMPTY_STATE storage file that quietly makes every
+  // dependent employee/hr test redirect to /login.
+  await page.goto("/login", { waitUntil: "domcontentloaded", timeout: 20_000 });
+  await page.locator('input[type="email"], input[name="email"]').first().fill(email);
+  await page.locator('input[type="password"]').first().fill(password);
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 20_000 });
+  // Wait for localStorage to be fully written (token + refresh_token)
+  await page.waitForTimeout(500);
+
+  // Verify token actually landed in localStorage before saving — guards against
+  // racing the bootstrap flow that might have already cleared it.
+  const token = await page.evaluate(() => localStorage.getItem("sa_token"));
+  expect(token, `sa_token must exist in localStorage for ${email}`).toBeTruthy();
+
+  await page.context().storageState({ path: outPath });
+  console.log(`[auth.setup] ✓ saved → ${path.basename(outPath)}`);
 }
 
 setup("setup: employee auth", async ({ page }) => {
