@@ -1,395 +1,336 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-    Image,
-    Dimensions,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { globalStyles, COLORS, SPACING, BORDER_RADIUS } from '../../utils/styles';
+import { globalStyles, COLORS, SPACING } from '../../utils/styles';
 import { Icon } from '../../components/ui/Icon';
 import { AttendanceService } from '../../services/attendance.service';
-import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
-import { ThemeColors } from '../../theme/colors';
 
-type AttendanceScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AttendanceHistory'>; // Using generic or existing type
+type Props = { navigation: StackNavigationProp<RootStackParamList, 'Attendance'>; route: any };
 
-interface AttendanceScreenProps {
-    navigation: AttendanceScreenNavigationProp;
-    route: any; // To get params like "mode" (check-in/check-out)
-}
+export default function AttendanceScreen({ navigation, route }: Props) {
+  const mode: 'check-in' | 'check-out' = route.params?.mode ?? 'check-in';
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<CameraType>('front');
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const cameraRef = useRef<CameraView>(null);
 
-const { width } = Dimensions.get('window');
+  // Oval breathe animation
+  const breatheAnim = useRef(new Animated.Value(1)).current;
+  // Scan line animation
+  const scanAnim = useRef(new Animated.Value(0)).current;
 
-function makeStyles(colors: ThemeColors) {
-    return StyleSheet.create({
-        center: {
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: SPACING.lg,
-        },
-        cameraContainer: {
-            flex: 1,
-            position: 'relative',
-        },
-        camera: {
-            flex: 1,
-        },
-        iconButton: {
-            padding: 8,
-            backgroundColor: 'rgba(0,0,0,0.3)',
-            borderRadius: 20,
-        },
-        faceGuideContainer: {
-            ...StyleSheet.absoluteFillObject,
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 5,
-            paddingBottom: 200, // Offset for footer
-        },
-        faceGuideBox: {
-            width: width * 0.7,
-            height: width * 0.7 * 1.3, // Aspect ratio roughly 3:4
-            borderWidth: 2,
-            borderColor: 'rgba(255, 255, 255, 0.8)',
-            borderRadius: 24,
-            backgroundColor: 'transparent',
-        },
-        faceGuideText: {
-            position: 'absolute',
-            top: -40,
-            color: '#fff',
-            fontSize: 16,
-            fontWeight: '600',
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 20,
-            overflow: 'hidden',
-        },
-        footer: {
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            paddingBottom: SPACING.xxl,
-            paddingTop: SPACING.xl,
-            backgroundColor: '#000',
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            alignItems: 'center',
-            zIndex: 20,
-        },
-        locationInfo: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: SPACING.lg,
-            backgroundColor: 'rgba(255,255,255,0.1)',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 20,
-        },
-        locationText: {
-            color: '#fff',
-            marginLeft: 8,
-            fontSize: 14,
-        },
-        captureButton: {
-            width: 80,
-            height: 80,
-            borderRadius: 40,
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            padding: 6,
-            marginBottom: SPACING.sm,
-        },
-        captureInner: {
-            flex: 1,
-            borderRadius: 40,
-            backgroundColor: COLORS.primary,
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        actionText: {
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: '500',
-        },
-        actionTextOverlay: {
-            position: 'absolute',
-            bottom: -25,
-            textAlign: 'center',
-            width: 100,
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: '500',
-            alignSelf: 'center',
-        },
-        permissionText: {
-            color: colors.textPrimary,
-            marginBottom: 20,
-            textAlign: 'center',
-        },
-    });
-}
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(breatheAnim, { toValue: 1.03, duration: 1250, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(breatheAnim, { toValue: 1, duration: 1250, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
-export default function AttendanceScreen({ navigation, route }: AttendanceScreenProps) {
-    const { colors } = useTheme();
-    const { t } = useTranslation();
-    const styles = useMemo(() => makeStyles(colors), [colors]);
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanAnim, { toValue: 1, duration: 2000, easing: Easing.linear, useNativeDriver: true }),
+        Animated.delay(200),
+        Animated.timing(scanAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
-    const mode = route.params?.mode || 'check-in'; // 'check-in' | 'check-out'
-    const [permission, requestPermission] = useCameraPermissions();
-    const [facing, setFacing] = useState<CameraType>('front');
-    const [location, setLocation] = useState<Location.LocationObject | null>(null);
-    const [locationError, setLocationError] = useState<string | null>(null);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [capturedImage, setCapturedImage] = useState<any>(null);
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { setLocationStatus('error'); return; }
+      const hasGps = await Location.hasServicesEnabledAsync();
+      if (!hasGps) { setLocationStatus('error'); return; }
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setLocation(loc);
+        setLocationStatus('ok');
+      } catch {
+        setLocationStatus('error');
+      }
+    })();
+  }, []);
 
-    const cameraRef = useRef<CameraView>(null);
-
-    useEffect(() => {
-        (async () => {
-            // Request Location Permissions
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                setLocationError('Mất quyền truy cập vị trí');
-                Alert.alert('Lỗi', 'Cần quyền truy cập vị trí để chấm công.');
-                return;
-            }
-
-            try {
-                // Check if hardware GPS is actually on
-                const hasServicesEnabled = await Location.hasServicesEnabledAsync();
-                if (!hasServicesEnabled) {
-                    setLocationError('Vui lòng bật GPS trên thiết bị');
-                    Alert.alert('Lỗi GPS', 'Dịch vụ định vị (GPS) đang tắt. Vui lòng bật Location/GPS trong cài đặt thiết bị để tiếp tục.', [{ text: 'OK' }]);
-                    return;
-                }
-
-                let loc = await Location.getCurrentPositionAsync({
-                    accuracy: Location.Accuracy.High,
-                });
-                setLocation(loc);
-            } catch (error) {
-                setLocationError('Không thể lấy vị trí');
-                Alert.alert('Lỗi', 'Không thể lấy vị trí hiện tại. Vui lòng kiểm tra GPS.');
-            }
-        })();
-    }, []);
-
-    if (!permission) {
-        return <View style={globalStyles.container} />;
+  const handleCapture = async () => {
+    if (!cameraRef.current || locationStatus !== 'ok' || !location) {
+      Alert.alert('Lỗi', 'Đang lấy vị trí. Vui lòng thử lại.');
+      return;
     }
+    try {
+      setIsProcessing(true);
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: false });
 
-    if (!permission.granted) {
-        return (
-            <View style={[globalStyles.container, styles.center]}>
-                <Text style={styles.permissionText}>
-                    Cần quyền truy cập camera để chấm công khuôn mặt.
-                </Text>
-                <TouchableOpacity style={globalStyles.primaryButton} onPress={requestPermission}>
-                    <Text style={globalStyles.primaryButtonText}>Cấp quyền Camera</Text>
-                </TouchableOpacity>
-            </View>
-        );
+      const data = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy ?? 0,
+        photo,
+        earlyCheckoutReason: mode === 'check-out' ? route.params?.reason : undefined,
+      };
+
+      if (mode === 'check-out') {
+        await AttendanceService.checkOut(data);
+      } else {
+        await AttendanceService.checkIn(data);
+      }
+
+      Alert.alert('Thành công', `${mode === 'check-in' ? 'Check-in' : 'Check-out'} thành công!`, [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.response?.data?.error ?? err?.response?.data?.message ?? 'Có lỗi xảy ra khi chấm công.');
+    } finally {
+      setIsProcessing(false);
     }
+  };
 
-    const handleCapturePreview = async () => {
-        if (!cameraRef.current || !location) {
-            Alert.alert('Lỗi', 'Đang lấy dữ liệu vị trí hoặc camera chưa sẵn sàng.');
-            return;
-        }
+  if (!permission) return <View style={globalStyles.container} />;
 
-        try {
-            setIsProcessing(true);
-            const photo = await cameraRef.current.takePictureAsync({
-                quality: 0.5,
-                base64: false,
-            });
-            setCapturedImage(photo);
-        } catch (error) {
-            console.error('Capture error:', error);
-            Alert.alert('Lỗi', 'Không thể chụp ảnh.');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleConfirmSubmit = async () => {
-        if (!capturedImage || !location) return;
-
-        try {
-            setIsProcessing(true);
-
-            const attendanceData = {
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-                accuracy: location.coords.accuracy || 0,
-                photo: capturedImage,
-                earlyCheckoutReason: mode === 'check-out' ? route.params?.reason : undefined,
-            };
-
-            if (mode === 'check-out') {
-                await AttendanceService.checkOut(attendanceData);
-                Alert.alert(t.common.success, 'Check-out thành công!', [
-                    { text: 'OK', onPress: () => navigation.goBack() }
-                ]);
-            } else {
-                await AttendanceService.checkIn(attendanceData);
-                Alert.alert(t.common.success, 'Check-in thành công!', [
-                    { text: 'OK', onPress: () => navigation.goBack() }
-                ]);
-            }
-
-        } catch (error: any) {
-            console.error('Attendance submit error:', error);
-            Alert.alert(t.common.error, error.response?.data?.error || error.response?.data?.message || 'Có lỗi xảy ra khi chấm công.');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleRetake = () => {
-        setCapturedImage(null);
-    };
-
-    const toggleCameraFacing = () => {
-        setFacing(current => (current === 'back' ? 'front' : 'back'));
-    };
-
+  if (!permission.granted) {
     return (
-        <View style={globalStyles.container}>
-            {/* Header */}
-            <LinearGradient
-                colors={['rgba(0,0,0,0.8)', 'transparent']}
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    paddingTop: SPACING.xxl,
-                    paddingHorizontal: SPACING.md,
-                    paddingBottom: SPACING.xl,
-                    zIndex: 10,
-                }}
-            >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
-                        <Icon name="close" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={globalStyles.heading3}>
-                        {mode === 'check-in' ? t.dashboard.checkin : t.dashboard.checkout}
-                    </Text>
-                    <TouchableOpacity onPress={toggleCameraFacing} style={styles.iconButton}>
-                        <Icon name="cameraswitch" size={24} color="#fff" />
-                    </TouchableOpacity>
-                </View>
-            </LinearGradient>
-
-            {/* Camera View */}
-            <View style={styles.cameraContainer}>
-                {capturedImage ? (
-                    <Image source={{ uri: capturedImage.uri }} style={styles.camera} />
-                ) : (
-                    <CameraView
-                        ref={cameraRef}
-                        style={styles.camera}
-                        facing={facing}
-                    />
-                )}
-
-                {/* Face Guide Overlay */}
-                {!capturedImage && (
-                    <View style={styles.faceGuideContainer}>
-                        <View style={styles.faceGuideBox} />
-                        <Text style={styles.faceGuideText}>Đặt khuôn mặt vào khung hình</Text>
-                    </View>
-                )}
-            </View>
-
-            {/* Footer Info & Action */}
-            <View style={styles.footer}>
-                <View style={styles.locationInfo}>
-                    <Icon name="location_on" size={20} color={COLORS.accent.cyan} />
-                    <Text style={styles.locationText} numberOfLines={1}>
-                        {location
-                            ? `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`
-                            : locationError || 'Đang lấy vị trí...'}
-                    </Text>
-                </View>
-
-                {capturedImage ? (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '80%', paddingHorizontal: SPACING.md }}>
-                        {/* Retake Button */}
-                        <TouchableOpacity
-                            onPress={handleRetake}
-                            disabled={isProcessing}
-                            style={[
-                                styles.captureButton,
-                                { backgroundColor: 'rgba(239, 68, 68, 0.2)' },
-                                isProcessing && { opacity: 0.7 }
-                            ]}
-                        >
-                            <View style={[styles.captureInner, { backgroundColor: COLORS.accent.red }]}>
-                                <Icon name="refresh" size={32} color="#fff" />
-                            </View>
-                            <Text style={styles.actionTextOverlay}>Chụp lại</Text>
-                        </TouchableOpacity>
-
-                        {/* Confirm Button */}
-                        <TouchableOpacity
-                            onPress={handleConfirmSubmit}
-                            disabled={isProcessing}
-                            style={[
-                                styles.captureButton,
-                                { backgroundColor: 'rgba(34, 197, 94, 0.2)' },
-                                isProcessing && { opacity: 0.7 }
-                            ]}
-                        >
-                            <View style={[styles.captureInner, { backgroundColor: COLORS.accent.green }]}>
-                                {isProcessing ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <Icon name="check" size={32} color="#fff" />
-                                )}
-                            </View>
-                            <Text style={styles.actionTextOverlay}>{t.common.confirm}</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={{ alignItems: 'center' }}>
-                        <TouchableOpacity
-                            onPress={handleCapturePreview}
-                            disabled={isProcessing || !location}
-                            style={[
-                                styles.captureButton,
-                                (isProcessing || !location) && { opacity: 0.7 }
-                            ]}
-                        >
-                            {isProcessing ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <View style={styles.captureInner}>
-                                    <Icon name={mode === 'check-in' ? "face" : "logout"} size={32} color="#fff" />
-                                </View>
-                            )}
-                        </TouchableOpacity>
-
-                        <Text style={styles.actionText}>
-                            {isProcessing ? t.common.loading : `Nhấn để ${mode === 'check-in' ? t.attendance.checkIn : t.attendance.checkOut}`}
-                        </Text>
-                    </View>
-                )}
-            </View>
-        </View>
+      <View style={[globalStyles.container, s.center]}>
+        <Text style={s.permText}>Cần quyền truy cập camera để chấm công khuôn mặt.</Text>
+        <TouchableOpacity style={globalStyles.primaryButton} onPress={requestPermission}>
+          <Text style={globalStyles.primaryButtonText}>Cấp quyền Camera</Text>
+        </TouchableOpacity>
+      </View>
     );
+  }
+
+  const scanTranslate = scanAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 254] });
+
+  return (
+    <View style={s.root}>
+      {/* Status bar area — dark */}
+      <View style={s.statusBarSpacer} />
+
+      {/* Camera full area */}
+      <View style={s.camera}>
+        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
+
+        {/* GPS chip */}
+        <View style={s.gpsChip}>
+          <View style={[s.gpsDot, locationStatus === 'ok' && s.gpsDotGreen, locationStatus === 'error' && s.gpsDotRed]} />
+          <Text style={s.gpsText}>
+            {locationStatus === 'loading' ? 'Đang lấy vị trí...' : locationStatus === 'error' ? 'Không có GPS' : 'GPS · Hợp lệ'}
+          </Text>
+        </View>
+
+        {/* Scan target */}
+        <View style={s.scanTarget}>
+          {/* Oval */}
+          <Animated.View style={[s.faceOval, { transform: [{ scale: breatheAnim }] }]} />
+
+          {/* Corner brackets */}
+          <View style={[s.bracket, s.bracketTL]} />
+          <View style={[s.bracket, s.bracketTR]} />
+          <View style={[s.bracket, s.bracketBL]} />
+          <View style={[s.bracket, s.bracketBR]} />
+
+          {/* Scan line */}
+          <Animated.View style={[s.scanLine, { transform: [{ translateY: scanTranslate }] }]} />
+        </View>
+
+        {/* Instructions */}
+        <View style={s.instructions}>
+          <Text style={s.instructionsText}>Nhìn thẳng vào camera và giữ yên để nhận diện</Text>
+        </View>
+      </View>
+
+      {/* Bottom panel */}
+      <View style={s.panel}>
+        {/* Status row */}
+        <View style={s.statusRow}>
+          <View style={s.statusItem}>
+            <Text style={s.statusLabel}>Vị trí</Text>
+            <Text style={[s.statusVal, locationStatus === 'ok' && s.statusValGreen]}>
+              {locationStatus === 'ok' ? '✓ Hợp lệ' : locationStatus === 'error' ? '✗ Lỗi' : '...'}
+            </Text>
+          </View>
+          <View style={s.statusItem}>
+            <Text style={s.statusLabel}>Ca làm việc</Text>
+            <Text style={[s.statusVal, s.statusValBlue]}>08–17h</Text>
+          </View>
+          <View style={s.statusItem}>
+            <Text style={s.statusLabel}>Trạng thái</Text>
+            <Text style={s.statusVal}>{mode === 'check-in' ? 'Chưa vào' : 'Đang làm'}</Text>
+          </View>
+        </View>
+
+        {/* Check-in button */}
+        <TouchableOpacity
+          style={[s.checkinBtn, (isProcessing || locationStatus !== 'ok') && s.checkinBtnDisabled]}
+          onPress={handleCapture}
+          disabled={isProcessing || locationStatus !== 'ok'}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={mode === 'check-out' ? ['#ef4444', '#dc2626'] : ['#4F6EF7', '#3a52dd']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={s.checkinBtnGradient}
+          >
+            {isProcessing ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Icon name={mode === 'check-in' ? 'log-in-outline' : 'log-out-outline'} size={22} color="#fff" library="ionicons" />
+                <Text style={s.checkinBtnText}>{mode === 'check-in' ? 'Check-in ngay' : 'Check-out khi kết thúc'}</Text>
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <Text style={s.hint}>
+          {mode === 'check-in' ? 'Đã vào ca? ' : 'Chưa check-in? '}
+          <Text style={s.hintLink} onPress={() => navigation.goBack()}>Quay lại</Text>
+        </Text>
+      </View>
+
+      {/* Top bar: close + flip */}
+      <View style={s.topBar}>
+        <TouchableOpacity style={s.iconBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <Icon name="close" size={22} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.iconBtn} onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))} activeOpacity={0.7}>
+          <Icon name="cameraswitch" size={22} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
+
+const OVAL_W = 216;
+const OVAL_H = 270;
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#0d0f1e' },
+  center: { justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
+  permText: { color: '#fff', textAlign: 'center', marginBottom: 20, fontSize: 14 },
+  statusBarSpacer: { height: 44 },
+
+  // Camera
+  camera: { flex: 1, backgroundColor: '#0d0f1e', position: 'relative', alignItems: 'center', justifyContent: 'center' },
+
+  // GPS chip
+  gpsChip: {
+    position: 'absolute', top: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 9999, paddingVertical: 6, paddingHorizontal: 14,
+    zIndex: 10,
+  },
+  gpsDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#9ca3af' },
+  gpsDotGreen: { backgroundColor: '#4ade80' },
+  gpsDotRed: { backgroundColor: '#ef4444' },
+  gpsText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+
+  // Scan target
+  scanTarget: {
+    width: 288, height: 308,
+    position: 'absolute', top: '50%', marginTop: -154,
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+
+  // Oval
+  faceOval: {
+    position: 'absolute',
+    width: OVAL_W, height: OVAL_H,
+    borderRadius: OVAL_W / 2,
+    borderWidth: 2, borderColor: 'rgba(79,110,247,0.6)',
+    backgroundColor: 'transparent',
+  },
+
+  // Corner brackets
+  bracket: {
+    position: 'absolute',
+    width: 28, height: 28,
+    borderColor: '#4F6EF7', borderStyle: 'solid',
+  },
+  bracketTL: { top: 0, left: 16, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 4 },
+  bracketTR: { top: 0, right: 16, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 4 },
+  bracketBL: { bottom: 0, left: 16, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 4 },
+  bracketBR: { bottom: 0, right: 16, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 4 },
+
+  // Scan line
+  scanLine: {
+    position: 'absolute',
+    top: 0, left: 24, right: 24,
+    height: 2,
+    backgroundColor: 'transparent',
+    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 4, elevation: 0,
+    // gradient via background
+    borderRadius: 1,
+    // fake gradient with tint
+    opacity: 0.85,
+    borderTopWidth: 2, borderTopColor: '#4F6EF7',
+  },
+
+  // Instructions
+  instructions: {
+    position: 'absolute', bottom: 16, left: 0, right: 0, alignItems: 'center',
+  },
+  instructionsText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center', paddingHorizontal: 32 },
+
+  // Top bar
+  topBar: {
+    position: 'absolute', top: 44, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 8, zIndex: 20,
+  },
+  iconBtn: {
+    padding: 8, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20,
+  },
+
+  // Bottom panel
+  panel: {
+    backgroundColor: '#f3f4f8',
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    padding: 20,
+    paddingBottom: 32,
+    flexShrink: 0,
+  },
+  statusRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  statusItem: {
+    flex: 1, backgroundColor: '#fff', borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center',
+    borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  statusLabel: { fontSize: 10, color: '#9ca3af', fontWeight: '500', marginBottom: 4 },
+  statusVal: { fontSize: 14, fontWeight: '700', color: '#191c1e' },
+  statusValGreen: { color: '#16a34a' },
+  statusValBlue: { color: '#4F6EF7' },
+
+  checkinBtn: {
+    borderRadius: 9999, overflow: 'hidden',
+    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 6,
+    marginBottom: 12,
+  },
+  checkinBtnDisabled: { opacity: 0.6 },
+  checkinBtnGradient: {
+    height: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+  },
+  checkinBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+
+  hint: { textAlign: 'center', fontSize: 12, color: '#9ca3af' },
+  hintLink: { color: '#4F6EF7', fontWeight: '600' },
+});

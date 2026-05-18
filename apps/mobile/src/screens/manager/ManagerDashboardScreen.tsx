@@ -1,377 +1,59 @@
-import React, { useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { ManagerTabParamList } from '../../navigation/AppNavigator';
-import { SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { Icon } from '../../components/ui/Icon';
-import { ManagerStatCard } from '../../components/cards/ManagerStatCard';
-import { EmptyState } from '../../components/ui/EmptyState';
 import { useUnreadCount } from '../../hooks/useNotificationQueries';
 import { useManagerApprovals, useTeamMembers } from '../../hooks/useManagerQueries';
 import { useAuth } from '../../context/AuthContext';
 import { ApprovalRequest } from '../../types';
-import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
 
-type ManagerDashboardScreenNavigationProp = BottomTabNavigationProp<ManagerTabParamList, 'ManagerDashboard'>;
+type Props = { navigation: BottomTabNavigationProp<ManagerTabParamList, 'ManagerDashboard'> };
 
-interface ManagerDashboardScreenProps {
-  navigation: ManagerDashboardScreenNavigationProp;
+const AVA_COLORS = ['#4f6ef7', '#16a34a', '#f97316', '#d97706'];
+
+function getLeaveTypeLabel(type: string) {
+  switch (type) {
+    case 'annual': return 'Phép';
+    case 'sick': return 'Ốm';
+    case 'overtime': return 'Tăng ca';
+    case 'remote': return 'WFH';
+    default: return 'Khác';
+  }
 }
 
-function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      paddingTop: SPACING.xxl * 2,
-      paddingBottom: SPACING.xl,
-      paddingHorizontal: SPACING.xl,
-      borderBottomLeftRadius: BORDER_RADIUS.xxl,
-      borderBottomRightRadius: BORDER_RADIUS.xxl,
-      marginBottom: -SPACING.lg,
-    },
-    topBar: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: SPACING.xl,
-    },
-    userInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: SPACING.sm,
-    },
-    avatarContainer: {
-      position: 'relative',
-    },
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 2,
-      borderColor: '#ffffff',
-    },
-    avatarText: {
-      color: '#ffffff',
-      fontSize: 18,
-      fontWeight: 'bold',
-    },
-    statusDot: {
-      position: 'absolute',
-      bottom: -2,
-      right: -2,
-      width: 16,
-      height: 16,
-      borderRadius: 8,
-      backgroundColor: '#16a34a',
-      borderWidth: 2,
-      borderColor: '#FF9800',
-    },
-    userRole: {
-      color: 'rgba(255, 255, 255, 0.8)',
-      fontSize: 12,
-    },
-    userName: {
-      color: '#ffffff',
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-    notificationButton: {
-      width: 44,
-      height: 44,
-      borderRadius: BORDER_RADIUS.md,
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.3)',
-      position: 'relative',
-    },
-    badge: {
-      position: 'absolute',
-      top: -4,
-      right: -4,
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      backgroundColor: '#ef4444',
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 2,
-      borderColor: '#FF9800',
-    },
-    badgeText: {
-      color: '#ffffff',
-      fontSize: 10,
-      fontWeight: 'bold',
-    },
-    welcomeSection: {
-      marginTop: SPACING.md,
-    },
-    welcomeTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: '#ffffff',
-      marginBottom: SPACING.sm,
-    },
-    welcomeSubtitle: {
-      fontSize: 14,
-      color: 'rgba(255, 255, 255, 0.8)',
-    },
-    content: {
-      paddingHorizontal: SPACING.xl,
-      paddingTop: SPACING.lg,
-    },
-    statsGrid: {
-      gap: SPACING.sm,
-      marginBottom: SPACING.xl,
-    },
-    statsRow: {
-      flexDirection: 'row',
-      gap: SPACING.sm,
-    },
-    section: {
-      marginBottom: SPACING.xl,
-    },
-    sectionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: SPACING.md,
-    },
-    sectionTitleContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: SPACING.xs,
-    },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: colors.textPrimary,
-    },
-    countBadge: {
-      backgroundColor: 'rgba(255, 152, 0, 0.1)',
-      paddingHorizontal: SPACING.sm,
-      paddingVertical: SPACING.xs,
-      borderRadius: BORDER_RADIUS.md,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 152, 0, 0.2)',
-    },
-    countBadgeText: {
-      color: '#FF9800',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    approvalsList: {
-      gap: SPACING.sm,
-    },
-    approvalCard: {
-      backgroundColor: colors.card,
-      borderRadius: BORDER_RADIUS.lg,
-      padding: SPACING.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...SHADOWS.md,
-      shadowColor: colors.shadow,
-    },
-    approvalContent: {
-      flexDirection: 'row',
-      gap: SPACING.sm,
-      alignItems: 'flex-start',
-    },
-    approvalAvatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: 'rgba(255, 152, 0, 0.15)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    approvalAvatarText: {
-      fontSize: 14,
-      fontWeight: 'bold',
-      color: '#FF9800',
-    },
-    approvalInfo: {
-      flex: 1,
-      minWidth: 0,
-    },
-    approvalName: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: SPACING.xs / 2,
-    },
-    approvalDate: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginBottom: SPACING.xs / 2,
-    },
-    approvalReason: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginBottom: SPACING.xs,
-    },
-    approvalMeta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: SPACING.sm,
-    },
-    typeBadge: {
-      backgroundColor: colors.separator,
-      paddingHorizontal: SPACING.xs,
-      paddingVertical: 2,
-      borderRadius: BORDER_RADIUS.sm,
-    },
-    typeBadgeText: {
-      fontSize: 11,
-      color: colors.textSecondary,
-    },
-    approvalTime: {
-      fontSize: 11,
-      color: colors.textSecondary,
-    },
-    approvalSkeleton: {
-      height: 60,
-      backgroundColor: colors.separator,
-      borderRadius: BORDER_RADIUS.md,
-    },
-    viewAllButton: {
-      paddingVertical: SPACING.md,
-      alignItems: 'center',
-    },
-    viewAllText: {
-      color: '#FF9800',
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    teamCard: {
-      backgroundColor: colors.card,
-      borderRadius: BORDER_RADIUS.lg,
-      padding: SPACING.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...SHADOWS.md,
-      shadowColor: colors.shadow,
-    },
-    membersList: {
-      gap: SPACING.xs,
-    },
-    memberItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: SPACING.sm,
-      padding: SPACING.xs,
-    },
-    memberAvatarContainer: {
-      position: 'relative',
-    },
-    memberAvatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: 'rgba(255, 152, 0, 0.15)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    memberAvatarText: {
-      fontSize: 12,
-      fontWeight: 'bold',
-      color: '#FF9800',
-    },
-    memberStatusDot: {
-      position: 'absolute',
-      bottom: -2,
-      right: -2,
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      borderWidth: 2,
-      borderColor: colors.card,
-    },
-    memberInfo: {
-      flex: 1,
-      minWidth: 0,
-    },
-    memberName: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: 2,
-    },
-    memberDepartment: {
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-    memberStatusBadge: {
-      paddingHorizontal: SPACING.xs,
-      paddingVertical: 4,
-      borderRadius: BORDER_RADIUS.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    memberStatusText: {
-      fontSize: 11,
-      fontWeight: '500',
-    },
-    teamSkeleton: {
-      gap: SPACING.xs,
-    },
-    memberSkeleton: {
-      height: 50,
-      backgroundColor: colors.separator,
-      borderRadius: BORDER_RADIUS.md,
-    },
-    quickActionsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: SPACING.sm,
-    },
-    quickActionCard: {
-      flexBasis: '47%',
-      flexGrow: 1,
-      backgroundColor: colors.card,
-      borderRadius: BORDER_RADIUS.xl,
-      padding: SPACING.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...SHADOWS.md,
-      shadowColor: colors.shadow,
-    },
-    quickActionIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: BORDER_RADIUS.md,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: SPACING.sm,
-    },
-    quickActionTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: SPACING.xs / 2,
-    },
-    quickActionSubtitle: {
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-  });
+function getLeaveTypeBadge(type: string) {
+  switch (type) {
+    case 'annual':
+    case 'sick': return { bg: '#ede9fe', color: '#7c3aed' };
+    case 'overtime': return { bg: '#fef3c7', color: '#d97706' };
+    case 'remote': return { bg: '#eef1ff', color: '#4f6ef7' };
+    default: return { bg: '#f3f4f8', color: '#9ca3af' };
+  }
 }
 
-export default function ManagerDashboardScreen({ navigation }: ManagerDashboardScreenProps) {
+function AttBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <View style={s.attBarRow}>
+      <Text style={s.attBarLabel}>{label}</Text>
+      <View style={s.attBarTrack}>
+        <View style={[s.attBarFill, { width: `${pct}%` as any, backgroundColor: color }]} />
+      </View>
+      <Text style={s.attBarVal}>{value}</Text>
+    </View>
+  );
+}
+
+export default function ManagerDashboardScreen({ navigation }: Props) {
   const { user } = useAuth();
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-
   const { data: unreadData } = useUnreadCount();
   const { data: approvalsData, isLoading: approvalsLoading } = useManagerApprovals({ status: 'pending' });
   const { data: teamData, isLoading: teamLoading } = useTeamMembers();
@@ -379,362 +61,307 @@ export default function ManagerDashboardScreen({ navigation }: ManagerDashboardS
   const unreadCount = (unreadData as any)?.count ?? 0;
   const approvals: ApprovalRequest[] = approvalsData ?? [];
   const pendingCount = approvals.length;
-  const members = teamData ?? [];
-  const onlineCount = (members as any[]).filter((m: any) => m.status === 'online').length;
-  const onLeaveCount = (members as any[]).filter((m: any) => m.status === 'on-leave').length;
-
-  const getLeaveTypeLabel = (type: string) => {
-    switch (type) {
-      case 'annual': return 'Nghỉ phép';
-      case 'sick': return 'Nghỉ ốm';
-      case 'unpaid': return 'Nghỉ không lương';
-      default: return 'Khác';
-    }
-  };
+  const members = (teamData ?? []) as any[];
+  const totalCount = members.length;
+  const presentCount = members.filter((m) => m.status === 'online').length;
+  const absentCount = members.filter((m) => m.status === 'absent').length;
+  const lateCount = members.filter((m) => m.status === 'late').length;
+  const wfhCount = members.filter((m) => m.status === 'remote').length;
 
   const userName = user?.name || 'Manager';
-  const userAvatar = user?.avatar;
+  const todayStr = new Date().toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
-        {/* Header */}
+    <View style={s.root}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Hero */}
         <LinearGradient
-          colors={['#1A1A2E', '#2A1800', '#FF8C00']}
-          locations={[0, 0.4, 1]}
-          start={{ x: 0, y: 0 }}
+          colors={['#1e3a8a', '#2563eb', '#4f6ef7']}
+          locations={[0, 0.45, 1]}
+          start={{ x: 0.1, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.header}
+          style={s.hero}
         >
-          <View style={styles.topBar}>
-            <View style={styles.userInfo}>
-              <View style={styles.avatarContainer}>
-                {userAvatar ? (
-                  <Image source={{ uri: userAvatar }} style={styles.avatar} />
-                ) : (
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+          <View style={s.heroTop}>
+            <View>
+              <Text style={s.heroGreet}>Xin chào,</Text>
+              <Text style={s.heroName}>{userName}</Text>
+            </View>
+            <View style={s.heroRight}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Notifications' as any)}
+                style={s.notifBtn}
+              >
+                <Icon name="notifications-outline" size={20} color="#fff" library="ionicons" />
+                {unreadCount > 0 && (
+                  <View style={s.notifBadge}>
+                    <Text style={s.notifBadgeText}>{unreadCount}</Text>
                   </View>
                 )}
-                <View style={styles.statusDot} />
-              </View>
-              <View>
-                <Text style={styles.userRole}>{t.manager.dashboard.title},</Text>
-                <Text style={styles.userName}>{userName}</Text>
+              </TouchableOpacity>
+              <View style={s.mgrBadge}>
+                <Text style={s.mgrBadgeText}>Quản lý</Text>
               </View>
             </View>
-
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications' as any)}
-              style={styles.notificationButton}
-            >
-              <Icon name="notifications" size={20} color="#ffffff" />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
           </View>
 
-          <View style={styles.welcomeSection}>
-            <Text style={styles.welcomeTitle}>
-              {t.manager.dashboard.title} 📊
-            </Text>
-            <Text style={styles.welcomeSubtitle}>
-              Tổng quan đội nhóm và công việc cần xử lý
-            </Text>
+          {/* 3 frosted stat boxes */}
+          <View style={s.statsRow}>
+            <View style={s.statBox}>
+              <Text style={[s.statVal, s.statGreen]}>{teamLoading ? '—' : presentCount}</Text>
+              <Text style={s.statLabel}>Đi làm hôm nay</Text>
+            </View>
+            <View style={s.statBox}>
+              <Text style={[s.statVal, s.statWarn]}>{approvalsLoading ? '—' : pendingCount}</Text>
+              <Text style={s.statLabel}>Chờ duyệt</Text>
+            </View>
+            <View style={s.statBox}>
+              <Text style={[s.statVal, s.statRed]}>{teamLoading ? '—' : absentCount}</Text>
+              <Text style={s.statLabel}>Vắng mặt</Text>
+            </View>
           </View>
         </LinearGradient>
 
-        <View style={styles.content}>
-          {/* Stats */}
-          <View style={styles.statsGrid}>
-            <View style={styles.statsRow}>
-              <ManagerStatCard
-                key="pending"
-                icon="pending_actions"
-                title={t.manager.dashboard.pending}
-                value={approvalsLoading ? '...' : pendingCount}
-                unit="đơn nghỉ phép"
-                color="warning"
-              />
-              <ManagerStatCard
-                key="members"
-                icon="groups"
-                title={t.manager.dashboard.team}
-                value={teamLoading ? '...' : (members as any[]).length}
-                unit="nhân viên"
-                color="info"
-              />
+        {/* Body */}
+        <View style={s.body}>
+          {/* Quick actions */}
+          <View style={s.secHead}>
+            <Text style={s.secTitle}>Thao tác nhanh</Text>
+          </View>
+          <View style={s.quickGrid}>
+            {/* Duyệt yêu cầu — with pending badge */}
+            <View style={s.qaWrap}>
+              <TouchableOpacity style={s.qaItem} onPress={() => navigation.navigate('ManagerApprovals')}>
+                <View style={[s.qaIcon, { backgroundColor: '#eef1ff' }]}>
+                  <Icon name="document-text-outline" size={20} color="#4f6ef7" library="ionicons" />
+                </View>
+                <Text style={s.qaLabel}>Duyệt yêu cầu</Text>
+              </TouchableOpacity>
+              {pendingCount > 0 && (
+                <View style={s.qaBadge}>
+                  <Text style={s.qaBadgeText}>{pendingCount}</Text>
+                </View>
+              )}
             </View>
-            <View style={styles.statsRow}>
-              <ManagerStatCard
-                key="online"
-                icon="how_to_reg"
-                title="Đang làm việc"
-                value={teamLoading ? '...' : onlineCount}
-                unit="trực tuyến"
-                color="success"
-              />
-              <ManagerStatCard
-                key="on-leave"
-                icon="event_busy"
-                title="Đang nghỉ"
-                value={teamLoading ? '...' : onLeaveCount}
-                unit="nhân viên"
-                color="primary"
-              />
+
+            <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('ManagerTeam')}>
+              <View style={[s.qaIcon, { backgroundColor: '#dcfce7' }]}>
+                <Icon name="people-outline" size={20} color="#16a34a" library="ionicons" />
+              </View>
+              <Text style={s.qaLabel}>Điểm danh nhóm</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('ManagerSchedule')}>
+              <View style={[s.qaIcon, { backgroundColor: '#fef3c7' }]}>
+                <Icon name="calendar-outline" size={20} color="#b45309" library="ionicons" />
+              </View>
+              <Text style={s.qaLabel}>Ca làm việc</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('ManagerTeam')}>
+              <View style={[s.qaIcon, { backgroundColor: '#ede9fe' }]}>
+                <Icon name="star-outline" size={20} color="#7c3aed" library="ionicons" />
+              </View>
+              <Text style={s.qaLabel}>Đánh giá</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Team attendance bar chart */}
+          <View style={s.secHead}>
+            <Text style={s.secTitle}>Điểm danh hôm nay</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('ManagerTeam')}>
+              <Text style={s.secLink}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={s.attCard}>
+            <View style={s.attHead}>
+              <Text style={s.attTitle}>Nhóm của tôi · {teamLoading ? '...' : totalCount} người</Text>
+              <Text style={s.attDate}>{todayStr}</Text>
+            </View>
+            <AttBar label="Đúng giờ" value={presentCount} total={totalCount} color="#16a34a" />
+            <AttBar label="Đi trễ" value={lateCount} total={totalCount} color="#d97706" />
+            <AttBar label="WFH" value={wfhCount} total={totalCount} color="#4f6ef7" />
+            <AttBar label="Vắng" value={absentCount} total={totalCount} color="#ef4444" />
+            <View style={s.attLegend}>
+              {[
+                { color: '#16a34a', label: 'Đúng giờ' },
+                { color: '#d97706', label: 'Trễ' },
+                { color: '#4f6ef7', label: 'WFH' },
+                { color: '#ef4444', label: 'Vắng' },
+              ].map((item) => (
+                <View key={item.label} style={s.legItem}>
+                  <View style={[s.legDot, { backgroundColor: item.color }]} />
+                  <Text style={s.legText}>{item.label}</Text>
+                </View>
+              ))}
             </View>
           </View>
 
-          {/* Pending Approvals */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleContainer}>
-                <Icon name="check_circle" size={16} color="#FF9800" />
-                <Text style={styles.sectionTitle}>{t.manager.dashboard.approvals}</Text>
-              </View>
-              {pendingCount > 0 && (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{pendingCount} đơn</Text>
-                </View>
-              )}
+          {/* Pending requests mini list */}
+          <View style={s.secHead}>
+            <Text style={s.secTitle}>Chờ duyệt</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('ManagerApprovals')}>
+              <Text style={s.secLink}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+          {approvalsLoading ? (
+            [1, 2].map((i) => <View key={i} style={s.reqSkeleton} />)
+          ) : approvals.length === 0 ? (
+            <View style={s.reqEmpty}>
+              <Text style={s.reqEmptyText}>Không có đơn chờ duyệt ✅</Text>
             </View>
-
-            <View style={styles.approvalsList}>
-              {approvalsLoading ? (
-                [1, 2].map(i => (
-                  <View key={i} style={styles.approvalCard}>
-                    <View style={styles.approvalSkeleton} />
-                  </View>
-                ))
-              ) : approvals.length === 0 ? (
-                <View style={styles.approvalCard}>
-                  <EmptyState
-                    emoji="✅"
-                    title="Không có đơn chờ duyệt"
-                    description="Tất cả đơn nghỉ phép đã được xử lý"
-                  />
-                </View>
-              ) : (
-                approvals.slice(0, 3).map((approval: ApprovalRequest) => (
-                  <TouchableOpacity
-                    key={approval.id}
-                    style={styles.approvalCard}
-                    onPress={() => navigation.navigate('ManagerApprovals')}
-                  >
-                    <View style={styles.approvalContent}>
-                      <View style={styles.approvalAvatar}>
-                        <Text style={styles.approvalAvatarText}>
-                          {approval.employeeName.charAt(0)}
-                        </Text>
-                      </View>
-                      <View style={styles.approvalInfo}>
-                        <Text style={styles.approvalName}>{approval.employeeName}</Text>
-                        <Text style={styles.approvalDate}>
-                          {approval.startDate} → {approval.endDate} ({approval.days} ngày)
-                        </Text>
-                        <Text style={styles.approvalReason} numberOfLines={1}>
-                          Lý do: {approval.reason}
-                        </Text>
-                        <View style={styles.approvalMeta}>
-                          <View style={styles.typeBadge}>
-                            <Text style={styles.typeBadgeText}>
-                              {getLeaveTypeLabel(approval.type)}
-                            </Text>
-                          </View>
-                          <Text style={styles.approvalTime}>
-                            {new Date(approval.submittedAt).toLocaleDateString('vi-VN')}
-                          </Text>
-                        </View>
-                      </View>
-                      <Icon name="schedule" size={16} color={colors.textSecondary} />
-                    </View>
-                  </TouchableOpacity>
-                ))
-              )}
-
-              {approvals.length > 3 && (
+          ) : (
+            approvals.slice(0, 3).map((approval: ApprovalRequest, idx) => {
+              const badge = getLeaveTypeBadge(approval.type);
+              const dateRange = approval.startDate === approval.endDate
+                ? approval.startDate
+                : `${approval.startDate} – ${approval.endDate}`;
+              return (
                 <TouchableOpacity
-                  style={styles.viewAllButton}
+                  key={approval.id}
+                  style={s.reqMini}
                   onPress={() => navigation.navigate('ManagerApprovals')}
                 >
-                  <Text style={styles.viewAllText}>
-                    Xem tất cả {approvals.length} đơn →
-                  </Text>
+                  <View style={[s.reqAva, { backgroundColor: AVA_COLORS[idx % AVA_COLORS.length] }]}>
+                    <Text style={s.reqAvaText}>
+                      {approval.employeeName.slice(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={s.reqInfo}>
+                    <Text style={s.reqName}>{approval.employeeName}</Text>
+                    <Text style={s.reqSub} numberOfLines={1}>
+                      {getLeaveTypeLabel(approval.type)} · {dateRange}{approval.days ? ` · ${approval.days} ngày` : ''}
+                    </Text>
+                  </View>
+                  <View style={[s.reqTypeBadge, { backgroundColor: badge.bg }]}>
+                    <Text style={[s.reqTypeText, { color: badge.color }]}>
+                      {getLeaveTypeLabel(approval.type)}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Team Overview */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleContainer}>
-              <Icon name="groups" size={16} color="#FF9800" />
-              <Text style={styles.sectionTitle}>{t.manager.dashboard.team}</Text>
-            </View>
-
-            <View style={styles.teamCard}>
-              {teamLoading ? (
-                <View style={styles.teamSkeleton}>
-                  {[1, 2, 3].map(i => (
-                    <View key={i} style={styles.memberSkeleton} />
-                  ))}
-                </View>
-              ) : members.length === 0 ? (
-                <EmptyState
-                  icon="groups"
-                  title="Chưa có thành viên"
-                  description="Danh sách đội nhóm trống"
-                />
-              ) : (
-                <View style={styles.membersList}>
-                  {(members as any[]).map((member: any) => (
-                    <View key={member.id} style={styles.memberItem}>
-                      <View style={styles.memberAvatarContainer}>
-                        <View style={styles.memberAvatar}>
-                          <Text style={styles.memberAvatarText}>
-                            {member.name.charAt(0)}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.memberStatusDot,
-                            {
-                              backgroundColor:
-                                member.status === 'online'
-                                  ? '#16a34a'
-                                  : member.status === 'on-leave'
-                                    ? '#FF9800'
-                                    : colors.textMuted,
-                            },
-                          ]}
-                        />
-                      </View>
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>{member.name}</Text>
-                        <Text style={styles.memberDepartment}>{member.department}</Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.memberStatusBadge,
-                          {
-                            backgroundColor:
-                              member.status === 'online'
-                                ? 'rgba(22, 163, 74, 0.1)'
-                                : member.status === 'on-leave'
-                                  ? 'rgba(255, 152, 0, 0.1)'
-                                  : colors.separator,
-                            borderColor:
-                              member.status === 'online'
-                                ? 'rgba(22, 163, 74, 0.2)'
-                                : member.status === 'on-leave'
-                                  ? 'rgba(255, 152, 0, 0.2)'
-                                  : colors.border,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.memberStatusText,
-                            {
-                              color:
-                                member.status === 'online'
-                                  ? '#16a34a'
-                                  : member.status === 'on-leave'
-                                    ? '#FF9800'
-                                    : colors.textSecondary,
-                            },
-                          ]}
-                        >
-                          {member.status === 'online'
-                            ? 'Trực tuyến'
-                            : member.status === 'on-leave'
-                              ? 'Nghỉ phép'
-                              : 'Offline'}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* Quick Actions */}
-          <View style={styles.section}>
-            <View style={styles.sectionTitleContainer}>
-              <Icon name="trending_up" size={16} color="#FF9800" />
-              <Text style={styles.sectionTitle}>Thao tác nhanh</Text>
-            </View>
-            <View style={styles.quickActionsGrid}>
-              <TouchableOpacity
-                key="approve"
-                style={styles.quickActionCard}
-                onPress={() => navigation.navigate('ManagerApprovals')}
-              >
-                <LinearGradient
-                  colors={['rgba(255, 152, 0, 0.2)', 'rgba(255, 193, 7, 0.1)']}
-                  style={styles.quickActionIcon}
-                >
-                  <Icon name="check_circle" size={20} color="#FF9800" />
-                </LinearGradient>
-                <Text style={styles.quickActionTitle}>{t.manager.dashboard.approvals}</Text>
-                <Text style={styles.quickActionSubtitle}>Xử lý đơn nghỉ phép</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                key="schedule"
-                style={styles.quickActionCard}
-                onPress={() => navigation.navigate('ManagerSchedule')}
-              >
-                <LinearGradient
-                  colors={['rgba(255, 193, 7, 0.2)', 'rgba(255, 152, 0, 0.1)']}
-                  style={styles.quickActionIcon}
-                >
-                  <Icon name="event" size={20} color="#FFC107" />
-                </LinearGradient>
-                <Text style={styles.quickActionTitle}>Lịch team</Text>
-                <Text style={styles.quickActionSubtitle}>Xem lịch làm việc</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                key="reports"
-                style={styles.quickActionCard}
-                onPress={() => navigation.navigate('ManagerTeam')}
-              >
-                <LinearGradient
-                  colors={['rgba(22, 163, 74, 0.2)', 'rgba(22, 163, 74, 0.1)']}
-                  style={styles.quickActionIcon}
-                >
-                  <Icon name="trending_up" size={20} color="#16a34a" />
-                </LinearGradient>
-                <Text style={styles.quickActionTitle}>{t.manager.dashboard.reports}</Text>
-                <Text style={styles.quickActionSubtitle}>Thống kê team</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                key="team-manage"
-                style={styles.quickActionCard}
-                onPress={() => navigation.navigate('ManagerTeam')}
-              >
-                <LinearGradient
-                  colors={['rgba(79, 110, 247, 0.2)', 'rgba(79, 110, 247, 0.1)']}
-                  style={styles.quickActionIcon}
-                >
-                  <Icon name="groups" size={20} color="#4F6EF7" />
-                </LinearGradient>
-                <Text style={styles.quickActionTitle}>{t.manager.dashboard.team}</Text>
-                <Text style={styles.quickActionSubtitle}>Danh sách nhân viên</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#f3f4f8' },
+
+  // Hero
+  hero: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 36 },
+  heroTop: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 16,
+  },
+  heroGreet: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '400', marginBottom: 2 },
+  heroName: { fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  heroRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  notifBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center', alignItems: 'center',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute', top: -2, right: -2,
+    backgroundColor: '#ef4444', borderRadius: 9999,
+    minWidth: 14, paddingHorizontal: 3, alignItems: 'center',
+  },
+  notifBadgeText: { fontSize: 8, fontWeight: '700', color: '#fff' },
+  mgrBadge: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 9999, paddingVertical: 5, paddingHorizontal: 14,
+  },
+  mgrBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+
+  // Stats row (in hero)
+  statsRow: { flexDirection: 'row', gap: 8 },
+  statBox: {
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 12, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center',
+  },
+  statVal: { fontSize: 22, fontWeight: '800', lineHeight: 26 },
+  statGreen: { color: '#86efac' },
+  statWarn: { color: '#fbbf24' },
+  statRed: { color: '#f87171' },
+  statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 4, fontWeight: '500', textAlign: 'center' },
+
+  // Body
+  body: { paddingHorizontal: 16 },
+
+  // Section header
+  secHead: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginTop: 16, marginBottom: 10,
+  },
+  secTitle: { fontSize: 14, fontWeight: '700', color: '#191c1e' },
+  secLink: { fontSize: 12, fontWeight: '600', color: '#4f6ef7' },
+
+  // Quick actions grid
+  quickGrid: { flexDirection: 'row', gap: 8 },
+  qaWrap: { flex: 1, position: 'relative' },
+  qaItem: {
+    backgroundColor: '#fff', borderRadius: 14,
+    borderWidth: 1, borderColor: '#e5e7eb',
+    paddingVertical: 14, paddingHorizontal: 6,
+    alignItems: 'center', gap: 6,
+  },
+  qaFlex: { flex: 1 },
+  qaIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  qaLabel: { fontSize: 10, fontWeight: '600', color: '#444654', textAlign: 'center', lineHeight: 14 },
+  qaBadge: {
+    position: 'absolute', top: -4, right: -4,
+    backgroundColor: '#ef4444', borderRadius: 9999,
+    minWidth: 16, paddingHorizontal: 4, paddingVertical: 1,
+    alignItems: 'center', zIndex: 1,
+  },
+  qaBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff' },
+
+  // Attendance card
+  attCard: {
+    backgroundColor: '#fff', borderRadius: 16,
+    borderWidth: 1, borderColor: '#e5e7eb', padding: 14, marginBottom: 4,
+  },
+  attHead: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 12,
+  },
+  attTitle: { fontSize: 13, fontWeight: '700', color: '#191c1e' },
+  attDate: { fontSize: 11, color: '#9ca3af', fontWeight: '500' },
+  attBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  attBarLabel: { fontSize: 11, color: '#444654', width: 52, fontWeight: '500' },
+  attBarTrack: { flex: 1, height: 7, backgroundColor: '#f3f4f8', borderRadius: 9999, overflow: 'hidden' },
+  attBarFill: { height: 7, borderRadius: 9999 },
+  attBarVal: { fontSize: 11, fontWeight: '700', color: '#191c1e', width: 20, textAlign: 'right' },
+  attLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
+  legItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legDot: { width: 7, height: 7, borderRadius: 4 },
+  legText: { fontSize: 10, color: '#9ca3af', fontWeight: '500' },
+
+  // Pending requests mini list
+  reqSkeleton: { height: 56, backgroundColor: '#e5e7eb', borderRadius: 14, marginBottom: 8 },
+  reqEmpty: {
+    backgroundColor: '#fff', borderRadius: 14,
+    borderWidth: 1, borderColor: '#e5e7eb',
+    padding: 16, alignItems: 'center', marginBottom: 8,
+  },
+  reqEmptyText: { fontSize: 13, color: '#9ca3af' },
+  reqMini: {
+    backgroundColor: '#fff', borderRadius: 14,
+    borderWidth: 1, borderColor: '#e5e7eb',
+    paddingVertical: 12, paddingHorizontal: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,
+  },
+  reqAva: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  reqAvaText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  reqInfo: { flex: 1, minWidth: 0 },
+  reqName: { fontSize: 13, fontWeight: '700', color: '#191c1e' },
+  reqSub: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  reqTypeBadge: { borderRadius: 7, paddingVertical: 3, paddingHorizontal: 9 },
+  reqTypeText: { fontSize: 10, fontWeight: '700' },
+});
