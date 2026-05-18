@@ -5,27 +5,16 @@
   "engines": {
     "node": "20.x"
   },
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
   "packageManager": "pnpm@10.12.1",
   "scripts": {
-    "dev:backend": "pnpm --filter backend dev",
-    "dev:frontend": "pnpm --filter frontend dev",
-    "dev:ai": "cd ai-service && DEV_MODE=true python run.py",
-    "build": "pnpm --filter frontend build",
-    "build:all": "pnpm -r --parallel build",
+    "postinstall": "pnpm --filter @smartattendance/shared build",
+    "build:shared": "pnpm --filter @smartattendance/shared build",
+    "dev:backend": "pnpm --filter @smartattendance/backend dev",
+    "dev:web": "pnpm --filter @smartattendance/web dev",
+    "dev:ai": "cd packages/ai-service && DEV_MODE=true python run.py",
+    "build": "pnpm --filter @smartattendance/web build",
+    "build:all": "pnpm -r build",
     "lint": "pnpm -r --parallel lint",
     "test": "pnpm -r --parallel test"
-  },
-  "dependencies": {
-    "@vitejs/plugin-react": "^5.1.2",
-    "baseline-browser-mapping": "^2.9.12",
-    "react-day-picker": "^9.11.1",
-    "vite": "^7.3.1"
-  },
-  "devDependencies": {
-    "rollup": "^4.56.0"
   }
 }

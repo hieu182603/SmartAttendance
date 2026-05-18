@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "frontend/dist",
-  "installCommand": "npm ci",
+  "buildCommand": "pnpm --filter @smartattendance/web build",
+  "outputDirectory": "apps/web/dist",
+  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
   "framework": "vite",
   "build": {
     "env": {
