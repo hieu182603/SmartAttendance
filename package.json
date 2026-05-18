@@ -9,12 +9,15 @@
     "backend",
     "frontend"
   ],
+  "packageManager": "pnpm@10.12.1",
   "scripts": {
-    "dev:backend": "yarn workspace backend dev",
-    "dev:frontend": "yarn workspace frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:frontend": "pnpm --filter frontend dev",
     "dev:ai": "cd ai-service && DEV_MODE=true python run.py",
-    "build": "npm --workspace frontend run build",
-    "build:all": "yarn workspace backend build && yarn workspace frontend build"
+    "build": "pnpm --filter frontend build",
+    "build:all": "pnpm -r --parallel build",
+    "lint": "pnpm -r --parallel lint",
+    "test": "pnpm -r --parallel test"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.2",

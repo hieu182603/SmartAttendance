@@ -1,0 +1,6 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  # Transitional: keep current paths working until Day 2 folder move
+  - 'backend'
+  - 'frontend'
