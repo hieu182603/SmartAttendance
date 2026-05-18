@@ -98,7 +98,15 @@ jobs:
     env:
       NODE_ENV: test
       MONGO_URI: mongodb://localhost:27017/smartattendance_e2e
-      REDIS_URL: redis://localhost:6379
+      # Redis intentionally disabled for E2E: with single-slot refresh token
+      # rotation enabled, parallel Playwright tests sharing a saved storageState
+      # cookie all hit the SAME pre-rotation token. First test rotates T1→T2 in
+      # Redis; every subsequent test arrives with T1 and gets "Refresh token
+      # revoked" → forceLogout → /login. Without Redis the binding check is
+      # skipped (JWT signature only), so all tests can reuse the cookie.
+      # Refresh-rotation logic remains covered by backend integration tests
+      # (TC-AUTH-009 in __tests__/integration/auth.test.js).
+      REDIS_ENABLED: "false"
       JWT_SECRET: ci_test_jwt_secret_at_least_32_characters_long
       REFRESH_TOKEN_SECRET: ci_test_refresh_secret_at_least_32_chars
       PORT: "4000"
