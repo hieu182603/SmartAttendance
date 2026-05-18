@@ -998,11 +998,19 @@ async function seed() {
         const performanceReviews = [];
         const periods = ['Q1 2024', 'Q2 2024', 'Q3 2024', 'Q4 2024', 'Q1 2025', 'Q2 2025'];
 
+        // Unique compound index (employeeId, period) → dedupe to avoid E11000
+        const reviewedPairs = new Set();
+        const maxReviews = Math.min(150, employeeUsers.length * periods.length);
+
         // Tạo reviews cho nhiều nhân viên hơn
-        for (let i = 0; i < 150; i++) {
+        for (let attempts = 0; performanceReviews.length < maxReviews && attempts < maxReviews * 10; attempts++) {
             const employee = employeeUsers[randomInt(0, employeeUsers.length - 1)];
             const reviewer = Math.random() > 0.5 ? adminUser : (Math.random() > 0.5 ? hrUser : managerUser);
             const period = periods[randomInt(0, periods.length - 1)];
+
+            const pairKey = `${employee._id}_${period}`;
+            if (reviewedPairs.has(pairKey)) continue;
+            reviewedPairs.add(pairKey);
             const status = Math.random() > 0.3 ? 'completed' : (Math.random() > 0.5 ? 'pending' : 'draft');
 
             const technical = randomInt(70, 95);
