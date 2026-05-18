@@ -29,15 +29,14 @@ test.describe("TC-E2E-005: Employee Leave Requests — /employee/requests", () =
   test("trang requests có danh sách đơn hoặc nút tạo đơn mới", async ({ page }) => {
     await page.goto("/employee/requests", { waitUntil: "domcontentloaded" });
     await waitForAuth(page);
-    await page.waitForTimeout(2_000);
 
     // Page title "Yêu cầu & Đơn từ" should be visible
     const hasTitle = await page.locator("text=/Yêu cầu|Đơn từ|requests/i").first()
-      .isVisible({ timeout: 5_000 }).catch(() => false);
+      .isVisible({ timeout: 15_000 }).catch(() => false);
     const hasContent = await page.locator(
       "table tbody tr, .request-card, [class*='card'], " +
       "text=/Không có|No data|pending|Tạo yêu cầu/i"
-    ).first().isVisible({ timeout: 3_000 }).catch(() => false);
+    ).first().isVisible({ timeout: 15_000 }).catch(() => false);
 
     expect(hasTitle || hasContent, "Requests page should show title or list content").toBe(true);
   });

@@ -97,19 +97,22 @@ test.describe("TC-E2E-006: Logout flow", () => {
     expect(token).toBeNull();
   });
 
-  test("sau logout, truy cập /employee redirect về /login", async ({ page }) => {
+  test("sau logout, truy cập /employee redirect về /login", async ({ page, context }) => {
     const email = process.env.E2E_EMPLOYEE_EMAIL || "employee1@smartattendance.com";
     const password = process.env.E2E_EMPLOYEE_PASSWORD || "SmartAttendance@2026!";
 
     await fillLoginForm(page, email, password);
     await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15_000 });
 
-    // Clear tokens directly to simulate logout
+    // Simulate logout: clear both localStorage AND httpOnly cookies (sa_refresh).
+    // localStorage.removeItem alone leaves the refresh cookie alive, which lets
+    // AuthContext.bootstrap silently refresh and keep the user logged in.
     await page.evaluate(() => {
       localStorage.removeItem("sa_token");
       localStorage.removeItem("sa_refresh_token");
       localStorage.removeItem("sa_user_role");
     });
+    await context.clearCookies();
 
     await page.goto("/employee");
     // Should redirect to /login since no auth token
@@ -124,19 +127,22 @@ test.describe("TC-E2E-006: Logout flow", () => {
 test.describe("TC-E2E-007: Protected route guard", () => {
   test("truy cập /employee khi chưa đăng nhập → redirect /login", async ({ page }) => {
     await page.goto("/employee");
-    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 10_000 });
+    // 20s timeout: Vite dev server may need to compile DashboardLayout chunk on
+    // first hit, and AuthContext.bootstrap (getMe → 401 → refresh → 401 →
+    // forceLogout) needs the full network round-trip to complete.
+    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 20_000 });
     expect(page.url()).toContain("/login");
   });
 
   test("truy cập /hr khi chưa đăng nhập → redirect /login", async ({ page }) => {
     await page.goto("/hr");
-    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 10_000 });
+    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 20_000 });
     expect(page.url()).toContain("/login");
   });
 
   test("truy cập /admin khi chưa đăng nhập → redirect /login", async ({ page }) => {
     await page.goto("/admin");
-    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 10_000 });
+    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 20_000 });
     expect(page.url()).toContain("/login");
   });
 });
