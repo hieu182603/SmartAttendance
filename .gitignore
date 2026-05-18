@@ -143,18 +143,9 @@ test-results*.txt
 **/test-results*.txt
 project.tar.gz
 *.tar.gz
-# Analysis files (not for version control)
-luong_dang_ky_khuon_mat.md
-luong_cham_cong.md
-luong_rag.md
-luong_tinh_luong.md
-TODO.md
-DEPLOY_VPS.md
+# Documentation & Notes (ignore all .md files except README.md)
+*.md
+!README.md
+
 .blackboxcli/
-LarkIntegrationGuide.md
-kehoach.md
-kehoachnangcap.md
-BAOCAO_TONGHOP.md
-baocao.md
-nhiemvu.md
 .scripts/
