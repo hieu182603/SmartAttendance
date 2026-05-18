@@ -32,13 +32,17 @@ async function loginAndSave(
   await page.locator('input[type="password"]').first().fill(password);
   await page.locator('button[type="submit"]').click();
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 20_000 });
-  // Wait for localStorage to be fully written (token + refresh_token)
+  // Small settle delay: let AuthContext finish writing sa_user_role and
+  // the backend Set-Cookie header reach the browser before we snapshot state.
   await page.waitForTimeout(500);
 
-  // Verify token actually landed in localStorage before saving — guards against
-  // racing the bootstrap flow that might have already cleared it.
-  const token = await page.evaluate(() => localStorage.getItem("sa_token"));
-  expect(token, `sa_token must exist in localStorage for ${email}`).toBeTruthy();
+  // Verify login actually completed before saving. The web app keeps the
+  // access token in React state (NOT localStorage) and the refresh token in
+  // an httpOnly cookie — neither is directly inspectable here. But AuthContext
+  // writes `sa_user_role` to localStorage on successful login (line 62), so
+  // that key being set is a reliable post-login signal.
+  const userRole = await page.evaluate(() => localStorage.getItem("sa_user_role"));
+  expect(userRole, `sa_user_role must be set after login for ${email}`).toBeTruthy();
 
   await page.context().storageState({ path: outPath });
   console.log(`[auth.setup] ✓ saved → ${path.basename(outPath)}`);
