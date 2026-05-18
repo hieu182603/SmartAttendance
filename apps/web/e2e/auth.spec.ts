@@ -97,19 +97,22 @@ test.describe("TC-E2E-006: Logout flow", () => {
     expect(token).toBeNull();
   });
 
-  test("sau logout, truy cập /employee redirect về /login", async ({ page }) => {
+  test("sau logout, truy cập /employee redirect về /login", async ({ page, context }) => {
     const email = process.env.E2E_EMPLOYEE_EMAIL || "employee1@smartattendance.com";
     const password = process.env.E2E_EMPLOYEE_PASSWORD || "SmartAttendance@2026!";
 
     await fillLoginForm(page, email, password);
     await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15_000 });
 
-    // Clear tokens directly to simulate logout
+    // Simulate logout: clear both localStorage AND httpOnly cookies (sa_refresh).
+    // localStorage.removeItem alone leaves the refresh cookie alive, which lets
+    // AuthContext.bootstrap silently refresh and keep the user logged in.
     await page.evaluate(() => {
       localStorage.removeItem("sa_token");
       localStorage.removeItem("sa_refresh_token");
       localStorage.removeItem("sa_user_role");
     });
+    await context.clearCookies();
 
     await page.goto("/employee");
     // Should redirect to /login since no auth token
@@ -122,6 +125,12 @@ test.describe("TC-E2E-006: Logout flow", () => {
 // TC-E2E-007: Truy cập trang protected khi chưa đăng nhập → redirect /login
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe("TC-E2E-007: Protected route guard", () => {
+  // Defensive: each test must start with no auth state, regardless of what
+  // happened to Playwright's context fixture isolation.
+  test.beforeEach(async ({ context }) => {
+    await context.clearCookies();
+  });
+
   test("truy cập /employee khi chưa đăng nhập → redirect /login", async ({ page }) => {
     await page.goto("/employee");
     await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 10_000 });
