@@ -422,7 +422,8 @@ async function seed() {
                 department: selectedDepartment._id,
                 branch: selectedBranch,
                 isVerified: true,
-                isActive: Math.random() > 0.1, // 90% active
+                // employee1 always active for deterministic E2E tests; rest 90% active
+                isActive: i === 1 ? true : Math.random() > 0.1,
             });
         }
 
