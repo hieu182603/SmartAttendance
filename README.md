@@ -2,9 +2,10 @@
 
 Dự án này đã được cấu trúc lại theo mô hình **Monorepo** sử dụng **PNPM Workspace**. Hệ thống bao gồm 3 thành phần chính được phân chia rõ ràng:
 - **Frontend (Web)**: Nằm tại `apps/web` (React + Vite)
+- **Mobile App**: Nằm tại `apps/mobile` (React Native + Expo)
 - **Backend API**: Nằm tại `packages/backend` (Node.js + Express)
 - **AI Service**: Nằm tại `packages/ai-service` (Python + FastAPI)
-- **Shared Package**: Nằm tại `packages/shared` (Chứa các Type, Constants, và Zod Schema dùng chung để đồng bộ dữ liệu giữa Web và Backend)
+- **Shared Package**: Nằm tại `packages/shared` (Chứa các Type, Constants, và Zod Schema dùng chung để đồng bộ dữ liệu giữa Web, Mobile và Backend)
 
 ---
 
@@ -68,10 +69,87 @@ set DEV_MODE=true
 python run.py
 ```
 
+### 📱 Terminal 4 - Chạy Mobile App (Android)
+
+> **Yêu cầu:** Android Emulator đang chạy **hoặc** thiết bị Android kết nối qua USB (USB Debugging bật).
+
+**Lần đầu tiên** (tạo thư mục `android/` từ cấu hình Expo):
+```bash
+cd apps/mobile
+pnpm exec expo prebuild --platform android --no-install
+cd ../..
+```
+
+**Chạy app (kết nối tới backend fly.dev — mặc định):**
+```bash
+pnpm --filter @smartattendance/mobile android
+```
+
+**Chạy app kết nối tới backend local** (Terminal 2 đang chạy ở port 4000):
+1. Mở file `apps/mobile/.env`, thay đổi:
+   ```
+   EXPO_PUBLIC_API_URL=http://10.0.2.2:4000/api
+   ```
+2. Chạy lại lệnh android ở trên.
+
+> **Lưu ý:** `10.0.2.2` là địa chỉ đặc biệt của Android Emulator trỏ về `localhost` của máy host. Nếu dùng thiết bị thật kết nối cùng WiFi, thay bằng IP LAN của máy (vd: `192.168.1.x`).
+
+Metro Bundler sẽ mở và giữ kết nối để hỗ trợ **Hot Reload** trong quá trình phát triển.
+
 ---
 
-## 🧪 4. Các lệnh quản lý hữu ích khác
-Đứng từ thư mục gốc, pnpm hỗ trợ chạy các script đồng loạt trên toàn bộ Workspace:
+## 🧪 4. Hướng dẫn chạy Test
+
+Hệ thống bao gồm nhiều cấp độ test cho từng phần của ứng dụng:
+
+### 4.1. Backend Unit/Integration Test (Jest)
+Không cần kết nối Database thật vì sử dụng `mongodb-memory-server`.
+```bash
+# Đứng từ thư mục gốc
+pnpm run test
+
+# Hoặc chạy riêng biệt
+cd packages/backend
+pnpm test
+```
+
+### 4.2. Frontend Web E2E Test (Playwright)
+**Yêu cầu bắt buộc:** Backend phải đang chạy và DB đã được đưa dữ liệu mẫu (Seed).
+
+**Bước 1: Seed dữ liệu mẫu (Chỉ cần làm 1 lần)**
+```bash
+cd packages/backend
+node scripts/seed.js
+```
+*(Tài khoản seed mặc định: `admin@smartattendance.com` / `manager...` / `hr...` / `employee.0001...` - Mật khẩu chung: `SmartAttendance@2026!`)*
+
+**Bước 2: Cấu hình biến môi trường E2E**
+```bash
+cd apps/web
+cp e2e/env.example .env.test
+```
+
+**Bước 3: Chạy Test (Terminal 1 chạy backend, Terminal 2 chạy test)**
+```bash
+# Cài đặt browser (chỉ lần đầu)
+npx playwright install
+
+# Chạy test ngầm
+npx playwright test
+
+# Chạy test với giao diện trực quan
+npx playwright test --ui
+```
+
+### 4.3. Mobile App Unit Test (Jest)
+```bash
+cd apps/mobile
+npm test
+```
+
+---
+
+## 🛠 5. Các lệnh quản lý hữu ích khác
+Đứng từ thư mục gốc, pnpm hỗ trợ chạy các script đồng loạt:
 - `pnpm run build:all` : Build phiên bản Production cho tất cả dự án.
-- `pnpm run test` : Chạy toàn bộ Test case (Unit/Integration Test) của hệ thống.
 - `pnpm run lint` : Kiểm tra chuẩn format code (ESLint) cho toàn cục.
