@@ -4,7 +4,7 @@ import { OtpModel } from "../otp/otp.model.js";
 import { generateTokenFromUser, verifyRefreshToken, generateAccessToken, generateRefreshToken } from "../../utils/jwt.util.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail, sendResetPasswordEmail } from "../../utils/email.util.js";
-import { redisSet, redisDel, redisGet, redisSAdd, redisSRem, redisSMembers } from "../../config/redis.js";
+import { redisSet, redisDel, redisGet, redisSAdd, redisSRem, redisSMembers, isRedisEnabled } from "../../config/redis.js";
 
 const REFRESH_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 const refreshKey = (userId) => `refresh:${userId}`;
@@ -352,9 +352,13 @@ export class AuthService {
             throw new Error("Invalid or expired refresh token");
         }
 
-        const stored = await redisGet(refreshKey(decoded.userId));
-        if (!stored || stored !== token) {
-            throw new Error("Refresh token revoked");
+        // When Redis is enabled, enforce token binding (rotation + revocation).
+        // Without Redis the check is skipped — JWT signature is the only guard.
+        if (isRedisEnabled()) {
+            const stored = await redisGet(refreshKey(decoded.userId));
+            if (!stored || stored !== token) {
+                throw new Error("Refresh token revoked");
+            }
         }
 
         const user = await UserModel.findById(decoded.userId).select("_id email role department isActive isTrial trialExpiresAt").lean();
