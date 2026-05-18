@@ -203,14 +203,15 @@ jobs:
           VITE_API_URL: http://localhost:4000
 
   # ──────────────────────────────────────────
-  # 5. TYPECHECK  (non-blocking for now)
-  #    Tighten to blocking after fixing pre-existing TS errors.
-  #    Set continue-on-error: false to make it block PR merges.
+  # 5. TYPECHECK
+  #    Runs against tsconfig.ci.json (relaxed: noUnusedLocals/strict off)
+  #    because the strict tsconfig.json still has ~16 pre-existing errors
+  #    (mostly TS6133 unused vars + 1 LivenessState undefined-vs-null mismatch).
+  #    Backlog: tighten tsconfig.ci.json to match tsconfig.json by Sprint 3.
   # ──────────────────────────────────────────
   typecheck:
-    name: TypeScript check (non-blocking)
+    name: TypeScript check
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
