@@ -125,27 +125,24 @@ test.describe("TC-E2E-006: Logout flow", () => {
 // TC-E2E-007: Truy cập trang protected khi chưa đăng nhập → redirect /login
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe("TC-E2E-007: Protected route guard", () => {
-  // Defensive: each test must start with no auth state, regardless of what
-  // happened to Playwright's context fixture isolation.
-  test.beforeEach(async ({ context }) => {
-    await context.clearCookies();
-  });
-
   test("truy cập /employee khi chưa đăng nhập → redirect /login", async ({ page }) => {
     await page.goto("/employee");
-    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 10_000 });
+    // 20s timeout: Vite dev server may need to compile DashboardLayout chunk on
+    // first hit, and AuthContext.bootstrap (getMe → 401 → refresh → 401 →
+    // forceLogout) needs the full network round-trip to complete.
+    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 20_000 });
     expect(page.url()).toContain("/login");
   });
 
   test("truy cập /hr khi chưa đăng nhập → redirect /login", async ({ page }) => {
     await page.goto("/hr");
-    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 10_000 });
+    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 20_000 });
     expect(page.url()).toContain("/login");
   });
 
   test("truy cập /admin khi chưa đăng nhập → redirect /login", async ({ page }) => {
     await page.goto("/admin");
-    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 10_000 });
+    await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 20_000 });
     expect(page.url()).toContain("/login");
   });
 });
