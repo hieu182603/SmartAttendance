@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Smatt",
+    "slug": "smartattendance",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d0f1e"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f3f4f8"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.smartattendance"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "backgroundColor": "#f3f4f8"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableHermes": true
+          },
+          "ios": {
+            "enableHermes": true
+          }
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-font"
+    ]
+  }
+}
