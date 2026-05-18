@@ -1,883 +1,450 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Platform,
-  RefreshControl,
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  Modal, Platform, RefreshControl, StyleSheet,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { EmployeeTabParamList } from '../../navigation/AppNavigator';
-import { globalStyles, COLORS, SPACING, BORDER_RADIUS, SHADOWS, useTheme } from '../../utils/styles';
-import { useTranslation } from '../../i18n';
 import { Icon } from '../../components/ui/Icon';
 import { DateTimePickerWrapper } from '../../components/ui/DateTimePickerWrapper';
-import { useLeaveBalance, useLeaveHistory, useCreateLeaveRequest } from '../../hooks/useLeaveQueries';
+import { useLeaveHistory, useCreateLeaveRequest } from '../../hooks/useLeaveQueries';
 import { queryKeys } from '../../hooks/queryKeys';
 
-type RequestsScreenNavigationProp = BottomTabNavigationProp<EmployeeTabParamList, 'Requests'>;
+type Props = { navigation: BottomTabNavigationProp<EmployeeTabParamList, 'Requests'> };
 
-interface RequestsScreenProps {
-  navigation: RequestsScreenNavigationProp;
+const TABS = ['Tất cả', 'Chờ duyệt', 'Đã duyệt', 'Từ chối'];
+const TAB_STATUS: (string | null)[] = [null, 'pending', 'approved', 'rejected'];
+
+const LEAVE_TYPES = [
+  { id: 'annual', label: 'Nghỉ phép năm' },
+  { id: 'sick', label: 'Nghỉ ốm' },
+  { id: 'unpaid', label: 'Nghỉ không lương' },
+  { id: 'overtime', label: 'Đăng ký OT' },
+  { id: 'compensatory', label: 'Nghỉ bù' },
+  { id: 'maternity', label: 'Nghỉ thai sản' },
+  { id: 'remote', label: 'Làm remote' },
+  { id: 'adjustment', label: 'Điều chỉnh giờ' },
+];
+
+const TYPE_META: Record<string, { icon: string; bg: string; color: string }> = {
+  annual:       { icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7' },
+  sick:         { icon: 'medkit-outline',   bg: '#fef2f2', color: '#ef4444' },
+  unpaid:       { icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7' },
+  overtime:     { icon: 'time-outline',     bg: '#fef3c7', color: '#d97706' },
+  compensatory: { icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7' },
+  maternity:    { icon: 'heart-outline',    bg: '#fce7f3', color: '#db2777' },
+  remote:       { icon: 'desktop-outline',  bg: '#f0fdf4', color: '#16a34a' },
+  adjustment:   { icon: 'document-text-outline', bg: '#ede9fe', color: '#7c3aed' },
+};
+
+const SHEET_OPTIONS = [
+  { id: 'annual',     label: 'Nghỉ phép',      sub: 'Nghỉ phép năm, nghỉ ốm, việc riêng...', icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7' },
+  { id: 'overtime',   label: 'Đăng ký OT',     sub: 'Làm ngoài giờ, cuối tuần, lễ...',       icon: 'time-outline', bg: '#fef3c7', color: '#d97706' },
+  { id: 'remote',     label: 'Làm remote',     sub: 'Đăng ký làm việc từ xa',                icon: 'desktop-outline', bg: '#f0fdf4', color: '#16a34a' },
+  { id: 'adjustment', label: 'Điều chỉnh giờ', sub: 'Quên chấm công, sai giờ vào/ra...',     icon: 'document-text-outline', bg: '#ede9fe', color: '#7c3aed' },
+];
+
+function formatDate(d: string | number) {
+  if (!d) return '--/--/----';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '--/--/----';
+  return dt.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-interface LeaveRequest {
-  id: string | number;
-  type: string;
-  startDate: string;
-  endDate: string;
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected';
-  submittedDate: string;
-  rejectionReason?: string;
+function formatDateInput(d: Date) {
+  const dt = (!d || isNaN(d.getTime())) ? new Date() : d;
+  const off = dt.getTimezoneOffset() * 60000;
+  return new Date(dt.getTime() - off).toISOString().split('T')[0];
 }
 
-export default function RequestsScreen({ navigation }: RequestsScreenProps) {
-  const theme = useTheme();
-  const { t } = useTranslation();
+export default function RequestsScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [showSheet, setShowSheet] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [leaveType, setLeaveType] = useState('');
-  const [startDate, setStartDate] = useState<Date>(new Date());
-  const [endDate, setEndDate] = useState<Date>(new Date());
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
   const [reason, setReason] = useState('');
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showLeaveTypePicker, setShowLeaveTypePicker] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [showTypePicker, setShowTypePicker] = useState(false);
 
-  // Listen for navigation params to open create leave modal
-  useFocusEffect(
-    React.useCallback(() => {
-      // Get current route params
-      const state = navigation.getState();
-      const currentRoute = state?.routes[state?.index];
-      const params = currentRoute?.params as { openCreateModal?: boolean } | undefined;
-
-      if (params?.openCreateModal) {
-        setIsDialogOpen(true);
-        // Clear the param after opening
-        navigation.setParams({ openCreateModal: undefined } as any);
-      }
-    }, [navigation])
-  );
-
-  // TanStack Query hooks
-  const { data: balanceData, isLoading: balanceLoading } = useLeaveBalance();
-  const { data: historyData, isLoading: historyLoading } = useLeaveHistory({ limit: 10 });
-  const createLeaveRequest = useCreateLeaveRequest();
-
-  const isLoading = balanceLoading || historyLoading;
-  const isSubmitting = createLeaveRequest.isPending;
-
-  // Derive leave balance from query data
-  const leaveBalance = useMemo(() => {
-    const defaultBalance = [
-      { id: 'annual', name: 'Nghỉ phép năm', remaining: 0 },
-      { id: 'sick', name: 'Nghỉ ốm', remaining: 0 },
-      { id: 'unpaid', name: 'Nghỉ không lương', remaining: 0 },
-    ];
-    if (!balanceData) return defaultBalance;
-    if (Array.isArray(balanceData) && balanceData.length > 0) return balanceData;
-    if (typeof balanceData === 'object') {
-      const mapped: any[] = [];
-      if ((balanceData as any).annual) mapped.push({ id: 'annual', name: 'Nghỉ phép năm', remaining: (balanceData as any).annual.remaining || 0 });
-      if ((balanceData as any).sick) mapped.push({ id: 'sick', name: 'Nghỉ ốm', remaining: (balanceData as any).sick.remaining || 0 });
-      if ((balanceData as any).unpaid) mapped.push({ id: 'unpaid', name: 'Nghỉ không lương', remaining: (balanceData as any).unpaid.remaining || 0 });
-      return mapped.length > 0 ? mapped : defaultBalance;
+  useFocusEffect(React.useCallback(() => {
+    const state = navigation.getState();
+    const params = state?.routes[state?.index]?.params as any;
+    if (params?.openCreateModal) {
+      setShowSheet(true);
+      navigation.setParams({ openCreateModal: undefined } as any);
     }
-    return defaultBalance;
-  }, [balanceData]);
+  }, [navigation]));
 
-  // Derive request list from query data
-  const requests: LeaveRequest[] = useMemo(() => {
-    if (!historyData || !Array.isArray(historyData)) return [];
+  const { data: historyData, isLoading } = useLeaveHistory({ limit: 20 });
+  const createLeave = useCreateLeaveRequest();
+
+  const requests = useMemo(() => {
+    if (!Array.isArray(historyData)) return [];
     return historyData.map((item: any) => ({
       id: item._id,
-      type: item.type,
+      type: item.type ?? 'annual',
       startDate: item.startDate,
       endDate: item.endDate,
       reason: item.reason,
-      status: item.status,
-      submittedDate: item.submittedAt || item.createdAt || Date.now(),
+      status: item.status as 'pending' | 'approved' | 'rejected',
+      createdAt: item.submittedAt ?? item.createdAt,
       rejectionReason: item.rejectionReason,
     }));
   }, [historyData]);
 
-  const leaveTypes = [
-    { id: 'annual', label: t.requests.leaveTypes.annual },
-    { id: 'sick', label: t.requests.leaveTypes.sick },
-    { id: 'unpaid', label: t.requests.leaveTypes.unpaid },
-    { id: 'other', label: t.requests.leaveTypes.overtime },
-    { id: 'compensatory', label: t.requests.leaveTypes.compensatory },
-    { id: 'maternity', label: t.requests.leaveTypes.maternity },
-  ];
+  const filtered = useMemo(() => {
+    const filter = TAB_STATUS[activeTab];
+    return filter ? requests.filter((r) => r.status === filter) : requests;
+  }, [requests, activeTab]);
 
-  const getLeaveTypeLabel = (typeId: string) => {
-    const found = leaveTypes.find(t => t.id === typeId);
-    return found ? found.label : typeId;
-  };
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.leave.all });
-  };
-
-  const handleSubmitRequest = async () => {
-    if (!leaveType || !reason) {
-      alert(t.requests.fillAll);
-      return;
-    }
-
-    createLeaveRequest.mutate(
-      {
-        type: leaveType,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        reason: reason,
-      },
+  const handleSubmit = () => {
+    if (!leaveType || !reason) { alert('Vui lòng điền đầy đủ thông tin'); return; }
+    createLeave.mutate(
+      { type: leaveType, startDate: startDate.toISOString(), endDate: endDate.toISOString(), reason },
       {
         onSuccess: () => {
-          alert(t.requests.submitSuccess);
-          setIsDialogOpen(false);
-          setLeaveType('');
-          setReason('');
+          alert('Tạo đơn thành công!');
+          setShowForm(false);
+          setLeaveType(''); setReason('');
         },
-        onError: (error: any) => {
-          alert(error.response?.data?.message || t.requests.submitError);
-        },
+        onError: (err: any) => alert(err?.response?.data?.message ?? 'Có lỗi xảy ra'),
       }
     );
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return (
-          <View
-            style={{
-              backgroundColor: 'rgba(34, 197, 94, 0.15)',
-              borderWidth: 1,
-              borderColor: 'rgba(34, 197, 94, 0.3)',
-              borderRadius: BORDER_RADIUS.sm,
-              paddingHorizontal: SPACING.sm,
-              paddingVertical: SPACING.xs / 2,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Icon name="check_circle" size={12} color={COLORS.accent.green} />
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '600',
-                color: COLORS.accent.green,
-                marginLeft: SPACING.xs / 2,
-              }}
-            >
-              {t.requests.status.approved}
-            </Text>
-          </View>
-        );
-      case 'rejected':
-        return (
-          <View
-            style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              borderWidth: 1,
-              borderColor: 'rgba(239, 68, 68, 0.3)',
-              borderRadius: BORDER_RADIUS.sm,
-              paddingHorizontal: SPACING.sm,
-              paddingVertical: SPACING.xs / 2,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Icon name="error" size={12} color={COLORS.accent.red} />
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '600',
-                color: COLORS.accent.red,
-                marginLeft: SPACING.xs / 2,
-              }}
-            >
-              {t.requests.status.rejected}
-            </Text>
-          </View>
-        );
-      default:
-        return (
-          <View
-            style={{
-              backgroundColor: 'rgba(245, 158, 11, 0.15)',
-              borderWidth: 1,
-              borderColor: 'rgba(245, 158, 11, 0.3)',
-              borderRadius: BORDER_RADIUS.sm,
-              paddingHorizontal: SPACING.sm,
-              paddingVertical: SPACING.xs / 2,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <Icon name="schedule" size={12} color={COLORS.accent.yellow} />
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '600',
-                color: COLORS.accent.yellow,
-                marginLeft: SPACING.xs / 2,
-              }}
-            >
-              {t.requests.status.pending}
-            </Text>
-          </View>
-        );
-    }
-  };
+  const getTypeLabel = (id: string) => LEAVE_TYPES.find((t) => t.id === id)?.label ?? id;
+  const getTypeMeta = (id: string) => TYPE_META[id] ?? { icon: 'document-text-outline', bg: '#f3f4f6', color: '#6b7280' };
 
-  const formatDate = (dateStr: string | number) => {
-    if (!dateStr) return '--/--/----';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '--/--/----';
-    return d.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateForInput = (date: Date) => {
-    const d = (!date || isNaN(date.getTime())) ? new Date() : date;
-    const offset = d.getTimezoneOffset() * 60000;
-    return new Date(d.getTime() - offset).toISOString().split('T')[0];
+  const statusBadge = (status: string) => {
+    const cfg: Record<string, { bg: string; color: string; label: string }> = {
+      pending:  { bg: '#fef3c7', color: '#b45309', label: 'Chờ duyệt' },
+      approved: { bg: '#dcfce7', color: '#15803d', label: 'Đã duyệt' },
+      rejected: { bg: '#fef2f2', color: '#b91c1c', label: 'Từ chối' },
+    };
+    const c = cfg[status] ?? cfg.pending;
+    return (
+      <View style={[s.badge, { backgroundColor: c.bg }]}>
+        <Text style={[s.badgeText, { color: c.color }]}>{c.label}</Text>
+      </View>
+    );
   };
 
   return (
-    <ScrollView
-      style={[globalStyles.container, { backgroundColor: theme.background }]}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: 100 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={isLoading}
-          onRefresh={handleRefresh}
-          colors={[COLORS.primary]}
-          tintColor={COLORS.primary}
-        />
-      }
-    >
-      {/* Header */}
-      <LinearGradient
-        colors={[COLORS.primary, COLORS.accent.cyan]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          paddingTop: SPACING.xxl * 2,
-          paddingBottom: SPACING.lg,
-          paddingHorizontal: SPACING.lg,
-          position: 'relative',
-          overflow: 'hidden',
-        }}
+    <View style={s.root}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.leave.all })} tintColor="#4F6EF7" colors={['#4F6EF7']} />}
       >
-        {/* Background decoration */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: 256,
-            height: 256,
-            borderRadius: 128,
-            backgroundColor: 'rgba(34, 211, 238, 0.2)',
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: 192,
-            height: 192,
-            borderRadius: 96,
-            backgroundColor: 'rgba(66, 69, 240, 0.3)',
-          }}
-        />
-
-        <View style={{ position: 'relative', zIndex: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm }}>
-            <Text
-              style={{
-                fontSize: 24,
-                fontWeight: '600',
-                color: '#ffffff',
-                marginRight: SPACING.xs,
-              }}
-            >
-              {t.requests.title}
-            </Text>
-            <Icon name="auto_awesome" size={20} color={COLORS.accent.cyan} />
-          </View>
-          <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14 }}>
-            {t.requests.subtitle}
-          </Text>
-        </View>
-      </LinearGradient>
-
-      {/* Leave Balance */}
-      <View style={{ paddingHorizontal: SPACING.lg, paddingVertical: SPACING.lg }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: SPACING.md,
-          }}
-        >
-          <Icon name="schedule" size={16} color={COLORS.primary} />
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: theme.text.primary,
-              marginLeft: SPACING.sm,
-            }}
-          >
-            {t.requests.balance}
-          </Text>
+        {/* Header */}
+        <View style={s.header}>
+          <Text style={s.headerTitle}>Đơn từ</Text>
         </View>
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          {Array.isArray(leaveBalance) && leaveBalance.map((item: any, index: number) => (
-            <View
-              key={item.id || index}
-              style={{
-                width: '48%',
-                backgroundColor: theme.cardBg,
-                borderRadius: BORDER_RADIUS.lg,
-                padding: SPACING.md,
-                marginBottom: SPACING.md,
-                borderWidth: 1,
-                borderColor: theme.cardBorder,
-                ...SHADOWS.md,
-              }}
+        {/* Tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs}>
+          {TABS.map((tab, i) => (
+            <TouchableOpacity
+              key={tab}
+              style={[s.tab, activeTab === i && s.tabActive]}
+              onPress={() => setActiveTab(i)}
+              activeOpacity={0.7}
             >
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: theme.text.secondary,
-                  marginBottom: SPACING.xs,
-                  height: 32, // Fixed height for alignment
-                }}
-                numberOfLines={2}
-              >
-                {item.name}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                  color: item.remaining > 0 ? COLORS.accent.green : COLORS.text.secondary,
-                }}
-              >
-                {item.remaining}
-              </Text>
-              <Text style={{ fontSize: 11, color: theme.text.secondary }}>
-                {t.common.day}
-              </Text>
-            </View>
+              <Text style={[s.tabText, activeTab === i && s.tabTextActive]}>{tab}</Text>
+            </TouchableOpacity>
           ))}
+        </ScrollView>
+
+        {/* Request cards */}
+        <View style={s.list}>
+          {filtered.length === 0 && (
+            <View style={s.emptyCard}>
+              <Text style={s.emptyText}>Không có đơn nào</Text>
+            </View>
+          )}
+          {filtered.map((req) => {
+            const meta = getTypeMeta(req.type);
+            return (
+              <View key={req.id} style={s.card}>
+                {/* Top row */}
+                <View style={s.cardTop}>
+                  <View style={s.cardType}>
+                    <View style={[s.cardIcon, { backgroundColor: meta.bg }]}>
+                      <Icon name={meta.icon} size={18} color={meta.color} library="ionicons" />
+                    </View>
+                    <View>
+                      <Text style={s.cardName}>{getTypeLabel(req.type)}</Text>
+                      <Text style={s.cardCreated}>Tạo {formatDate(req.createdAt)}</Text>
+                    </View>
+                  </View>
+                  {statusBadge(req.status)}
+                </View>
+
+                {/* Divider */}
+                <View style={s.divider} />
+
+                {/* Info grid */}
+                <View style={s.infoGrid}>
+                  <View style={s.infoItem}>
+                    <Text style={s.infoLabel}>Từ ngày</Text>
+                    <Text style={s.infoVal}>{formatDate(req.startDate)}</Text>
+                  </View>
+                  <View style={s.infoItem}>
+                    <Text style={s.infoLabel}>Đến ngày</Text>
+                    <Text style={s.infoVal}>{formatDate(req.endDate)}</Text>
+                  </View>
+                  <View style={s.infoItem}>
+                    <Text style={s.infoLabel}>Lý do</Text>
+                    <Text style={s.infoVal} numberOfLines={1}>{req.reason || '--'}</Text>
+                  </View>
+                  {req.status === 'rejected' && req.rejectionReason ? (
+                    <View style={s.infoItem}>
+                      <Text style={s.infoLabel}>Lý do từ chối</Text>
+                      <Text style={[s.infoVal, { color: '#ef4444' }]} numberOfLines={1}>{req.rejectionReason}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
         </View>
-      </View>
+      </ScrollView>
 
+      {/* FAB */}
+      <TouchableOpacity style={s.fab} onPress={() => setShowSheet(true)} activeOpacity={0.85}>
+        <LinearGradient colors={['#4F6EF7', '#3a52dd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.fabGradient}>
+          <Icon name="add" size={24} color="#fff" />
+        </LinearGradient>
+      </TouchableOpacity>
 
-
-      {/* Request History */}
-      <View style={{ paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: SPACING.md,
-          }}
-        >
-          <View
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: COLORS.primary,
-              marginRight: SPACING.sm,
-            }}
-          />
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: theme.text.primary,
-            }}
-          >
-            {t.requests.history}
-          </Text>
-        </View>
-        <View>
-          {requests.map((request) => (
-            <View
-              key={request.id}
-              style={{
-                backgroundColor: theme.cardBg,
-                borderRadius: BORDER_RADIUS.lg,
-                padding: SPACING.md,
-                marginBottom: SPACING.md,
-                borderWidth: 1,
-                borderColor: theme.cardBorder,
-                ...SHADOWS.md,
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: SPACING.md,
-                }}
+      {/* Bottom sheet — select type */}
+      <Modal visible={showSheet} transparent animationType="slide" onRequestClose={() => setShowSheet(false)}>
+        <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={() => setShowSheet(false)}>
+          <View style={s.sheet} onStartShouldSetResponder={() => true}>
+            <View style={s.sheetHandle} />
+            <Text style={s.sheetTitle}>Tạo đơn mới</Text>
+            {SHEET_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.id}
+                style={s.sheetOpt}
+                activeOpacity={0.7}
+                onPress={() => { setLeaveType(opt.id); setShowSheet(false); setShowForm(true); }}
               >
+                <View style={[s.sheetOptIcon, { backgroundColor: opt.bg }]}>
+                  <Icon name={opt.icon} size={20} color={opt.color} library="ionicons" />
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: '600',
-                      color: theme.text.primary,
-                      marginBottom: SPACING.xs / 2,
-                    }}
-                  >
-                    {getLeaveTypeLabel(request.type)}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: theme.text.secondary }}>
-                    {t.requests.submittedOn} {formatDate(request.submittedDate)}
-                  </Text>
+                  <Text style={s.sheetOptName}>{opt.label}</Text>
+                  <Text style={s.sheetOptSub}>{opt.sub}</Text>
                 </View>
-                {getStatusBadge(request.status)}
-              </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
-              <View>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: SPACING.sm,
-                    borderRadius: BORDER_RADIUS.md,
-                    backgroundColor: 'rgba(66, 69, 240, 0.05)',
-                    marginBottom: SPACING.sm,
-                  }}
-                >
-                  <Icon
-                    name="event"
-                    size={16}
-                    color={theme.text.secondary}
-                    style={{ marginRight: SPACING.sm }}
-                  />
-                  <Text style={{ fontSize: 12, color: theme.text.secondary }}>
-                    {formatDate(request.startDate)} - {formatDate(request.endDate)}
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'flex-start',
-                    padding: SPACING.sm,
-                    borderRadius: BORDER_RADIUS.md,
-                    backgroundColor: 'rgba(34, 211, 238, 0.05)',
-                  }}
-                >
-                  <Icon
-                    name="assignment"
-                    size={16}
-                    color={theme.text.secondary}
-                    style={{ marginRight: SPACING.sm, marginTop: 2 }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: theme.text.secondary,
-                      flex: 1,
-                    }}
-                  >
-                    {request.reason}
-                  </Text>
-                </View>
-              </View>
-
-              {request.status === 'rejected' && request.rejectionReason && (
-                <View
-                  style={{
-                    marginTop: SPACING.md,
-                    padding: SPACING.md,
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderRadius: BORDER_RADIUS.md,
-                    borderWidth: 1,
-                    borderColor: 'rgba(239, 68, 68, 0.2)',
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: '500',
-                      color: COLORS.accent.red,
-                      marginBottom: SPACING.xs / 2,
-                    }}
-                  >
-                    {t.requests.rejectionReason}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: COLORS.accent.red, opacity: 0.8 }}>
-                    {request.rejectionReason}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Create Leave Request Modal */}
-      <Modal
-        visible={isDialogOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsDialogOpen(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: theme.surface,
-              borderTopLeftRadius: BORDER_RADIUS.xl,
-              borderTopRightRadius: BORDER_RADIUS.xl,
-              padding: SPACING.lg,
-              maxHeight: '90%',
-            }}
-          >
-            {/* Header */}
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: SPACING.lg,
-              }}
-            >
-              <View>
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: '600',
-                    color: theme.text.primary,
-                    marginBottom: SPACING.xs / 2,
-                  }}
-                >
-                  {t.requests.create}
-                </Text>
-                <Text style={{ fontSize: 12, color: theme.text.secondary }}>
-                  {t.requests.createSubtitle}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsDialogOpen(false)}>
-                <Icon name="close" size={24} color={theme.text.primary} />
+      {/* Create form modal */}
+      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
+        <View style={s.formOverlay}>
+          <View style={s.formSheet}>
+            <View style={s.sheetHandle} />
+            <View style={s.formHeader}>
+              <Text style={s.sheetTitle}>Tạo đơn — {LEAVE_TYPES.find((t) => t.id === leaveType)?.label}</Text>
+              <TouchableOpacity onPress={() => setShowForm(false)} style={s.closeBtn}>
+                <Icon name="close" size={22} color="#191c1e" library="ionicons" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Leave Type */}
-              <View style={{ marginBottom: SPACING.lg }}>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: '500',
-                    color: theme.text.primary,
-                    marginBottom: SPACING.sm,
-                  }}
-                >
-                  {t.requests.type}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowLeaveTypePicker(true)}
-                  style={{
-                    backgroundColor: theme.surfaceDarker,
-                    borderRadius: BORDER_RADIUS.lg,
-                    borderWidth: 1,
-                    borderColor: 'rgba(148, 163, 184, 0.2)',
-                    paddingVertical: SPACING.md,
-                    paddingHorizontal: SPACING.md,
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: leaveType ? theme.text.primary : theme.text.secondary,
-                      fontSize: 16,
-                    }}
-                  >
-                    {leaveType ? getLeaveTypeLabel(leaveType) : t.requests.selectType}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+              {/* Type picker */}
+              <View style={s.formField}>
+                <Text style={s.formLabel}>Loại đơn</Text>
+                <TouchableOpacity style={s.formSelect} onPress={() => setShowTypePicker(true)} activeOpacity={0.7}>
+                  <Text style={[s.formSelectText, !leaveType && { color: '#9ca3af' }]}>
+                    {leaveType ? getTypeLabel(leaveType) : 'Chọn loại đơn'}
                   </Text>
-                  <Icon name="chevron_right" size={20} color={COLORS.text.secondary} />
+                  <Icon name="chevron-forward-outline" size={18} color="#9ca3af" library="ionicons" />
                 </TouchableOpacity>
-
-                {/* Leave Type Picker Modal */}
-                <Modal
-                  visible={showLeaveTypePicker}
-                  transparent
-                  animationType="fade"
-                  onRequestClose={() => setShowLeaveTypePicker(false)}
-                >
-                  <TouchableOpacity
-                    style={{
-                      flex: 1,
-                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                    }}
-                    activeOpacity={1}
-                    onPress={() => setShowLeaveTypePicker(false)}
-                  >
-                    <View
-                      style={{
-                        backgroundColor: theme.surface,
-                        borderRadius: BORDER_RADIUS.xl,
-                        padding: SPACING.md,
-                        width: '80%',
-                        maxWidth: 400,
-                      }}
-                      onStartShouldSetResponder={() => true}
-                    >
-                      {leaveTypes.map((typeObj) => (
-                        <TouchableOpacity
-                          key={typeObj.id}
-                          onPress={() => {
-                            setLeaveType(typeObj.id);
-                            setShowLeaveTypePicker(false);
-                          }}
-                          style={{
-                            padding: SPACING.md,
-                            borderRadius: BORDER_RADIUS.md,
-                            marginBottom: SPACING.xs,
-                            backgroundColor:
-                              leaveType === typeObj.id
-                                ? 'rgba(66, 69, 240, 0.1)'
-                                : 'transparent',
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color:
-                                leaveType === typeObj.id
-                                  ? COLORS.primary
-                                  : theme.text.primary,
-                              fontSize: 16,
-                              fontWeight: leaveType === typeObj.id ? '600' : '400',
-                            }}
-                          >
-                            {typeObj.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </TouchableOpacity>
-                </Modal>
               </View>
 
-              {/* Date Pickers */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  marginBottom: SPACING.lg,
-                }}
-              >
-                <View style={{ flex: 1, marginRight: SPACING.sm }}>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: '500',
-                      color: theme.text.primary,
-                      marginBottom: SPACING.sm,
-                    }}
-                  >
-                    {t.requests.fromDate}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowStartDatePicker(true)}
-                    style={{
-                      backgroundColor: theme.surfaceDarker,
-                      borderRadius: BORDER_RADIUS.lg,
-                      borderWidth: 1,
-                      borderColor: 'rgba(148, 163, 184, 0.2)',
-                      paddingVertical: SPACING.md,
-                      paddingHorizontal: SPACING.md,
-                    }}
-                  >
-                    <Text style={{ color: theme.text.primary, fontSize: 16 }}>
-                      {formatDateForInput(startDate)}
-                    </Text>
+              {/* Dates */}
+              <View style={s.formRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={s.formLabel}>Từ ngày</Text>
+                  <TouchableOpacity style={s.formSelect} onPress={() => setShowStartPicker(true)} activeOpacity={0.7}>
+                    <Text style={s.formSelectText}>{formatDateInput(startDate)}</Text>
                   </TouchableOpacity>
-                  {showStartDatePicker && (
+                  {showStartPicker && (
                     <DateTimePickerWrapper
-                      value={startDate}
-                      mode="date"
+                      value={startDate} mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(event: any, selectedDate?: Date) => {
-                        if (Platform.OS === 'android') {
-                          setShowStartDatePicker(false);
-                        }
-                        if (selectedDate) {
-                          setStartDate(selectedDate);
-                        }
-                      }}
+                      onChange={(_: any, d?: Date) => { if (Platform.OS === 'android') setShowStartPicker(false); if (d) setStartDate(d); }}
                     />
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: '500',
-                      color: theme.text.primary,
-                      marginBottom: SPACING.sm,
-                    }}
-                  >
-                    {t.requests.toDate}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowEndDatePicker(true)}
-                    style={{
-                      backgroundColor: theme.surfaceDarker,
-                      borderRadius: BORDER_RADIUS.lg,
-                      borderWidth: 1,
-                      borderColor: 'rgba(148, 163, 184, 0.2)',
-                      paddingVertical: SPACING.md,
-                      paddingHorizontal: SPACING.md,
-                    }}
-                  >
-                    <Text style={{ color: theme.text.primary, fontSize: 16 }}>
-                      {formatDateForInput(endDate)}
-                    </Text>
+                  <Text style={s.formLabel}>Đến ngày</Text>
+                  <TouchableOpacity style={s.formSelect} onPress={() => setShowEndPicker(true)} activeOpacity={0.7}>
+                    <Text style={s.formSelectText}>{formatDateInput(endDate)}</Text>
                   </TouchableOpacity>
-                  {showEndDatePicker && (
+                  {showEndPicker && (
                     <DateTimePickerWrapper
-                      value={endDate}
-                      mode="date"
+                      value={endDate} mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(event: any, selectedDate?: Date) => {
-                        if (Platform.OS === 'android') {
-                          setShowEndDatePicker(false);
-                        }
-                        if (selectedDate) {
-                          setEndDate(selectedDate);
-                        }
-                      }}
-                    />
-                  )}
-                  {Platform.OS === 'web' && showEndDatePicker && (
-                    <TextInput
-                      value={formatDateForInput(endDate)}
-                      onChangeText={(text) => {
-                        if (text) {
-                          const date = new Date(text);
-                          if (!isNaN(date.getTime())) {
-                            setEndDate(date);
-                          }
-                        }
-                      }}
-                      onBlur={() => setShowEndDatePicker(false)}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={theme.text.secondary}
-                      style={{
-                        backgroundColor: theme.surfaceDarker,
-                        borderRadius: BORDER_RADIUS.lg,
-                        borderWidth: 1,
-                        borderColor: theme.inputBorder,
-                        padding: SPACING.md,
-                        color: theme.text.primary,
-                        fontSize: 16,
-                        marginTop: SPACING.sm,
-                      }}
+                      onChange={(_: any, d?: Date) => { if (Platform.OS === 'android') setShowEndPicker(false); if (d) setEndDate(d); }}
                     />
                   )}
                 </View>
               </View>
 
               {/* Reason */}
-              <View style={{ marginBottom: SPACING.lg }}>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: '500',
-                    color: theme.text.primary,
-                    marginBottom: SPACING.sm,
-                  }}
-                >
-                  {t.requests.reason}
-                </Text>
+              <View style={s.formField}>
+                <Text style={s.formLabel}>Lý do</Text>
                 <TextInput
-                  placeholder={t.requests.reasonPlaceholder}
-                  placeholderTextColor={theme.text.secondary}
                   value={reason}
                   onChangeText={setReason}
+                  placeholder="Nhập lý do..."
+                  placeholderTextColor="#9ca3af"
                   multiline
                   numberOfLines={4}
-                  style={{
-                    backgroundColor: theme.surfaceDarker,
-                    borderRadius: BORDER_RADIUS.lg,
-                    borderWidth: 1,
-                    borderColor: theme.inputBorder,
-                    padding: SPACING.md,
-                    color: theme.text.primary,
-                    fontSize: 16,
-                    minHeight: 100,
-                    textAlignVertical: 'top',
-                  }}
+                  style={s.formTextarea}
                 />
               </View>
 
-              {/* Submit Button */}
+              {/* Submit */}
               <TouchableOpacity
-                onPress={handleSubmitRequest}
-                activeOpacity={0.8}
+                onPress={handleSubmit}
+                disabled={createLeave.isPending}
+                activeOpacity={0.85}
+                style={s.submitBtn}
               >
-                <LinearGradient
-                  colors={[COLORS.primary, COLORS.accent.cyan]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={{
-                    borderRadius: BORDER_RADIUS.lg,
-                    paddingVertical: SPACING.md,
-                    alignItems: 'center',
-                    ...SHADOWS.md,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: '#ffffff',
-                      fontSize: 16,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {t.requests.submit}
-                  </Text>
+                <LinearGradient colors={['#4F6EF7', '#3a52dd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.submitGradient}>
+                  <Text style={s.submitText}>{createLeave.isPending ? 'Đang gửi...' : 'Gửi đơn'}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+
+      {/* Type picker modal */}
+      <Modal visible={showTypePicker} transparent animationType="fade" onRequestClose={() => setShowTypePicker(false)}>
+        <TouchableOpacity style={[s.overlay, { justifyContent: 'center', alignItems: 'center' }]} activeOpacity={1} onPress={() => setShowTypePicker(false)}>
+          <View style={s.pickerBox} onStartShouldSetResponder={() => true}>
+            {LEAVE_TYPES.map((t) => (
+              <TouchableOpacity
+                key={t.id}
+                style={[s.pickerItem, leaveType === t.id && s.pickerItemActive]}
+                onPress={() => { setLeaveType(t.id); setShowTypePicker(false); }}
+              >
+                <Text style={[s.pickerItemText, leaveType === t.id && { color: '#4F6EF7', fontWeight: '600' }]}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 }
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#f3f4f8' },
+
+  header: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#191c1e', letterSpacing: -0.3 },
+
+  tabs: { paddingHorizontal: 20, paddingBottom: 12, gap: 8, flexDirection: 'row' },
+  tab: {
+    paddingVertical: 7, paddingHorizontal: 16, borderRadius: 9999,
+    borderWidth: 1.5, borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  tabActive: { backgroundColor: '#4F6EF7', borderColor: '#4F6EF7' },
+  tabText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
+  tabTextActive: { color: '#fff' },
+
+  list: { paddingHorizontal: 16, gap: 10 },
+
+  emptyCard: {
+    backgroundColor: '#fff', borderRadius: 16, padding: 32,
+    alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  emptyText: { fontSize: 14, color: '#9ca3af' },
+
+  card: {
+    backgroundColor: '#fff', borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+  },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  cardType: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cardName: { fontSize: 14, fontWeight: '700', color: '#191c1e' },
+  cardCreated: { fontSize: 11, color: '#9ca3af' },
+  badge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 9999 },
+  badgeText: { fontSize: 11, fontWeight: '600' },
+  divider: { height: 1, backgroundColor: '#e5e7eb', marginVertical: 10 },
+  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  infoItem: { width: '47%' },
+  infoLabel: { fontSize: 11, color: '#9ca3af', marginBottom: 2 },
+  infoVal: { fontSize: 13, fontWeight: '600', color: '#444654' },
+
+  // FAB
+  fab: {
+    position: 'absolute', bottom: 88, right: 20,
+    width: 52, height: 52, borderRadius: 26, overflow: 'hidden',
+    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+  },
+  fabGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  // Sheet
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 20, paddingBottom: 36,
+  },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#e5e7eb', alignSelf: 'center', marginBottom: 20 },
+  sheetTitle: { fontSize: 17, fontWeight: '700', color: '#191c1e', marginBottom: 16 },
+  sheetOpt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12 },
+  sheetOptIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  sheetOptName: { fontSize: 14, fontWeight: '600', color: '#191c1e' },
+  sheetOptSub: { fontSize: 12, color: '#9ca3af' },
+
+  // Form modal
+  formOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  formSheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, paddingTop: 20, maxHeight: '90%',
+  },
+  formHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  closeBtn: { padding: 4 },
+  formField: { marginBottom: 16 },
+  formRow: { flexDirection: 'row', marginBottom: 16 },
+  formLabel: { fontSize: 13, fontWeight: '600', color: '#444654', marginBottom: 6 },
+  formSelect: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#f3f4f8', borderRadius: 12, borderWidth: 1.5, borderColor: '#e5e7eb',
+    paddingVertical: 13, paddingHorizontal: 14,
+  },
+  formSelectText: { fontSize: 15, color: '#191c1e' },
+  formTextarea: {
+    backgroundColor: '#f3f4f8', borderRadius: 12, borderWidth: 1.5, borderColor: '#e5e7eb',
+    padding: 14, color: '#191c1e', fontSize: 15, minHeight: 100, textAlignVertical: 'top',
+  },
+  submitBtn: { borderRadius: 9999, overflow: 'hidden', marginTop: 8, shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
+  submitGradient: { height: 52, alignItems: 'center', justifyContent: 'center' },
+  submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  // Type picker
+  pickerBox: { backgroundColor: '#fff', borderRadius: 16, padding: 8, width: '80%', maxWidth: 360 },
+  pickerItem: { padding: 14, borderRadius: 10, marginBottom: 2 },
+  pickerItemActive: { backgroundColor: '#EEF1FF' },
+  pickerItemText: { fontSize: 15, color: '#191c1e' },
+});

@@ -4,11 +4,9 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  Image,
   RefreshControl,
   ActivityIndicator,
   StyleSheet,
-  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -16,72 +14,46 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { EmployeeTabParamList, RootStackParamList } from '../../navigation/AppNavigator';
 import { useAuth } from '../../context/AuthContext';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
-import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
 import { Icon } from '../../components/ui/Icon';
 import { useSocket } from '../../context/SocketContext';
 import { usePreferences } from '../../context/PreferencesContext';
 
-// TanStack Query hooks
-import { useLeaveBalance } from '../../hooks/useLeaveQueries';
+
 import { useRecentAttendance, useAttendanceHistory } from '../../hooks/useAttendanceQueries';
-import { useNotificationsList, useUnreadCount } from '../../hooks/useNotificationQueries';
+import { useUnreadCount } from '../../hooks/useNotificationQueries';
 import { useShiftSchedule } from '../../hooks/useShiftQueries';
 import { queryKeys } from '../../hooks/queryKeys';
 
 import { StackNavigationProp } from '@react-navigation/stack';
 import { CompositeNavigationProp } from '@react-navigation/native';
 
-type DashboardScreenNavigationProp = CompositeNavigationProp<
+type DashboardNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<EmployeeTabParamList, 'Home'>,
   StackNavigationProp<RootStackParamList>
 >;
 
-function makeStyles(colors: ReturnType<typeof useTheme>['colors']) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
-    cardBase: {
-      backgroundColor: colors.card,
-      borderRadius: BORDER_RADIUS.lg,
-      padding: SPACING.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginLeft: SPACING.sm,
-    },
-    activityTitle: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: colors.textPrimary,
-      marginBottom: SPACING.xs / 2,
-    },
-    activityMeta: { fontSize: 12, color: colors.textSecondary },
-    divider: { borderBottomColor: colors.separator },
-    statLabel: { fontSize: 11, color: colors.textSecondary, marginBottom: SPACING.xs },
-    statPrimary: { fontSize: 20, fontWeight: '600', color: colors.textPrimary, marginBottom: SPACING.xs / 2 },
-    statSub: { fontSize: 11, color: colors.textSecondary },
-    emptyText: { fontSize: 14, color: colors.textSecondary },
-  });
+const DAYS_VI = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+function fmtDuration(ms: number) {
+  const tot = Math.floor(ms / 60000);
+  return `${Math.floor(tot / 60)}h ${tot % 60}m`;
 }
 
 export default function DashboardScreen() {
   const { user } = useAuth();
-  const navigation = useNavigation<DashboardScreenNavigationProp>();
-  const { colors } = useTheme();
-  const { t } = useTranslation();
+  const navigation = useNavigation<DashboardNavProp>();
   const { notificationsEnabled } = usePreferences();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const { width } = useWindowDimensions();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [now, setNow] = useState(new Date());
+  const { socket } = useSocket();
 
-  // ─── Date calculations for queries ──────────────────────────────
-  const now = new Date();
+  // Live clock — updates every 30s
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const todayStr = now.toISOString().split('T')[0];
   const nextWeek = new Date(now);
   nextWeek.setDate(nextWeek.getDate() + 7);
@@ -90,86 +62,105 @@ export default function DashboardScreen() {
   const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
   const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
-  // ─── TanStack Query hooks ───────────────────────────────────────
-  const { data: leaveBalance, isLoading: isLeaveLoading } = useLeaveBalance();
   const { data: recentAttendance, isLoading: isAttendanceLoading, refetch: refetchAttendance } = useRecentAttendance(5);
   const { data: unreadData, refetch: refetchUnread } = useUnreadCount();
-  const { data: notificationsData, refetch: refetchNotifications } = useNotificationsList({ limit: 3, unreadOnly: true });
-  const { data: shiftData, isLoading: isShiftLoading } = useShiftSchedule(todayStr, nextWeekStr);
+  const { data: shiftData } = useShiftSchedule(todayStr, nextWeekStr);
   const { data: monthlyAttendance } = useAttendanceHistory({ from: firstDayOfMonth, to: lastDayOfMonth, limit: 50 });
-
-  const isLoading = isLeaveLoading || isAttendanceLoading;
-
-  // ─── Computed: next shift ───────────────────────────────────────
-  const nextShift = useMemo(() => {
-    if (!Array.isArray(shiftData) || shiftData.length === 0) {
-      return { day: '--', time: '--:-- - --:--' };
-    }
-    const upcoming = shiftData
-      .filter((s: any) => s.date >= todayStr)
-      .sort((a: any, b: any) => a.date.localeCompare(b.date))[0];
-
-    if (!upcoming) return { day: '--', time: '--:-- - --:--' };
-
-    const shiftDate = new Date(upcoming.date + 'T00:00:00');
-    const dayName = t.schedule.daysOfWeek[shiftDate.getDay()];
-    const startTime = upcoming.startTime || '--:--';
-    const endTime = upcoming.endTime || '--:--';
-    return { day: dayName, time: `${startTime} - ${endTime}` };
-  }, [shiftData, todayStr, t.schedule.daysOfWeek]);
-
-  // ─── Computed: monthly attendance count ─────────────────────────
-  const attendanceThisMonth = useMemo(() => {
-    const records = (monthlyAttendance as any)?.records || monthlyAttendance;
-    if (!Array.isArray(records)) return 0;
-    return records.filter((r: any) =>
-      r.status === 'present' || r.status === 'ontime' || r.status === 'late'
-    ).length;
-  }, [monthlyAttendance]);
-
-  const stats = useMemo(() => ({
-    leavesRemaining: (leaveBalance as any)?.annual?.remaining || 0,
-    totalLeaves: (leaveBalance as any)?.annual?.total || 12,
-    overtimeHours: 0,
-    thisMonth: attendanceThisMonth,
-    totalDays: totalDaysInMonth,
-  }), [leaveBalance, attendanceThisMonth, totalDaysInMonth]);
 
   const unreadCount = (unreadData as any)?.count ?? 0;
 
-  const isCheckedIn = useMemo(() => {
-    if (!Array.isArray(recentAttendance) || recentAttendance.length === 0) return false;
-    const latest = recentAttendance[0] as any;
-    return !!latest && !!latest.checkIn && !latest.checkOut;
+  // Today's shift
+  const todayShift = useMemo(() => {
+    if (!Array.isArray(shiftData)) return null;
+    return shiftData.find((s: any) => s.date === todayStr) ?? null;
+  }, [shiftData, todayStr]);
+
+  const shiftStart = todayShift?.startTime ?? '08:00';
+  const shiftEnd = todayShift?.endTime ?? '17:00';
+
+  // Check-in state
+  const latestRecord = useMemo(() => {
+    if (!Array.isArray(recentAttendance) || recentAttendance.length === 0) return null;
+    return recentAttendance[0] as any;
   }, [recentAttendance]);
 
+  const isCheckedIn = !!(latestRecord?.checkIn && !latestRecord?.checkOut);
+
+  const checkInTimeStr = useMemo(() => {
+    if (!latestRecord?.checkIn) return '--:--';
+    try {
+      const d = new Date(latestRecord.checkIn);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    } catch { return '--:--'; }
+  }, [latestRecord]);
+
+  const workedStr = useMemo(() => {
+    if (!latestRecord?.checkIn) return '--';
+    try {
+      const checkin = new Date(latestRecord.checkIn);
+      return fmtDuration(Math.max(0, now.getTime() - checkin.getTime()));
+    } catch { return '--'; }
+  }, [latestRecord, now]);
+
+  const remainingStr = useMemo(() => {
+    const [hEnd, mEnd] = shiftEnd.split(':').map(Number);
+    const endOfShift = new Date(now);
+    endOfShift.setHours(hEnd, mEnd, 0, 0);
+    return fmtDuration(Math.max(0, endOfShift.getTime() - now.getTime()));
+  }, [shiftEnd, now]);
+
+  // Monthly stats
+  const attendanceThisMonth = useMemo(() => {
+    const records = (monthlyAttendance as any)?.records ?? monthlyAttendance;
+    if (!Array.isArray(records)) return 0;
+    return records.filter((r: any) => ['present', 'ontime', 'late'].includes(r.status)).length;
+  }, [monthlyAttendance]);
+
+  const workedHoursThisMonth = useMemo(() => {
+    const records = (monthlyAttendance as any)?.records ?? monthlyAttendance;
+    if (!Array.isArray(records)) return 0;
+    return records.reduce((sum: number, r: any) => {
+      if (r.checkIn && r.checkOut) {
+        const diff = (new Date(r.checkOut).getTime() - new Date(r.checkIn).getTime()) / 3_600_000;
+        return sum + diff;
+      }
+      return sum;
+    }, 0);
+  }, [monthlyAttendance]);
+
+  // Activity list from recentAttendance
   const activities = useMemo(() => {
     if (!Array.isArray(recentAttendance)) return [];
-    return recentAttendance.map((item: any) => {
+    return recentAttendance.slice(0, 3).map((item: any) => {
       const hasCheckOut = !!item.checkOut;
+      const isLate = item.status === 'late';
+      const timeStr = hasCheckOut
+        ? new Date(item.checkOut).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        : item.checkIn
+        ? new Date(item.checkIn).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        : '--:--';
       return {
         id: item._id || item.id || Math.random().toString(),
-        type: hasCheckOut ? 'check-out' : 'check-in',
-        time: hasCheckOut ? item.checkOut : (item.checkIn || '--:--'),
-        date: item.date || '--/--/----',
-        status: item.status === 'late' ? 'warning' : 'success',
-        title: hasCheckOut ? t.attendance.checkOut : t.attendance.checkIn,
-        subtitle: hasCheckOut ? t.dashboard.workingSubtitle : t.dashboard.readySubtitle,
+        type: hasCheckOut ? 'checkout' : 'checkin',
+        iconType: isLate ? 'orange' : hasCheckOut ? 'green' : 'blue',
+        title: hasCheckOut ? 'Check-out' : 'Check-in thành công',
+        sub: item.locationName ?? (item.date ?? ''),
+        time: timeStr,
+        badge: isLate ? { label: 'Đi muộn', color: 'orange' } : null,
       };
     });
-  }, [recentAttendance, t]);
+  }, [recentAttendance]);
 
-  // ─── Pull-to-refresh ────────────────────────────────────────────
+  // Pull-to-refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
       refetchAttendance(),
       refetchUnread(),
-      refetchNotifications(),
       queryClient.invalidateQueries({ queryKey: queryKeys.leave.balance() }),
     ]);
     setRefreshing(false);
-  }, [refetchAttendance, refetchUnread, refetchNotifications, queryClient]);
+  }, [refetchAttendance, refetchUnread, queryClient]);
 
   useFocusEffect(
     useCallback(() => {
@@ -178,261 +169,344 @@ export default function DashboardScreen() {
     }, [queryClient])
   );
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return t.dashboard.greetingMorning;
-    if (hour < 18) return t.dashboard.greetingAfternoon;
-    return t.dashboard.greetingEvening;
-  };
-
-  const userName = user?.name;
-  const userAvatar = user?.avatar;
-  const greeting = getGreeting();
-
-  const [isProcessing] = useState(false);
-  const { socket } = useSocket();
-
   useEffect(() => {
     if (!socket) return;
-    const handleNewNotification = (data: any) => {
+    const handleNotification = () => {
       if (!notificationsEnabled) return;
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
     };
-    const handleAttendanceUpdate = () => {
+    const handleAttendance = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
     };
-    socket.on('notification', handleNewNotification);
-    socket.on('attendance-updated', handleAttendanceUpdate);
+    socket.on('notification', handleNotification);
+    socket.on('attendance-updated', handleAttendance);
     return () => {
-      socket.off('notification', handleNewNotification);
-      socket.off('attendance-updated', handleAttendanceUpdate);
+      socket.off('notification', handleNotification);
+      socket.off('attendance-updated', handleAttendance);
     };
   }, [socket, notificationsEnabled, queryClient]);
 
-  const handleCheckInOut = () => {
-    const mode = isCheckedIn ? 'check-out' : 'check-in';
-    navigation.navigate('Attendance', { mode });
-  };
+  const clockStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const dateStr = `${DAYS_VI[now.getDay()]}, ${now.getDate()} tháng ${now.getMonth() + 1}, ${now.getFullYear()}`;
+  const userName = user?.name ?? '';
+  const userInitials = userName.split(' ').map((w: string) => w[0]).slice(-2).join('').toUpperCase() || 'HN';
 
-  const handleNotificationPress = () => {
-    navigation.navigate('Notifications');
-  };
+  const monthLabel = `Tháng ${now.getMonth() + 1} / ${now.getFullYear()}`;
 
-  const cardWidth = (width - SPACING.lg * 3) / 2;
-
-  const statusColorMap: { [key: string]: string } = {
-    success: COLORS.accent.green,
-    info: COLORS.primary,
-    warning: COLORS.accent.yellow,
-    error: COLORS.accent.red,
-  };
+  const quickActions = [
+    { icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7', label: 'Xin nghỉ phép', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
+    { icon: 'time-outline', bg: '#fff7ed', color: '#f97316', label: 'Đăng ký OT', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
+    { icon: 'desktop-outline', bg: '#f0fdf4', color: '#16a34a', label: 'Làm remote', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
+    { icon: 'document-text-outline', bg: '#fff1f2', color: '#dc2626', label: 'Đơn điều chỉnh', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
+  ];
 
   return (
-    <View style={styles.container}>
+    <View style={s.root}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F6EF7" colors={['#4F6EF7']} />}
       >
         {/* Header */}
-        <LinearGradient
-          colors={[COLORS.primary, COLORS.accent.cyan]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            paddingTop: SPACING.xxl * 2,
-            paddingBottom: SPACING.xl + 20,
-            paddingHorizontal: SPACING.lg,
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          <View style={{ position: 'absolute', top: 0, right: 0, width: 256, height: 256, borderRadius: 128, backgroundColor: 'rgba(34, 211, 238, 0.2)' }} />
-          <View style={{ position: 'absolute', bottom: 0, left: 0, width: 192, height: 192, borderRadius: 96, backgroundColor: 'rgba(66, 69, 240, 0.3)' }} />
-
-          <View style={{ position: 'relative', zIndex: 10 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ position: 'relative', marginRight: SPACING.md }}>
-                  {userAvatar ? (
-                    <Image
-                      source={{ uri: userAvatar }}
-                      style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#ffffff', ...SHADOWS.lg }}
-                    />
-                  ) : (
-                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255, 255, 255, 0.2)', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#ffffff', ...SHADOWS.lg }}>
-                      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>
-                        {userName?.charAt(0)?.toUpperCase() || 'U'}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.accent.green, borderWidth: 2, borderColor: COLORS.primary, ...SHADOWS.md }} />
-                </View>
-                <View>
-                  <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 12 }}>{t.dashboard.greeting},</Text>
-                  <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{userName}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                onPress={handleNotificationPress}
-                style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.3)', justifyContent: 'center', alignItems: 'center', ...SHADOWS.lg, position: 'relative' }}
-              >
-                <Icon name="notifications" size={20} color="#ffffff" />
+        <View style={s.header}>
+          <View>
+            <Text style={s.greeting}>Xin chào</Text>
+            <Text style={s.userName}>{userName}</Text>
+          </View>
+          <View style={s.headerRight}>
+            <TouchableOpacity style={s.notifBtn} onPress={() => navigation.navigate('Notifications')} activeOpacity={0.7}>
+              <View style={s.notifBellWrap}>
+                <Icon name="notifications-outline" size={16} color="#2a4dd7" library="ionicons" />
                 {unreadCount > 0 && (
-                  <View style={{ position: 'absolute', top: -4, right: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: COLORS.accent.red, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.primary, ...SHADOWS.md }}>
-                    <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: 'bold' }}>{unreadCount}</Text>
+                  <View style={s.notifBadge}>
+                    <Text style={s.notifBadgeText}>{unreadCount}</Text>
                   </View>
                 )}
-              </TouchableOpacity>
-            </View>
-
-            <View>
-              <Text style={{ fontSize: 24, fontWeight: '600', color: '#ffffff', marginBottom: SPACING.xs }}>{greeting}</Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14 }}>{t.dashboard.subtitle}</Text>
+              </View>
+            </TouchableOpacity>
+            <View style={s.avatar}>
+              <Text style={s.avatarText}>{userInitials}</Text>
             </View>
           </View>
+        </View>
+
+        {/* Hero Card */}
+        <LinearGradient
+          colors={['#5b7cf6', '#7c5cbf', '#9b4dca']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.heroCard}
+        >
+          <View style={s.heroDecor1} />
+          <View style={s.heroDecor2} />
+
+          <View style={s.heroTop}>
+            <View>
+              <Text style={s.heroShiftLabel}>Ca làm việc hôm nay</Text>
+              <Text style={s.heroShiftTime}>{shiftStart} – {shiftEnd}</Text>
+            </View>
+            <View style={s.workingBadge}>
+              <View style={s.workingDot} />
+              <Text style={s.workingBadgeText}>{isCheckedIn ? 'Đang làm việc' : 'Chưa check-in'}</Text>
+            </View>
+          </View>
+
+          <View style={s.heroClock}>
+            <Text style={s.heroTime}>{clockStr}</Text>
+            <Text style={s.heroDate}>{dateStr}</Text>
+          </View>
+
+          <View style={s.heroStats}>
+            {[
+              { label: 'Vào lúc', value: checkInTimeStr },
+              { label: 'Đã làm', value: workedStr },
+              { label: 'Còn lại', value: remainingStr },
+            ].map((stat) => (
+              <View key={stat.label} style={s.heroStat}>
+                <Text style={s.heroStatLabel}>{stat.label}</Text>
+                <Text style={s.heroStatValue}>{stat.value}</Text>
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={s.checkoutBtn}
+            onPress={() => navigation.navigate('Attendance', { mode: isCheckedIn ? 'check-out' : 'check-in' })}
+            activeOpacity={0.85}
+          >
+            <Icon name={isCheckedIn ? 'log-out-outline' : 'log-in-outline'} size={18} color="#2a4dd7" library="ionicons" />
+            <Text style={s.checkoutBtnText}>{isCheckedIn ? 'Check-out khi kết thúc' : 'Check-in ngay'}</Text>
+          </TouchableOpacity>
         </LinearGradient>
 
-        {/* Main Content */}
-        <View style={{ paddingHorizontal: SPACING.lg, marginTop: SPACING.md }}>
-
-          {/* Check In/Out Widget */}
-          <LinearGradient
-            colors={isCheckedIn ? [COLORS.accent.red, '#b91c1c'] : [COLORS.accent.green, '#047857']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ borderRadius: BORDER_RADIUS.xl, padding: SPACING.lg, marginBottom: SPACING.lg, ...SHADOWS.md }}
-          >
-            <View style={{ marginBottom: SPACING.lg }}>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#ffffff', marginBottom: SPACING.xs }}>
-                {isCheckedIn ? t.dashboard.working : t.dashboard.ready}
-              </Text>
-              <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.9)' }}>
-                {isCheckedIn ? t.dashboard.workingSubtitle : t.dashboard.readySubtitle}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={handleCheckInOut}
-              disabled={isProcessing}
-              activeOpacity={0.8}
-              style={{ backgroundColor: '#ffffff', borderRadius: BORDER_RADIUS.lg, paddingVertical: SPACING.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', ...SHADOWS.sm }}
-            >
-              {isProcessing ? (
-                <ActivityIndicator size="small" color={isCheckedIn ? COLORS.accent.red : COLORS.accent.green} />
-              ) : (
-                <>
-                  <Icon name={isCheckedIn ? 'logout' : 'login'} size={24} color={isCheckedIn ? COLORS.accent.red : COLORS.accent.green} />
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: isCheckedIn ? COLORS.accent.red : COLORS.accent.green, marginLeft: SPACING.sm }}>
-                    {isCheckedIn ? t.dashboard.checkout : t.dashboard.checkin}
-                  </Text>
-                </>
-              )}
+        {/* Quick Actions */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Thao tác nhanh</Text>
+        </View>
+        <View style={s.quickActions}>
+          {quickActions.map((action) => (
+            <TouchableOpacity key={action.label} style={s.actionItem} onPress={action.onPress} activeOpacity={0.7}>
+              <View style={[s.actionIcon, { backgroundColor: action.bg }]}>
+                <Icon name={action.icon} size={20} color={action.color} library="ionicons" />
+              </View>
+              <Text style={s.actionLabel}>{action.label}</Text>
             </TouchableOpacity>
-          </LinearGradient>
+          ))}
+        </View>
 
-          {/* Stats Cards */}
-          {isLoading ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.lg }}>
-              {[1, 2, 3, 4].map(i => (
-                <View key={i} style={[styles.cardBase, { width: cardWidth, marginRight: i % 2 === 0 ? 0 : SPACING.md, marginBottom: SPACING.md }]}>
-                  <ActivityIndicator size="small" color={COLORS.primary} />
-                </View>
-              ))}
-            </View>
-          ) : (
-            <>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.lg }}>
-                {/* Leaves Remaining */}
-                <View style={[styles.cardBase, { width: cardWidth, marginRight: SPACING.md, marginBottom: SPACING.md, ...SHADOWS.md }]}>
-                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(34, 197, 94, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm }}>
-                    <Icon name="event" size={20} color={COLORS.accent.green} />
-                  </View>
-                  <Text style={styles.statLabel}>{t.dashboard.stats.leaves}</Text>
-                  <Text style={styles.statPrimary}>{stats.leavesRemaining}</Text>
-                  <Text style={styles.statSub}>{t.dashboard.stats.leaveDays}</Text>
-                </View>
+        {/* Monthly Stats */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>{monthLabel}</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('AttendanceHistory')} activeOpacity={0.7}>
+            <Text style={s.sectionLink}>Xem chi tiết</Text>
+          </TouchableOpacity>
+        </View>
 
-                {/* Next Shift */}
-                <View style={[styles.cardBase, { width: cardWidth, marginBottom: SPACING.md, ...SHADOWS.md }]}>
-                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(66, 69, 240, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm }}>
-                    <Icon name="schedule" size={20} color={COLORS.primary} />
-                  </View>
-                  <Text style={styles.statLabel}>{t.dashboard.stats.nextShift}</Text>
-                  <Text style={[styles.statPrimary, { fontSize: 18 }]}>{isShiftLoading ? '...' : nextShift.day}</Text>
-                  <Text style={styles.statSub}>{isShiftLoading ? '...' : nextShift.time}</Text>
-                </View>
+        {isAttendanceLoading ? (
+          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+            <ActivityIndicator size="small" color="#4F6EF7" />
+          </View>
+        ) : (
+          <View style={s.statsGrid}>
+            <View style={s.statCard}>
+              <View style={[s.statCardBadge, { backgroundColor: '#EEF1FF' }]}>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: '#2a4dd7' }}>+{Math.max(0, attendanceThisMonth - Math.round(attendanceThisMonth * 0.9))}</Text>
               </View>
-
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.xl }}>
-                {/* Attendance This Month */}
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('AttendanceHistory')}
-                  style={[styles.cardBase, { width: cardWidth, marginRight: SPACING.md, marginBottom: SPACING.md, ...SHADOWS.md }]}
-                >
-                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(34, 211, 238, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm }}>
-                    <Icon name="check_circle" size={20} color={COLORS.accent.cyan} />
-                  </View>
-                  <Text style={styles.statLabel}>{t.dashboard.stats.attendance}</Text>
-                  <Text style={styles.statPrimary}>{stats.thisMonth}/{stats.totalDays}</Text>
-                  <Text style={styles.statSub}>{t.dashboard.stats.details}</Text>
-                </TouchableOpacity>
-
-                {/* Overtime */}
-                <View style={[styles.cardBase, { width: cardWidth, marginBottom: SPACING.md, ...SHADOWS.md }]}>
-                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(245, 158, 11, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm }}>
-                    <Icon name="bolt" size={20} color={COLORS.accent.yellow} />
-                  </View>
-                  <Text style={styles.statLabel}>{t.dashboard.stats.overtime}</Text>
-                  <Text style={styles.statPrimary}>{stats.overtimeHours}</Text>
-                  <Text style={styles.statSub}>{t.dashboard.stats.overtimeHours}</Text>
-                </View>
+              <Icon name="calendar-outline" size={18} color="#4F6EF7" library="ionicons" />
+              <Text style={s.statCardValue}>{attendanceThisMonth}</Text>
+              <Text style={s.statCardLabel}>Ngày đi làm</Text>
+              <View style={s.statBar}>
+                <View style={[s.statBarFill, { width: `${Math.min(100, (attendanceThisMonth / totalDaysInMonth) * 100)}%`, backgroundColor: '#4F6EF7' }]} />
               </View>
-            </>
-          )}
-
-          {/* Recent Activities */}
-          <View style={{ marginBottom: SPACING.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md }}>
-              <Icon name="trending_up" size={16} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>{t.dashboard.recentActivity}</Text>
             </View>
-            <View style={[styles.cardBase, { ...SHADOWS.md }]}>
-              {activities.length === 0 ? (
-                <View style={{ paddingVertical: SPACING.lg, alignItems: 'center' }}>
-                  <Text style={styles.emptyText}>{t.dashboard.noActivity}</Text>
-                </View>
-              ) : (
-                <View>
-                  {activities.map((activity, index) => {
-                    const statusColor = statusColorMap[activity.status] || COLORS.primary;
-                    return (
-                      <TouchableOpacity
-                        key={activity.id ?? index}
-                        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.sm, borderBottomWidth: index < activities.length - 1 ? 1 : 0, borderBottomColor: colors.separator }}
-                      >
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: statusColor, marginRight: SPACING.md }} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.activityTitle}>{activity.title}</Text>
-                          <Text style={styles.activityMeta}>{activity.time} • {activity.date}</Text>
-                        </View>
-                        <Icon name="chevron_right" size={16} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+
+            <View style={s.statCard}>
+              <View style={[s.statCardBadge, { backgroundColor: '#fef3c7' }]}>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: '#c2410c' }}>1 muộn</Text>
+              </View>
+              <Icon name="time-outline" size={18} color="#16a34a" library="ionicons" />
+              <Text style={s.statCardValue}>{Math.round(workedHoursThisMonth)}h</Text>
+              <Text style={s.statCardLabel}>Giờ làm việc</Text>
+              <View style={s.statBar}>
+                <View style={[s.statBarFill, { width: `${Math.min(100, (workedHoursThisMonth / (totalDaysInMonth * 8)) * 100)}%`, backgroundColor: '#16a34a' }]} />
+              </View>
             </View>
           </View>
+        )}
+
+        {/* Recent Activity */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Hoạt động gần đây</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('AttendanceHistory')} activeOpacity={0.7}>
+            <Text style={s.sectionLink}>Tất cả</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={s.activityList}>
+          {activities.length === 0 ? (
+            <View style={[s.activityItem, { justifyContent: 'center' }]}>
+              <Text style={{ fontSize: 13, color: '#9ca3af' }}>Chưa có hoạt động hôm nay</Text>
+            </View>
+          ) : (
+            activities.map((a) => (
+              <View key={a.id} style={s.activityItem}>
+                <View style={[s.activityIcon, a.iconType === 'blue' && s.activityIconBlue, a.iconType === 'green' && s.activityIconGreen, a.iconType === 'orange' && s.activityIconOrange]}>
+                  <Icon
+                    name={a.type === 'checkout' ? 'log-out-outline' : a.iconType === 'orange' ? 'time-outline' : 'log-in-outline'}
+                    size={17}
+                    color={a.iconType === 'blue' ? '#4F6EF7' : a.iconType === 'green' ? '#16a34a' : '#d97706'}
+                    library="ionicons"
+                  />
+                </View>
+                <View style={s.activityBody}>
+                  <Text style={s.activityTitle}>{a.title}</Text>
+                  <Text style={s.activitySub}>{a.sub}</Text>
+                </View>
+                <View style={s.activityMeta}>
+                  <Text style={s.activityTime}>{a.time}</Text>
+                  {a.badge && (
+                    <View style={[s.badge, a.badge.color === 'orange' ? s.badgeOrange : s.badgeGreen]}>
+                      <Text style={[s.badgeText, a.badge.color === 'orange' ? s.badgeTextOrange : s.badgeTextGreen]}>{a.badge.label}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#f3f4f8' },
+
+  // Header
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16,
+  },
+  greeting: { fontSize: 13, color: '#747686', fontWeight: '400', marginBottom: 2 },
+  userName: { fontSize: 22, fontWeight: '700', color: '#191c1e', letterSpacing: -0.4 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  notifBtn: {
+    width: 40, height: 40, borderRadius: 9999,
+    borderWidth: 1, borderColor: '#e2e3ef',
+    backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2, elevation: 1,
+  },
+  notifBellWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EEF1FF', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  notifBadge: {
+    position: 'absolute', top: -2, right: -2,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: '#ef4444', borderWidth: 1.5, borderColor: '#fff',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+  notifBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+  avatar: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#4F6EF7',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4,
+  },
+  avatarText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+
+  // Hero card
+  heroCard: {
+    marginHorizontal: 16, marginBottom: 20, borderRadius: 24,
+    padding: 18, overflow: 'hidden',
+    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 8,
+  },
+  heroDecor1: { position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.07)' },
+  heroDecor2: { position: 'absolute', bottom: -30, left: 30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)' },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  heroShiftLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
+  heroShiftTime: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
+  workingBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 9999, paddingVertical: 5, paddingHorizontal: 10,
+  },
+  workingDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#4ade80' },
+  workingBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+  heroClock: { alignItems: 'center', marginBottom: 4 },
+  heroTime: { fontSize: 52, fontWeight: '800', color: '#fff', letterSpacing: -2, lineHeight: 56 },
+  heroDate: { fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: '400', marginTop: 4 },
+  heroStats: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 16 },
+  heroStat: {
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8,
+    paddingVertical: 10, alignItems: 'center',
+  },
+  heroStatLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: '500', marginBottom: 3 },
+  heroStatValue: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
+  checkoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 48, borderRadius: 9999,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 3,
+  },
+  checkoutBtnText: { fontSize: 15, fontWeight: '600', color: '#2a4dd7' },
+
+  // Quick actions
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingBottom: 12,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#191c1e', letterSpacing: -0.2 },
+  sectionLink: { fontSize: 13, fontWeight: '500', color: '#4F6EF7' },
+  quickActions: {
+    flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 24,
+  },
+  actionItem: {
+    flex: 1, alignItems: 'center', gap: 8, backgroundColor: '#fff',
+    borderRadius: 12, paddingVertical: 14,
+    borderWidth: 1, borderColor: '#e2e3ef',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+  },
+  actionIcon: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: 11, fontWeight: '500', color: '#444654', textAlign: 'center', lineHeight: 14 },
+
+  // Monthly stats
+  statsGrid: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 24 },
+  statCard: {
+    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 16,
+    borderWidth: 1, borderColor: '#e2e3ef', overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+  },
+  statCardBadge: {
+    position: 'absolute', top: 12, right: 12,
+    paddingVertical: 2, paddingHorizontal: 7, borderRadius: 9999,
+  },
+  statCardValue: { fontSize: 28, fontWeight: '800', color: '#191c1e', letterSpacing: -1, lineHeight: 32, marginTop: 8, marginBottom: 2 },
+  statCardLabel: { fontSize: 12, color: '#747686', marginBottom: 10 },
+  statBar: { height: 4, borderRadius: 9999, backgroundColor: '#f3f4f6', overflow: 'hidden' },
+  statBarFill: { height: '100%', borderRadius: 9999 },
+
+  // Activity
+  activityList: { paddingHorizontal: 16, gap: 8, flexDirection: 'column', marginBottom: 8 },
+  activityItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff', borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: '#e2e3ef',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+    marginBottom: 8,
+  },
+  activityIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  activityIconBlue: { backgroundColor: '#EEF1FF' },
+  activityIconGreen: { backgroundColor: '#dcfce7' },
+  activityIconOrange: { backgroundColor: '#fef3c7' },
+  activityBody: { flex: 1, minWidth: 0 },
+  activityTitle: { fontSize: 13, fontWeight: '600', color: '#191c1e', marginBottom: 2 },
+  activitySub: { fontSize: 11, color: '#747686', overflow: 'hidden' },
+  activityMeta: { alignItems: 'flex-end', gap: 4, flexShrink: 0 },
+  activityTime: { fontSize: 12, fontWeight: '600', color: '#444654' },
+  badge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 9999 },
+  badgeGreen: { backgroundColor: '#dcfce7' },
+  badgeOrange: { backgroundColor: '#fef3c7' },
+  badgeText: { fontSize: 10, fontWeight: '600' },
+  badgeTextGreen: { color: '#15803d' },
+  badgeTextOrange: { color: '#b45309' },
+});
