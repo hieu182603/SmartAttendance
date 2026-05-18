@@ -1,12 +1,17 @@
-export enum UserRole {
-  Employee = 'EMPLOYEE',
-  Manager = 'MANAGER',
-  Admin = 'ADMIN',
-  SuperAdmin = 'SUPER_ADMIN',
-  HRManager = 'HR_MANAGER',
-  Supervisor = 'SUPERVISOR',
-  Trial = 'TRIAL'
-}
+import type { UserRole as SharedUserRole } from '@smartattendance/shared';
+
+// Extend shared UserRole with TRIAL (mobile-only trial account role)
+export type UserRole = SharedUserRole | 'TRIAL';
+
+export const UserRole = {
+  Employee: 'EMPLOYEE',
+  Manager: 'MANAGER',
+  Admin: 'ADMIN',
+  SuperAdmin: 'SUPER_ADMIN',
+  HRManager: 'HR_MANAGER',
+  Supervisor: 'SUPERVISOR',
+  Trial: 'TRIAL',
+} as const;
 
 export enum Screen {
   Splash = 'SPLASH',
