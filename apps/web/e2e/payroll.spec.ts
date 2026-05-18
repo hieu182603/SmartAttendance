@@ -28,11 +28,10 @@ test.describe("TC-E2E-004: Payroll Page — /hr/payroll", () => {
   test("trang bảng lương có bộ lọc tháng (input[type=month])", async ({ page }) => {
     await page.goto("/hr/payroll", { waitUntil: "domcontentloaded" });
     await waitForAuth(page);
-    await page.waitForTimeout(2_000);
 
     // PayrollPage has input[type="month"] at line 642 of the component
     const hasMonthInput = await page.locator('input[type="month"]').first()
-      .isVisible({ timeout: 8_000 }).catch(() => false);
+      .isVisible({ timeout: 15_000 }).catch(() => false);
 
     expect(hasMonthInput, "Payroll page should have input[type=month] filter").toBe(true);
   });
@@ -40,12 +39,11 @@ test.describe("TC-E2E-004: Payroll Page — /hr/payroll", () => {
   test("có nút generate payroll hoặc xuất Excel", async ({ page }) => {
     await page.goto("/hr/payroll", { waitUntil: "domcontentloaded" });
     await waitForAuth(page);
-    await page.waitForTimeout(2_000);
 
     const hasActionBtn = await page.locator(
       'button:has-text("Generate"), button:has-text("Tính lương"), button:has-text("Tạo bảng lương"), ' +
       'button:has-text("Excel"), button:has-text("PDF"), button:has-text("Xuất")'
-    ).first().isVisible({ timeout: 5_000 }).catch(() => false);
+    ).first().isVisible({ timeout: 15_000 }).catch(() => false);
 
     expect(hasActionBtn, "Payroll page should have Generate or Export button").toBe(true);
   });

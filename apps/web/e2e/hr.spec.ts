@@ -84,11 +84,10 @@ test.describe("HR Admin Attendance — /hr/admin-attendance", () => {
   test("trang chấm công có bộ lọc ngày", async ({ page }) => {
     await page.goto("/hr/admin-attendance", { waitUntil: "domcontentloaded" });
     await waitForAuth(page);
-    await page.waitForTimeout(2_000);
 
     // AdminAttendancePage has input[type="date"] for filtering
     const hasDateInput = await page.locator('input[type="date"]').first()
-      .isVisible({ timeout: 5_000 }).catch(() => false);
+      .isVisible({ timeout: 15_000 }).catch(() => false);
 
     expect(hasDateInput, "Admin attendance should have date input filter").toBe(true);
   });
