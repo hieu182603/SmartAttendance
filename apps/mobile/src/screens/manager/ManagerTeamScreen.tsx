@@ -11,14 +11,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { ManagerTabParamList } from '../../navigation/AppNavigator';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { Icon } from '../../components/ui/Icon';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useTeamMembers } from '../../hooks/useManagerQueries';
 import { TeamMember } from '../../types';
-import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
-import { ThemeColors } from '../../theme/colors';
+import { useTheme, Theme } from '../../theme';
 
 type ManagerTeamScreenNavigationProp = BottomTabNavigationProp<ManagerTabParamList, 'ManagerTeam'>;
 
@@ -28,233 +25,9 @@ interface ManagerTeamScreenProps {
 
 type FilterType = 'all' | 'online' | 'on-leave' | 'offline';
 
-function makeStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      paddingTop: SPACING.xxl * 2,
-      paddingBottom: SPACING.xl,
-      paddingHorizontal: SPACING.lg,
-      borderBottomLeftRadius: BORDER_RADIUS.xxl,
-      borderBottomRightRadius: BORDER_RADIUS.xxl,
-      marginBottom: SPACING.md,
-    },
-    headerContent: {
-      zIndex: 10,
-    },
-    headerTop: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: SPACING.sm,
-    },
-    menuButtonPlaceholder: {
-      width: 40,
-      height: 40,
-    },
-    notificationButton: {
-      width: 40,
-      height: 40,
-      borderRadius: BORDER_RADIUS.md,
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    headerTitleContainer: {
-      marginTop: SPACING.sm,
-    },
-    headerTitle: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: '#ffffff',
-      marginBottom: SPACING.xs,
-    },
-    headerSubtitle: {
-      fontSize: 14,
-      color: 'rgba(255, 255, 255, 0.9)',
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      padding: SPACING.lg,
-      paddingBottom: SPACING.xxl,
-    },
-    searchContainer: {
-      marginBottom: SPACING.lg,
-    },
-    searchInputContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.inputBg,
-      borderRadius: BORDER_RADIUS.lg,
-      paddingHorizontal: SPACING.md,
-      paddingVertical: SPACING.sm,
-      borderWidth: 1,
-      borderColor: colors.inputBorder,
-    },
-    searchInput: {
-      flex: 1,
-      marginLeft: SPACING.sm,
-      color: colors.inputText,
-      fontSize: 14,
-    },
-    clearButton: {
-      padding: SPACING.xs,
-    },
-    statsContainer: {
-      flexDirection: 'row',
-      gap: SPACING.md,
-      marginBottom: SPACING.lg,
-    },
-    statCard: {
-      flex: 1,
-      padding: SPACING.sm,
-      borderRadius: BORDER_RADIUS.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-      overflow: 'hidden',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: SPACING.sm,
-      ...SHADOWS.sm,
-    },
-    statIconContainer: {
-      width: 36,
-      height: 36,
-      borderRadius: BORDER_RADIUS.md,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    statValue: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: colors.textPrimary,
-    },
-    statLabel: {
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-    filterContainer: {
-      flexDirection: 'row',
-      gap: SPACING.sm,
-      marginBottom: SPACING.lg,
-    },
-    filterButton: {
-      flex: 1,
-      paddingVertical: SPACING.sm,
-      paddingHorizontal: SPACING.md,
-      borderRadius: BORDER_RADIUS.md,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: 'center',
-    },
-    filterButtonActive: {
-      backgroundColor: 'rgba(249, 115, 22, 0.2)',
-      borderColor: 'rgba(249, 115, 22, 0.5)',
-    },
-    filterButtonText: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      fontWeight: '500',
-    },
-    filterButtonTextActive: {
-      color: '#f97316',
-      fontWeight: '600',
-    },
-    membersSection: {
-      marginTop: SPACING.sm,
-    },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: SPACING.md,
-    },
-    loadingContainer: {
-      paddingVertical: SPACING.xxl,
-      alignItems: 'center',
-    },
-    emptyContainer: {
-      paddingVertical: SPACING.xxl,
-    },
-    membersList: {
-      gap: SPACING.md,
-    },
-    memberCard: {
-      backgroundColor: colors.card,
-      borderRadius: BORDER_RADIUS.lg,
-      padding: SPACING.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...SHADOWS.sm,
-    },
-    memberContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    avatarContainer: {
-      position: 'relative',
-      marginRight: SPACING.md,
-    },
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    avatarText: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: '#f97316',
-    },
-    statusIndicator: {
-      position: 'absolute',
-      bottom: 0,
-      right: 0,
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      borderWidth: 2,
-      borderColor: colors.card,
-    },
-    memberInfo: {
-      flex: 1,
-      marginRight: SPACING.sm,
-    },
-    memberName: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: SPACING.xs,
-    },
-    memberDepartment: {
-      fontSize: 13,
-      color: colors.textSecondary,
-    },
-    statusBadge: {
-      paddingHorizontal: SPACING.sm,
-      paddingVertical: SPACING.xs,
-      borderRadius: BORDER_RADIUS.sm,
-      borderWidth: 1,
-    },
-    statusBadgeText: {
-      fontSize: 11,
-      fontWeight: '500',
-    },
-  });
-}
-
 export default function ManagerTeamScreen({ navigation }: ManagerTeamScreenProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   const { data: teamData, isLoading } = useTeamMembers();
   const members: TeamMember[] = (teamData as TeamMember[]) ?? [];
@@ -291,21 +64,21 @@ export default function ManagerTeamScreen({ navigation }: ManagerTeamScreenProps
     switch (status) {
       case 'online':
         return {
-          backgroundColor: 'rgba(11, 218, 104, 0.1)',
-          borderColor: 'rgba(11, 218, 104, 0.2)',
-          color: COLORS.status.success,
+          backgroundColor: theme.colors.status.successBg,
+          borderColor: theme.colors.status.successBorder,
+          color: theme.colors.status.success,
         };
       case 'on-leave':
         return {
-          backgroundColor: 'rgba(245, 158, 11, 0.1)',
-          borderColor: 'rgba(245, 158, 11, 0.2)',
-          color: COLORS.status.warning,
+          backgroundColor: theme.colors.status.warningBg,
+          borderColor: theme.colors.status.warningBorder,
+          color: theme.colors.status.warning,
         };
       default:
         return {
-          backgroundColor: colors.cardAlt,
-          borderColor: colors.border,
-          color: colors.textSecondary,
+          backgroundColor: theme.colors.background.base,
+          borderColor: theme.colors.border.default,
+          color: theme.colors.text.secondary,
         };
     }
   };
@@ -322,30 +95,30 @@ export default function ManagerTeamScreen({ navigation }: ManagerTeamScreenProps
   };
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       {/* Header - Premium Orange/Gold Mix Theme for Manager */}
       <LinearGradient
         colors={['#1A1A2E', '#2A1800', '#FF8C00']}
         locations={[0, 0.4, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={s.header}
       >
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <View style={styles.menuButtonPlaceholder} />
+        <View style={s.headerContent}>
+          <View style={s.headerTop}>
+            <View style={s.menuButtonPlaceholder} />
             <TouchableOpacity
               onPress={() => navigation.navigate('Notifications' as any)}
-              style={styles.notificationButton}
+              style={s.notificationButton}
               activeOpacity={0.7}
             >
-              <Icon name="notifications" size={24} color="#ffffff" />
+              <Icon name="notifications-outline" size={24} color="#ffffff" library="ionicons" />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>{t.manager.dashboard.team}</Text>
-            <Text style={styles.headerSubtitle}>
+          <View style={s.headerTitleContainer}>
+            <Text style={s.headerTitle}>Đội nhóm</Text>
+            <Text style={s.headerSubtitle}>
               Danh sách nhân viên trong team
             </Text>
           </View>
@@ -353,82 +126,82 @@ export default function ManagerTeamScreen({ navigation }: ManagerTeamScreenProps
       </LinearGradient>
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={s.scrollView}
+        contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <Icon name="search" size={20} color={colors.inputPlaceholder} />
+        <View style={s.searchContainer}>
+          <View style={s.searchInputContainer}>
+            <Icon name="search-outline" size={20} color={theme.colors.text.muted} library="ionicons" />
             <TextInput
-              style={styles.searchInput}
-              placeholder={t.common.search}
-              placeholderTextColor={colors.inputPlaceholder}
+              style={s.searchInput}
+              placeholder="Tìm kiếm..."
+              placeholderTextColor={theme.colors.text.muted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity
                 onPress={() => setSearchQuery('')}
-                style={styles.clearButton}
+                style={s.clearButton}
                 activeOpacity={0.7}
               >
-                <Icon name="close" size={18} color={colors.inputPlaceholder} />
+                <Icon name="close-outline" size={18} color={theme.colors.text.muted} library="ionicons" />
               </TouchableOpacity>
             )}
           </View>
         </View>
 
         {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: 'rgba(11, 218, 104, 0.2)' }]}>
-              <Icon name="people" size={20} color={COLORS.status.success} />
+        <View style={s.statsContainer}>
+          <View style={s.statCard}>
+            <View style={[s.statIconContainer, { backgroundColor: theme.colors.status.successBg }]}>
+              <Icon name="people-outline" size={20} color={theme.colors.status.success} library="ionicons" />
             </View>
             <View>
-              <Text style={styles.statValue}>{onlineCount}</Text>
-              <Text style={styles.statLabel}>Trực tuyến</Text>
+              <Text style={s.statValue}>{onlineCount}</Text>
+              <Text style={s.statLabel}>Trực tuyến</Text>
             </View>
           </View>
 
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
-              <Icon name="event" size={20} color={COLORS.status.warning} />
+          <View style={s.statCard}>
+            <View style={[s.statIconContainer, { backgroundColor: theme.colors.status.warningBg }]}>
+              <Icon name="calendar-outline" size={20} color={theme.colors.status.warning} library="ionicons" />
             </View>
             <View>
-              <Text style={styles.statValue}>{onLeaveCount}</Text>
-              <Text style={styles.statLabel}>Nghỉ phép</Text>
+              <Text style={s.statValue}>{onLeaveCount}</Text>
+              <Text style={s.statLabel}>Nghỉ phép</Text>
             </View>
           </View>
 
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: colors.cardAlt }]}>
-              <Icon name="person_off" size={20} color={colors.textSecondary} />
+          <View style={s.statCard}>
+            <View style={[s.statIconContainer, { backgroundColor: theme.colors.background.base }]}>
+              <Icon name="person-outline" size={20} color={theme.colors.text.secondary} library="ionicons" />
             </View>
             <View>
-              <Text style={styles.statValue}>{offlineCount}</Text>
-              <Text style={styles.statLabel}>Offline</Text>
+              <Text style={s.statValue}>{offlineCount}</Text>
+              <Text style={s.statLabel}>Offline</Text>
             </View>
           </View>
         </View>
 
         {/* Filter Buttons */}
-        <View style={styles.filterContainer}>
+        <View style={s.filterContainer}>
           {(['all', 'online', 'on-leave', 'offline'] as FilterType[]).map(filterType => (
             <TouchableOpacity
               key={filterType}
               onPress={() => setFilter(filterType)}
               style={[
-                styles.filterButton,
-                filter === filterType && styles.filterButtonActive,
+                s.filterButton,
+                filter === filterType && s.filterButtonActive,
               ]}
               activeOpacity={0.7}
             >
               <Text
                 style={[
-                  styles.filterButtonText,
-                  filter === filterType && styles.filterButtonTextActive,
+                  s.filterButtonText,
+                  filter === filterType && s.filterButtonTextActive,
                 ]}
               >
                 {filterType === 'all'
@@ -444,25 +217,25 @@ export default function ManagerTeamScreen({ navigation }: ManagerTeamScreenProps
         </View>
 
         {/* Team Members List */}
-        <View style={styles.membersSection}>
-          <Text style={styles.sectionTitle}>
+        <View style={s.membersSection}>
+          <Text style={s.sectionTitle}>
             {filteredMembers.length} thành viên
           </Text>
 
           {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
+            <View style={s.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.brand.primary} />
             </View>
           ) : filteredMembers.length === 0 ? (
-            <View style={styles.emptyContainer}>
+            <View style={s.emptyContainer}>
               <EmptyState
-                icon="people"
+                icon="people-outline"
                 title={
                   searchQuery
                     ? 'Không tìm thấy thành viên'
                     : filter !== 'all'
                       ? `Không có thành viên ${getStatusText(filter as TeamMember['status']).toLowerCase()}`
-                      : t.common.noData
+                      : 'Không có dữ liệu'
                 }
                 description={
                   searchQuery
@@ -472,64 +245,64 @@ export default function ManagerTeamScreen({ navigation }: ManagerTeamScreenProps
               />
             </View>
           ) : (
-            <View style={styles.membersList}>
+            <View style={s.membersList}>
               {filteredMembers.map(member => {
                 const statusStyle = getStatusBadgeStyle(member.status);
                 return (
                   <TouchableOpacity
                     key={member.id}
-                    style={styles.memberCard}
+                    style={s.memberCard}
                     activeOpacity={0.7}
                     onPress={() => {
                       // TODO: Navigate to member details
                     }}
                   >
-                    <View style={styles.memberContent}>
+                    <View style={s.memberContent}>
                       {/* Avatar */}
-                      <View style={styles.avatarContainer}>
+                      <View style={s.avatarContainer}>
                         <LinearGradient
-                          colors={['rgba(249, 115, 22, 0.2)', 'rgba(245, 158, 11, 0.1)']}
+                          colors={[theme.colors.status.warningBg, theme.colors.status.warningBg]}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
-                          style={styles.avatar}
+                          style={s.avatar}
                         >
-                          <Text style={styles.avatarText}>
+                          <Text style={s.avatarText}>
                             {member.name.charAt(0).toUpperCase()}
                           </Text>
                         </LinearGradient>
                         {/* Status Indicator */}
                         <View
                           style={[
-                            styles.statusIndicator,
+                            s.statusIndicator,
                             {
                               backgroundColor:
                                 member.status === 'online'
-                                  ? COLORS.status.success
+                                  ? theme.colors.status.success
                                   : member.status === 'on-leave'
-                                    ? COLORS.status.warning
-                                    : colors.textSecondary,
+                                    ? theme.colors.status.warning
+                                    : theme.colors.text.secondary,
                             },
                           ]}
                         />
                       </View>
 
                       {/* Info */}
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberName}>{member.name}</Text>
-                        <Text style={styles.memberDepartment}>{member.department}</Text>
+                      <View style={s.memberInfo}>
+                        <Text style={s.memberName}>{member.name}</Text>
+                        <Text style={s.memberDepartment}>{member.department}</Text>
                       </View>
 
                       {/* Status Badge */}
                       <View
                         style={[
-                          styles.statusBadge,
+                          s.statusBadge,
                           {
                             backgroundColor: statusStyle.backgroundColor,
                             borderColor: statusStyle.borderColor,
                           },
                         ]}
                       >
-                        <Text style={[styles.statusBadgeText, { color: statusStyle.color }]}>
+                        <Text style={[s.statusBadgeText, { color: statusStyle.color }]}>
                           {getStatusText(member.status)}
                         </Text>
                       </View>
@@ -543,4 +316,235 @@ export default function ManagerTeamScreen({ navigation }: ManagerTeamScreenProps
       </ScrollView>
     </View>
   );
+}
+
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: t.colors.background.base,
+    },
+    header: {
+      paddingTop: 48,
+      paddingBottom: 20,
+      paddingHorizontal: 16,
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
+      marginBottom: 12,
+    },
+    headerContent: {
+      zIndex: 10,
+    },
+    headerTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    menuButtonPlaceholder: {
+      width: 40,
+      height: 40,
+    },
+    notificationButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 8,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerTitleContainer: {
+      marginTop: 8,
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: '#ffffff',
+      marginBottom: 4,
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: 'rgba(255, 255, 255, 0.9)',
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 24,
+    },
+    searchContainer: {
+      marginBottom: 16,
+    },
+    searchInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: t.colors.background.surface,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: t.colors.border.default,
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: 8,
+      color: t.colors.text.primary,
+      fontSize: 14,
+    },
+    clearButton: {
+      padding: 4,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 16,
+    },
+    statCard: {
+      flex: 1,
+      padding: 8,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: t.colors.border.default,
+      backgroundColor: t.colors.background.surface,
+      overflow: 'hidden',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    statIconContainer: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    statValue: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: t.colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: t.colors.text.secondary,
+    },
+    filterContainer: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 16,
+    },
+    filterButton: {
+      flex: 1,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      backgroundColor: t.colors.background.surface,
+      borderWidth: 1,
+      borderColor: t.colors.border.default,
+      alignItems: 'center',
+    },
+    filterButtonActive: {
+      backgroundColor: t.colors.status.warningBg,
+      borderColor: t.colors.status.warningBorder,
+    },
+    filterButtonText: {
+      fontSize: 12,
+      color: t.colors.text.secondary,
+      fontWeight: '500',
+    },
+    filterButtonTextActive: {
+      color: t.colors.status.warning,
+      fontWeight: '600',
+    },
+    membersSection: {
+      marginTop: 8,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: t.colors.text.primary,
+      marginBottom: 12,
+    },
+    loadingContainer: {
+      paddingVertical: 24,
+      alignItems: 'center',
+    },
+    emptyContainer: {
+      paddingVertical: 24,
+    },
+    membersList: {
+      gap: 12,
+    },
+    memberCard: {
+      backgroundColor: t.colors.background.surface,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: t.colors.border.default,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    memberContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    avatarContainer: {
+      position: 'relative',
+      marginRight: 12,
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    avatarText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: t.colors.status.warning,
+    },
+    statusIndicator: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: t.colors.background.surface,
+    },
+    memberInfo: {
+      flex: 1,
+      marginRight: 8,
+    },
+    memberName: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: t.colors.text.primary,
+      marginBottom: 4,
+    },
+    memberDepartment: {
+      fontSize: 13,
+      color: t.colors.text.secondary,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+    },
+    statusBadgeText: {
+      fontSize: 11,
+      fontWeight: '500',
+    },
+  });
 }

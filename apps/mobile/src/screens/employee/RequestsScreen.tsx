@@ -12,6 +12,8 @@ import { Icon } from '../../components/ui/Icon';
 import { DateTimePickerWrapper } from '../../components/ui/DateTimePickerWrapper';
 import { useLeaveHistory, useCreateLeaveRequest } from '../../hooks/useLeaveQueries';
 import { queryKeys } from '../../hooks/queryKeys';
+import { useTheme } from '../../theme';
+import type { Theme } from '../../theme';
 
 type Props = { navigation: BottomTabNavigationProp<EmployeeTabParamList, 'Requests'> };
 
@@ -29,24 +31,6 @@ const LEAVE_TYPES = [
   { id: 'adjustment', label: 'Điều chỉnh giờ' },
 ];
 
-const TYPE_META: Record<string, { icon: string; bg: string; color: string }> = {
-  annual:       { icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7' },
-  sick:         { icon: 'medkit-outline',   bg: '#fef2f2', color: '#ef4444' },
-  unpaid:       { icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7' },
-  overtime:     { icon: 'time-outline',     bg: '#fef3c7', color: '#d97706' },
-  compensatory: { icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7' },
-  maternity:    { icon: 'heart-outline',    bg: '#fce7f3', color: '#db2777' },
-  remote:       { icon: 'desktop-outline',  bg: '#f0fdf4', color: '#16a34a' },
-  adjustment:   { icon: 'document-text-outline', bg: '#ede9fe', color: '#7c3aed' },
-};
-
-const SHEET_OPTIONS = [
-  { id: 'annual',     label: 'Nghỉ phép',      sub: 'Nghỉ phép năm, nghỉ ốm, việc riêng...', icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7' },
-  { id: 'overtime',   label: 'Đăng ký OT',     sub: 'Làm ngoài giờ, cuối tuần, lễ...',       icon: 'time-outline', bg: '#fef3c7', color: '#d97706' },
-  { id: 'remote',     label: 'Làm remote',     sub: 'Đăng ký làm việc từ xa',                icon: 'desktop-outline', bg: '#f0fdf4', color: '#16a34a' },
-  { id: 'adjustment', label: 'Điều chỉnh giờ', sub: 'Quên chấm công, sai giờ vào/ra...',     icon: 'document-text-outline', bg: '#ede9fe', color: '#7c3aed' },
-];
-
 function formatDate(d: string | number) {
   if (!d) return '--/--/----';
   const dt = new Date(d);
@@ -62,6 +46,9 @@ function formatDateInput(d: Date) {
 
 export default function RequestsScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+
   const [activeTab, setActiveTab] = useState(0);
   const [showSheet, setShowSheet] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -72,6 +59,24 @@ export default function RequestsScreen({ navigation }: Props) {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+
+  const TYPE_META: Record<string, { icon: string; bg: string; color: string }> = {
+    annual:       { icon: 'calendar-outline', bg: theme.colors.background.indigoTint, color: theme.colors.brand.primary },
+    sick:         { icon: 'medkit-outline',   bg: theme.colors.status.dangerBg,        color: theme.colors.status.danger },
+    unpaid:       { icon: 'calendar-outline', bg: theme.colors.background.indigoTint,  color: theme.colors.brand.primary },
+    overtime:     { icon: 'time-outline',     bg: theme.colors.status.warningBg,        color: theme.colors.status.warning },
+    compensatory: { icon: 'calendar-outline', bg: theme.colors.background.indigoTint,  color: theme.colors.brand.primary },
+    maternity:    { icon: 'heart-outline',    bg: '#fce7f3',                            color: '#db2777' },
+    remote:       { icon: 'desktop-outline',  bg: theme.colors.status.successBg,        color: theme.colors.status.success },
+    adjustment:   { icon: 'document-text-outline', bg: theme.colors.background.indigoTint, color: theme.colors.brand.primaryActive },
+  };
+
+  const SHEET_OPTIONS = [
+    { id: 'annual',     label: 'Nghỉ phép',      sub: 'Nghỉ phép năm, nghỉ ốm, việc riêng...', icon: 'calendar-outline', bg: theme.colors.background.indigoTint, color: theme.colors.brand.primary },
+    { id: 'overtime',   label: 'Đăng ký OT',     sub: 'Làm ngoài giờ, cuối tuần, lễ...',       icon: 'time-outline', bg: theme.colors.status.warningBg, color: theme.colors.status.warning },
+    { id: 'remote',     label: 'Làm remote',     sub: 'Đăng ký làm việc từ xa',                icon: 'desktop-outline', bg: theme.colors.status.successBg, color: theme.colors.status.success },
+    { id: 'adjustment', label: 'Điều chỉnh giờ', sub: 'Quên chấm công, sai giờ vào/ra...',     icon: 'document-text-outline', bg: theme.colors.background.indigoTint, color: theme.colors.brand.primaryActive },
+  ];
 
   useFocusEffect(React.useCallback(() => {
     const state = navigation.getState();
@@ -120,15 +125,15 @@ export default function RequestsScreen({ navigation }: Props) {
   };
 
   const getTypeLabel = (id: string) => LEAVE_TYPES.find((t) => t.id === id)?.label ?? id;
-  const getTypeMeta = (id: string) => TYPE_META[id] ?? { icon: 'document-text-outline', bg: '#f3f4f6', color: '#6b7280' };
+  const getTypeMeta = (id: string) => TYPE_META[id] ?? { icon: 'document-text-outline', bg: theme.colors.background.subtle, color: theme.colors.text.muted };
 
   const statusBadge = (status: string) => {
-    const cfg: Record<string, { bg: string; color: string; label: string }> = {
-      pending:  { bg: '#fef3c7', color: '#b45309', label: 'Chờ duyệt' },
-      approved: { bg: '#dcfce7', color: '#15803d', label: 'Đã duyệt' },
-      rejected: { bg: '#fef2f2', color: '#b91c1c', label: 'Từ chối' },
+    const statusColors = {
+      approved: { bg: theme.colors.status.successBg, color: theme.colors.status.success, label: 'Đã duyệt' },
+      pending:  { bg: theme.colors.status.warningBg, color: theme.colors.status.warning, label: 'Chờ duyệt' },
+      rejected: { bg: theme.colors.status.dangerBg,  color: theme.colors.status.danger,  label: 'Từ chối' },
     };
-    const c = cfg[status] ?? cfg.pending;
+    const c = (statusColors as any)[status] ?? statusColors.pending;
     return (
       <View style={[s.badge, { backgroundColor: c.bg }]}>
         <Text style={[s.badgeText, { color: c.color }]}>{c.label}</Text>
@@ -141,7 +146,7 @@ export default function RequestsScreen({ navigation }: Props) {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.leave.all })} tintColor="#4F6EF7" colors={['#4F6EF7']} />}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={() => queryClient.invalidateQueries({ queryKey: queryKeys.leave.all })} tintColor={theme.colors.brand.primary} colors={[theme.colors.brand.primary]} />}
       >
         {/* Header */}
         <View style={s.header}>
@@ -207,7 +212,7 @@ export default function RequestsScreen({ navigation }: Props) {
                   {req.status === 'rejected' && req.rejectionReason ? (
                     <View style={s.infoItem}>
                       <Text style={s.infoLabel}>Lý do từ chối</Text>
-                      <Text style={[s.infoVal, { color: '#ef4444' }]} numberOfLines={1}>{req.rejectionReason}</Text>
+                      <Text style={[s.infoVal, { color: theme.colors.status.danger }]} numberOfLines={1}>{req.rejectionReason}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -219,7 +224,7 @@ export default function RequestsScreen({ navigation }: Props) {
 
       {/* FAB */}
       <TouchableOpacity style={s.fab} onPress={() => setShowSheet(true)} activeOpacity={0.85}>
-        <LinearGradient colors={['#4F6EF7', '#3a52dd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.fabGradient}>
+        <LinearGradient colors={[theme.colors.brand.primary, theme.colors.brand.primaryHover] as unknown as readonly [string, ...string[]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.fabGradient}>
           <Icon name="add" size={24} color="#fff" />
         </LinearGradient>
       </TouchableOpacity>
@@ -258,7 +263,7 @@ export default function RequestsScreen({ navigation }: Props) {
             <View style={s.formHeader}>
               <Text style={s.sheetTitle}>Tạo đơn — {LEAVE_TYPES.find((t) => t.id === leaveType)?.label}</Text>
               <TouchableOpacity onPress={() => setShowForm(false)} style={s.closeBtn}>
-                <Icon name="close" size={22} color="#191c1e" library="ionicons" />
+                <Icon name="close" size={22} color={theme.colors.text.primary} library="ionicons" />
               </TouchableOpacity>
             </View>
 
@@ -267,10 +272,10 @@ export default function RequestsScreen({ navigation }: Props) {
               <View style={s.formField}>
                 <Text style={s.formLabel}>Loại đơn</Text>
                 <TouchableOpacity style={s.formSelect} onPress={() => setShowTypePicker(true)} activeOpacity={0.7}>
-                  <Text style={[s.formSelectText, !leaveType && { color: '#9ca3af' }]}>
+                  <Text style={[s.formSelectText, !leaveType && { color: theme.colors.text.muted }]}>
                     {leaveType ? getTypeLabel(leaveType) : 'Chọn loại đơn'}
                   </Text>
-                  <Icon name="chevron-forward-outline" size={18} color="#9ca3af" library="ionicons" />
+                  <Icon name="chevron-forward-outline" size={18} color={theme.colors.text.muted} library="ionicons" />
                 </TouchableOpacity>
               </View>
 
@@ -311,7 +316,7 @@ export default function RequestsScreen({ navigation }: Props) {
                   value={reason}
                   onChangeText={setReason}
                   placeholder="Nhập lý do..."
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={theme.colors.text.muted}
                   multiline
                   numberOfLines={4}
                   style={s.formTextarea}
@@ -325,7 +330,7 @@ export default function RequestsScreen({ navigation }: Props) {
                 activeOpacity={0.85}
                 style={s.submitBtn}
               >
-                <LinearGradient colors={['#4F6EF7', '#3a52dd']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.submitGradient}>
+                <LinearGradient colors={[theme.colors.brand.primary, theme.colors.brand.primaryHover] as unknown as readonly [string, ...string[]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.submitGradient}>
                   <Text style={s.submitText}>{createLeave.isPending ? 'Đang gửi...' : 'Gửi đơn'}</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -344,7 +349,7 @@ export default function RequestsScreen({ navigation }: Props) {
                 style={[s.pickerItem, leaveType === t.id && s.pickerItemActive]}
                 onPress={() => { setLeaveType(t.id); setShowTypePicker(false); }}
               >
-                <Text style={[s.pickerItemText, leaveType === t.id && { color: '#4F6EF7', fontWeight: '600' }]}>{t.label}</Text>
+                <Text style={[s.pickerItemText, leaveType === t.id && { color: theme.colors.brand.primary, fontWeight: '600' }]}>{t.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -354,97 +359,99 @@ export default function RequestsScreen({ navigation }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f3f4f8' },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: t.colors.background.base },
 
-  header: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#191c1e', letterSpacing: -0.3 },
+    header: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: t.colors.text.primary, letterSpacing: -0.3 },
 
-  tabs: { paddingHorizontal: 20, paddingBottom: 12, gap: 8, flexDirection: 'row' },
-  tab: {
-    paddingVertical: 7, paddingHorizontal: 16, borderRadius: 9999,
-    borderWidth: 1.5, borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
-  },
-  tabActive: { backgroundColor: '#4F6EF7', borderColor: '#4F6EF7' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
-  tabTextActive: { color: '#fff' },
+    tabs: { paddingHorizontal: 20, paddingBottom: 12, gap: 8, flexDirection: 'row' },
+    tab: {
+      paddingVertical: 7, paddingHorizontal: 16, borderRadius: 9999,
+      borderWidth: 1.5, borderColor: t.colors.border.default,
+      backgroundColor: t.colors.background.surface,
+    },
+    tabActive: { backgroundColor: t.colors.brand.primary, borderColor: t.colors.brand.primary },
+    tabText: { fontSize: 13, fontWeight: '600', color: t.colors.text.muted },
+    tabTextActive: { color: '#fff' },
 
-  list: { paddingHorizontal: 16, gap: 10 },
+    list: { paddingHorizontal: 16, gap: 10 },
 
-  emptyCard: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 32,
-    alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb',
-  },
-  emptyText: { fontSize: 14, color: '#9ca3af' },
+    emptyCard: {
+      backgroundColor: t.colors.background.surface, borderRadius: 16, padding: 32,
+      alignItems: 'center', borderWidth: 1, borderColor: t.colors.border.default,
+    },
+    emptyText: { fontSize: 14, color: t.colors.text.muted },
 
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  cardType: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  cardName: { fontSize: 14, fontWeight: '700', color: '#191c1e' },
-  cardCreated: { fontSize: 11, color: '#9ca3af' },
-  badge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 9999 },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  divider: { height: 1, backgroundColor: '#e5e7eb', marginVertical: 10 },
-  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  infoItem: { width: '47%' },
-  infoLabel: { fontSize: 11, color: '#9ca3af', marginBottom: 2 },
-  infoVal: { fontSize: 13, fontWeight: '600', color: '#444654' },
+    card: {
+      backgroundColor: t.colors.background.surface, borderRadius: 16, padding: 16,
+      borderWidth: 1, borderColor: t.colors.border.default, marginBottom: 2,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+    },
+    cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+    cardType: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    cardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    cardName: { fontSize: 14, fontWeight: '700', color: t.colors.text.primary },
+    cardCreated: { fontSize: 11, color: t.colors.text.muted },
+    badge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 9999 },
+    badgeText: { fontSize: 11, fontWeight: '600' },
+    divider: { height: 1, backgroundColor: t.colors.border.default, marginVertical: 10 },
+    infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    infoItem: { width: '47%' },
+    infoLabel: { fontSize: 11, color: t.colors.text.muted, marginBottom: 2 },
+    infoVal: { fontSize: 13, fontWeight: '600', color: t.colors.text.secondary },
 
-  // FAB
-  fab: {
-    position: 'absolute', bottom: 88, right: 20,
-    width: 52, height: 52, borderRadius: 26, overflow: 'hidden',
-    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
-  fabGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    // FAB
+    fab: {
+      position: 'absolute', bottom: 88, right: 20,
+      width: 52, height: 52, borderRadius: 26, overflow: 'hidden',
+      shadowColor: t.colors.brand.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+    },
+    fabGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  // Sheet
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 20, paddingBottom: 36,
-  },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#e5e7eb', alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 17, fontWeight: '700', color: '#191c1e', marginBottom: 16 },
-  sheetOpt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12 },
-  sheetOptIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  sheetOptName: { fontSize: 14, fontWeight: '600', color: '#191c1e' },
-  sheetOptSub: { fontSize: 12, color: '#9ca3af' },
+    // Sheet
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    sheet: {
+      backgroundColor: t.colors.background.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      padding: 20, paddingBottom: 36,
+    },
+    sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: t.colors.border.default, alignSelf: 'center', marginBottom: 20 },
+    sheetTitle: { fontSize: 17, fontWeight: '700', color: t.colors.text.primary, marginBottom: 16 },
+    sheetOpt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12 },
+    sheetOptIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    sheetOptName: { fontSize: 14, fontWeight: '600', color: t.colors.text.primary },
+    sheetOptSub: { fontSize: 12, color: t.colors.text.muted },
 
-  // Form modal
-  formOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  formSheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 20, paddingTop: 20, maxHeight: '90%',
-  },
-  formHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  closeBtn: { padding: 4 },
-  formField: { marginBottom: 16 },
-  formRow: { flexDirection: 'row', marginBottom: 16 },
-  formLabel: { fontSize: 13, fontWeight: '600', color: '#444654', marginBottom: 6 },
-  formSelect: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#f3f4f8', borderRadius: 12, borderWidth: 1.5, borderColor: '#e5e7eb',
-    paddingVertical: 13, paddingHorizontal: 14,
-  },
-  formSelectText: { fontSize: 15, color: '#191c1e' },
-  formTextarea: {
-    backgroundColor: '#f3f4f8', borderRadius: 12, borderWidth: 1.5, borderColor: '#e5e7eb',
-    padding: 14, color: '#191c1e', fontSize: 15, minHeight: 100, textAlignVertical: 'top',
-  },
-  submitBtn: { borderRadius: 9999, overflow: 'hidden', marginTop: 8, shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
-  submitGradient: { height: 52, alignItems: 'center', justifyContent: 'center' },
-  submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+    // Form modal
+    formOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    formSheet: {
+      backgroundColor: t.colors.background.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      paddingHorizontal: 20, paddingTop: 20, maxHeight: '90%',
+    },
+    formHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+    closeBtn: { padding: 4 },
+    formField: { marginBottom: 16 },
+    formRow: { flexDirection: 'row', marginBottom: 16 },
+    formLabel: { fontSize: 13, fontWeight: '600', color: t.colors.text.secondary, marginBottom: 6 },
+    formSelect: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: t.colors.background.base, borderRadius: 12, borderWidth: 1.5, borderColor: t.colors.border.default,
+      paddingVertical: 13, paddingHorizontal: 14,
+    },
+    formSelectText: { fontSize: 15, color: t.colors.text.primary },
+    formTextarea: {
+      backgroundColor: t.colors.background.base, borderRadius: 12, borderWidth: 1.5, borderColor: t.colors.border.default,
+      padding: 14, color: t.colors.text.primary, fontSize: 15, minHeight: 100, textAlignVertical: 'top',
+    },
+    submitBtn: { borderRadius: 9999, overflow: 'hidden', marginTop: 8, shadowColor: t.colors.brand.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
+    submitGradient: { height: 52, alignItems: 'center', justifyContent: 'center' },
+    submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  // Type picker
-  pickerBox: { backgroundColor: '#fff', borderRadius: 16, padding: 8, width: '80%', maxWidth: 360 },
-  pickerItem: { padding: 14, borderRadius: 10, marginBottom: 2 },
-  pickerItemActive: { backgroundColor: '#EEF1FF' },
-  pickerItemText: { fontSize: 15, color: '#191c1e' },
-});
+    // Type picker
+    pickerBox: { backgroundColor: t.colors.background.surface, borderRadius: 16, padding: 8, width: '80%', maxWidth: 360 },
+    pickerItem: { padding: 14, borderRadius: 10, marginBottom: 2 },
+    pickerItemActive: { backgroundColor: t.colors.background.indigoTint },
+    pickerItemText: { fontSize: 15, color: t.colors.text.primary },
+  });
+}

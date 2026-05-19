@@ -26,6 +26,7 @@ import { queryKeys } from '../../hooks/queryKeys';
 
 import { StackNavigationProp } from '@react-navigation/stack';
 import { CompositeNavigationProp } from '@react-navigation/native';
+import { useTheme, Theme } from '../../theme';
 
 type DashboardNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<EmployeeTabParamList, 'Home'>,
@@ -47,6 +48,8 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(new Date());
   const { socket } = useSocket();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   // Live clock — updates every 30s
   useEffect(() => {
@@ -194,10 +197,10 @@ export default function DashboardScreen() {
   const monthLabel = `Tháng ${now.getMonth() + 1} / ${now.getFullYear()}`;
 
   const quickActions = [
-    { icon: 'calendar-outline', bg: '#EEF1FF', color: '#4F6EF7', label: 'Xin nghỉ phép', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
-    { icon: 'time-outline', bg: '#fff7ed', color: '#f97316', label: 'Đăng ký OT', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
-    { icon: 'desktop-outline', bg: '#f0fdf4', color: '#16a34a', label: 'Làm remote', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
-    { icon: 'document-text-outline', bg: '#fff1f2', color: '#dc2626', label: 'Đơn điều chỉnh', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
+    { icon: 'calendar-outline', bg: theme.colors.background.indigoTint, color: theme.colors.brand.primary, label: 'Xin nghỉ phép', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
+    { icon: 'time-outline', bg: theme.colors.status.warningBg, color: theme.colors.status.warning, label: 'Đăng ký OT', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
+    { icon: 'desktop-outline', bg: theme.colors.status.successBg, color: theme.colors.status.success, label: 'Làm remote', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
+    { icon: 'document-text-outline', bg: theme.colors.status.dangerBg, color: theme.colors.status.danger, label: 'Đơn điều chỉnh', onPress: () => navigation.navigate('Requests', { openCreateModal: true } as any) },
   ];
 
   return (
@@ -205,7 +208,7 @@ export default function DashboardScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F6EF7" colors={['#4F6EF7']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.brand.primary} colors={[theme.colors.brand.primary]} />}
       >
         {/* Header */}
         <View style={s.header}>
@@ -216,7 +219,7 @@ export default function DashboardScreen() {
           <View style={s.headerRight}>
             <TouchableOpacity style={s.notifBtn} onPress={() => navigation.navigate('Notifications')} activeOpacity={0.7}>
               <View style={s.notifBellWrap}>
-                <Icon name="notifications-outline" size={16} color="#2a4dd7" library="ionicons" />
+                <Icon name="notifications-outline" size={16} color={theme.colors.brand.primaryHover} library="ionicons" />
                 {unreadCount > 0 && (
                   <View style={s.notifBadge}>
                     <Text style={s.notifBadgeText}>{unreadCount}</Text>
@@ -232,7 +235,7 @@ export default function DashboardScreen() {
 
         {/* Hero Card */}
         <LinearGradient
-          colors={['#5b7cf6', '#7c5cbf', '#9b4dca']}
+          colors={[theme.colors.brand.primary, theme.colors.brand.primaryActive] as unknown as readonly [string, ...string[]]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={s.heroCard}
@@ -274,7 +277,7 @@ export default function DashboardScreen() {
             onPress={() => navigation.navigate('Attendance', { mode: isCheckedIn ? 'check-out' : 'check-in' })}
             activeOpacity={0.85}
           >
-            <Icon name={isCheckedIn ? 'log-out-outline' : 'log-in-outline'} size={18} color="#2a4dd7" library="ionicons" />
+            <Icon name={isCheckedIn ? 'log-out-outline' : 'log-in-outline'} size={18} color={theme.colors.brand.primaryHover} library="ionicons" />
             <Text style={s.checkoutBtnText}>{isCheckedIn ? 'Check-out khi kết thúc' : 'Check-in ngay'}</Text>
           </TouchableOpacity>
         </LinearGradient>
@@ -304,31 +307,31 @@ export default function DashboardScreen() {
 
         {isAttendanceLoading ? (
           <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-            <ActivityIndicator size="small" color="#4F6EF7" />
+            <ActivityIndicator size="small" color={theme.colors.brand.primary} />
           </View>
         ) : (
           <View style={s.statsGrid}>
             <View style={s.statCard}>
-              <View style={[s.statCardBadge, { backgroundColor: '#EEF1FF' }]}>
-                <Text style={{ fontSize: 10, fontWeight: '600', color: '#2a4dd7' }}>+{Math.max(0, attendanceThisMonth - Math.round(attendanceThisMonth * 0.9))}</Text>
+              <View style={[s.statCardBadge, { backgroundColor: theme.colors.background.indigoTint }]}>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: theme.colors.brand.primaryHover }}>+{Math.max(0, attendanceThisMonth - Math.round(attendanceThisMonth * 0.9))}</Text>
               </View>
-              <Icon name="calendar-outline" size={18} color="#4F6EF7" library="ionicons" />
+              <Icon name="calendar-outline" size={18} color={theme.colors.brand.primary} library="ionicons" />
               <Text style={s.statCardValue}>{attendanceThisMonth}</Text>
               <Text style={s.statCardLabel}>Ngày đi làm</Text>
               <View style={s.statBar}>
-                <View style={[s.statBarFill, { width: `${Math.min(100, (attendanceThisMonth / totalDaysInMonth) * 100)}%`, backgroundColor: '#4F6EF7' }]} />
+                <View style={[s.statBarFill, { width: `${Math.min(100, (attendanceThisMonth / totalDaysInMonth) * 100)}%`, backgroundColor: theme.colors.brand.primary }]} />
               </View>
             </View>
 
             <View style={s.statCard}>
-              <View style={[s.statCardBadge, { backgroundColor: '#fef3c7' }]}>
-                <Text style={{ fontSize: 10, fontWeight: '600', color: '#c2410c' }}>1 muộn</Text>
+              <View style={[s.statCardBadge, { backgroundColor: theme.colors.status.warningBg }]}>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: theme.colors.status.warning }}>1 muộn</Text>
               </View>
-              <Icon name="time-outline" size={18} color="#16a34a" library="ionicons" />
+              <Icon name="time-outline" size={18} color={theme.colors.status.success} library="ionicons" />
               <Text style={s.statCardValue}>{Math.round(workedHoursThisMonth)}h</Text>
               <Text style={s.statCardLabel}>Giờ làm việc</Text>
               <View style={s.statBar}>
-                <View style={[s.statBarFill, { width: `${Math.min(100, (workedHoursThisMonth / (totalDaysInMonth * 8)) * 100)}%`, backgroundColor: '#16a34a' }]} />
+                <View style={[s.statBarFill, { width: `${Math.min(100, (workedHoursThisMonth / (totalDaysInMonth * 8)) * 100)}%`, backgroundColor: theme.colors.status.success }]} />
               </View>
             </View>
           </View>
@@ -345,7 +348,7 @@ export default function DashboardScreen() {
         <View style={s.activityList}>
           {activities.length === 0 ? (
             <View style={[s.activityItem, { justifyContent: 'center' }]}>
-              <Text style={{ fontSize: 13, color: '#9ca3af' }}>Chưa có hoạt động hôm nay</Text>
+              <Text style={{ fontSize: 13, color: theme.colors.text.muted }}>Chưa có hoạt động hôm nay</Text>
             </View>
           ) : (
             activities.map((a) => (
@@ -354,7 +357,7 @@ export default function DashboardScreen() {
                   <Icon
                     name={a.type === 'checkout' ? 'log-out-outline' : a.iconType === 'orange' ? 'time-outline' : 'log-in-outline'}
                     size={17}
-                    color={a.iconType === 'blue' ? '#4F6EF7' : a.iconType === 'green' ? '#16a34a' : '#d97706'}
+                    color={a.iconType === 'blue' ? theme.colors.brand.primary : a.iconType === 'green' ? theme.colors.status.success : theme.colors.status.warning}
                     library="ionicons"
                   />
                 </View>
@@ -379,134 +382,136 @@ export default function DashboardScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f3f4f8' },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: t.colors.background.base },
 
-  // Header
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16,
-  },
-  greeting: { fontSize: 13, color: '#747686', fontWeight: '400', marginBottom: 2 },
-  userName: { fontSize: 22, fontWeight: '700', color: '#191c1e', letterSpacing: -0.4 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  notifBtn: {
-    width: 40, height: 40, borderRadius: 9999,
-    borderWidth: 1, borderColor: '#e2e3ef',
-    backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2, elevation: 1,
-  },
-  notifBellWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EEF1FF', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  notifBadge: {
-    position: 'absolute', top: -2, right: -2,
-    minWidth: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#ef4444', borderWidth: 1.5, borderColor: '#fff',
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
-  },
-  notifBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-  avatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#4F6EF7',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4,
-  },
-  avatarText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+    // Header
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16,
+    },
+    greeting: { fontSize: 13, color: t.colors.text.muted, fontWeight: '400', marginBottom: 2 },
+    userName: { fontSize: 22, fontWeight: '700', color: t.colors.text.primary, letterSpacing: -0.4 },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    notifBtn: {
+      width: 40, height: 40, borderRadius: 9999,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      backgroundColor: t.colors.background.surface,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2, elevation: 1,
+    },
+    notifBellWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: t.colors.background.indigoTint, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    notifBadge: {
+      position: 'absolute', top: -2, right: -2,
+      minWidth: 16, height: 16, borderRadius: 8,
+      backgroundColor: t.colors.status.danger, borderWidth: 1.5, borderColor: t.colors.background.surface,
+      alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+    },
+    notifBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+    avatar: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: t.colors.brand.primary,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: t.colors.brand.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4,
+    },
+    avatarText: { fontSize: 17, fontWeight: '700', color: '#fff' },
 
-  // Hero card
-  heroCard: {
-    marginHorizontal: 16, marginBottom: 20, borderRadius: 24,
-    padding: 18, overflow: 'hidden',
-    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 8,
-  },
-  heroDecor1: { position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.07)' },
-  heroDecor2: { position: 'absolute', bottom: -30, left: 30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)' },
-  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  heroShiftLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
-  heroShiftTime: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
-  workingBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 9999, paddingVertical: 5, paddingHorizontal: 10,
-  },
-  workingDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#4ade80' },
-  workingBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
-  heroClock: { alignItems: 'center', marginBottom: 4 },
-  heroTime: { fontSize: 52, fontWeight: '800', color: '#fff', letterSpacing: -2, lineHeight: 56 },
-  heroDate: { fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: '400', marginTop: 4 },
-  heroStats: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 16 },
-  heroStat: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8,
-    paddingVertical: 10, alignItems: 'center',
-  },
-  heroStatLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: '500', marginBottom: 3 },
-  heroStatValue: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
-  checkoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    height: 48, borderRadius: 9999,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 3,
-  },
-  checkoutBtnText: { fontSize: 15, fontWeight: '600', color: '#2a4dd7' },
+    // Hero card
+    heroCard: {
+      marginHorizontal: 16, marginBottom: 20, borderRadius: 24,
+      padding: 18, overflow: 'hidden',
+      shadowColor: t.colors.brand.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 8,
+    },
+    heroDecor1: { position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.07)' },
+    heroDecor2: { position: 'absolute', bottom: -30, left: 30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)' },
+    heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+    heroShiftLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
+    heroShiftTime: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
+    workingBadge: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      backgroundColor: 'rgba(255,255,255,0.18)',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+      borderRadius: 9999, paddingVertical: 5, paddingHorizontal: 10,
+    },
+    workingDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: t.colors.brand.secondary },
+    workingBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+    heroClock: { alignItems: 'center', marginBottom: 4 },
+    heroTime: { fontSize: 52, fontWeight: '800', color: '#fff', letterSpacing: -2, lineHeight: 56 },
+    heroDate: { fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: '400', marginTop: 4 },
+    heroStats: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 16 },
+    heroStat: {
+      flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 8,
+      paddingVertical: 10, alignItems: 'center',
+    },
+    heroStatLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: '500', marginBottom: 3 },
+    heroStatValue: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
+    checkoutBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      height: 48, borderRadius: 9999,
+      backgroundColor: 'rgba(255,255,255,0.95)',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 3,
+    },
+    checkoutBtnText: { fontSize: 15, fontWeight: '600', color: t.colors.brand.primaryHover },
 
-  // Quick actions
-  sectionHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 12,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#191c1e', letterSpacing: -0.2 },
-  sectionLink: { fontSize: 13, fontWeight: '500', color: '#4F6EF7' },
-  quickActions: {
-    flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 24,
-  },
-  actionItem: {
-    flex: 1, alignItems: 'center', gap: 8, backgroundColor: '#fff',
-    borderRadius: 12, paddingVertical: 14,
-    borderWidth: 1, borderColor: '#e2e3ef',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
-  },
-  actionIcon: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  actionLabel: { fontSize: 11, fontWeight: '500', color: '#444654', textAlign: 'center', lineHeight: 14 },
+    // Quick actions
+    sectionHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingBottom: 12,
+    },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: t.colors.text.primary, letterSpacing: -0.2 },
+    sectionLink: { fontSize: 13, fontWeight: '500', color: t.colors.brand.primary },
+    quickActions: {
+      flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 24,
+    },
+    actionItem: {
+      flex: 1, alignItems: 'center', gap: 8, backgroundColor: t.colors.background.surface,
+      borderRadius: 12, paddingVertical: 14,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+    },
+    actionIcon: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    actionLabel: { fontSize: 11, fontWeight: '500', color: t.colors.text.secondary, textAlign: 'center', lineHeight: 14 },
 
-  // Monthly stats
-  statsGrid: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 24 },
-  statCard: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 16,
-    borderWidth: 1, borderColor: '#e2e3ef', overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
-  },
-  statCardBadge: {
-    position: 'absolute', top: 12, right: 12,
-    paddingVertical: 2, paddingHorizontal: 7, borderRadius: 9999,
-  },
-  statCardValue: { fontSize: 28, fontWeight: '800', color: '#191c1e', letterSpacing: -1, lineHeight: 32, marginTop: 8, marginBottom: 2 },
-  statCardLabel: { fontSize: 12, color: '#747686', marginBottom: 10 },
-  statBar: { height: 4, borderRadius: 9999, backgroundColor: '#f3f4f6', overflow: 'hidden' },
-  statBarFill: { height: '100%', borderRadius: 9999 },
+    // Monthly stats
+    statsGrid: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 24 },
+    statCard: {
+      flex: 1, backgroundColor: t.colors.background.surface, borderRadius: 12, padding: 16,
+      borderWidth: 1, borderColor: t.colors.border.default, overflow: 'hidden',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+    },
+    statCardBadge: {
+      position: 'absolute', top: 12, right: 12,
+      paddingVertical: 2, paddingHorizontal: 7, borderRadius: 9999,
+    },
+    statCardValue: { fontSize: 28, fontWeight: '800', color: t.colors.text.primary, letterSpacing: -1, lineHeight: 32, marginTop: 8, marginBottom: 2 },
+    statCardLabel: { fontSize: 12, color: t.colors.text.muted, marginBottom: 10 },
+    statBar: { height: 4, borderRadius: 9999, backgroundColor: t.colors.background.base, overflow: 'hidden' },
+    statBarFill: { height: '100%', borderRadius: 9999 },
 
-  // Activity
-  activityList: { paddingHorizontal: 16, gap: 8, flexDirection: 'column', marginBottom: 8 },
-  activityItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fff', borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: '#e2e3ef',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
-    marginBottom: 8,
-  },
-  activityIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  activityIconBlue: { backgroundColor: '#EEF1FF' },
-  activityIconGreen: { backgroundColor: '#dcfce7' },
-  activityIconOrange: { backgroundColor: '#fef3c7' },
-  activityBody: { flex: 1, minWidth: 0 },
-  activityTitle: { fontSize: 13, fontWeight: '600', color: '#191c1e', marginBottom: 2 },
-  activitySub: { fontSize: 11, color: '#747686', overflow: 'hidden' },
-  activityMeta: { alignItems: 'flex-end', gap: 4, flexShrink: 0 },
-  activityTime: { fontSize: 12, fontWeight: '600', color: '#444654' },
-  badge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 9999 },
-  badgeGreen: { backgroundColor: '#dcfce7' },
-  badgeOrange: { backgroundColor: '#fef3c7' },
-  badgeText: { fontSize: 10, fontWeight: '600' },
-  badgeTextGreen: { color: '#15803d' },
-  badgeTextOrange: { color: '#b45309' },
-});
+    // Activity
+    activityList: { paddingHorizontal: 16, gap: 8, flexDirection: 'column', marginBottom: 8 },
+    activityItem: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: t.colors.background.surface, borderRadius: 12, padding: 14,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+      marginBottom: 8,
+    },
+    activityIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    activityIconBlue: { backgroundColor: t.colors.background.indigoTint },
+    activityIconGreen: { backgroundColor: t.colors.status.successBg },
+    activityIconOrange: { backgroundColor: t.colors.status.warningBg },
+    activityBody: { flex: 1, minWidth: 0 },
+    activityTitle: { fontSize: 13, fontWeight: '600', color: t.colors.text.primary, marginBottom: 2 },
+    activitySub: { fontSize: 11, color: t.colors.text.muted, overflow: 'hidden' },
+    activityMeta: { alignItems: 'flex-end', gap: 4, flexShrink: 0 },
+    activityTime: { fontSize: 12, fontWeight: '600', color: t.colors.text.secondary },
+    badge: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 9999 },
+    badgeGreen: { backgroundColor: t.colors.status.successBg },
+    badgeOrange: { backgroundColor: t.colors.status.warningBg },
+    badgeText: { fontSize: 10, fontWeight: '600' },
+    badgeTextGreen: { color: t.colors.status.success },
+    badgeTextOrange: { color: t.colors.status.warning },
+  });
+}

@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { Icon } from '../ui/Icon';
+import { useTheme } from '../../theme';
 
 interface StatCardProps {
   icon: string;
@@ -13,29 +13,6 @@ interface StatCardProps {
   delay?: number;
 }
 
-const colorConfig = {
-  success: {
-    gradient: ['rgba(11, 218, 104, 0.2)', 'rgba(11, 218, 104, 0.1)'],
-    iconColor: COLORS.accent.green,
-    textColor: COLORS.accent.green,
-  },
-  primary: {
-    gradient: ['rgba(66, 69, 240, 0.2)', 'rgba(66, 69, 240, 0.1)'],
-    iconColor: COLORS.primary,
-    textColor: COLORS.primary,
-  },
-  warning: {
-    gradient: ['rgba(255, 152, 0, 0.2)', 'rgba(255, 152, 0, 0.1)'],
-    iconColor: '#FF9800',
-    textColor: '#FF9800',
-  },
-  destructive: {
-    gradient: ['rgba(244, 67, 54, 0.2)', 'rgba(244, 67, 54, 0.1)'],
-    iconColor: COLORS.accent.red,
-    textColor: COLORS.accent.red,
-  },
-};
-
 export const StatCard: React.FC<StatCardProps> = ({
   icon,
   title,
@@ -44,63 +21,88 @@ export const StatCard: React.FC<StatCardProps> = ({
   color,
   delay = 0,
 }) => {
-  const colors = colorConfig[color];
+  const { colors } = useTheme();
+
+  const colorConfig = useMemo(() => ({
+    success: {
+      gradient: ['rgba(22,163,74,0.15)', 'rgba(22,163,74,0.08)'],
+      iconColor: colors.status.success,
+      textColor: colors.status.success,
+    },
+    primary: {
+      gradient: ['rgba(79,110,247,0.2)', 'rgba(79,110,247,0.1)'],
+      iconColor: colors.brand.primary,
+      textColor: colors.brand.primary,
+    },
+    warning: {
+      gradient: ['rgba(217,119,6,0.15)', 'rgba(217,119,6,0.08)'],
+      iconColor: colors.status.warning,
+      textColor: colors.status.warning,
+    },
+    destructive: {
+      gradient: ['rgba(239,68,68,0.15)', 'rgba(239,68,68,0.08)'],
+      iconColor: colors.status.danger,
+      textColor: colors.status.danger,
+    },
+  }), [colors]);
+
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const cfg = colorConfig[color];
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          opacity: delay > 0 ? 0 : 1,
-        },
-      ]}
-    >
+    <View style={[s.card, delay > 0 && { opacity: 0 }]}>
       <LinearGradient
-        colors={colors.gradient as any}
+        colors={cfg.gradient as any}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.iconContainer}
+        style={s.iconContainer}
       >
-        <Icon name={icon} size={20} color={colors.iconColor} />
+        <Icon name={icon} size={20} color={cfg.iconColor} />
       </LinearGradient>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={[styles.value, { color: colors.textColor }]}>{value}</Text>
-      <Text style={styles.unit}>{unit}</Text>
+      <Text style={s.title}>{title}</Text>
+      <Text style={[s.value, { color: cfg.textColor }]}>{value}</Text>
+      <Text style={s.unit}>{unit}</Text>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: COLORS.surface.dark,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    ...SHADOWS.md,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: BORDER_RADIUS.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  title: {
-    color: COLORS.text.secondary,
-    fontSize: 12,
-    marginBottom: SPACING.xs,
-  },
-  value: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: SPACING.xs,
-  },
-  unit: {
-    color: COLORS.text.secondary,
-    fontSize: 12,
-  },
-});
+function makeStyles(c: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    card: {
+      flex: 1,
+      backgroundColor: c.background.surface,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: c.border.default,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+      alignItems: 'center',
+    },
+    iconContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    title: {
+      color: c.text.muted,
+      fontSize: 12,
+      marginBottom: 4,
+    },
+    value: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      marginBottom: 4,
+    },
+    unit: {
+      color: c.text.muted,
+      fontSize: 12,
+    },
+  });
+}

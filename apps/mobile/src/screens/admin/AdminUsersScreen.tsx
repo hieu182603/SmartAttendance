@@ -12,13 +12,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { AdminTabParamList } from '../../navigation/AppNavigator';
-import { SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { Icon } from '../../components/ui/Icon';
 import { UserRole } from '../../types';
 import { AdminService } from '../../services/admin.service';
-import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
-import { ThemeColors } from '../../theme/colors';
+import { useTheme, Theme } from '../../theme';
 
 type AdminUsersScreenNavigationProp = BottomTabNavigationProp<AdminTabParamList, 'AdminUsers'>;
 
@@ -37,64 +34,9 @@ interface User {
   createdAt?: string;
 }
 
-function makeStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    listPadding: {
-      padding: SPACING.xl,
-      paddingBottom: 100,
-    },
-    countText: {
-      color: colors.textSecondary,
-      fontSize: 14,
-      fontWeight: '500',
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      marginTop: SPACING.xxl,
-    },
-    emptyText: {
-      color: colors.textSecondary,
-      marginTop: SPACING.md,
-    },
-    userCard: {
-      backgroundColor: colors.card,
-      borderRadius: BORDER_RADIUS.lg,
-      padding: SPACING.lg,
-      marginBottom: SPACING.md,
-      ...SHADOWS.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    userRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    userName: {
-      color: colors.textPrimary,
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginRight: SPACING.sm,
-    },
-    userEmail: {
-      color: colors.textSecondary,
-      fontSize: 12,
-      marginBottom: SPACING.xs / 2,
-    },
-    userStatus: {
-      color: colors.textSecondary,
-      fontSize: 11,
-    },
-  });
-}
-
 export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | UserRole>('all');
@@ -139,11 +81,11 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
   const getRoleColor = (role: UserRole) => {
     switch (role) {
       case UserRole.Admin:
-        return '#ef4444';
+        return theme.colors.status.danger;
       case UserRole.Manager:
-        return '#4F6EF7';
+        return theme.colors.brand.primary;
       default:
-        return '#06b6d4';
+        return theme.colors.status.info;
     }
   };
 
@@ -160,31 +102,31 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
 
   return (
     <ScrollView
-      style={styles.container}
+      style={s.container}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 100 }}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.text.onPrimary} />
       }
     >
       {/* Header */}
       <LinearGradient
-        colors={['#4f46e5', '#9333ea']}
+        colors={[theme.colors.brand.primaryHover, '#9333ea'] as unknown as readonly [string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
-          paddingTop: SPACING.xxl * 2,
-          paddingBottom: SPACING.xl,
-          paddingHorizontal: SPACING.xl,
-          borderBottomLeftRadius: BORDER_RADIUS.xxl,
-          borderBottomRightRadius: BORDER_RADIUS.xxl,
+          paddingTop: 48,
+          paddingBottom: 20,
+          paddingHorizontal: 20,
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
         }}
       >
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            marginBottom: SPACING.lg,
+            marginBottom: 16,
           }}
         >
           <TouchableOpacity
@@ -196,20 +138,20 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
               justifyContent: 'center',
               alignItems: 'center',
-              marginRight: SPACING.md,
+              marginRight: 12,
             }}
           >
-            <Icon name="arrow_back" size={20} color="#ffffff" />
+            <Icon name="arrow-back-outline" size={20} color={theme.colors.text.onPrimary} library="ionicons" />
           </TouchableOpacity>
           <Text
             style={{
-              color: '#ffffff',
+              color: theme.colors.text.onPrimary,
               fontSize: 24,
               fontWeight: 'bold',
               flex: 1,
             }}
           >
-            {t.admin.dashboard.users}
+            Người dùng
           </Text>
           <TouchableOpacity
             style={{
@@ -221,7 +163,7 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
               alignItems: 'center',
             }}
           >
-            <Icon name="person_add" size={24} color="#ffffff" />
+            <Icon name="person-add-outline" size={24} color={theme.colors.text.onPrimary} library="ionicons" />
           </TouchableOpacity>
         </View>
 
@@ -231,22 +173,22 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: 'rgba(255, 255, 255, 0.15)',
-            borderRadius: BORDER_RADIUS.lg,
-            paddingHorizontal: SPACING.md,
-            paddingVertical: SPACING.sm,
-            marginBottom: SPACING.md,
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            marginBottom: 12,
           }}
         >
-          <Icon name="search" size={20} color="rgba(255, 255, 255, 0.7)" />
+          <Icon name="search-outline" size={20} color="rgba(255, 255, 255, 0.7)" library="ionicons" />
           <TextInput
             style={{
               flex: 1,
-              color: '#ffffff',
+              color: theme.colors.text.onPrimary,
               fontSize: 14,
-              marginLeft: SPACING.sm,
+              marginLeft: 8,
               padding: 0,
             }}
-            placeholder={t.common.search}
+            placeholder="Tìm kiếm"
             placeholderTextColor="rgba(255, 255, 255, 0.5)"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -254,7 +196,7 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Icon name="close" size={18} color="rgba(255, 255, 255, 0.7)" />
+              <Icon name="close-outline" size={18} color="rgba(255, 255, 255, 0.7)" library="ionicons" />
             </TouchableOpacity>
           )}
         </View>
@@ -266,19 +208,19 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
               key={filter}
               onPress={() => setSelectedFilter(filter)}
               style={{
-                paddingHorizontal: SPACING.md,
-                paddingVertical: SPACING.xs,
-                borderRadius: BORDER_RADIUS.md,
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 8,
                 backgroundColor:
                   selectedFilter === filter
                     ? 'rgba(255, 255, 255, 0.3)'
                     : 'rgba(255, 255, 255, 0.1)',
-                marginRight: index < 3 ? SPACING.sm : 0,
+                marginRight: index < 3 ? 8 : 0,
               }}
             >
               <Text
                 style={{
-                  color: '#ffffff',
+                  color: theme.colors.text.onPrimary,
                   fontSize: 12,
                   fontWeight: selectedFilter === filter ? 'bold' : '500',
                 }}
@@ -291,9 +233,9 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
       </LinearGradient>
 
       {/* User List */}
-      <View style={styles.listPadding}>
+      <View style={s.listPadding}>
         {isLoading && !refreshing ? (
-          <ActivityIndicator size="large" color="#4F6EF7" style={{ marginTop: SPACING.xxl }} />
+          <ActivityIndicator size="large" color={theme.colors.brand.primary} style={{ marginTop: 24 }} />
         ) : (
           <>
             <View
@@ -301,21 +243,21 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
                 flexDirection: 'row',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: SPACING.md,
+                marginBottom: 12,
               }}
             >
-              <Text style={styles.countText}>{users.length} người dùng</Text>
+              <Text style={s.countText}>{users.length} người dùng</Text>
             </View>
 
             {users.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Icon name="person_off" size={60} color={colors.textSecondary} />
-                <Text style={styles.emptyText}>{t.common.noData}</Text>
+              <View style={s.emptyContainer}>
+                <Icon name="person-outline" size={60} color={theme.colors.text.secondary} library="ionicons" />
+                <Text style={s.emptyText}>Không có dữ liệu</Text>
               </View>
             ) : (
               users.map((user) => (
-                <TouchableOpacity key={user._id} style={styles.userCard}>
-                  <View style={styles.userRow}>
+                <TouchableOpacity key={user._id} style={s.userCard}>
+                  <View style={s.userRow}>
                     {/* Avatar */}
                     <View
                       style={{
@@ -325,10 +267,10 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
                         backgroundColor: getRoleColor(user.role),
                         justifyContent: 'center',
                         alignItems: 'center',
-                        marginRight: SPACING.md,
+                        marginRight: 12,
                       }}
                     >
-                      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>
+                      <Text style={{ color: theme.colors.text.onPrimary, fontSize: 18, fontWeight: 'bold' }}>
                         {user.name.charAt(0).toUpperCase()}
                       </Text>
                     </View>
@@ -339,15 +281,15 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
                         style={{
                           flexDirection: 'row',
                           alignItems: 'center',
-                          marginBottom: SPACING.xs / 2,
+                          marginBottom: 2,
                         }}
                       >
-                        <Text style={styles.userName}>{user.name}</Text>
+                        <Text style={s.userName}>{user.name}</Text>
                         <View
                           style={{
-                            paddingHorizontal: SPACING.xs,
+                            paddingHorizontal: 4,
                             paddingVertical: 2,
-                            borderRadius: BORDER_RADIUS.sm,
+                            borderRadius: 6,
                             backgroundColor: `${getRoleColor(user.role)}20`,
                             borderWidth: 1,
                             borderColor: `${getRoleColor(user.role)}40`,
@@ -364,7 +306,7 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
                           </Text>
                         </View>
                       </View>
-                      <Text style={styles.userEmail}>{user.email}</Text>
+                      <Text style={s.userEmail}>{user.email}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <View
                           style={{
@@ -372,11 +314,11 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
                             height: 6,
                             borderRadius: 3,
                             backgroundColor:
-                              user.status === 'active' ? '#16a34a' : colors.textSecondary,
-                            marginRight: SPACING.xs,
+                              user.status === 'active' ? theme.colors.status.success : theme.colors.text.secondary,
+                            marginRight: 4,
                           }}
                         />
-                        <Text style={styles.userStatus}>
+                        <Text style={s.userStatus}>
                           {user.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}{' '}
                           {user.lastActive ? `• ${user.lastActive}` : ''}
                         </Text>
@@ -384,8 +326,8 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
                     </View>
 
                     {/* Actions */}
-                    <TouchableOpacity style={{ padding: SPACING.sm }}>
-                      <Icon name="more_vert" size={20} color={colors.textSecondary} />
+                    <TouchableOpacity style={{ padding: 8 }}>
+                      <Icon name="ellipsis-vertical-outline" size={20} color={theme.colors.text.secondary} library="ionicons" />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -396,4 +338,62 @@ export default function AdminUsersScreen({ navigation }: AdminUsersScreenProps) 
       </View>
     </ScrollView>
   );
+}
+
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: t.colors.background.base,
+    },
+    listPadding: {
+      padding: 20,
+      paddingBottom: 100,
+    },
+    countText: {
+      color: t.colors.text.secondary,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      marginTop: 24,
+    },
+    emptyText: {
+      color: t.colors.text.secondary,
+      marginTop: 12,
+    },
+    userCard: {
+      backgroundColor: t.colors.background.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 2,
+      borderWidth: 1,
+      borderColor: t.colors.border.default,
+    },
+    userRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    userName: {
+      color: t.colors.text.primary,
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginRight: 8,
+    },
+    userEmail: {
+      color: t.colors.text.secondary,
+      fontSize: 12,
+      marginBottom: 2,
+    },
+    userStatus: {
+      color: t.colors.text.secondary,
+      fontSize: 11,
+    },
+  });
 }

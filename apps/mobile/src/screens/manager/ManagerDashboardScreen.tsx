@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,10 +14,11 @@ import { useUnreadCount } from '../../hooks/useNotificationQueries';
 import { useManagerApprovals, useTeamMembers } from '../../hooks/useManagerQueries';
 import { useAuth } from '../../context/AuthContext';
 import { ApprovalRequest } from '../../types';
+import { useTheme, Theme } from '../../theme';
 
 type Props = { navigation: BottomTabNavigationProp<ManagerTabParamList, 'ManagerDashboard'> };
 
-const AVA_COLORS = ['#4f6ef7', '#16a34a', '#f97316', '#d97706'];
+// AVA_COLORS is built dynamically inside the component using theme tokens
 
 function getLeaveTypeLabel(type: string) {
   switch (type) {
@@ -29,17 +30,17 @@ function getLeaveTypeLabel(type: string) {
   }
 }
 
-function getLeaveTypeBadge(type: string) {
+function getLeaveTypeBadge(type: string, colors: Theme['colors']) {
   switch (type) {
     case 'annual':
-    case 'sick': return { bg: '#ede9fe', color: '#7c3aed' };
-    case 'overtime': return { bg: '#fef3c7', color: '#d97706' };
-    case 'remote': return { bg: '#eef1ff', color: '#4f6ef7' };
-    default: return { bg: '#f3f4f8', color: '#9ca3af' };
+    case 'sick': return { bg: colors.background.indigoTint, color: colors.brand.primaryActive };
+    case 'overtime': return { bg: colors.status.warningBg, color: colors.status.warning };
+    case 'remote': return { bg: colors.background.indigoTint, color: colors.brand.primary };
+    default: return { bg: colors.background.base, color: colors.text.muted };
   }
 }
 
-function AttBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
+function AttBar({ label, value, total, color, s }: { label: string; value: number; total: number; color: string; s: ReturnType<typeof makeStyles> }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
     <View style={s.attBarRow}>
@@ -53,6 +54,10 @@ function AttBar({ label, value, total, color }: { label: string; value: number; 
 }
 
 export default function ManagerDashboardScreen({ navigation }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const AVA_COLORS = [theme.colors.brand.primary, theme.colors.status.success, theme.colors.status.warning, theme.colors.status.warning];
+
   const { user } = useAuth();
   const { data: unreadData } = useUnreadCount();
   const { data: approvalsData, isLoading: approvalsLoading } = useManagerApprovals({ status: 'pending' });
@@ -76,7 +81,7 @@ export default function ManagerDashboardScreen({ navigation }: Props) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Hero */}
         <LinearGradient
-          colors={['#1e3a8a', '#2563eb', '#4f6ef7']}
+          colors={[theme.colors.brand.primaryActive, theme.colors.brand.primaryHover, theme.colors.brand.primary]}
           locations={[0, 0.45, 1]}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -132,8 +137,8 @@ export default function ManagerDashboardScreen({ navigation }: Props) {
             {/* Duyệt yêu cầu — with pending badge */}
             <View style={s.qaWrap}>
               <TouchableOpacity style={s.qaItem} onPress={() => navigation.navigate('ManagerApprovals')}>
-                <View style={[s.qaIcon, { backgroundColor: '#eef1ff' }]}>
-                  <Icon name="document-text-outline" size={20} color="#4f6ef7" library="ionicons" />
+                <View style={[s.qaIcon, { backgroundColor: theme.colors.background.indigoTint }]}>
+                  <Icon name="document-text-outline" size={20} color={theme.colors.brand.primary} library="ionicons" />
                 </View>
                 <Text style={s.qaLabel}>Duyệt yêu cầu</Text>
               </TouchableOpacity>
@@ -145,22 +150,22 @@ export default function ManagerDashboardScreen({ navigation }: Props) {
             </View>
 
             <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('ManagerTeam')}>
-              <View style={[s.qaIcon, { backgroundColor: '#dcfce7' }]}>
-                <Icon name="people-outline" size={20} color="#16a34a" library="ionicons" />
+              <View style={[s.qaIcon, { backgroundColor: theme.colors.background.emeraldTint }]}>
+                <Icon name="people-outline" size={20} color={theme.colors.status.success} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Điểm danh nhóm</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('ManagerSchedule')}>
-              <View style={[s.qaIcon, { backgroundColor: '#fef3c7' }]}>
-                <Icon name="calendar-outline" size={20} color="#b45309" library="ionicons" />
+              <View style={[s.qaIcon, { backgroundColor: theme.colors.status.warningBg }]}>
+                <Icon name="calendar-outline" size={20} color={theme.colors.status.warning} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Ca làm việc</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('ManagerTeam')}>
-              <View style={[s.qaIcon, { backgroundColor: '#ede9fe' }]}>
-                <Icon name="star-outline" size={20} color="#7c3aed" library="ionicons" />
+              <View style={[s.qaIcon, { backgroundColor: theme.colors.background.indigoTint }]}>
+                <Icon name="star-outline" size={20} color={theme.colors.brand.primaryActive} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Đánh giá</Text>
             </TouchableOpacity>
@@ -178,16 +183,16 @@ export default function ManagerDashboardScreen({ navigation }: Props) {
               <Text style={s.attTitle}>Nhóm của tôi · {teamLoading ? '...' : totalCount} người</Text>
               <Text style={s.attDate}>{todayStr}</Text>
             </View>
-            <AttBar label="Đúng giờ" value={presentCount} total={totalCount} color="#16a34a" />
-            <AttBar label="Đi trễ" value={lateCount} total={totalCount} color="#d97706" />
-            <AttBar label="WFH" value={wfhCount} total={totalCount} color="#4f6ef7" />
-            <AttBar label="Vắng" value={absentCount} total={totalCount} color="#ef4444" />
+            <AttBar s={s} label="Đúng giờ" value={presentCount} total={totalCount} color={theme.colors.status.success} />
+            <AttBar s={s} label="Đi trễ" value={lateCount} total={totalCount} color={theme.colors.status.warning} />
+            <AttBar s={s} label="WFH" value={wfhCount} total={totalCount} color={theme.colors.brand.primary} />
+            <AttBar s={s} label="Vắng" value={absentCount} total={totalCount} color={theme.colors.status.danger} />
             <View style={s.attLegend}>
               {[
-                { color: '#16a34a', label: 'Đúng giờ' },
-                { color: '#d97706', label: 'Trễ' },
-                { color: '#4f6ef7', label: 'WFH' },
-                { color: '#ef4444', label: 'Vắng' },
+                { color: theme.colors.status.success, label: 'Đúng giờ' },
+                { color: theme.colors.status.warning, label: 'Trễ' },
+                { color: theme.colors.brand.primary, label: 'WFH' },
+                { color: theme.colors.status.danger, label: 'Vắng' },
               ].map((item) => (
                 <View key={item.label} style={s.legItem}>
                   <View style={[s.legDot, { backgroundColor: item.color }]} />
@@ -212,7 +217,7 @@ export default function ManagerDashboardScreen({ navigation }: Props) {
             </View>
           ) : (
             approvals.slice(0, 3).map((approval: ApprovalRequest, idx) => {
-              const badge = getLeaveTypeBadge(approval.type);
+              const badge = getLeaveTypeBadge(approval.type, theme.colors);
               const dateRange = approval.startDate === approval.endDate
                 ? approval.startDate
                 : `${approval.startDate} – ${approval.endDate}`;
@@ -248,120 +253,122 @@ export default function ManagerDashboardScreen({ navigation }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f3f4f8' },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: t.colors.background.base },
 
-  // Hero
-  hero: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 36 },
-  heroTop: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 16,
-  },
-  heroGreet: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '400', marginBottom: 2 },
-  heroName: { fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
-  heroRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  notifBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center',
-    position: 'relative',
-  },
-  notifBadge: {
-    position: 'absolute', top: -2, right: -2,
-    backgroundColor: '#ef4444', borderRadius: 9999,
-    minWidth: 14, paddingHorizontal: 3, alignItems: 'center',
-  },
-  notifBadgeText: { fontSize: 8, fontWeight: '700', color: '#fff' },
-  mgrBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 9999, paddingVertical: 5, paddingHorizontal: 14,
-  },
-  mgrBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+    // Hero
+    hero: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 36 },
+    heroTop: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', marginBottom: 16,
+    },
+    heroGreet: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '400', marginBottom: 2 },
+    heroName: { fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+    heroRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    notifBtn: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      justifyContent: 'center', alignItems: 'center',
+      position: 'relative',
+    },
+    notifBadge: {
+      position: 'absolute', top: -2, right: -2,
+      backgroundColor: t.colors.status.danger, borderRadius: 9999,
+      minWidth: 14, paddingHorizontal: 3, alignItems: 'center',
+    },
+    notifBadgeText: { fontSize: 8, fontWeight: '700', color: '#fff' },
+    mgrBadge: {
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+      borderRadius: 9999, paddingVertical: 5, paddingHorizontal: 14,
+    },
+    mgrBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
 
-  // Stats row (in hero)
-  statsRow: { flexDirection: 'row', gap: 8 },
-  statBox: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center',
-  },
-  statVal: { fontSize: 22, fontWeight: '800', lineHeight: 26 },
-  statGreen: { color: '#86efac' },
-  statWarn: { color: '#fbbf24' },
-  statRed: { color: '#f87171' },
-  statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 4, fontWeight: '500', textAlign: 'center' },
+    // Stats row (in hero)
+    statsRow: { flexDirection: 'row', gap: 8 },
+    statBox: {
+      flex: 1, backgroundColor: 'rgba(255,255,255,0.12)',
+      borderRadius: 12, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center',
+    },
+    statVal: { fontSize: 22, fontWeight: '800', lineHeight: 26 },
+    statGreen: { color: '#86efac' },
+    statWarn: { color: '#fbbf24' },
+    statRed: { color: '#f87171' },
+    statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 4, fontWeight: '500', textAlign: 'center' },
 
-  // Body
-  body: { paddingHorizontal: 16 },
+    // Body
+    body: { paddingHorizontal: 16 },
 
-  // Section header
-  secHead: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginTop: 16, marginBottom: 10,
-  },
-  secTitle: { fontSize: 14, fontWeight: '700', color: '#191c1e' },
-  secLink: { fontSize: 12, fontWeight: '600', color: '#4f6ef7' },
+    // Section header
+    secHead: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', marginTop: 16, marginBottom: 10,
+    },
+    secTitle: { fontSize: 14, fontWeight: '700', color: t.colors.text.primary },
+    secLink: { fontSize: 12, fontWeight: '600', color: t.colors.brand.primary },
 
-  // Quick actions grid
-  quickGrid: { flexDirection: 'row', gap: 8 },
-  qaWrap: { flex: 1, position: 'relative' },
-  qaItem: {
-    backgroundColor: '#fff', borderRadius: 14,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    paddingVertical: 14, paddingHorizontal: 6,
-    alignItems: 'center', gap: 6,
-  },
-  qaFlex: { flex: 1 },
-  qaIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  qaLabel: { fontSize: 10, fontWeight: '600', color: '#444654', textAlign: 'center', lineHeight: 14 },
-  qaBadge: {
-    position: 'absolute', top: -4, right: -4,
-    backgroundColor: '#ef4444', borderRadius: 9999,
-    minWidth: 16, paddingHorizontal: 4, paddingVertical: 1,
-    alignItems: 'center', zIndex: 1,
-  },
-  qaBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff' },
+    // Quick actions grid
+    quickGrid: { flexDirection: 'row', gap: 8 },
+    qaWrap: { flex: 1, position: 'relative' },
+    qaItem: {
+      backgroundColor: t.colors.background.surface, borderRadius: 14,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      paddingVertical: 14, paddingHorizontal: 6,
+      alignItems: 'center', gap: 6,
+    },
+    qaFlex: { flex: 1 },
+    qaIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    qaLabel: { fontSize: 10, fontWeight: '600', color: t.colors.text.secondary, textAlign: 'center', lineHeight: 14 },
+    qaBadge: {
+      position: 'absolute', top: -4, right: -4,
+      backgroundColor: t.colors.status.danger, borderRadius: 9999,
+      minWidth: 16, paddingHorizontal: 4, paddingVertical: 1,
+      alignItems: 'center', zIndex: 1,
+    },
+    qaBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff' },
 
-  // Attendance card
-  attCard: {
-    backgroundColor: '#fff', borderRadius: 16,
-    borderWidth: 1, borderColor: '#e5e7eb', padding: 14, marginBottom: 4,
-  },
-  attHead: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 12,
-  },
-  attTitle: { fontSize: 13, fontWeight: '700', color: '#191c1e' },
-  attDate: { fontSize: 11, color: '#9ca3af', fontWeight: '500' },
-  attBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  attBarLabel: { fontSize: 11, color: '#444654', width: 52, fontWeight: '500' },
-  attBarTrack: { flex: 1, height: 7, backgroundColor: '#f3f4f8', borderRadius: 9999, overflow: 'hidden' },
-  attBarFill: { height: 7, borderRadius: 9999 },
-  attBarVal: { fontSize: 11, fontWeight: '700', color: '#191c1e', width: 20, textAlign: 'right' },
-  attLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
-  legItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legDot: { width: 7, height: 7, borderRadius: 4 },
-  legText: { fontSize: 10, color: '#9ca3af', fontWeight: '500' },
+    // Attendance card
+    attCard: {
+      backgroundColor: t.colors.background.surface, borderRadius: 16,
+      borderWidth: 1, borderColor: t.colors.border.default, padding: 14, marginBottom: 4,
+    },
+    attHead: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', marginBottom: 12,
+    },
+    attTitle: { fontSize: 13, fontWeight: '700', color: t.colors.text.primary },
+    attDate: { fontSize: 11, color: t.colors.text.muted, fontWeight: '500' },
+    attBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+    attBarLabel: { fontSize: 11, color: t.colors.text.secondary, width: 52, fontWeight: '500' },
+    attBarTrack: { flex: 1, height: 7, backgroundColor: t.colors.background.base, borderRadius: 9999, overflow: 'hidden' },
+    attBarFill: { height: 7, borderRadius: 9999 },
+    attBarVal: { fontSize: 11, fontWeight: '700', color: t.colors.text.primary, width: 20, textAlign: 'right' },
+    attLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
+    legItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    legDot: { width: 7, height: 7, borderRadius: 4 },
+    legText: { fontSize: 10, color: t.colors.text.muted, fontWeight: '500' },
 
-  // Pending requests mini list
-  reqSkeleton: { height: 56, backgroundColor: '#e5e7eb', borderRadius: 14, marginBottom: 8 },
-  reqEmpty: {
-    backgroundColor: '#fff', borderRadius: 14,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    padding: 16, alignItems: 'center', marginBottom: 8,
-  },
-  reqEmptyText: { fontSize: 13, color: '#9ca3af' },
-  reqMini: {
-    backgroundColor: '#fff', borderRadius: 14,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    paddingVertical: 12, paddingHorizontal: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,
-  },
-  reqAva: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  reqAvaText: { fontSize: 12, fontWeight: '800', color: '#fff' },
-  reqInfo: { flex: 1, minWidth: 0 },
-  reqName: { fontSize: 13, fontWeight: '700', color: '#191c1e' },
-  reqSub: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
-  reqTypeBadge: { borderRadius: 7, paddingVertical: 3, paddingHorizontal: 9 },
-  reqTypeText: { fontSize: 10, fontWeight: '700' },
-});
+    // Pending requests mini list
+    reqSkeleton: { height: 56, backgroundColor: t.colors.border.default, borderRadius: 14, marginBottom: 8 },
+    reqEmpty: {
+      backgroundColor: t.colors.background.surface, borderRadius: 14,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      padding: 16, alignItems: 'center', marginBottom: 8,
+    },
+    reqEmptyText: { fontSize: 13, color: t.colors.text.muted },
+    reqMini: {
+      backgroundColor: t.colors.background.surface, borderRadius: 14,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      paddingVertical: 12, paddingHorizontal: 14,
+      flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,
+    },
+    reqAva: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+    reqAvaText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+    reqInfo: { flex: 1, minWidth: 0 },
+    reqName: { fontSize: 13, fontWeight: '700', color: t.colors.text.primary },
+    reqSub: { fontSize: 11, color: t.colors.text.muted, marginTop: 1 },
+    reqTypeBadge: { borderRadius: 7, paddingVertical: 3, paddingHorizontal: 9 },
+    reqTypeText: { fontSize: 10, fontWeight: '700' },
+  });
+}

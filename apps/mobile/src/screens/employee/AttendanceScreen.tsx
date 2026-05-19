@@ -14,9 +14,9 @@ import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { globalStyles, COLORS, SPACING } from '../../utils/styles';
 import { Icon } from '../../components/ui/Icon';
 import { AttendanceService } from '../../services/attendance.service';
+import { useTheme, Theme } from '../../theme';
 
 type Props = { navigation: StackNavigationProp<RootStackParamList, 'Attendance'>; route: any };
 
@@ -28,6 +28,8 @@ export default function AttendanceScreen({ navigation, route }: Props) {
   const [locationStatus, setLocationStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [isProcessing, setIsProcessing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   // Oval breathe animation
   const breatheAnim = useRef(new Animated.Value(1)).current;
@@ -102,14 +104,14 @@ export default function AttendanceScreen({ navigation, route }: Props) {
     }
   };
 
-  if (!permission) return <View style={globalStyles.container} />;
+  if (!permission) return <View style={{ flex: 1 }} />;
 
   if (!permission.granted) {
     return (
-      <View style={[globalStyles.container, s.center]}>
+      <View style={[{ flex: 1 }, s.center]}>
         <Text style={s.permText}>Cần quyền truy cập camera để chấm công khuôn mặt.</Text>
-        <TouchableOpacity style={globalStyles.primaryButton} onPress={requestPermission}>
-          <Text style={globalStyles.primaryButtonText}>Cấp quyền Camera</Text>
+        <TouchableOpacity style={s.permBtn} onPress={requestPermission}>
+          <Text style={s.permBtnText}>Cấp quyền Camera</Text>
         </TouchableOpacity>
       </View>
     );
@@ -183,7 +185,7 @@ export default function AttendanceScreen({ navigation, route }: Props) {
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={mode === 'check-out' ? ['#ef4444', '#dc2626'] : ['#4F6EF7', '#3a52dd']}
+            colors={(mode === 'check-out' ? [theme.colors.status.danger, '#dc2626'] : [theme.colors.brand.primary, theme.colors.brand.primaryHover]) as unknown as readonly [string, ...string[]]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={s.checkinBtnGradient}
@@ -208,10 +210,10 @@ export default function AttendanceScreen({ navigation, route }: Props) {
       {/* Top bar: close + flip */}
       <View style={s.topBar}>
         <TouchableOpacity style={s.iconBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <Icon name="close" size={22} color="#fff" />
+          <Icon name="close-outline" size={22} color="#fff" library="ionicons" />
         </TouchableOpacity>
         <TouchableOpacity style={s.iconBtn} onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))} activeOpacity={0.7}>
-          <Icon name="cameraswitch" size={22} color="#fff" />
+          <Icon name="camera-reverse-outline" size={22} color="#fff" library="ionicons" />
         </TouchableOpacity>
       </View>
     </View>
@@ -221,116 +223,118 @@ export default function AttendanceScreen({ navigation, route }: Props) {
 const OVAL_W = 216;
 const OVAL_H = 270;
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0d0f1e' },
-  center: { justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
-  permText: { color: '#fff', textAlign: 'center', marginBottom: 20, fontSize: 14 },
-  statusBarSpacer: { height: 44 },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: t.colors.text.primary },
+    center: { justifyContent: 'center', alignItems: 'center', padding: 16 },
+    permBtn: { backgroundColor: t.colors.brand.primary, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+    permBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    permText: { color: '#fff', textAlign: 'center', marginBottom: 20, fontSize: 14 },
+    statusBarSpacer: { height: 44 },
 
-  // Camera
-  camera: { flex: 1, backgroundColor: '#0d0f1e', position: 'relative', alignItems: 'center', justifyContent: 'center' },
+    // Camera
+    camera: { flex: 1, backgroundColor: t.colors.text.primary, position: 'relative', alignItems: 'center', justifyContent: 'center' },
 
-  // GPS chip
-  gpsChip: {
-    position: 'absolute', top: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 9999, paddingVertical: 6, paddingHorizontal: 14,
-    zIndex: 10,
-  },
-  gpsDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#9ca3af' },
-  gpsDotGreen: { backgroundColor: '#4ade80' },
-  gpsDotRed: { backgroundColor: '#ef4444' },
-  gpsText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+    // GPS chip
+    gpsChip: {
+      position: 'absolute', top: 16,
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+      borderRadius: 9999, paddingVertical: 6, paddingHorizontal: 14,
+      zIndex: 10,
+    },
+    gpsDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: t.colors.text.muted },
+    gpsDotGreen: { backgroundColor: '#4ade80' },
+    gpsDotRed: { backgroundColor: t.colors.status.danger },
+    gpsText: { fontSize: 12, fontWeight: '600', color: '#fff' },
 
-  // Scan target
-  scanTarget: {
-    width: 288, height: 308,
-    position: 'absolute', top: '50%', marginTop: -154,
-    alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden',
-  },
+    // Scan target
+    scanTarget: {
+      width: 288, height: 308,
+      position: 'absolute', top: '50%', marginTop: -154,
+      alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden',
+    },
 
-  // Oval
-  faceOval: {
-    position: 'absolute',
-    width: OVAL_W, height: OVAL_H,
-    borderRadius: OVAL_W / 2,
-    borderWidth: 2, borderColor: 'rgba(79,110,247,0.6)',
-    backgroundColor: 'transparent',
-  },
+    // Oval
+    faceOval: {
+      position: 'absolute',
+      width: OVAL_W, height: OVAL_H,
+      borderRadius: OVAL_W / 2,
+      borderWidth: 2, borderColor: 'rgba(99,102,241,0.6)',
+      backgroundColor: 'transparent',
+    },
 
-  // Corner brackets
-  bracket: {
-    position: 'absolute',
-    width: 28, height: 28,
-    borderColor: '#4F6EF7', borderStyle: 'solid',
-  },
-  bracketTL: { top: 0, left: 16, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 4 },
-  bracketTR: { top: 0, right: 16, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 4 },
-  bracketBL: { bottom: 0, left: 16, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 4 },
-  bracketBR: { bottom: 0, right: 16, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 4 },
+    // Corner brackets
+    bracket: {
+      position: 'absolute',
+      width: 28, height: 28,
+      borderColor: t.colors.brand.primary, borderStyle: 'solid',
+    },
+    bracketTL: { top: 0, left: 16, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 4 },
+    bracketTR: { top: 0, right: 16, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 4 },
+    bracketBL: { bottom: 0, left: 16, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 4 },
+    bracketBR: { bottom: 0, right: 16, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 4 },
 
-  // Scan line
-  scanLine: {
-    position: 'absolute',
-    top: 0, left: 24, right: 24,
-    height: 2,
-    backgroundColor: 'transparent',
-    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 4, elevation: 0,
-    // gradient via background
-    borderRadius: 1,
-    // fake gradient with tint
-    opacity: 0.85,
-    borderTopWidth: 2, borderTopColor: '#4F6EF7',
-  },
+    // Scan line
+    scanLine: {
+      position: 'absolute',
+      top: 0, left: 24, right: 24,
+      height: 2,
+      backgroundColor: 'transparent',
+      shadowColor: t.colors.brand.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 4, elevation: 0,
+      borderRadius: 1,
+      opacity: 0.85,
+      borderTopWidth: 2, borderTopColor: t.colors.brand.primary,
+    },
 
-  // Instructions
-  instructions: {
-    position: 'absolute', bottom: 16, left: 0, right: 0, alignItems: 'center',
-  },
-  instructionsText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center', paddingHorizontal: 32 },
+    // Instructions
+    instructions: {
+      position: 'absolute', bottom: 16, left: 0, right: 0, alignItems: 'center',
+    },
+    instructionsText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center', paddingHorizontal: 32 },
 
-  // Top bar
-  topBar: {
-    position: 'absolute', top: 44, left: 0, right: 0,
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 8, zIndex: 20,
-  },
-  iconBtn: {
-    padding: 8, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20,
-  },
+    // Top bar
+    topBar: {
+      position: 'absolute', top: 44, left: 0, right: 0,
+      flexDirection: 'row', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingTop: 8, zIndex: 20,
+    },
+    iconBtn: {
+      padding: 8, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20,
+    },
 
-  // Bottom panel
-  panel: {
-    backgroundColor: '#f3f4f8',
-    borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    padding: 20,
-    paddingBottom: 32,
-    flexShrink: 0,
-  },
-  statusRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  statusItem: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12,
-    paddingVertical: 12, alignItems: 'center',
-    borderWidth: 1, borderColor: '#e5e7eb',
-  },
-  statusLabel: { fontSize: 10, color: '#9ca3af', fontWeight: '500', marginBottom: 4 },
-  statusVal: { fontSize: 14, fontWeight: '700', color: '#191c1e' },
-  statusValGreen: { color: '#16a34a' },
-  statusValBlue: { color: '#4F6EF7' },
+    // Bottom panel — uses theme tokens for the light UI area
+    panel: {
+      backgroundColor: t.colors.background.base,
+      borderTopLeftRadius: 32, borderTopRightRadius: 32,
+      padding: 20,
+      paddingBottom: 32,
+      flexShrink: 0,
+    },
+    statusRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+    statusItem: {
+      flex: 1, backgroundColor: t.colors.background.surface, borderRadius: 12,
+      paddingVertical: 12, alignItems: 'center',
+      borderWidth: 1, borderColor: t.colors.border.default,
+    },
+    statusLabel: { fontSize: 10, color: t.colors.text.muted, fontWeight: '500', marginBottom: 4 },
+    statusVal: { fontSize: 14, fontWeight: '700', color: t.colors.text.primary },
+    statusValGreen: { color: t.colors.status.success },
+    statusValBlue: { color: t.colors.brand.primary },
 
-  checkinBtn: {
-    borderRadius: 9999, overflow: 'hidden',
-    shadowColor: '#4F6EF7', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 6,
-    marginBottom: 12,
-  },
-  checkinBtnDisabled: { opacity: 0.6 },
-  checkinBtnGradient: {
-    height: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-  },
-  checkinBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+    checkinBtn: {
+      borderRadius: 9999, overflow: 'hidden',
+      shadowColor: t.colors.brand.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 6,
+      marginBottom: 12,
+    },
+    checkinBtnDisabled: { opacity: 0.6 },
+    checkinBtnGradient: {
+      height: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    },
+    checkinBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
 
-  hint: { textAlign: 'center', fontSize: 12, color: '#9ca3af' },
-  hintLink: { color: '#4F6EF7', fontWeight: '600' },
-});
+    hint: { textAlign: 'center', fontSize: 12, color: t.colors.text.muted },
+    hintLink: { color: t.colors.brand.primary, fontWeight: '600' },
+  });
+}

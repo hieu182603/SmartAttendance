@@ -12,12 +12,10 @@ import { PieChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { ManagerTabParamList } from '../../navigation/AppNavigator';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { Icon } from '../../components/ui/Icon';
 import { useManagerReports } from '../../hooks/useManagerQueries';
 import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
-import { ThemeColors } from '../../theme/colors';
+import type { Theme } from '../../theme';
 
 type TeamReportsScreenNavigationProp = BottomTabNavigationProp<ManagerTabParamList, 'TeamReports'>;
 
@@ -27,167 +25,43 @@ interface TeamReportsScreenProps {
 
 const screenWidth = Dimensions.get('window').width;
 
-function makeStyles(colors: ThemeColors) {
-    return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
-        },
-        header: {
-            paddingTop: SPACING.xxl * 1.5,
-            paddingBottom: SPACING.md,
-            paddingHorizontal: SPACING.md,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-        },
-        headerTitle: {
-            color: '#ffffff',
-            fontSize: 20,
-            fontWeight: 'bold',
-        },
-        filterContainer: {
-            flexDirection: 'row',
-            backgroundColor: colors.card,
-            padding: SPACING.xs,
-            borderRadius: BORDER_RADIUS.lg,
-            marginBottom: SPACING.md,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
-        filterButton: {
-            flex: 1,
-            paddingVertical: SPACING.sm,
-            alignItems: 'center',
-            borderRadius: BORDER_RADIUS.md,
-        },
-        filterButtonActive: {
-            backgroundColor: COLORS.primary,
-        },
-        filterText: {
-            color: colors.textSecondary,
-            fontWeight: '600',
-        },
-        filterTextActive: {
-            color: '#fff',
-        },
-        card: {
-            backgroundColor: colors.card,
-            borderRadius: BORDER_RADIUS.lg,
-            padding: SPACING.md,
-            marginBottom: SPACING.md,
-            borderWidth: 1,
-            borderColor: colors.border,
-            ...SHADOWS.md,
-        },
-        cardTitle: {
-            color: colors.textPrimary,
-            fontSize: 16,
-            fontWeight: 'bold',
-            marginBottom: SPACING.xs,
-        },
-        statCard: {
-            flex: 0.48,
-            backgroundColor: colors.card,
-            borderRadius: BORDER_RADIUS.lg,
-            padding: SPACING.md,
-            borderLeftWidth: 4,
-            borderTopWidth: 1,
-            borderRightWidth: 1,
-            borderBottomWidth: 1,
-            borderTopColor: colors.border,
-            borderRightColor: colors.border,
-            borderBottomColor: colors.border,
-            ...SHADOWS.sm,
-        },
-        statLabel: {
-            color: colors.textSecondary,
-            fontSize: 12,
-            marginBottom: SPACING.xs,
-        },
-        statValue: {
-            color: colors.textPrimary,
-            fontSize: 24,
-            fontWeight: 'bold',
-        },
-        issueItem: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingVertical: SPACING.sm,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-        },
-        avatarPlaceholder: {
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        badge: {
-            paddingHorizontal: SPACING.sm,
-            paddingVertical: 2,
-            borderRadius: BORDER_RADIUS.full,
-        },
-        issueName: {
-            color: colors.textPrimary,
-            fontWeight: 'bold',
-        },
-        issueDate: {
-            color: colors.textSecondary,
-            fontSize: 12,
-        },
-        issueTime: {
-            color: colors.textPrimary,
-            marginTop: 4,
-        },
-        emptyText: {
-            color: colors.textSecondary,
-            textAlign: 'center',
-            paddingVertical: SPACING.lg,
-        },
-    });
-}
-
 export default function TeamReportsScreen({ navigation }: TeamReportsScreenProps) {
-    const { colors, isDark } = useTheme();
-    const { t } = useTranslation();
-    const styles = useMemo(() => makeStyles(colors), [colors]);
+    const theme = useTheme();
+    const s = useMemo(() => makeStyles(theme), [theme]);
 
     const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day');
 
     // TanStack Query hook
     const { data: stats, isLoading: loading } = useManagerReports(period);
 
-    const legendFontColor = isDark ? '#cbd5e1' : '#444654';
+    const legendFontColor = theme.colors.text.secondary;
 
     const chartData = stats ? [
         {
-            name: t.attendance.onTime,
+            name: 'Đúng giờ',
             population: stats.attendance.present,
-            color: COLORS.accent.green,
+            color: theme.colors.status.success,
             legendFontColor,
             legendFontSize: 12,
         },
         {
-            name: t.attendance.late,
+            name: 'Đi trễ',
             population: stats.attendance.late,
-            color: COLORS.accent.yellow,
+            color: theme.colors.status.warning,
             legendFontColor,
             legendFontSize: 12,
         },
         {
-            name: t.attendance.absent,
+            name: 'Vắng mặt',
             population: stats.attendance.absent,
-            color: COLORS.accent.red,
+            color: theme.colors.status.danger,
             legendFontColor,
             legendFontSize: 12,
         },
         {
             name: 'Nghỉ phép',
             population: stats.attendance.leave,
-            color: COLORS.accent.cyan,
+            color: '#06b6d4',
             legendFontColor,
             legendFontSize: 12,
         },
@@ -208,49 +82,49 @@ export default function TeamReportsScreen({ navigation }: TeamReportsScreenProps
         <TouchableOpacity
             onPress={() => setPeriod(value)}
             style={[
-                styles.filterButton,
-                period === value && styles.filterButtonActive
+                s.filterButton,
+                period === value && s.filterButtonActive
             ]}
         >
             <Text style={[
-                styles.filterText,
-                period === value && styles.filterTextActive
+                s.filterText,
+                period === value && s.filterTextActive
             ]}>{title}</Text>
         </TouchableOpacity>
     );
 
     return (
-        <View style={styles.container}>
+        <View style={s.container}>
             {/* Header */}
             <LinearGradient
-                colors={[COLORS.primaryDark, COLORS.primary]}
+                colors={[theme.colors.brand.primaryHover, theme.colors.brand.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.header}
+                style={s.header}
             >
                 <View style={{ width: 24 }} />
-                <Text style={styles.headerTitle}>{t.manager.dashboard.reports}</Text>
+                <Text style={s.headerTitle}>Báo cáo nhóm</Text>
                 <View style={{ width: 24 }} />
             </LinearGradient>
 
-            <ScrollView contentContainerStyle={{ padding: SPACING.md }}>
+            <ScrollView contentContainerStyle={{ padding: 12 }}>
                 {/* Filter */}
-                <View style={styles.filterContainer}>
-                    <FilterButton title={t.common.today} value="day" />
+                <View style={s.filterContainer}>
+                    <FilterButton title="Hôm nay" value="day" />
                     <FilterButton title="Tuần này" value="week" />
                     <FilterButton title="Tháng này" value="month" />
                 </View>
 
                 {loading ? (
-                    <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: SPACING.xl }} />
+                    <ActivityIndicator size="large" color={theme.colors.brand.primary} style={{ marginTop: 20 }} />
                 ) : stats ? (
                     <>
                         {/* Chart Section */}
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Tỷ lệ chuyên cần</Text>
+                        <View style={s.card}>
+                            <Text style={s.cardTitle}>Tỷ lệ chuyên cần</Text>
                             <PieChart
                                 data={chartData}
-                                width={screenWidth - SPACING.lg * 4}
+                                width={screenWidth - 64}
                                 height={220}
                                 chartConfig={chartConfig}
                                 accessor={"population"}
@@ -262,56 +136,56 @@ export default function TeamReportsScreen({ navigation }: TeamReportsScreenProps
                         </View>
 
                         {/* Summary Cards */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.md }}>
-                            <View style={[styles.statCard, { borderLeftColor: COLORS.accent.yellow }]}>
-                                <Text style={styles.statLabel}>{t.attendance.late}</Text>
-                                <Text style={styles.statValue}>{stats.attendance.late}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <View style={[s.statCard, { borderLeftColor: theme.colors.status.warning }]}>
+                                <Text style={s.statLabel}>Đi trễ</Text>
+                                <Text style={s.statValue}>{stats.attendance.late}</Text>
                             </View>
-                            <View style={[styles.statCard, { borderLeftColor: COLORS.accent.red }]}>
-                                <Text style={styles.statLabel}>{t.attendance.absent}</Text>
-                                <Text style={styles.statValue}>{stats.attendance.absent}</Text>
+                            <View style={[s.statCard, { borderLeftColor: theme.colors.status.danger }]}>
+                                <Text style={s.statLabel}>Vắng mặt</Text>
+                                <Text style={s.statValue}>{stats.attendance.absent}</Text>
                             </View>
                         </View>
 
                         {/* Issues List */}
-                        <View style={styles.card}>
-                            <Text style={[styles.cardTitle, { marginBottom: SPACING.md }]}>Danh sách cần lưu ý</Text>
+                        <View style={s.card}>
+                            <Text style={[s.cardTitle, { marginBottom: 12 }]}>Danh sách cần lưu ý</Text>
                             {stats.issues.length === 0 ? (
-                                <Text style={styles.emptyText}>{t.common.noData}</Text>
+                                <Text style={s.emptyText}>Không có dữ liệu</Text>
                             ) : (
                                 stats.issues.map((issue: any) => (
-                                    <View key={issue.id} style={styles.issueItem}>
+                                    <View key={issue.id} style={s.issueItem}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                             <View style={[
-                                                styles.avatarPlaceholder,
-                                                { backgroundColor: issue.type === 'late' ? `${COLORS.accent.yellow}20` : `${COLORS.accent.red}20` }
+                                                s.avatarPlaceholder,
+                                                { backgroundColor: issue.type === 'late' ? theme.colors.status.warningBg : theme.colors.status.dangerBg }
                                             ]}>
                                                 <Text style={{
-                                                    color: issue.type === 'late' ? COLORS.accent.yellow : COLORS.accent.red,
+                                                    color: issue.type === 'late' ? theme.colors.status.warning : theme.colors.status.danger,
                                                     fontWeight: 'bold'
                                                 }}>
                                                     {issue.name.charAt(0)}
                                                 </Text>
                                             </View>
-                                            <View style={{ marginLeft: SPACING.md }}>
-                                                <Text style={styles.issueName}>{issue.name}</Text>
-                                                <Text style={styles.issueDate}>{issue.date}</Text>
+                                            <View style={{ marginLeft: 12 }}>
+                                                <Text style={s.issueName}>{issue.name}</Text>
+                                                <Text style={s.issueDate}>{issue.date}</Text>
                                             </View>
                                         </View>
                                         <View style={{ alignItems: 'flex-end' }}>
                                             <View style={[
-                                                styles.badge,
-                                                { backgroundColor: issue.type === 'late' ? `${COLORS.accent.yellow}20` : `${COLORS.accent.red}20` }
+                                                s.badge,
+                                                { backgroundColor: issue.type === 'late' ? theme.colors.status.warningBg : theme.colors.status.dangerBg }
                                             ]}>
                                                 <Text style={{
-                                                    color: issue.type === 'late' ? COLORS.accent.yellow : COLORS.accent.red,
+                                                    color: issue.type === 'late' ? theme.colors.status.warning : theme.colors.status.danger,
                                                     fontSize: 12,
                                                     fontWeight: 'bold'
                                                 }}>
-                                                    {issue.type === 'late' ? t.attendance.late : t.attendance.absent}
+                                                    {issue.type === 'late' ? 'Đi trễ' : 'Vắng mặt'}
                                                 </Text>
                                             </View>
-                                            <Text style={styles.issueTime}>
+                                            <Text style={s.issueTime}>
                                                 {issue.time}
                                             </Text>
                                         </View>
@@ -321,9 +195,140 @@ export default function TeamReportsScreen({ navigation }: TeamReportsScreenProps
                         </View>
                     </>
                 ) : (
-                    <Text style={styles.emptyText}>{t.common.noData}</Text>
+                    <Text style={s.emptyText}>Không có dữ liệu</Text>
                 )}
             </ScrollView>
         </View>
     );
+}
+
+function makeStyles(t: Theme) {
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: t.colors.background.base,
+        },
+        header: {
+            paddingTop: 36,
+            paddingBottom: 12,
+            paddingHorizontal: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+        },
+        headerTitle: {
+            color: '#ffffff',
+            fontSize: 20,
+            fontWeight: 'bold',
+        },
+        filterContainer: {
+            flexDirection: 'row',
+            backgroundColor: t.colors.background.surface,
+            padding: 4,
+            borderRadius: 12,
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+        },
+        filterButton: {
+            flex: 1,
+            paddingVertical: 8,
+            alignItems: 'center',
+            borderRadius: 8,
+        },
+        filterButtonActive: {
+            backgroundColor: t.colors.brand.primary,
+        },
+        filterText: {
+            color: t.colors.text.secondary,
+            fontWeight: '600',
+        },
+        filterTextActive: {
+            color: '#fff',
+        },
+        card: {
+            backgroundColor: t.colors.background.surface,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 2,
+        },
+        cardTitle: {
+            color: t.colors.text.primary,
+            fontSize: 16,
+            fontWeight: 'bold',
+            marginBottom: 4,
+        },
+        statCard: {
+            flex: 0.48,
+            backgroundColor: t.colors.background.surface,
+            borderRadius: 12,
+            padding: 12,
+            borderLeftWidth: 4,
+            borderTopWidth: 1,
+            borderRightWidth: 1,
+            borderBottomWidth: 1,
+            borderTopColor: t.colors.border.default,
+            borderRightColor: t.colors.border.default,
+            borderBottomColor: t.colors.border.default,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.06,
+            shadowRadius: 4,
+            elevation: 1,
+        },
+        statLabel: {
+            color: t.colors.text.secondary,
+            fontSize: 12,
+            marginBottom: 4,
+        },
+        statValue: {
+            color: t.colors.text.primary,
+            fontSize: 24,
+            fontWeight: 'bold',
+        },
+        issueItem: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 8,
+            borderBottomWidth: 1,
+            borderBottomColor: t.colors.border.default,
+        },
+        avatarPlaceholder: {
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        badge: {
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+            borderRadius: 999,
+        },
+        issueName: {
+            color: t.colors.text.primary,
+            fontWeight: 'bold',
+        },
+        issueDate: {
+            color: t.colors.text.secondary,
+            fontSize: 12,
+        },
+        issueTime: {
+            color: t.colors.text.primary,
+            marginTop: 4,
+        },
+        emptyText: {
+            color: t.colors.text.secondary,
+            textAlign: 'center',
+            paddingVertical: 16,
+        },
+    });
 }
