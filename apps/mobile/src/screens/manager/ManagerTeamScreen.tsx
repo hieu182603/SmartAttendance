@@ -253,9 +253,7 @@ export default function ManagerTeamScreen({ navigation }: ManagerTeamScreenProps
                     key={member.id}
                     style={s.memberCard}
                     activeOpacity={0.7}
-                    onPress={() => {
-                      // TODO: Navigate to member details
-                    }}
+                    onPress={() => navigation.navigate('EmployeeDetail' as any, { userId: member.id })}
                   >
                     <View style={s.memberContent}>
                       {/* Avatar */}
