@@ -11,33 +11,30 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { ManagerTabParamList } from '../../navigation/AppNavigator';
-import { globalStyles, COLORS, SPACING, BORDER_RADIUS, SHADOWS, useTheme } from '../../utils/styles';
-import { useTranslation } from '../../i18n';
 import { Icon } from '../../components/ui/Icon';
 import { EmployeeSchedule } from '../../services/shift.service';
 import { useShiftSchedule } from '../../hooks/useShiftQueries';
 import { useAttendanceHistory } from '../../hooks/useAttendanceQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../hooks/queryKeys';
+import { useTheme } from '../../theme';
+import type { Theme } from '../../theme';
 
 type ManagerScheduleScreenNavigationProp = BottomTabNavigationProp<ManagerTabParamList, 'ManagerSchedule'>;
 
-interface ManagerScheduleScreenProps {
-  navigation: ManagerScheduleScreenNavigationProp;
-}
-
 const { width } = Dimensions.get('window');
-const SPACING_LG = SPACING.lg;
-const GAP_SIZE = SPACING.sm;
-const TOTAL_HORIZONTAL_PADDING = SPACING_LG * 2;
-const CALENDAR_ITEM_SIZE = Math.floor((width - TOTAL_HORIZONTAL_PADDING - (GAP_SIZE * 6)) / 7) - 1;
+const CALENDAR_ITEM_SIZE = Math.floor((width - 32 - 48) / 7) - 1;
+const GAP_SIZE = 8;
 
-// Day status type matching the web version
+const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+const DAYS_OF_WEEK = ['CN','T2','T3','T4','T5','T6','T7'];
+
 type DayStatus = 'completed' | 'today' | 'scheduled' | 'off' | 'none' | 'late';
 
 export default function ManagerScheduleScreen() {
   const theme = useTheme();
-  const { t } = useTranslation();
+  const t = theme;
+
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -49,7 +46,6 @@ export default function ManagerScheduleScreen() {
     return `${year}-${month}-${day}`;
   };
 
-  // Compute date range for query
   const dateRange = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -58,7 +54,6 @@ export default function ManagerScheduleScreen() {
     return { startDate, endDate };
   }, [currentDate]);
 
-  // TanStack Query hooks
   const { data: scheduleData, isLoading: scheduleLoading } = useShiftSchedule(
     dateRange.startDate,
     dateRange.endDate
@@ -69,7 +64,6 @@ export default function ManagerScheduleScreen() {
 
   const loading = scheduleLoading || attendanceLoading;
 
-  // Build schedule map keyed by date
   const scheduleMap = useMemo<Record<string, EmployeeSchedule>>(() => {
     if (!scheduleData || !Array.isArray(scheduleData)) return {};
     const map: Record<string, EmployeeSchedule> = {};
@@ -82,7 +76,6 @@ export default function ManagerScheduleScreen() {
     return map;
   }, [scheduleData]);
 
-  // Build attendance map keyed by date
   const attendanceMap = useMemo<Record<string, any>>(() => {
     const records = (attendanceData as any)?.records || (attendanceData as any)?.data || [];
     if (!Array.isArray(records)) return {};
@@ -91,34 +84,21 @@ export default function ManagerScheduleScreen() {
       if (record.date) {
         const dateValue = String(record.date).trim();
         let dateStr = '';
-
         if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
           const d = new Date(dateValue);
-          if (!isNaN(d.getTime())) {
-            dateStr = d.toISOString().split('T')[0];
-          }
+          if (!isNaN(d.getTime())) dateStr = d.toISOString().split('T')[0];
         } else {
           const dateRegex = /(\d{1,2})\s*(?:tháng|[/-])\s*(\d{1,2})(?:,\s*|\s+|[/-])\s*(\d{4})/;
           const match = dateRegex.exec(dateValue);
           if (match) {
-            const day = parseInt(match[1], 10);
-            const mo = parseInt(match[2], 10);
-            const yr = parseInt(match[3], 10);
-            const d = new Date(yr, mo - 1, day);
-            if (!isNaN(d.getTime())) {
-              dateStr = d.toISOString().split('T')[0];
-            }
+            const d = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+            if (!isNaN(d.getTime())) dateStr = d.toISOString().split('T')[0];
           } else {
             const d = new Date(dateValue);
-            if (!isNaN(d.getTime())) {
-              dateStr = d.toISOString().split('T')[0];
-            }
+            if (!isNaN(d.getTime())) dateStr = d.toISOString().split('T')[0];
           }
         }
-
-        if (dateStr) {
-          map[dateStr] = record;
-        }
+        if (dateStr) map[dateStr] = record;
       }
     });
     return map;
@@ -136,14 +116,9 @@ export default function ManagerScheduleScreen() {
     const month = date.getMonth();
     const days = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay();
-
     const result: (Date | null)[] = [];
-    for (let i = 0; i < firstDay; i++) {
-      result.push(null);
-    }
-    for (let i = 1; i <= days; i++) {
-      result.push(new Date(year, month, i));
-    }
+    for (let i = 0; i < firstDay; i++) result.push(null);
+    for (let i = 1; i <= days; i++) result.push(new Date(year, month, i));
     return result;
   };
 
@@ -161,113 +136,62 @@ export default function ManagerScheduleScreen() {
       date.getFullYear() === today.getFullYear();
   };
 
-  /**
-   * Get the status of a calendar day — matching the web's getWeekDayStatus() logic.
-   */
   const getDayStatus = (date: Date): DayStatus => {
     const dateStr = formatDate(date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = formatDate(today);
-    const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
     const schedule = scheduleMap[dateStr];
     const attendance = attendanceMap[dateStr];
 
-    // If no schedule for this day
     if (!schedule) {
-      // Check if has attendance record anyway
       if (attendance) {
         const checkIn = attendance.checkIn || attendance.check_in;
-        const hasCheckIn = checkIn &&
-          String(checkIn).trim() !== '' &&
-          String(checkIn).trim() !== '—' &&
-          String(checkIn).trim() !== 'null';
+        const hasCheckIn = checkIn && String(checkIn).trim() !== '' &&
+          String(checkIn).trim() !== '—' && String(checkIn).trim() !== 'null';
         if (hasCheckIn) return 'completed';
       }
       return 'off';
     }
 
-    // If schedule status is "off" (from approved leave requests)
     if (schedule.status === 'off') return 'off';
 
-    // Check attendance for this day
     if (attendance) {
       if (attendance.status === 'absent' || attendance.status === 'weekend') return 'off';
       if (attendance.status === 'LATE') return 'late';
-
       const checkIn = attendance.checkIn || attendance.check_in;
-      const hasCheckIn = checkIn &&
-        String(checkIn).trim() !== '' &&
-        String(checkIn).trim() !== '—' &&
-        String(checkIn).trim() !== 'null' &&
+      const hasCheckIn = checkIn && String(checkIn).trim() !== '' &&
+        String(checkIn).trim() !== '—' && String(checkIn).trim() !== 'null' &&
         String(checkIn).trim() !== 'undefined';
-
       if (hasCheckIn) return 'completed';
     }
 
-    // Today
     if (dateStr === todayStr) return 'today';
 
-    // Past day without attendance = missed (show as off)
     const dateOnly = new Date(date);
     dateOnly.setHours(0, 0, 0, 0);
     if (dateOnly < today) return 'off';
 
-    // Future scheduled
     return 'scheduled';
   };
 
-  /**
-   * Get colors for a day status — matching the web's getWeekDayColor() logic.
-   */
-  const getDayColors = (status: DayStatus, isSelected: boolean, isTodayDate: boolean) => {
+  const getDayColors = (status: DayStatus, isSelected: boolean) => {
     if (isSelected) {
-      return {
-        backgroundColor: COLORS.primary,
-        textColor: '#ffffff',
-        borderColor: COLORS.primaryLight,
-      };
+      return { backgroundColor: t.colors.brand.primaryHover, textColor: '#ffffff', borderColor: t.colors.brand.primary };
     }
-
     switch (status) {
       case 'completed':
-        return {
-          backgroundColor: COLORS.accent.green,
-          textColor: '#ffffff',
-          borderColor: COLORS.accent.green,
-        };
+        return { backgroundColor: t.colors.status.success, textColor: '#ffffff', borderColor: t.colors.status.success };
       case 'late':
-        return {
-          backgroundColor: COLORS.accent.yellow,
-          textColor: '#ffffff',
-          borderColor: COLORS.accent.yellow,
-        };
+        return { backgroundColor: t.colors.status.warning, textColor: '#ffffff', borderColor: t.colors.status.warning };
       case 'today':
-        return {
-          backgroundColor: COLORS.accent.cyan,
-          textColor: '#ffffff',
-          borderColor: COLORS.accent.cyan,
-        };
+        return { backgroundColor: t.colors.brand.primaryHover, textColor: '#ffffff', borderColor: t.colors.brand.primaryHover };
       case 'scheduled':
-        return {
-          backgroundColor: COLORS.primary,
-          textColor: '#ffffff',
-          borderColor: COLORS.primary,
-        };
+        return { backgroundColor: t.colors.brand.primaryHover, textColor: '#ffffff', borderColor: t.colors.brand.primaryHover };
       case 'off':
-        return {
-          backgroundColor: 'rgba(148, 163, 184, 0.25)',
-          textColor: COLORS.text.secondary,
-          borderColor: 'rgba(148, 163, 184, 0.3)',
-        };
+        return { backgroundColor: 'rgba(148,163,184,0.25)', textColor: t.colors.text.secondary, borderColor: 'rgba(148,163,184,0.3)' };
       default:
-        return {
-          backgroundColor: 'transparent',
-          textColor: theme.text.primary,
-          borderColor: 'transparent',
-        };
+        return { backgroundColor: 'transparent', textColor: t.colors.text.primary, borderColor: 'transparent' };
     }
   };
 
@@ -275,125 +199,75 @@ export default function ManagerScheduleScreen() {
   const selectedSchedule = selectedDate ? scheduleMap[selectedDate] : null;
   const selectedAttendance = selectedDate ? attendanceMap[selectedDate] : null;
 
-  // Legend items matching the web version
   const legendItems = [
-    { color: COLORS.accent.green, label: t.schedule.legend.completed },
-    { color: COLORS.accent.yellow, label: t.schedule.legend.late || 'Đi muộn' },
-    { color: COLORS.accent.cyan, label: t.schedule.legend.today },
-    { color: COLORS.primary, label: t.schedule.legend.scheduled },
-    { color: 'rgba(148, 163, 184, 0.4)', label: t.schedule.legend.off },
+    { color: t.colors.status.success, label: 'Đã làm' },
+    { color: t.colors.status.warning, label: 'Đi muộn' },
+    { color: t.colors.brand.primaryHover, label: 'Hôm nay' },
+    { color: t.colors.brand.primaryHover, label: 'Đã lên lịch' },
+    { color: 'rgba(148,163,184,0.4)', label: 'Nghỉ' },
   ];
 
   return (
-    <View style={[globalStyles.container, { backgroundColor: theme.background }]}>
-      {/* Header */}
+    <View style={{ flex: 1, backgroundColor: t.colors.background.base }}>
       <LinearGradient
-        colors={[COLORS.primary, COLORS.accent.cyan]}
+        colors={[t.colors.brand.primaryActive, t.colors.brand.primaryHover, t.colors.brand.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{
-          paddingTop: SPACING.xxl * 2,
-          paddingBottom: SPACING.xl,
-          paddingHorizontal: SPACING.lg,
-        }}
+        style={{ paddingTop: 48, paddingBottom: 20, paddingHorizontal: 16 }}
       >
-        <Text style={{ fontSize: 24, fontWeight: '600', color: '#ffffff' }}>
-          {t.schedule.title}
-        </Text>
-        <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: 14 }}>
-          {t.schedule.subtitle}
-        </Text>
+        <Text style={{ fontSize: 24, fontWeight: '700', color: '#ffffff' }}>Lịch làm việc</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14 }}>Xem lịch và ca làm việc của nhóm</Text>
       </LinearGradient>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Calendar Navigation */}
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: SPACING.lg,
-          }}
-        >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 }}>
           <TouchableOpacity
             onPress={() => changeMonth(-1)}
-            style={{
-              padding: SPACING.sm,
-              backgroundColor: theme.surface,
-              borderRadius: BORDER_RADIUS.md,
-              ...SHADOWS.sm,
-            }}
+            style={{ padding: 8, backgroundColor: t.colors.background.surface, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1 }}
           >
-            <Icon name="chevron_left" size={24} color={theme.text.primary} />
+            <Icon name="chevron-back-outline" size={22} color={t.colors.text.primary} library="ionicons" />
           </TouchableOpacity>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: theme.text.primary }}>
-            {t.schedule.months[currentDate.getMonth()]}, {currentDate.getFullYear()}
+          <Text style={{ fontSize: 18, fontWeight: '600', color: t.colors.text.primary }}>
+            {MONTHS[currentDate.getMonth()]}, {currentDate.getFullYear()}
           </Text>
           <TouchableOpacity
             onPress={() => changeMonth(1)}
-            style={{
-              padding: SPACING.sm,
-              backgroundColor: theme.surface,
-              borderRadius: BORDER_RADIUS.md,
-              ...SHADOWS.sm,
-            }}
+            style={{ padding: 8, backgroundColor: t.colors.background.surface, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1 }}
           >
-            <Icon name="chevron_right" size={24} color={theme.text.primary} />
+            <Icon name="chevron-forward-outline" size={22} color={t.colors.text.primary} library="ionicons" />
           </TouchableOpacity>
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: SPACING.xl }} />
+          <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 20 }} />
         ) : (
           <>
-            {/* Days Header */}
-            <View style={{ flexDirection: 'row', paddingHorizontal: SPACING.lg, marginBottom: SPACING.md }}>
-              {t.schedule.daysOfWeek.map((day, index) => (
-                <View
-                  key={index}
-                  style={{
-                    width: CALENDAR_ITEM_SIZE,
-                    alignItems: 'center',
-                    marginRight: index < 6 ? GAP_SIZE : 0,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: '600',
-                      color: index === 0 || index === 6 ? COLORS.accent.red : theme.text.secondary,
-                    }}
-                  >
+            <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginBottom: 12 }}>
+              {DAYS_OF_WEEK.map((day, index) => (
+                <View key={index} style={{ width: CALENDAR_ITEM_SIZE, alignItems: 'center', marginRight: index < 6 ? GAP_SIZE : 0 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: index === 0 || index === 6 ? t.colors.status.danger : t.colors.text.secondary }}>
                     {day}
                   </Text>
                 </View>
               ))}
             </View>
 
-            {/* Calendar Grid */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.lg }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16 }}>
               {days.map((date, index) => {
                 const isLastInRow = (index + 1) % 7 === 0;
-
                 if (!date) {
-                  return <View
-                    key={`empty-${index}`}
-                    style={{
-                      width: CALENDAR_ITEM_SIZE,
-                      height: CALENDAR_ITEM_SIZE,
-                      marginRight: isLastInRow ? 0 : GAP_SIZE,
-                      marginBottom: GAP_SIZE,
-                    }}
-                  />;
+                  return (
+                    <View
+                      key={`empty-${index}`}
+                      style={{ width: CALENDAR_ITEM_SIZE, height: CALENDAR_ITEM_SIZE, marginRight: isLastInRow ? 0 : GAP_SIZE, marginBottom: GAP_SIZE }}
+                    />
+                  );
                 }
-
                 const dateStr = formatDate(date);
                 const isSelected = selectedDate === dateStr;
                 const isTodayDate = isToday(date);
                 const dayStatus = getDayStatus(date);
-                const colors = getDayColors(dayStatus, isSelected, isTodayDate);
-                const day = date.getDate();
-
+                const dayColors = getDayColors(dayStatus, isSelected);
                 return (
                   <TouchableOpacity
                     key={dateStr}
@@ -401,414 +275,121 @@ export default function ManagerScheduleScreen() {
                     style={{
                       width: CALENDAR_ITEM_SIZE,
                       height: CALENDAR_ITEM_SIZE,
-                      borderRadius: BORDER_RADIUS.lg,
-                      backgroundColor: colors.backgroundColor,
+                      borderRadius: 12,
+                      backgroundColor: dayColors.backgroundColor,
                       borderWidth: isTodayDate && !isSelected ? 2 : 1,
-                      borderColor: isTodayDate && !isSelected ? COLORS.accent.cyan : colors.borderColor,
+                      borderColor: isTodayDate && !isSelected ? t.colors.brand.primaryHover : dayColors.borderColor,
                       justifyContent: 'center',
                       alignItems: 'center',
                       marginRight: isLastInRow ? 0 : GAP_SIZE,
                       marginBottom: GAP_SIZE,
-                      ...(isSelected ? SHADOWS.lg : {}),
+                      ...(isSelected ? { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 4 } : {}),
                     }}
                   >
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: isTodayDate || isSelected ? '700' : '600',
-                        color: colors.textColor,
-                      }}
-                    >
-                      {day}
+                    <Text style={{ fontSize: 14, fontWeight: isTodayDate || isSelected ? '700' : '600', color: dayColors.textColor }}>
+                      {date.getDate()}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Legend */}
-            <View style={{ paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md }}>
-              <View
-                style={{
-                  backgroundColor: theme.surface,
-                  borderRadius: BORDER_RADIUS.lg,
-                  padding: SPACING.md,
-                  borderWidth: 1,
-                  borderColor: theme.cardBorder,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '600',
-                    color: theme.text.secondary,
-                    marginBottom: SPACING.md,
-                  }}
-                >
-                  {t.schedule.legend.title}
-                </Text>
+            <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+              <View style={{ backgroundColor: t.colors.background.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: t.colors.border.default }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: t.colors.text.secondary, marginBottom: 12 }}>Chú giải</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                   {legendItems.map((item, index) => (
-                    <View
-                      key={index}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        width: '50%',
-                        marginBottom: SPACING.sm,
-                      }}
-                    >
-                      <View
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: 6,
-                          backgroundColor: item.color,
-                          marginRight: SPACING.sm,
-                        }}
-                      />
-                      <Text style={{ fontSize: 12, color: theme.text.primary }}>
-                        {item.label}
-                      </Text>
+                    <View key={index} style={{ flexDirection: 'row', alignItems: 'center', width: '50%', marginBottom: 8 }}>
+                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: item.color, marginRight: 8 }} />
+                      <Text style={{ fontSize: 12, color: t.colors.text.primary }}>{item.label}</Text>
                     </View>
                   ))}
                 </View>
               </View>
             </View>
 
-            {/* Shift Details */}
             {selectedSchedule && selectedDate && (
-              <View style={{ paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginBottom: SPACING.md,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: COLORS.primary,
-                      marginRight: SPACING.sm,
-                    }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: '600',
-                      color: theme.text.primary,
-                    }}
-                  >
-                    {t.schedule.detail.title}
-                  </Text>
+              <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.colors.brand.primaryHover, marginRight: 8 }} />
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: t.colors.text.primary }}>Chi tiết ca làm</Text>
                 </View>
-                <View
-                  style={{
-                    backgroundColor: theme.surface,
-                    borderRadius: BORDER_RADIUS.xl,
-                    padding: SPACING.lg,
-                    borderWidth: 1,
-                    borderColor: theme.cardBorder,
-                    ...SHADOWS.lg,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      marginBottom: SPACING.lg,
-                    }}
-                  >
+                <View style={{ backgroundColor: t.colors.background.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: t.colors.border.default, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 4 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                     <View>
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          color: theme.text.secondary,
-                          marginBottom: SPACING.xs / 2,
-                        }}
-                      >
-                        {t.schedule.detail.workDate}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 16,
-                          fontWeight: '600',
-                          color: theme.text.primary,
-                        }}
-                      >
-                        {new Date(selectedDate).toLocaleDateString('vi-VN', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
+                      <Text style={{ fontSize: 11, color: t.colors.text.secondary, marginBottom: 2 }}>Ngày làm việc</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '600', color: t.colors.text.primary }}>
+                        {new Date(selectedDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       </Text>
                     </View>
-                    <View
-                      style={{
-                        backgroundColor: selectedSchedule.status === 'completed'
-                          ? 'rgba(34, 197, 94, 0.15)'
-                          : selectedSchedule.status === 'off'
-                            ? 'rgba(148, 163, 184, 0.15)'
-                            : 'rgba(66, 69, 240, 0.15)',
-                        borderWidth: 1,
-                        borderColor: selectedSchedule.status === 'completed'
-                          ? 'rgba(34, 197, 94, 0.3)'
-                          : selectedSchedule.status === 'off'
-                            ? 'rgba(148, 163, 184, 0.3)'
-                            : 'rgba(66, 69, 240, 0.3)',
-                        borderRadius: BORDER_RADIUS.md,
-                        paddingHorizontal: SPACING.sm,
-                        paddingVertical: SPACING.xs / 2,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 11,
-                          fontWeight: '600',
-                          color: selectedSchedule.status === 'completed'
-                            ? COLORS.accent.green
-                            : selectedSchedule.status === 'off'
-                              ? COLORS.text.secondary
-                              : COLORS.primary,
-                        }}
-                      >
-                        {selectedSchedule.status === 'completed' ? t.schedule.detail.completed
-                          : selectedSchedule.status === 'off' ? t.schedule.detail.off
-                            : selectedSchedule.status === 'missed' ? t.schedule.detail.missed
-                              : t.schedule.detail.scheduled}
+                    <View style={{
+                      backgroundColor: selectedSchedule.status === 'completed' ? t.colors.status.successBg : selectedSchedule.status === 'off' ? t.colors.background.subtle : t.colors.background.indigoTint,
+                      borderWidth: 1,
+                      borderColor: selectedSchedule.status === 'completed' ? t.colors.status.successBorder : selectedSchedule.status === 'off' ? t.colors.border.default : t.colors.border.indigo,
+                      borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: selectedSchedule.status === 'completed' ? t.colors.status.success : selectedSchedule.status === 'off' ? t.colors.text.secondary : t.colors.brand.primaryHover }}>
+                        {selectedSchedule.status === 'completed' ? 'Hoàn thành' : selectedSchedule.status === 'off' ? 'Nghỉ' : selectedSchedule.status === 'missed' ? 'Vắng' : 'Đã lên lịch'}
                       </Text>
                     </View>
                   </View>
 
-                  <View>
-                    {/* Shift Name */}
-                    {selectedSchedule.shiftName && (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          padding: SPACING.md,
-                          borderRadius: BORDER_RADIUS.lg,
-                          backgroundColor: 'rgba(34, 211, 238, 0.1)',
-                          marginBottom: SPACING.sm,
-                        }}
-                      >
-                        <View
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 12,
-                            backgroundColor: 'rgba(34, 211, 238, 0.2)',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            marginRight: SPACING.md,
-                          }}
-                        >
-                          <Icon name="badge" size={20} color={COLORS.accent.cyan} />
-                        </View>
-                        <View>
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              color: theme.text.secondary,
-                              marginBottom: SPACING.xs / 2,
-                            }}
-                          >
-                            {t.schedule.detail.shiftName}
-                          </Text>
-                          <Text
-                            style={{
-                              fontSize: 14,
-                              fontWeight: '500',
-                              color: theme.text.primary,
-                            }}
-                          >
-                            {selectedSchedule.shiftName}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Working Hours */}
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        padding: SPACING.md,
-                        borderRadius: BORDER_RADIUS.lg,
-                        backgroundColor: 'rgba(66, 69, 240, 0.1)',
-                        marginBottom: SPACING.sm,
-                      }}
-                    >
-                      <View
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 12,
-                          backgroundColor: 'rgba(66, 69, 240, 0.2)',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          marginRight: SPACING.md,
-                        }}
-                      >
-                        <Icon name="schedule" size={20} color={COLORS.primary} />
+                  {selectedSchedule.shiftName && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: t.colors.background.indigoTint, marginBottom: 8 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: t.colors.background.indigoTint, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                        <Icon name="id-card-outline" size={20} color={t.colors.brand.primaryHover} library="ionicons" />
                       </View>
                       <View>
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            color: theme.text.secondary,
-                            marginBottom: SPACING.xs / 2,
-                          }}
-                        >
-                          Giờ làm việc
-                        </Text>
-                        <Text
-                          style={{
-                            fontSize: 14,
-                            fontWeight: '500',
-                            color: theme.text.primary,
-                          }}
-                        >
-                          {selectedSchedule.startTime} - {selectedSchedule.endTime}
-                        </Text>
+                        <Text style={{ fontSize: 11, color: t.colors.text.secondary, marginBottom: 2 }}>Tên ca</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: t.colors.text.primary }}>{selectedSchedule.shiftName}</Text>
                       </View>
                     </View>
+                  )}
 
-                    {/* Attendance Info (if available) */}
-                    {selectedAttendance && (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          padding: SPACING.md,
-                          borderRadius: BORDER_RADIUS.lg,
-                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                          marginBottom: SPACING.sm,
-                        }}
-                      >
-                        <View
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 12,
-                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            marginRight: SPACING.md,
-                          }}
-                        >
-                          <Icon name="check_circle" size={20} color={COLORS.accent.green} />
-                        </View>
-                        <View>
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              color: theme.text.secondary,
-                              marginBottom: SPACING.xs / 2,
-                            }}
-                          >
-                            {t.schedule.detail.attendance}
-                          </Text>
-                          <Text
-                            style={{
-                              fontSize: 14,
-                              fontWeight: '500',
-                              color: theme.text.primary,
-                            }}
-                          >
-                            {selectedAttendance.checkIn || '—'} → {selectedAttendance.checkOut || '—'}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Location */}
-                    {selectedSchedule.location && (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          padding: SPACING.md,
-                          borderRadius: BORDER_RADIUS.lg,
-                          backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                        }}
-                      >
-                        <View
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 12,
-                            backgroundColor: 'rgba(249, 115, 22, 0.2)',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            marginRight: SPACING.md,
-                          }}
-                        >
-                          <Icon name="location_on" size={20} color={COLORS.accent.yellow} />
-                        </View>
-                        <View>
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              color: theme.text.secondary,
-                              marginBottom: SPACING.xs / 2,
-                            }}
-                          >
-                            {t.schedule.detail.location}
-                          </Text>
-                          <Text
-                            style={{
-                              fontSize: 14,
-                              fontWeight: '500',
-                              color: theme.text.primary,
-                            }}
-                          >
-                            {selectedSchedule.location}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: t.colors.background.indigoTint, marginBottom: 8 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: t.colors.background.indigoTint, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                      <Icon name="time-outline" size={20} color={t.colors.brand.primaryHover} library="ionicons" />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 11, color: t.colors.text.secondary, marginBottom: 2 }}>Giờ làm việc</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '500', color: t.colors.text.primary }}>{selectedSchedule.startTime} - {selectedSchedule.endTime}</Text>
+                    </View>
                   </View>
+
+                  {selectedAttendance && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: t.colors.status.successBg, marginBottom: 8 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: t.colors.status.successBg, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                        <Icon name="checkmark-circle-outline" size={20} color={t.colors.status.success} library="ionicons" />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 11, color: t.colors.text.secondary, marginBottom: 2 }}>Chấm công</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: t.colors.text.primary }}>{selectedAttendance.checkIn || '—'} → {selectedAttendance.checkOut || '—'}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {selectedSchedule.location && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: t.colors.status.warningBg }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: t.colors.status.warningBg, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                        <Icon name="location-outline" size={20} color={t.colors.status.warning} library="ionicons" />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 11, color: t.colors.text.secondary, marginBottom: 2 }}>Địa điểm</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: t.colors.text.primary }}>{selectedSchedule.location}</Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </View>
             )}
 
-            {/* No Shift Message (when selected a day with no schedule) */}
             {!selectedSchedule && selectedDate && (
-              <View style={{ paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg }}>
-                <View
-                  style={{
-                    backgroundColor: theme.surface,
-                    borderRadius: BORDER_RADIUS.xl,
-                    padding: SPACING.xxl,
-                    borderWidth: 1,
-                    borderColor: theme.cardBorder,
-                    alignItems: 'center',
-                    ...SHADOWS.lg,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 16,
-                      backgroundColor: 'rgba(148, 163, 184, 0.2)',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      marginBottom: SPACING.md,
-                    }}
-                  >
-                    <Icon name="schedule" size={32} color={theme.text.secondary} />
+              <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                <View style={{ backgroundColor: t.colors.background.surface, borderRadius: 16, padding: 24, borderWidth: 1, borderColor: t.colors.border.default, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 4 }}>
+                  <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: 'rgba(148,163,184,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                    <Icon name="time-outline" size={32} color={t.colors.text.secondary} library="ionicons" />
                   </View>
-                  <Text style={{ fontSize: 14, color: theme.text.secondary, textAlign: 'center' }}>
-                    {t.schedule.noShift}
-                  </Text>
+                  <Text style={{ fontSize: 14, color: t.colors.text.secondary, textAlign: 'center' }}>Không có ca làm việc trong ngày này</Text>
                 </View>
               </View>
             )}

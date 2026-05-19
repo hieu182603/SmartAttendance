@@ -14,7 +14,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { Icon } from '../../components/ui/Icon';
 import {
     useDepartments,
@@ -24,9 +23,7 @@ import {
     useUpdateDepartment,
     useDeleteDepartment,
 } from '../../hooks/useAdminQueries';
-import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
-import { ThemeColors } from '../../theme/colors';
+import { useTheme, Theme } from '../../theme';
 
 type AdminDepartmentsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AdminDepartments'>;
 
@@ -53,155 +50,9 @@ interface Branch {
     name: string;
 }
 
-function makeStyles(colors: ThemeColors) {
-    return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
-        },
-        header: {
-            paddingTop: SPACING.xxl * 1.5,
-            paddingBottom: SPACING.xl,
-            paddingHorizontal: SPACING.md,
-        },
-        headerTitle: {
-            color: '#ffffff',
-            fontSize: 20,
-            fontWeight: 'bold',
-            marginLeft: SPACING.sm,
-        },
-        addButton: {
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            padding: SPACING.xs,
-            borderRadius: BORDER_RADIUS.full,
-        },
-        card: {
-            backgroundColor: colors.card,
-            borderRadius: BORDER_RADIUS.lg,
-            padding: SPACING.md,
-            marginBottom: SPACING.md,
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: colors.border,
-            ...SHADOWS.md,
-        },
-        cardTitle: {
-            color: colors.textPrimary,
-            fontSize: 16,
-            fontWeight: 'bold',
-            marginBottom: SPACING.xs,
-        },
-        cardSubtitle: {
-            color: colors.textSecondary,
-            fontSize: 12,
-        },
-        cardMeta: {
-            color: colors.textSecondary,
-            fontSize: 12,
-            marginLeft: SPACING.xs,
-        },
-        actionButton: {
-            padding: SPACING.sm,
-            marginLeft: SPACING.xs,
-        },
-        emptyContainer: {
-            padding: SPACING.xl,
-            alignItems: 'center',
-        },
-        emptyText: {
-            color: colors.textSecondary,
-        },
-        modalOverlay: {
-            flex: 1,
-            justifyContent: 'center',
-            backgroundColor: colors.overlay,
-            padding: SPACING.lg,
-        },
-        modalContent: {
-            backgroundColor: colors.card,
-            borderRadius: BORDER_RADIUS.lg,
-            padding: SPACING.xl,
-            borderWidth: 1,
-            borderColor: colors.border,
-            maxHeight: '80%',
-        },
-        modalTitle: {
-            color: colors.textPrimary,
-            fontSize: 20,
-            fontWeight: 'bold',
-            marginBottom: SPACING.lg,
-            textAlign: 'center',
-        },
-        label: {
-            color: colors.textSecondary,
-            marginBottom: SPACING.xs,
-            marginTop: SPACING.md,
-        },
-        input: {
-            backgroundColor: colors.inputBg,
-            borderRadius: BORDER_RADIUS.md,
-            padding: SPACING.md,
-            color: colors.inputText,
-            borderWidth: 1,
-            borderColor: colors.inputBorder,
-        },
-        selectButton: {
-            backgroundColor: colors.inputBg,
-            borderRadius: BORDER_RADIUS.md,
-            padding: SPACING.md,
-            borderWidth: 1,
-            borderColor: colors.inputBorder,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-        },
-        selectButtonText: {
-            color: colors.inputPlaceholder,
-        },
-        selectButtonTextSelected: {
-            color: colors.inputText,
-        },
-        modalActions: {
-            flexDirection: 'row',
-            justifyContent: 'flex-end',
-            marginTop: SPACING.xl,
-        },
-        modalButton: {
-            paddingVertical: SPACING.md,
-            paddingHorizontal: SPACING.lg,
-            borderRadius: BORDER_RADIUS.md,
-            marginLeft: SPACING.md,
-        },
-        cancelButton: {
-            backgroundColor: colors.cardAlt,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
-        cancelButtonText: {
-            color: colors.textPrimary,
-        },
-        pickerItem: {
-            padding: SPACING.md,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-        },
-        pickerItemText: {
-            color: colors.textPrimary,
-        },
-        codeText: {
-            color: '#4F6EF7',
-            fontWeight: 'bold',
-        },
-    });
-}
-
 export default function AdminDepartmentsScreen({ navigation }: AdminDepartmentsScreenProps) {
-    const { colors } = useTheme();
-    const { t } = useTranslation();
-    const styles = useMemo(() => makeStyles(colors), [colors]);
+    const theme = useTheme();
+    const s = useMemo(() => makeStyles(theme), [theme]);
 
     const [modalVisible, setModalVisible] = useState(false);
     const [editingDept, setEditingDept] = useState<Department | null>(null);
@@ -247,9 +98,9 @@ export default function AdminDepartmentsScreen({ navigation }: AdminDepartmentsS
             'Xóa phòng ban',
             'Bạn có chắc chắn muốn xóa phòng ban này?',
             [
-                { text: t.common.cancel, style: 'cancel' },
+                { text: 'Hủy', style: 'cancel' },
                 {
-                    text: t.common.delete,
+                    text: 'Xóa',
                     style: 'destructive',
                     onPress: () => {
                         deleteDepartment.mutate(id, {
@@ -298,57 +149,57 @@ export default function AdminDepartmentsScreen({ navigation }: AdminDepartmentsS
     const getBranchName = (id: string) => (branches as Branch[]).find((b: Branch) => b._id === id)?.name || 'Chọn Chi nhánh';
 
     const renderItem = ({ item }: { item: Department }) => (
-        <View style={styles.card}>
+        <View style={s.card}>
             <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={styles.cardTitle}>{item.name}</Text>
-                    <Text style={styles.codeText}>{item.code}</Text>
+                    <Text style={s.cardTitle}>{item.name}</Text>
+                    <Text style={s.codeText}>{item.code}</Text>
                 </View>
-                <Text style={styles.cardSubtitle}>{item.description}</Text>
-                <View style={{ marginTop: SPACING.sm }}>
+                <Text style={s.cardSubtitle}>{item.description}</Text>
+                <View style={{ marginTop: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Icon name="person" size={14} color={colors.textSecondary} />
-                        <Text style={styles.cardMeta}>
+                        <Icon name="person-outline" size={14} color={theme.colors.text.secondary} library="ionicons" />
+                        <Text style={s.cardMeta}>
                             Trưởng phòng: {item.managerId?.name || 'Chưa có'}
                         </Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                        <Icon name="business" size={14} color={colors.textSecondary} />
-                        <Text style={styles.cardMeta}>
+                        <Icon name="business-outline" size={14} color={theme.colors.text.secondary} library="ionicons" />
+                        <Text style={s.cardMeta}>
                             Chi nhánh: {item.branchId?.name || 'N/A'}
                         </Text>
                     </View>
                 </View>
             </View>
             <View style={{ flexDirection: 'row' }}>
-                <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
-                    <Icon name="edit" size={20} color="#4F6EF7" />
+                <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionButton}>
+                    <Icon name="create-outline" size={20} color={theme.colors.brand.primary} library="ionicons" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.actionButton}>
-                    <Icon name="delete" size={20} color="#ef4444" />
+                <TouchableOpacity onPress={() => handleDelete(item._id)} style={s.actionButton}>
+                    <Icon name="trash-outline" size={20} color={theme.colors.status.danger} library="ionicons" />
                 </TouchableOpacity>
             </View>
         </View>
     );
 
     return (
-        <View style={styles.container}>
+        <View style={s.container}>
             {/* Header */}
             <LinearGradient
-                colors={['#4F6EF7', '#7c3aed']}
+                colors={[theme.colors.brand.primary, theme.colors.brand.primaryActive] as unknown as readonly [string, ...string[]]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.header}
+                style={s.header}
             >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: SPACING.xs }}>
-                            <Icon name="arrow_back" size={24} color="#ffffff" />
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+                            <Icon name="arrow-back-outline" size={24} color={theme.colors.text.onPrimary} library="ionicons" />
                         </TouchableOpacity>
-                        <Text style={styles.headerTitle}>{t.admin.dashboard.departments}</Text>
+                        <Text style={s.headerTitle}>Phòng ban</Text>
                     </View>
-                    <TouchableOpacity onPress={handleAdd} style={styles.addButton}>
-                        <Icon name="add" size={24} color="#ffffff" />
+                    <TouchableOpacity onPress={handleAdd} style={s.addButton}>
+                        <Icon name="add-outline" size={24} color={theme.colors.text.onPrimary} library="ionicons" />
                     </TouchableOpacity>
                 </View>
             </LinearGradient>
@@ -357,12 +208,12 @@ export default function AdminDepartmentsScreen({ navigation }: AdminDepartmentsS
                 data={departments}
                 renderItem={renderItem}
                 keyExtractor={item => item._id}
-                contentContainerStyle={{ padding: SPACING.md }}
+                contentContainerStyle={{ padding: 12 }}
                 refreshing={isLoading}
                 onRefresh={() => refetch()}
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>{t.common.noData}</Text>
+                    <View style={s.emptyContainer}>
+                        <Text style={s.emptyText}>Không có dữ liệu</Text>
                     </View>
                 }
             />
@@ -374,75 +225,75 @@ export default function AdminDepartmentsScreen({ navigation }: AdminDepartmentsS
                 visible={modalVisible}
                 onRequestClose={() => setModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                <View style={s.modalOverlay}>
+                    <View style={s.modalContent}>
                         <ScrollView>
-                            <Text style={styles.modalTitle}>
+                            <Text style={s.modalTitle}>
                                 {editingDept ? 'Sửa Phòng Ban' : 'Thêm Phòng Ban'}
                             </Text>
 
-                            <Text style={styles.label}>Tên phòng ban <Text style={{ color: '#ef4444' }}>*</Text></Text>
+                            <Text style={s.label}>Tên phòng ban <Text style={{ color: theme.colors.status.danger }}>*</Text></Text>
                             <TextInput
-                                style={styles.input}
+                                style={s.input}
                                 value={name}
                                 onChangeText={setName}
                                 placeholder="Nhập tên phòng ban"
-                                placeholderTextColor={colors.inputPlaceholder}
+                                placeholderTextColor={theme.colors.text.muted}
                             />
 
-                            <Text style={styles.label}>Mã phòng ban <Text style={{ color: '#ef4444' }}>*</Text></Text>
+                            <Text style={s.label}>Mã phòng ban <Text style={{ color: theme.colors.status.danger }}>*</Text></Text>
                             <TextInput
-                                style={styles.input}
+                                style={s.input}
                                 value={code}
                                 onChangeText={setCode}
                                 placeholder="VD: IT, HR, MK"
-                                placeholderTextColor={colors.inputPlaceholder}
+                                placeholderTextColor={theme.colors.text.muted}
                                 autoCapitalize="characters"
                             />
 
-                            <Text style={styles.label}>Mô tả</Text>
+                            <Text style={s.label}>Mô tả</Text>
                             <TextInput
-                                style={styles.input}
+                                style={s.input}
                                 value={description}
                                 onChangeText={setDescription}
                                 placeholder="Nhập mô tả"
-                                placeholderTextColor={colors.inputPlaceholder}
+                                placeholderTextColor={theme.colors.text.muted}
                             />
 
-                            <Text style={styles.label}>Chi nhánh <Text style={{ color: '#ef4444' }}>*</Text></Text>
+                            <Text style={s.label}>Chi nhánh <Text style={{ color: theme.colors.status.danger }}>*</Text></Text>
                             <TouchableOpacity
-                                style={styles.selectButton}
+                                style={s.selectButton}
                                 onPress={() => setShowBranchPicker(true)}
                             >
-                                <Text style={selectedBranchId ? styles.selectButtonTextSelected : styles.selectButtonText}>
+                                <Text style={selectedBranchId ? s.selectButtonTextSelected : s.selectButtonText}>
                                     {getBranchName(selectedBranchId)}
                                 </Text>
-                                <Icon name="arrow_drop_down" size={24} color={colors.textSecondary} />
+                                <Icon name="chevron-down-outline" size={24} color={theme.colors.text.secondary} library="ionicons" />
                             </TouchableOpacity>
 
-                            <Text style={styles.label}>Trưởng phòng</Text>
+                            <Text style={s.label}>Trưởng phòng</Text>
                             <TouchableOpacity
-                                style={styles.selectButton}
+                                style={s.selectButton}
                                 onPress={() => setShowManagerPicker(true)}
                             >
-                                <Text style={selectedManagerId ? styles.selectButtonTextSelected : styles.selectButtonText}>
+                                <Text style={selectedManagerId ? s.selectButtonTextSelected : s.selectButtonText}>
                                     {getManagerName(selectedManagerId)}
                                 </Text>
-                                <Icon name="arrow_drop_down" size={24} color={colors.textSecondary} />
+                                <Icon name="chevron-down-outline" size={24} color={theme.colors.text.secondary} library="ionicons" />
                             </TouchableOpacity>
 
-                            <View style={styles.modalActions}>
+                            <View style={s.modalActions}>
                                 <TouchableOpacity
-                                    style={[styles.modalButton, styles.cancelButton]}
+                                    style={[s.modalButton, s.cancelButton]}
                                     onPress={() => setModalVisible(false)}
                                 >
-                                    <Text style={styles.cancelButtonText}>{t.common.cancel}</Text>
+                                    <Text style={s.cancelButtonText}>Hủy</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.modalButton, { backgroundColor: '#4F6EF7' }]}
+                                    style={[s.modalButton, { backgroundColor: theme.colors.brand.primary }]}
                                     onPress={handleSave}
                                 >
-                                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>{t.common.save}</Text>
+                                    <Text style={{ color: theme.colors.text.onPrimary, fontWeight: 'bold' }}>Lưu</Text>
                                 </TouchableOpacity>
                             </View>
                         </ScrollView>
@@ -460,9 +311,9 @@ export default function AdminDepartmentsScreen({ navigation }: AdminDepartmentsS
                     setShowBranchPicker(false);
                 }}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>
+                <View style={s.modalOverlay}>
+                    <View style={s.modalContent}>
+                        <Text style={s.modalTitle}>
                             {showManagerPicker ? 'Chọn Trưởng phòng' : 'Chọn Chi nhánh'}
                         </Text>
                         <FlatList
@@ -471,7 +322,7 @@ export default function AdminDepartmentsScreen({ navigation }: AdminDepartmentsS
                             style={{ maxHeight: 300 }}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
-                                    style={styles.pickerItem}
+                                    style={s.pickerItem}
                                     onPress={() => {
                                         if (showManagerPicker) setSelectedManagerId(item._id);
                                         else setSelectedBranchId(item._id);
@@ -479,25 +330,174 @@ export default function AdminDepartmentsScreen({ navigation }: AdminDepartmentsS
                                         setShowBranchPicker(false);
                                     }}
                                 >
-                                    <Text style={styles.pickerItemText}>{item.name}</Text>
+                                    <Text style={s.pickerItemText}>{item.name}</Text>
                                     {(showManagerPicker ? selectedManagerId : selectedBranchId) === item._id && (
-                                        <Icon name="check" size={20} color="#16a34a" />
+                                        <Icon name="checkmark-outline" size={20} color={theme.colors.status.success} library="ionicons" />
                                     )}
                                 </TouchableOpacity>
                             )}
                         />
                         <TouchableOpacity
-                            style={[styles.modalButton, styles.cancelButton, { marginTop: SPACING.md, alignSelf: 'center' }]}
+                            style={[s.modalButton, s.cancelButton, { marginTop: 12, alignSelf: 'center' }]}
                             onPress={() => {
                                 setShowManagerPicker(false);
                                 setShowBranchPicker(false);
                             }}
                         >
-                            <Text style={styles.cancelButtonText}>{t.common.close}</Text>
+                            <Text style={s.cancelButtonText}>Đóng</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
         </View>
     );
+}
+
+function makeStyles(t: Theme) {
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: t.colors.background.base,
+        },
+        header: {
+            paddingTop: 36,
+            paddingBottom: 20,
+            paddingHorizontal: 12,
+        },
+        headerTitle: {
+            color: t.colors.text.onPrimary,
+            fontSize: 20,
+            fontWeight: 'bold',
+            marginLeft: 8,
+        },
+        addButton: {
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            padding: 4,
+            borderRadius: 9999,
+        },
+        card: {
+            backgroundColor: t.colors.background.surface,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 2,
+        },
+        cardTitle: {
+            color: t.colors.text.primary,
+            fontSize: 16,
+            fontWeight: 'bold',
+            marginBottom: 4,
+        },
+        cardSubtitle: {
+            color: t.colors.text.secondary,
+            fontSize: 12,
+        },
+        cardMeta: {
+            color: t.colors.text.secondary,
+            fontSize: 12,
+            marginLeft: 4,
+        },
+        actionButton: {
+            padding: 8,
+            marginLeft: 4,
+        },
+        emptyContainer: {
+            padding: 20,
+            alignItems: 'center',
+        },
+        emptyText: {
+            color: t.colors.text.secondary,
+        },
+        modalOverlay: {
+            flex: 1,
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            padding: 16,
+        },
+        modalContent: {
+            backgroundColor: t.colors.background.surface,
+            borderRadius: 12,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+            maxHeight: '80%',
+        },
+        modalTitle: {
+            color: t.colors.text.primary,
+            fontSize: 20,
+            fontWeight: 'bold',
+            marginBottom: 16,
+            textAlign: 'center',
+        },
+        label: {
+            color: t.colors.text.secondary,
+            marginBottom: 4,
+            marginTop: 12,
+        },
+        input: {
+            backgroundColor: t.colors.background.base,
+            borderRadius: 8,
+            padding: 12,
+            color: t.colors.text.primary,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+        },
+        selectButton: {
+            backgroundColor: t.colors.background.base,
+            borderRadius: 8,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+        },
+        selectButtonText: {
+            color: t.colors.text.muted,
+        },
+        selectButtonTextSelected: {
+            color: t.colors.text.primary,
+        },
+        modalActions: {
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            marginTop: 20,
+        },
+        modalButton: {
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 8,
+            marginLeft: 12,
+        },
+        cancelButton: {
+            backgroundColor: t.colors.background.base,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+        },
+        cancelButtonText: {
+            color: t.colors.text.primary,
+        },
+        pickerItem: {
+            padding: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: t.colors.border.default,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+        },
+        pickerItemText: {
+            color: t.colors.text.primary,
+        },
+        codeText: {
+            color: t.colors.brand.primary,
+            fontWeight: 'bold',
+        },
+    });
 }

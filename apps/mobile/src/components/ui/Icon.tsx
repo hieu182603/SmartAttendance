@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { COLORS } from '../../utils/styles';
-
+import { useTheme } from '../../theme';
 interface IconProps {
   name: string;
   size?: number;
@@ -145,19 +144,21 @@ const iconMap: { [key: string]: { family: string; name: string } } = {
 export const Icon: React.FC<IconProps> = ({
   name,
   size = 24,
-  color = COLORS.text.primary,
+  color,
   style,
   library,
 }) => {
+  const { colors } = useTheme();
+  const resolvedColor = color ?? colors.text.primary;
   // Direct library usage — bypasses iconMap
   if (library === 'ionicons') {
-    return <Ionicons name={name as any} size={size} color={color} style={style} />;
+    return <Ionicons name={name as any} size={size} color={resolvedColor} style={style} />;
   }
   if (library === 'material') {
-    return <MaterialIcons name={name as any} size={size} color={color} style={style} />;
+    return <MaterialIcons name={name as any} size={size} color={resolvedColor} style={style} />;
   }
   if (library === 'community') {
-    return <MaterialCommunityIcons name={name as any} size={size} color={color} style={style} />;
+    return <MaterialCommunityIcons name={name as any} size={size} color={resolvedColor} style={style} />;
   }
 
   const iconData = iconMap[name];
@@ -165,7 +166,7 @@ export const Icon: React.FC<IconProps> = ({
   if (!iconData) {
     return (
       <View style={[{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }, style]}>
-        <Text style={{ color, fontSize: size * 0.6 }}>?</Text>
+        <Text style={{ color: resolvedColor, fontSize: size * 0.6 }}>?</Text>
       </View>
     );
   }
@@ -174,12 +175,12 @@ export const Icon: React.FC<IconProps> = ({
 
   switch (family) {
     case 'Ionicons':
-      return <Ionicons name={iconName as any} size={size} color={color} style={style} />;
+      return <Ionicons name={iconName as any} size={size} color={resolvedColor} style={style} />;
     case 'MaterialIcons':
-      return <MaterialIcons name={iconName as any} size={size} color={color} style={style} />;
+      return <MaterialIcons name={iconName as any} size={size} color={resolvedColor} style={style} />;
     case 'MaterialCommunityIcons':
-      return <MaterialCommunityIcons name={iconName as any} size={size} color={color} style={style} />;
+      return <MaterialCommunityIcons name={iconName as any} size={size} color={resolvedColor} style={style} />;
     default:
-      return <Ionicons name={iconName as any} size={size} color={color} style={style} />;
+      return <Ionicons name={iconName as any} size={size} color={resolvedColor} style={style} />;
   }
 };

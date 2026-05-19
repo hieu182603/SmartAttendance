@@ -14,16 +14,16 @@ import {
   Outfit_700Bold,
 } from '@expo-google-fonts/outfit';
 import AppNavigator from './src/navigation/AppNavigator';
-import { globalStyles } from './src/utils/styles';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { SocketProvider } from './src/context/SocketContext';
-import { PreferencesProvider } from './src/context/PreferencesContext';
+import { PreferencesProvider, usePreferences } from './src/context/PreferencesContext';
+import { ThemeProvider } from './src/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,       // 5 minutes
-      gcTime: 24 * 60 * 60 * 1000,     // 24 hours
+      staleTime: 5 * 60 * 1000,
+      gcTime: 24 * 60 * 60 * 1000,
       retry: 2,
       refetchOnWindowFocus: false,
     },
@@ -40,13 +40,22 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <View style={[globalStyles.container, globalStyles.center]}>
-        <ActivityIndicator size="large" color="#4F6EF7" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+        <ActivityIndicator size="large" color="#6366F1" />
       </View>
     );
   }
 
   return <AppNavigator userRole={userRole || undefined} isLoading={isLoading} />;
+}
+
+function ThemedApp({ children }: { children: React.ReactNode }) {
+  const { isDarkMode } = usePreferences();
+  return (
+    <ThemeProvider forcedMode={isDarkMode ? 'dark' : 'light'}>
+      {children}
+    </ThemeProvider>
+  );
 }
 
 export default function App() {
@@ -59,8 +68,8 @@ export default function App() {
 
   if (!fontsLoaded) {
     return (
-      <View style={[globalStyles.container, globalStyles.center]}>
-        <ActivityIndicator size="large" color="#4F6EF7" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+        <ActivityIndicator size="large" color="#6366F1" />
       </View>
     );
   }
@@ -72,14 +81,16 @@ export default function App() {
         persistOptions={{ persister: asyncStoragePersister }}
       >
         <PreferencesProvider>
-          <AuthProvider>
-            <SocketProvider>
-              <View style={globalStyles.container}>
-                <StatusBar style="auto" />
-                <AppContent />
-              </View>
-            </SocketProvider>
-          </AuthProvider>
+          <ThemedApp>
+            <AuthProvider>
+              <SocketProvider>
+                <View style={{ flex: 1 }}>
+                  <StatusBar style="auto" />
+                  <AppContent />
+                </View>
+              </SocketProvider>
+            </AuthProvider>
+          </ThemedApp>
         </PreferencesProvider>
       </PersistQueryClientProvider>
     </SafeAreaProvider>

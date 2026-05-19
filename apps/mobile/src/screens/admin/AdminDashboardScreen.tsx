@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { queryKeys } from '../../hooks/queryKeys';
 import { useAuth } from '../../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { vi as viLocale } from 'date-fns/locale';
+import { useTheme, Theme } from '../../theme';
 
 type Props = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList, 'AdminDashboard'>,
@@ -32,6 +33,8 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   const { data: statsData, isLoading } = useAdminStats();
   const { data: unreadData } = useUnreadCount();
@@ -62,12 +65,12 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.brand.primaryActive} />}
       >
         {/* Hero */}
         <LinearGradient
-          colors={['#4c1d95', '#6d28d9', '#7c3aed']}
-          locations={[0, 0.45, 1]}
+          colors={[theme.colors.brand.primaryActive, theme.colors.brand.primary] as unknown as readonly [string, ...string[]]}
+          locations={[0, 1]}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={s.hero}
@@ -82,7 +85,7 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
                 onPress={() => navigation.navigate('Notifications')}
                 style={s.notifBtn}
               >
-                <Icon name="notifications-outline" size={20} color="#fff" library="ionicons" />
+                <Icon name="notifications-outline" size={20} color={theme.colors.text.onPrimary} library="ionicons" />
                 {unreadCount > 0 && (
                   <View style={s.notifBadge}>
                     <Text style={s.notifBadgeText}>{unreadCount}</Text>
@@ -120,16 +123,16 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
           </View>
           <View style={s.quickRow}>
             <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('AdminUsers')}>
-              <View style={[s.qaIcon, { backgroundColor: '#ede9fe' }]}>
-                <Icon name="people-outline" size={22} color="#7c3aed" library="ionicons" />
+              <View style={[s.qaIcon, { backgroundColor: theme.colors.background.indigoTint }]}>
+                <Icon name="people-outline" size={22} color={theme.colors.brand.primaryActive} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Nhân viên</Text>
             </TouchableOpacity>
 
             <View style={s.qaWrap}>
               <TouchableOpacity style={s.qaItem} onPress={() => navigation.navigate('AdminApprovals' as any)}>
-                <View style={[s.qaIcon, { backgroundColor: '#fef2f2' }]}>
-                  <Icon name="document-text-outline" size={22} color="#ef4444" library="ionicons" />
+                <View style={[s.qaIcon, { backgroundColor: theme.colors.status.dangerBg }]}>
+                  <Icon name="document-text-outline" size={22} color={theme.colors.status.danger} library="ionicons" />
                 </View>
                 <Text style={s.qaLabel}>Duyệt đơn</Text>
               </TouchableOpacity>
@@ -141,30 +144,30 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
             </View>
 
             <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('AdminReports')}>
-              <View style={[s.qaIcon, { backgroundColor: '#dcfce7' }]}>
-                <Icon name="cash-outline" size={22} color="#16a34a" library="ionicons" />
+              <View style={[s.qaIcon, { backgroundColor: theme.colors.status.successBg }]}>
+                <Icon name="cash-outline" size={22} color={theme.colors.status.success} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Bảng lương</Text>
             </TouchableOpacity>
           </View>
           <View style={[s.quickRow, { marginBottom: 4 }]}>
             <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('AdminDepartments' as any)}>
-              <View style={[s.qaIcon, { backgroundColor: '#f0fdf4' }]}>
-                <Icon name="business-outline" size={22} color="#16a34a" library="ionicons" />
+              <View style={[s.qaIcon, { backgroundColor: theme.colors.background.emeraldTint }]}>
+                <Icon name="business-outline" size={22} color={theme.colors.status.success} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Phòng ban</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('AdminAudit')}>
-              <View style={[s.qaIcon, { backgroundColor: '#fef3c7' }]}>
-                <Icon name="receipt-outline" size={22} color="#b45309" library="ionicons" />
+              <View style={[s.qaIcon, { backgroundColor: theme.colors.background.warningTint }]}>
+                <Icon name="receipt-outline" size={22} color={theme.colors.status.warning} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Nhật ký</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('AdminUsers')}>
-              <View style={[s.qaIcon, { backgroundColor: '#eef1ff' }]}>
-                <Icon name="search-outline" size={22} color="#4f6ef7" library="ionicons" />
+              <View style={[s.qaIcon, { backgroundColor: theme.colors.background.indigoTint }]}>
+                <Icon name="search-outline" size={22} color={theme.colors.brand.primary} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Tìm kiếm</Text>
             </TouchableOpacity>
@@ -177,15 +180,15 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
           <View style={s.kpiCard}>
             <View style={s.kpiRow}>
               <View style={s.kpiCell}>
-                <Text style={[s.kpiVal, { color: '#16a34a' }]}>{onTimeRate}%</Text>
+                <Text style={[s.kpiVal, { color: theme.colors.status.success }]}>{onTimeRate}%</Text>
                 <Text style={s.kpiLbl}>Tỉ lệ đúng giờ</Text>
               </View>
               <View style={[s.kpiCell, s.kpiCellBorder]}>
-                <Text style={[s.kpiVal, { color: '#d97706' }]}>{lateToday}</Text>
+                <Text style={[s.kpiVal, { color: theme.colors.status.warning }]}>{lateToday}</Text>
                 <Text style={s.kpiLbl}>Nghỉ phép</Text>
               </View>
               <View style={s.kpiCell}>
-                <Text style={[s.kpiVal, { color: '#7c3aed' }]}>{statsData?.kpi?.overtime ?? 0}</Text>
+                <Text style={[s.kpiVal, { color: theme.colors.brand.primaryActive }]}>{statsData?.kpi?.overtime ?? 0}</Text>
                 <Text style={s.kpiLbl}>Tăng ca</Text>
               </View>
             </View>
@@ -203,7 +206,7 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
             </TouchableOpacity>
           </View>
           <LinearGradient
-            colors={['#5b21b6', '#7c3aed']}
+            colors={[theme.colors.brand.primaryActive, theme.colors.brand.primary] as unknown as readonly [string, ...string[]]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={s.payrollMini}
@@ -278,8 +281,8 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
           </View>
           <View style={s.utilRow}>
             <TouchableOpacity style={s.utilCard} onPress={() => navigation.navigate('AdminDepartments' as any)}>
-              <View style={[s.utilIcon, { backgroundColor: '#dcfce7' }]}>
-                <Icon name="business-outline" size={18} color="#16a34a" library="ionicons" />
+              <View style={[s.utilIcon, { backgroundColor: theme.colors.status.successBg }]}>
+                <Icon name="business-outline" size={18} color={theme.colors.status.success} library="ionicons" />
               </View>
               <View>
                 <Text style={s.utilLabel}>Phòng ban & Chi nhánh</Text>
@@ -289,8 +292,8 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={s.utilCard} onPress={() => navigation.navigate('AdminAudit')}>
-              <View style={[s.utilIcon, { backgroundColor: '#fef3c7' }]}>
-                <Icon name="document-outline" size={18} color="#b45309" library="ionicons" />
+              <View style={[s.utilIcon, { backgroundColor: theme.colors.background.warningTint }]}>
+                <Icon name="document-outline" size={18} color={theme.colors.status.warning} library="ionicons" />
               </View>
               <View>
                 <Text style={s.utilLabel}>Nhật ký hệ thống</Text>
@@ -306,141 +309,143 @@ export default function AdminDashboardScreen({ navigation }: { navigation: Props
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f3f4f8' },
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: t.colors.background.base },
 
-  // Hero
-  hero: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 36 },
-  heroTop: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 16,
-  },
-  heroGreet: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '400', marginBottom: 2 },
-  heroName: { fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
-  heroRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  notifBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center', position: 'relative',
-  },
-  notifBadge: {
-    position: 'absolute', top: -2, right: -2,
-    backgroundColor: '#ef4444', borderRadius: 9999,
-    minWidth: 14, paddingHorizontal: 3, alignItems: 'center',
-  },
-  notifBadgeText: { fontSize: 8, fontWeight: '700', color: '#fff' },
-  adminBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 9999, paddingVertical: 5, paddingHorizontal: 14,
-  },
-  adminBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+    // Hero
+    hero: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 36 },
+    heroTop: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', marginBottom: 16,
+    },
+    heroGreet: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '400', marginBottom: 2 },
+    heroName: { fontSize: 18, fontWeight: '800', color: t.colors.text.onPrimary, letterSpacing: -0.3 },
+    heroRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    notifBtn: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      justifyContent: 'center', alignItems: 'center', position: 'relative',
+    },
+    notifBadge: {
+      position: 'absolute', top: -2, right: -2,
+      backgroundColor: t.colors.status.danger, borderRadius: 9999,
+      minWidth: 14, paddingHorizontal: 3, alignItems: 'center',
+    },
+    notifBadgeText: { fontSize: 8, fontWeight: '700', color: t.colors.text.onPrimary },
+    adminBadge: {
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+      borderRadius: 9999, paddingVertical: 5, paddingHorizontal: 14,
+    },
+    adminBadgeText: { fontSize: 11, fontWeight: '700', color: t.colors.text.onPrimary },
 
-  statsRow: { flexDirection: 'row', gap: 8 },
-  statBox: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center',
-  },
-  statVal: { fontSize: 22, fontWeight: '800', color: '#fff', lineHeight: 26 },
-  statWarn: { color: '#fbbf24' },
-  statRed: { color: '#f87171' },
-  statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 4, fontWeight: '500', textAlign: 'center' },
+    statsRow: { flexDirection: 'row', gap: 8 },
+    statBox: {
+      flex: 1, backgroundColor: 'rgba(255,255,255,0.12)',
+      borderRadius: 12, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center',
+    },
+    statVal: { fontSize: 22, fontWeight: '800', color: t.colors.text.onPrimary, lineHeight: 26 },
+    statWarn: { color: '#fbbf24' },
+    statRed: { color: '#f87171' },
+    statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 4, fontWeight: '500', textAlign: 'center' },
 
-  // Body
-  body: { paddingHorizontal: 16 },
+    // Body
+    body: { paddingHorizontal: 16 },
 
-  secHead: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginTop: 16, marginBottom: 10,
-  },
-  secTitle: { fontSize: 14, fontWeight: '700', color: '#191c1e' },
-  secLink: { fontSize: 12, fontWeight: '600', color: '#7c3aed' },
+    secHead: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', marginTop: 16, marginBottom: 10,
+    },
+    secTitle: { fontSize: 14, fontWeight: '700', color: t.colors.text.primary },
+    secLink: { fontSize: 12, fontWeight: '600', color: t.colors.brand.primaryActive },
 
-  // Quick actions 3-col
-  quickRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  qaWrap: { flex: 1, position: 'relative' },
-  qaItem: {
-    backgroundColor: '#fff', borderRadius: 14,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    paddingVertical: 14, paddingHorizontal: 6,
-    alignItems: 'center', gap: 6,
-  },
-  qaFlex: { flex: 1 },
-  qaIcon: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  qaLabel: { fontSize: 10, fontWeight: '600', color: '#444654', textAlign: 'center', lineHeight: 14 },
-  qaBadge: {
-    position: 'absolute', top: -4, right: -4,
-    backgroundColor: '#ef4444', borderRadius: 9999,
-    minWidth: 16, paddingHorizontal: 4, paddingVertical: 1,
-    alignItems: 'center', zIndex: 1,
-  },
-  qaBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff' },
+    // Quick actions 3-col
+    quickRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+    qaWrap: { flex: 1, position: 'relative' },
+    qaItem: {
+      backgroundColor: t.colors.background.surface, borderRadius: 14,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      paddingVertical: 14, paddingHorizontal: 6,
+      alignItems: 'center', gap: 6,
+    },
+    qaFlex: { flex: 1 },
+    qaIcon: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+    qaLabel: { fontSize: 10, fontWeight: '600', color: t.colors.text.secondary, textAlign: 'center', lineHeight: 14 },
+    qaBadge: {
+      position: 'absolute', top: -4, right: -4,
+      backgroundColor: t.colors.status.danger, borderRadius: 9999,
+      minWidth: 16, paddingHorizontal: 4, paddingVertical: 1,
+      alignItems: 'center', zIndex: 1,
+    },
+    qaBadgeText: { fontSize: 9, fontWeight: '700', color: t.colors.text.onPrimary },
 
-  // KPI card
-  kpiCard: {
-    backgroundColor: '#fff', borderRadius: 16,
-    borderWidth: 1, borderColor: '#e5e7eb', padding: 16, marginBottom: 4,
-  },
-  kpiRow: {
-    flexDirection: 'row', borderRadius: 12,
-    overflow: 'hidden', borderWidth: 1, borderColor: '#e5e7eb',
-  },
-  kpiCell: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center' },
-  kpiCellBorder: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#e5e7eb' },
-  kpiVal: { fontSize: 18, fontWeight: '800', color: '#191c1e' },
-  kpiLbl: { fontSize: 10, color: '#9ca3af', fontWeight: '500', marginTop: 3, textAlign: 'center' },
-  kpiSub: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginTop: 12,
-  },
-  kpiSubLabel: { fontSize: 11, color: '#444654', fontWeight: '600' },
-  kpiSubVal: { fontSize: 11, fontWeight: '700', color: '#7c3aed' },
+    // KPI card
+    kpiCard: {
+      backgroundColor: t.colors.background.surface, borderRadius: 16,
+      borderWidth: 1, borderColor: t.colors.border.default, padding: 16, marginBottom: 4,
+    },
+    kpiRow: {
+      flexDirection: 'row', borderRadius: 12,
+      overflow: 'hidden', borderWidth: 1, borderColor: t.colors.border.default,
+    },
+    kpiCell: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center' },
+    kpiCellBorder: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: t.colors.border.default },
+    kpiVal: { fontSize: 18, fontWeight: '800', color: t.colors.text.primary },
+    kpiLbl: { fontSize: 10, color: t.colors.text.muted, fontWeight: '500', marginTop: 3, textAlign: 'center' },
+    kpiSub: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', marginTop: 12,
+    },
+    kpiSubLabel: { fontSize: 11, color: t.colors.text.secondary, fontWeight: '600' },
+    kpiSubVal: { fontSize: 11, fontWeight: '700', color: t.colors.brand.primaryActive },
 
-  // Payroll mini
-  payrollMini: { borderRadius: 16, padding: 16, marginBottom: 4, overflow: 'hidden' },
-  pmLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 6 },
-  pmAmount: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 12 },
-  pmRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  pmItem: { alignItems: 'center' },
-  pmVal: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  pmItemLabel: { fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
-  pmBtn: {
-    marginTop: 14,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 10, paddingVertical: 8, paddingHorizontal: 20,
-    alignSelf: 'flex-start',
-  },
-  pmBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+    // Payroll mini
+    payrollMini: { borderRadius: 16, padding: 16, marginBottom: 4, overflow: 'hidden' },
+    pmLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 6 },
+    pmAmount: { fontSize: 22, fontWeight: '800', color: t.colors.text.onPrimary, marginBottom: 12 },
+    pmRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    pmItem: { alignItems: 'center' },
+    pmVal: { fontSize: 14, fontWeight: '700', color: t.colors.text.onPrimary },
+    pmItemLabel: { fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+    pmBtn: {
+      marginTop: 14,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+      borderRadius: 10, paddingVertical: 8, paddingHorizontal: 20,
+      alignSelf: 'flex-start',
+    },
+    pmBtnText: { fontSize: 12, fontWeight: '700', color: t.colors.text.onPrimary },
 
-  // Recent employees
-  empRow: {
-    backgroundColor: '#fff', borderRadius: 14,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    paddingVertical: 11, paddingHorizontal: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,
-  },
-  empAva: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  empAvaText: { fontSize: 13, fontWeight: '800', color: '#fff' },
-  empInfo: { flex: 1, minWidth: 0 },
-  empName: { fontSize: 13, fontWeight: '700', color: '#191c1e' },
-  empSub: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
-  empTime: { fontSize: 10, color: '#9ca3af' },
-  empEmpty: {
-    backgroundColor: '#fff', borderRadius: 14,
-    borderWidth: 1, borderColor: '#e5e7eb',
-    padding: 16, alignItems: 'center', marginBottom: 8,
-  },
-  empEmptyText: { fontSize: 13, color: '#9ca3af' },
+    // Recent employees
+    empRow: {
+      backgroundColor: t.colors.background.surface, borderRadius: 14,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      paddingVertical: 11, paddingHorizontal: 14,
+      flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8,
+    },
+    empAva: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+    empAvaText: { fontSize: 13, fontWeight: '800', color: t.colors.text.onPrimary },
+    empInfo: { flex: 1, minWidth: 0 },
+    empName: { fontSize: 13, fontWeight: '700', color: t.colors.text.primary },
+    empSub: { fontSize: 11, color: t.colors.text.muted, marginTop: 1 },
+    empTime: { fontSize: 10, color: t.colors.text.muted },
+    empEmpty: {
+      backgroundColor: t.colors.background.surface, borderRadius: 14,
+      borderWidth: 1, borderColor: t.colors.border.default,
+      padding: 16, alignItems: 'center', marginBottom: 8,
+    },
+    empEmptyText: { fontSize: 13, color: t.colors.text.muted },
 
-  // Utility row
-  utilRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  utilCard: {
-    flex: 1, backgroundColor: '#fff',
-    borderRadius: 14, borderWidth: 1, borderColor: '#e5e7eb',
-    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
-  },
-  utilIcon: { width: 38, height: 38, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
-  utilLabel: { fontSize: 12, fontWeight: '700', color: '#191c1e', lineHeight: 16 },
-  utilSub: { fontSize: 10, color: '#9ca3af', marginTop: 1 },
-});
+    // Utility row
+    utilRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+    utilCard: {
+      flex: 1, backgroundColor: t.colors.background.surface,
+      borderRadius: 14, borderWidth: 1, borderColor: t.colors.border.default,
+      padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
+    },
+    utilIcon: { width: 38, height: 38, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+    utilLabel: { fontSize: 12, fontWeight: '700', color: t.colors.text.primary, lineHeight: 16 },
+    utilSub: { fontSize: 10, color: t.colors.text.muted, marginTop: 1 },
+  });
+}

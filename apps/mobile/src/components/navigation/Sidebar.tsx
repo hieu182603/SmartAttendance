@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,9 @@ import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen, UserRole } from '../../types';
 import { Icon } from '../ui/Icon';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { useAuth } from '../../context/AuthContext';
 import { useManagerApprovals } from '../../hooks/useManagerQueries';
+import { useTheme } from '../../theme';
 
 interface MenuItem {
   screen: Screen;
@@ -24,6 +24,7 @@ interface MenuItem {
 export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const { logout, userRole } = useAuth();
   const { navigation, state } = props;
+  const { colors } = useTheme();
 
   const { data: approvalsData } = useManagerApprovals();
   const pendingCount = approvalsData?.filter((a: any) => a.status === 'pending').length || 0;
@@ -49,7 +50,6 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const items = userRole === UserRole.Manager ? managerItems : adminItems;
   const currentRoute = state.routes[state.index]?.name;
 
-  // Map Screen enum to actual navigator screen names
   const getScreenName = (screen: Screen): string => {
     const screenMap: { [key in Screen]?: string } = {
       [Screen.ManagerDashboard]: 'ManagerDashboard',
@@ -79,35 +79,35 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     navigation.navigate('Login' as any);
   };
 
+  const s = useMemo(() => makeStyles(colors), [colors]);
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <View style={s.container}>
       <LinearGradient
-        colors={[COLORS.primary, COLORS.accent.cyan] as const}
+        colors={[colors.brand.primary, colors.brand.primaryActive] as unknown as readonly [string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.header}
+        style={s.header}
       >
-        <View style={styles.headerContent}>
-          <View style={styles.logoContainer}>
-            <Icon name="timelapse" size={24} color="#ffffff" />
+        <View style={s.headerContent}>
+          <View style={s.logoContainer}>
+            <Icon name="timelapse" size={24} color={colors.text.onPrimary} />
           </View>
           <View>
-            <Text style={styles.logoText}>
-              Smart<Text style={styles.logoTextAccent}>Att</Text>
+            <Text style={s.logoText}>
+              Smart<Text style={s.logoTextAccent}>Att</Text>
             </Text>
-            <Text style={styles.versionText}>Workspace v2.0</Text>
+            <Text style={s.versionText}>Workspace v2.0</Text>
           </View>
         </View>
       </LinearGradient>
 
-      {/* Menu Items */}
       <ScrollView
-        style={styles.menuContainer}
-        contentContainerStyle={styles.menuContent}
+        style={s.menuContainer}
+        contentContainerStyle={s.menuContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.menuSectionTitle}>Menu</Text>
+        <Text style={s.menuSectionTitle}>Menu</Text>
         {items.map((item) => {
           const screenName = getScreenName(item.screen);
           const isActive = currentRoute === screenName;
@@ -115,27 +115,24 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
             <TouchableOpacity
               key={item.screen}
               onPress={() => handleNavigate(item.screen)}
-              style={[
-                styles.menuItem,
-                isActive && styles.menuItemActive,
-              ]}
+              style={[s.menuItem, isActive && s.menuItemActive]}
               activeOpacity={0.7}
             >
               <Icon
                 name={item.icon}
                 size={22}
-                color={isActive ? '#ffffff' : COLORS.text.secondary}
+                color={isActive ? colors.text.onPrimary : 'rgba(255,255,255,0.5)'}
               />
               <Text style={[
-                styles.menuItemText,
-                isActive && styles.menuItemTextActive,
-                { marginLeft: SPACING.md },
+                s.menuItemText,
+                isActive && s.menuItemTextActive,
+                { marginLeft: 16 },
               ]}>
                 {item.label}
               </Text>
               {item.badge && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
+                <View style={s.badge}>
+                  <Text style={s.badgeText}>{item.badge}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -143,130 +140,143 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         })}
       </ScrollView>
 
-      {/* Footer / Logout */}
-      <View style={styles.footer}>
+      <View style={s.footer}>
         <TouchableOpacity
           onPress={handleLogout}
-          style={styles.logoutButton}
+          style={s.logoutButton}
           activeOpacity={0.7}
         >
-          <Icon name="logout" size={22} color={COLORS.accent.red} />
-          <Text style={[styles.logoutText, { marginLeft: SPACING.md }]}>Sign Out</Text>
+          <Icon name="logout" size={22} color={colors.status.danger} />
+          <Text style={[s.logoutText, { marginLeft: 16 }]}>Sign Out</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#15152a',
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.05)',
-    ...SHADOWS.lg,
-  },
-  header: {
-    paddingTop: SPACING.xxl,
-    paddingBottom: SPACING.lg,
-    paddingHorizontal: SPACING.xl,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...SHADOWS.md,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  logoTextAccent: {
-    color: COLORS.primaryLight,
-  },
-  versionText: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: SPACING.xs / 2,
-  },
-  menuContainer: {
-    flex: 1,
-  },
-  menuContent: {
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.sm,
-  },
-  menuSectionTitle: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: COLORS.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.md + 2,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    marginVertical: SPACING.xs / 2,
-    marginHorizontal: SPACING.xs,
-  },
-  menuItemActive: {
-    backgroundColor: COLORS.primary,
-    ...SHADOWS.md,
-    shadowColor: COLORS.primary,
-  },
-  menuItemText: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.text.secondary,
-  },
-  menuItemTextActive: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  badge: {
-    backgroundColor: COLORS.accent.red,
-    borderRadius: BORDER_RADIUS.full,
-    paddingHorizontal: SPACING.xs + 2,
-    paddingVertical: SPACING.xs / 2,
-    minWidth: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  footer: {
-    padding: SPACING.lg,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: COLORS.accent.red,
-  },
-});
+function makeStyles(c: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#15152a',
+      borderRightWidth: 1,
+      borderRightColor: 'rgba(255, 255, 255, 0.05)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.30,
+      shadowRadius: 4.65,
+      elevation: 8,
+    },
+    header: {
+      paddingTop: 48,
+      paddingBottom: 24,
+      paddingHorizontal: 32,
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    headerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    logoContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+      marginRight: 12,
+    },
+    logoText: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: c.text.onPrimary,
+    },
+    logoTextAccent: {
+      color: '#7B95FF',
+    },
+    versionText: {
+      fontSize: 10,
+      color: 'rgba(255, 255, 255, 0.7)',
+      marginTop: 2,
+    },
+    menuContainer: {
+      flex: 1,
+    },
+    menuContent: {
+      paddingVertical: 24,
+      paddingHorizontal: 8,
+    },
+    menuSectionTitle: {
+      fontSize: 10,
+      fontWeight: 'bold',
+      color: 'rgba(255,255,255,0.4)',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      paddingHorizontal: 16,
+      marginBottom: 8,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 18,
+      paddingHorizontal: 24,
+      borderRadius: 16,
+      marginVertical: 2,
+      marginHorizontal: 4,
+    },
+    menuItemActive: {
+      backgroundColor: c.brand.primary,
+      shadowColor: c.brand.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    menuItemText: {
+      flex: 1,
+      fontSize: 14,
+      color: 'rgba(255,255,255,0.5)',
+    },
+    menuItemTextActive: {
+      color: c.text.onPrimary,
+      fontWeight: 'bold',
+    },
+    badge: {
+      backgroundColor: c.status.danger,
+      borderRadius: 9999,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      minWidth: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    badgeText: {
+      color: c.text.onPrimary,
+      fontSize: 10,
+      fontWeight: 'bold',
+    },
+    footer: {
+      padding: 24,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    logoutButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      borderRadius: 16,
+    },
+    logoutText: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: c.status.danger,
+    },
+  });
+}

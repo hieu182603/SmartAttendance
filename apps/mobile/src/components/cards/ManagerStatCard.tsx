@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { Icon } from '../ui/Icon';
+import { useTheme } from '../../theme';
 
 interface ManagerStatCardProps {
     icon: string;
@@ -13,34 +13,6 @@ interface ManagerStatCardProps {
     color: 'success' | 'primary' | 'warning' | 'destructive' | 'info';
 }
 
-const colorConfig = {
-    success: {
-        gradient: ['#0BDA68', '#08A84E'],
-        iconColor: '#ffffff',
-        glowColor: 'rgba(11, 218, 104, 0.4)',
-    },
-    primary: {
-        gradient: ['#4245F0', '#2E32C9'],
-        iconColor: '#ffffff',
-        glowColor: 'rgba(66, 69, 240, 0.4)',
-    },
-    warning: {
-        gradient: ['#FF9800', '#F57C00'],
-        iconColor: '#ffffff',
-        glowColor: 'rgba(255, 152, 0, 0.4)',
-    },
-    destructive: {
-        gradient: ['#F44336', '#D32F2F'],
-        iconColor: '#ffffff',
-        glowColor: 'rgba(244, 67, 54, 0.4)',
-    },
-    info: {
-        gradient: ['#00BCD4', '#0097A7'],
-        iconColor: '#ffffff',
-        glowColor: 'rgba(0, 188, 212, 0.4)',
-    }
-};
-
 export const ManagerStatCard: React.FC<ManagerStatCardProps> = ({
     icon,
     title,
@@ -48,14 +20,42 @@ export const ManagerStatCard: React.FC<ManagerStatCardProps> = ({
     unit,
     color,
 }) => {
-    const colors = colorConfig[color];
+    const { colors } = useTheme();
+
+    const colorConfig = useMemo(() => ({
+        success: {
+            gradient: [colors.brand.secondary, colors.status.success] as any,
+            iconColor: colors.text.onPrimary,
+            glowColor: 'rgba(11, 218, 104, 0.4)',
+        },
+        primary: {
+            gradient: [colors.brand.primary, colors.brand.primaryActive] as any,
+            iconColor: colors.text.onPrimary,
+            glowColor: 'rgba(66, 69, 240, 0.4)',
+        },
+        warning: {
+            gradient: ['#FF9800', '#F57C00'] as any,
+            iconColor: colors.text.onPrimary,
+            glowColor: 'rgba(255, 152, 0, 0.4)',
+        },
+        destructive: {
+            gradient: [colors.status.danger, '#D32F2F'] as any,
+            iconColor: colors.text.onPrimary,
+            glowColor: 'rgba(244, 67, 54, 0.4)',
+        },
+        info: {
+            gradient: ['#00BCD4', '#0097A7'] as any,
+            iconColor: colors.text.onPrimary,
+            glowColor: 'rgba(0, 188, 212, 0.4)',
+        },
+    }), [colors]);
+
+    const cfg = colorConfig[color];
 
     return (
         <View style={styles.cardContainer}>
-            {/* Glow effect behind the card */}
-            <View style={[styles.glow, { backgroundColor: colors.glowColor }]} />
+            <View style={[styles.glow, { backgroundColor: cfg.glowColor }]} />
 
-            {/* Glassmorphism Card */}
             <View style={styles.glassCard}>
                 <BlurView
                     intensity={40}
@@ -70,12 +70,12 @@ export const ManagerStatCard: React.FC<ManagerStatCardProps> = ({
                 <View style={styles.content}>
                     <View style={styles.iconWrapper}>
                         <LinearGradient
-                            colors={colors.gradient as any}
+                            colors={cfg.gradient}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={styles.iconContainer}
                         >
-                            <Icon name={icon} size={22} color={colors.iconColor} />
+                            <Icon name={icon} size={22} color={cfg.iconColor} />
                         </LinearGradient>
                     </View>
 
@@ -102,14 +102,14 @@ const styles = StyleSheet.create({
     },
     glow: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: BORDER_RADIUS.xl,
+        borderRadius: 20,
         top: 10,
         transform: [{ scale: 0.9 }],
         opacity: 0.6,
     },
     glassCard: {
         flex: 1,
-        borderRadius: BORDER_RADIUS.xl,
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
         overflow: 'hidden',
@@ -119,18 +119,18 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        padding: SPACING.md,
-        gap: SPACING.sm,
+        padding: 16,
+        gap: 8,
     },
     iconWrapper: {
         padding: 2,
-        borderRadius: BORDER_RADIUS.lg,
+        borderRadius: 16,
         backgroundColor: 'rgba(255,255,255,0.05)',
     },
     iconContainer: {
         width: 44,
         height: 44,
-        borderRadius: BORDER_RADIUS.md,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -153,8 +153,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: SPACING.md,
-        paddingVertical: SPACING.sm,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
         backgroundColor: 'rgba(0,0,0,0.2)',
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.05)',

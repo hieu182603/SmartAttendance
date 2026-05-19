@@ -14,12 +14,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { SPACING, BORDER_RADIUS, SHADOWS } from '../../utils/styles';
 import { Icon } from '../../components/ui/Icon';
 import { AdminService } from '../../services/admin.service';
-import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
-import { ThemeColors } from '../../theme/colors';
+import { useTheme, Theme } from '../../theme';
 
 type AdminPositionsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AdminPositions'>;
 
@@ -33,122 +30,9 @@ interface Position {
     level: number;
 }
 
-function makeStyles(colors: ThemeColors) {
-    return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
-        },
-        header: {
-            paddingTop: SPACING.xxl * 1.5,
-            paddingBottom: SPACING.xl,
-            paddingHorizontal: SPACING.md,
-        },
-        headerTitle: {
-            color: '#ffffff',
-            fontSize: 20,
-            fontWeight: 'bold',
-            marginLeft: SPACING.sm,
-        },
-        addButton: {
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            padding: SPACING.xs,
-            borderRadius: BORDER_RADIUS.full,
-        },
-        card: {
-            backgroundColor: colors.card,
-            borderRadius: BORDER_RADIUS.lg,
-            padding: SPACING.md,
-            marginBottom: SPACING.md,
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: colors.border,
-            ...SHADOWS.md,
-        },
-        cardTitle: {
-            color: colors.textPrimary,
-            fontSize: 16,
-            fontWeight: 'bold',
-            marginBottom: SPACING.xs,
-        },
-        cardSubtitle: {
-            color: colors.textSecondary,
-            fontSize: 12,
-        },
-        actionButton: {
-            padding: SPACING.sm,
-            marginLeft: SPACING.xs,
-        },
-        emptyContainer: {
-            padding: SPACING.xl,
-            alignItems: 'center',
-        },
-        emptyText: {
-            color: colors.textSecondary,
-        },
-        modalOverlay: {
-            flex: 1,
-            justifyContent: 'center',
-            backgroundColor: colors.overlay,
-            padding: SPACING.lg,
-        },
-        modalContent: {
-            backgroundColor: colors.card,
-            borderRadius: BORDER_RADIUS.lg,
-            padding: SPACING.xl,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
-        modalTitle: {
-            color: colors.textPrimary,
-            fontSize: 20,
-            fontWeight: 'bold',
-            marginBottom: SPACING.lg,
-            textAlign: 'center',
-        },
-        label: {
-            color: colors.textSecondary,
-            marginBottom: SPACING.xs,
-            marginTop: SPACING.md,
-        },
-        input: {
-            backgroundColor: colors.inputBg,
-            borderRadius: BORDER_RADIUS.md,
-            padding: SPACING.md,
-            color: colors.inputText,
-            borderWidth: 1,
-            borderColor: colors.inputBorder,
-        },
-        modalActions: {
-            flexDirection: 'row',
-            justifyContent: 'flex-end',
-            marginTop: SPACING.xl,
-        },
-        modalButton: {
-            paddingVertical: SPACING.md,
-            paddingHorizontal: SPACING.lg,
-            borderRadius: BORDER_RADIUS.md,
-            marginLeft: SPACING.md,
-            minWidth: 80,
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        cancelButton: {
-            backgroundColor: colors.cardAlt,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
-        cancelButtonText: {
-            color: colors.textPrimary,
-        },
-    });
-}
-
 export default function AdminPositionsScreen({ navigation }: AdminPositionsScreenProps) {
-    const { colors } = useTheme();
-    const { t } = useTranslation();
-    const styles = useMemo(() => makeStyles(colors), [colors]);
+    const theme = useTheme();
+    const s = useMemo(() => makeStyles(theme), [theme]);
 
     const [positions, setPositions] = useState<Position[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -201,9 +85,9 @@ export default function AdminPositionsScreen({ navigation }: AdminPositionsScree
             'Xóa chức vụ',
             'Bạn có chắc chắn muốn xóa chức vụ này?',
             [
-                { text: t.common.cancel, style: 'cancel' },
+                { text: 'Hủy', style: 'cancel' },
                 {
-                    text: t.common.delete,
+                    text: 'Xóa',
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -251,60 +135,60 @@ export default function AdminPositionsScreen({ navigation }: AdminPositionsScree
     };
 
     const renderItem = ({ item }: { item: Position }) => (
-        <View style={styles.card}>
+        <View style={s.card}>
             <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardSubtitle}>Cấp bậc (Level): {item.level}</Text>
+                <Text style={s.cardTitle}>{item.title}</Text>
+                <Text style={s.cardSubtitle}>Cấp bậc (Level): {item.level}</Text>
             </View>
             <View style={{ flexDirection: 'row' }}>
-                <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionButton}>
-                    <Icon name="edit" size={20} color="#4F6EF7" />
+                <TouchableOpacity onPress={() => handleEdit(item)} style={s.actionButton}>
+                    <Icon name="create-outline" library="ionicons" size={20} color={theme.colors.brand.primary} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(item._id)} style={styles.actionButton}>
-                    <Icon name="delete" size={20} color="#ef4444" />
+                <TouchableOpacity onPress={() => handleDelete(item._id)} style={s.actionButton}>
+                    <Icon name="trash-outline" library="ionicons" size={20} color={theme.colors.status.danger} />
                 </TouchableOpacity>
             </View>
         </View>
     );
 
     return (
-        <View style={styles.container}>
+        <View style={s.container}>
             {/* Header */}
             <LinearGradient
-                colors={['#4F6EF7', '#7c3aed']}
+                colors={[theme.colors.brand.primary, theme.colors.brand.primaryActive] as unknown as readonly [string, ...string[]]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.header}
+                style={s.header}
             >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: SPACING.xs }}>
-                            <Icon name="arrow_back" size={24} color="#ffffff" />
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+                            <Icon name="arrow-back-outline" library="ionicons" size={24} color={theme.colors.text.onPrimary} />
                         </TouchableOpacity>
-                        <Text style={styles.headerTitle}>Quản lý Chức vụ</Text>
+                        <Text style={s.headerTitle}>Quản lý Chức vụ</Text>
                     </View>
-                    <TouchableOpacity onPress={handleAdd} style={styles.addButton}>
-                        <Icon name="add" size={24} color="#ffffff" />
+                    <TouchableOpacity onPress={handleAdd} style={s.addButton}>
+                        <Icon name="add-outline" library="ionicons" size={24} color={theme.colors.text.onPrimary} />
                     </TouchableOpacity>
                 </View>
             </LinearGradient>
 
             {isLoading && !refreshing && positions.length === 0 ? (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                    <ActivityIndicator size="large" color="#4F6EF7" />
+                    <ActivityIndicator size="large" color={theme.colors.brand.primary} />
                 </View>
             ) : (
                 <FlatList
                     data={positions}
                     renderItem={renderItem}
                     keyExtractor={item => item._id}
-                    contentContainerStyle={{ padding: SPACING.md }}
+                    contentContainerStyle={{ padding: 12 }}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#4F6EF7" />
+                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.brand.primary} />
                     }
                     ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>{t.common.noData}</Text>
+                        <View style={s.emptyContainer}>
+                            <Text style={s.emptyText}>Không có dữ liệu</Text>
                         </View>
                     }
                 />
@@ -317,47 +201,47 @@ export default function AdminPositionsScreen({ navigation }: AdminPositionsScree
                 visible={modalVisible}
                 onRequestClose={() => setModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>
+                <View style={s.modalOverlay}>
+                    <View style={s.modalContent}>
+                        <Text style={s.modalTitle}>
                             {editingPos ? 'Sửa Chức Vụ' : 'Thêm Chức Vụ'}
                         </Text>
 
-                        <Text style={styles.label}>Tên chức vụ <Text style={{ color: '#ef4444' }}>*</Text></Text>
+                        <Text style={s.label}>Tên chức vụ <Text style={{ color: theme.colors.status.danger }}>*</Text></Text>
                         <TextInput
-                            style={styles.input}
+                            style={s.input}
                             value={title}
                             onChangeText={setTitle}
                             placeholder="Nhập tên chức vụ"
-                            placeholderTextColor={colors.inputPlaceholder}
+                            placeholderTextColor={theme.colors.text.muted}
                         />
 
-                        <Text style={styles.label}>Cấp bậc (Level)</Text>
+                        <Text style={s.label}>Cấp bậc (Level)</Text>
                         <TextInput
-                            style={styles.input}
+                            style={s.input}
                             value={level}
                             onChangeText={setLevel}
                             placeholder="Nhập cấp bậc (số 1-10)"
-                            placeholderTextColor={colors.inputPlaceholder}
+                            placeholderTextColor={theme.colors.text.muted}
                             keyboardType="numeric"
                         />
 
-                        <View style={styles.modalActions}>
+                        <View style={s.modalActions}>
                             <TouchableOpacity
-                                style={[styles.modalButton, styles.cancelButton]}
+                                style={[s.modalButton, s.cancelButton]}
                                 onPress={() => setModalVisible(false)}
                             >
-                                <Text style={styles.cancelButtonText}>{t.common.cancel}</Text>
+                                <Text style={s.cancelButtonText}>Hủy</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.modalButton, { backgroundColor: '#4F6EF7' }]}
+                                style={[s.modalButton, { backgroundColor: theme.colors.brand.primary }]}
                                 onPress={handleSave}
                                 disabled={isLoading}
                             >
                                 {isLoading ? (
-                                    <ActivityIndicator color="#fff" size="small" />
+                                    <ActivityIndicator color={theme.colors.text.onPrimary} size="small" />
                                 ) : (
-                                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>{t.common.save}</Text>
+                                    <Text style={{ color: theme.colors.text.onPrimary, fontWeight: 'bold' }}>Lưu</Text>
                                 )}
                             </TouchableOpacity>
                         </View>
@@ -366,4 +250,120 @@ export default function AdminPositionsScreen({ navigation }: AdminPositionsScree
             </Modal>
         </View>
     );
+}
+
+function makeStyles(t: Theme) {
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: t.colors.background.base,
+        },
+        header: {
+            paddingTop: 36,
+            paddingBottom: 20,
+            paddingHorizontal: 12,
+        },
+        headerTitle: {
+            color: t.colors.text.onPrimary,
+            fontSize: 20,
+            fontWeight: 'bold',
+            marginLeft: 8,
+        },
+        addButton: {
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            padding: 4,
+            borderRadius: 999,
+        },
+        card: {
+            backgroundColor: t.colors.background.surface,
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 2,
+        },
+        cardTitle: {
+            color: t.colors.text.primary,
+            fontSize: 16,
+            fontWeight: 'bold',
+            marginBottom: 4,
+        },
+        cardSubtitle: {
+            color: t.colors.text.secondary,
+            fontSize: 12,
+        },
+        actionButton: {
+            padding: 8,
+            marginLeft: 4,
+        },
+        emptyContainer: {
+            padding: 20,
+            alignItems: 'center',
+        },
+        emptyText: {
+            color: t.colors.text.secondary,
+        },
+        modalOverlay: {
+            flex: 1,
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            padding: 16,
+        },
+        modalContent: {
+            backgroundColor: t.colors.background.surface,
+            borderRadius: 12,
+            padding: 20,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+        },
+        modalTitle: {
+            color: t.colors.text.primary,
+            fontSize: 20,
+            fontWeight: 'bold',
+            marginBottom: 16,
+            textAlign: 'center',
+        },
+        label: {
+            color: t.colors.text.secondary,
+            marginBottom: 4,
+            marginTop: 12,
+        },
+        input: {
+            backgroundColor: t.colors.background.base,
+            borderRadius: 8,
+            padding: 12,
+            color: t.colors.text.primary,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+        },
+        modalActions: {
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            marginTop: 20,
+        },
+        modalButton: {
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 8,
+            marginLeft: 12,
+            minWidth: 80,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        cancelButton: {
+            backgroundColor: t.colors.background.base,
+            borderWidth: 1,
+            borderColor: t.colors.border.default,
+        },
+        cancelButtonText: {
+            color: t.colors.text.primary,
+        },
+    });
 }

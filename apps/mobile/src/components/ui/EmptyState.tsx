@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, SPACING } from '../../utils/styles';
 import { Icon } from './Icon';
+import { useTheme } from '../../theme';
 
 interface EmptyStateProps {
   icon?: string;
@@ -16,53 +16,58 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   description,
 }) => {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+
   return (
-    <View style={styles.container}>
-      <View style={styles.iconContainer}>
+    <View style={s.container}>
+      <View style={s.iconContainer}>
         {icon ? (
-          <Icon name={icon} size={40} color={COLORS.text.secondary} />
+          <Icon name={icon} size={40} color={colors.text.muted} />
         ) : emoji ? (
-          <Text style={styles.emoji}>{emoji}</Text>
+          <Text style={s.emoji}>{emoji}</Text>
         ) : (
-          <Text style={styles.emoji}>📭</Text>
+          <Text style={s.emoji}>📭</Text>
         )}
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {description && <Text style={styles.description}>{description}</Text>}
+      <Text style={s.title}>{title}</Text>
+      {description && <Text style={s.description}>{description}</Text>}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.xxl,
-    paddingHorizontal: SPACING.xl,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  emoji: {
-    fontSize: 40,
-  },
-  title: {
-    color: COLORS.text.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  description: {
-    color: COLORS.text.secondary,
-    fontSize: 14,
-    textAlign: 'center',
-    maxWidth: 300,
-  },
-});
+function makeStyles(c: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 48,
+      paddingHorizontal: 32,
+    },
+    iconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: c.background.base,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    emoji: {
+      fontSize: 40,
+    },
+    title: {
+      color: c.text.primary,
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    description: {
+      color: c.text.muted,
+      fontSize: 14,
+      textAlign: 'center',
+      maxWidth: 300,
+    },
+  });
+}
