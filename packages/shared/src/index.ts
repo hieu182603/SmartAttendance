@@ -6,3 +6,4 @@ export * from "./schemas/config.js";
 export * from "./schemas/leave-type.js";
 export * from "./schemas/payroll-salary.js";
 export * from "./constants.js";
+export * from "./schemas/billing.js";

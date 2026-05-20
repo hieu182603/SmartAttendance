@@ -128,7 +128,7 @@ const formatLocation = (
 
   // Check if it's a URL (any URL pattern)
   try {
-    const url = new URL(location);
+    new URL(location);
     // If it's a valid URL, assume it's office location
     return t("dashboard:history.office");
   } catch {
@@ -269,10 +269,7 @@ const HistoryPage: React.FC = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const handleAttendanceUpdated = ((event: Event) => {
-      const customEvent = event as CustomEvent<any>;
-      const data = customEvent.detail;
-
+    const handleAttendanceUpdated = ((_event: Event) => {
       setCurrentPage((prev) => prev);
     }) as EventListener;
 

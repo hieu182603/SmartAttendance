@@ -7,6 +7,12 @@ import mongoose from "mongoose";
  */
 const reportSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -42,7 +48,7 @@ const reportSchema = new mongoose.Schema(
 );
 
 // Index để tìm báo cáo nhanh
-reportSchema.index({ userId: 1, type: 1, startDate: -1 });
+reportSchema.index({ companyId: 1, userId: 1, type: 1, startDate: -1 });
 
 // Kiểm tra ngày hợp lệ
 reportSchema.pre("save", function (next) {

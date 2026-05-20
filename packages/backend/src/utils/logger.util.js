@@ -1,4 +1,5 @@
 import { LogService } from "../modules/logs/log.service.js";
+import { getClientIpAddress } from "./client-ip.util.js";
 
 // Cache để track hoạt động của user (để phát hiện suspicious activity)
 // Format: { userId: { ipAddresses: Set, lastLoginTime: Date, loginCount: number, etc. } }
@@ -155,13 +156,8 @@ const detectSuspiciousActivity = async (userId, action, details, currentIp) => {
  */
 export const logActivity = async (req, options) => {
     try {
-        // Extract IP address từ request
-        const ipAddress =
-            req.ip ||
-            req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-            req.connection?.remoteAddress ||
-            req.socket?.remoteAddress ||
-            null;
+        // Extract IP address từ request (proxy + chuẩn hóa ::1 / ::ffff:)
+        const ipAddress = getClientIpAddress(req);
 
         // Extract User Agent từ request headers
         const userAgent = req.headers['user-agent'] || 'Unknown';

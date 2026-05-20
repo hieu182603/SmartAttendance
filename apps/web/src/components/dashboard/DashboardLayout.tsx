@@ -2,35 +2,16 @@ import React, { Suspense, useState, useMemo } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import type { LucideIcon } from "lucide-react";
 import {
-  Home,
-  Camera,
   Loader2,
-  History,
-  FileText,
-  Clock,
-  CalendarDays,
-  Calendar,
-  User,
   Menu,
   X,
   LogOut,
   Sun,
   Moon,
   Bell,
-  BarChart3,
-  CheckCircle2,
-  Users,
-  Shield,
-  Settings,
-  Briefcase,
-  Building2,
   Wallet,
-  TrendingUp,
-  Award,
   ChevronDown,
-
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
@@ -48,6 +29,7 @@ import {
 } from "@/utils/roles";
 import { getMenuByPermissionsWithTranslations, type MenuItem } from "@/utils/menuItems";
 import { usePermissionsOverride } from "@/context/PermissionsContext";
+
 
 
 interface NotificationBellProps {

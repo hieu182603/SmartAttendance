@@ -10,6 +10,9 @@ import { UserRole, Permission } from "@/utils/roles";
 
 // Public Pages - Lazy Load
 const LandingPage = lazy(() => import("@/components/LandingPage"));
+const PrivacyPolicyPage = lazy(() => import("@/components/PrivacyPolicyPage"));
+const TermsOfServicePage = lazy(() => import("@/components/TermsOfServicePage"));
+const PublicPricingPage = lazy(() => import("@/components/PublicPricingPage"));
 const Login = lazy(() => import("@/components/auth/Login"));
 const Register = lazy(() => import("@/components/auth/Register"));
 const VerifyOtp = lazy(() => import("@/components/auth/VerifyOtp"));
@@ -105,6 +108,7 @@ export default function App() {
         <Suspense fallback={<PageLoading />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/pricing" element={<PublicPricingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -406,6 +410,10 @@ export default function App() {
 
             {/* Redirect /upgrade to employee upgrade page */}
             <Route path="/upgrade" element={<Navigate to="/employee/upgrade" replace />} />
+
+            {/* Public legal pages — no auth required */}
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms-of-service" element={<TermsOfServicePage />} />
 
             {/* Public 404 route */}
             <Route path="/not-found" element={<NotFoundPage />} />

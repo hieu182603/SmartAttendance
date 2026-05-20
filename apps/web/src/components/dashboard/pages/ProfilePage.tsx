@@ -17,9 +17,9 @@ export default function ProfilePage(): React.JSX.Element {
   }
 
   return (
-    <Profile 
-      role={getRole()} 
-      user={user}
+    <Profile
+      role={getRole()}
+      user={user ?? undefined}
     />
   )
 }

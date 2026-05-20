@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const requestTypeSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     value: {
       type: String,
       required: true,
@@ -42,4 +48,3 @@ export const RequestTypeModel = mongoose.model(
   "RequestType",
   requestTypeSchema
 );
-
