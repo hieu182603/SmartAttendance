@@ -26,6 +26,7 @@ jest.unstable_mockModule("../../src/config/redis.js", () => ({
 jest.unstable_mockModule("../../src/utils/email.util.js", () => ({
   sendOTPEmail: jest.fn().mockResolvedValue({ success: true }),
   sendResetPasswordEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 jest.unstable_mockModule("../../src/utils/aiServiceClient.js", () => ({
@@ -217,6 +218,7 @@ describe("TC-SEC-008: No sensitive data in responses", () => {
       email: "sensitive@test.com",
       password: "SmartAttendance@2026!",
       name: "Sensitive User",
+      companyName: "Security Test Company",
     });
     const otp = await OtpModel.findOne({ email: "sensitive@test.com" });
     await request(app).post("/api/auth/verify-otp").send({ email: "sensitive@test.com", otp: otp.code });

@@ -24,8 +24,12 @@ export const getPayrollReports = async (req, res) => {
   try {
     const { month, limit = 6 } = req.query;
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 6, 1), 24);
+    const companyId = req.user?.companyId;
 
-    const reports = await PayrollReportModel.find({})
+    const reportsQuery = {};
+    if (companyId) reportsQuery.companyId = companyId;
+
+    const reports = await PayrollReportModel.find(reportsQuery)
       .sort({ periodStart: -1 })
       .limit(limitNum)
       .lean();
@@ -79,9 +83,11 @@ export const getPayrollRecords = async (req, res) => {
   try {
     const { PayrollRecordModel } = await import("./payroll.model.js");
     const { month, status, department, page = 1, limit = 100 } = req.query;
+    const companyId = req.user?.companyId;
 
     // Build query
     const query = {};
+    if (companyId) query.companyId = companyId;
     if (month) query.month = month;
     if (status) query.status = status;
     // Support both departmentId (ObjectId) and department name filtering
@@ -332,6 +338,7 @@ export const generatePayroll = async (req, res) => {
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
       return res.status(400).json({ message: "month phải có format YYYY-MM" });
     }
+    const companyId = req.user?.companyId;
 
     // Single user
     if (userId) {
@@ -348,12 +355,14 @@ export const generatePayroll = async (req, res) => {
         return res.status(400).json({ message: "departmentId không hợp lệ" });
       }
       const { UserModel } = await import("../users/user.model.js");
-      const employees = await UserModel.find({
+      const deptQuery = {
         department: departmentId,
         role: { $in: ["EMPLOYEE", "MANAGER", "SUPERVISOR"] },
         isActive: true,
         isTrial: { $ne: true },
-      }).select("_id name").lean();
+      };
+      if (companyId) deptQuery.companyId = companyId;
+      const employees = await UserModel.find(deptQuery).select("_id name").lean();
 
       const results = { success: [], errors: [], processed: 0 };
       for (const emp of employees) {
@@ -375,7 +384,7 @@ export const generatePayroll = async (req, res) => {
     }
 
     // All users
-    const results = await generatePayrollForMonth(month);
+    const results = await generatePayrollForMonth(month, companyId);
     return res.json({
       success: true,
       processed: results.processed,
@@ -743,7 +752,10 @@ export const exportPayrollBulkExcel = async (req, res) => {
       return res.status(400).json({ message: "month phải có format YYYY-MM" });
     }
 
-    const records = await PayrollRecordModel.find({ month })
+    const companyId = req.user?.companyId;
+    const bulkQuery = { month };
+    if (companyId) bulkQuery.companyId = companyId;
+    const records = await PayrollRecordModel.find(bulkQuery)
       .populate("userId", "name email employeeId department position")
       .lean();
 
@@ -875,9 +887,11 @@ export const exportPayrollBulkExcel = async (req, res) => {
 export const getDepartments = async (req, res) => {
   try {
     const { PayrollRecordModel } = await import("./payroll.model.js");
-    
+    const companyId = req.user?.companyId;
+    const distinctFilter = companyId ? { companyId } : {};
+
     // Get unique departments
-    const departments = await PayrollRecordModel.distinct("department");
+    const departments = await PayrollRecordModel.distinct("department", distinctFilter);
     
     // Filter out null/empty values and sort
     const validDepartments = departments
@@ -915,12 +929,15 @@ export const getDepartmentsWithId = async (req, res) => {
 export const getPositions = async (req, res) => {
   try {
     const { UserModel } = await import("../users/user.model.js");
-    
+    const companyId = req.user?.companyId;
+
     // Get unique positions from active users
-    const positions = await UserModel.distinct("position", {
+    const positionFilter = {
       position: { $exists: true, $nin: [null, ""] },
       isActive: true,
-    });
+    };
+    if (companyId) positionFilter.companyId = companyId;
+    const positions = await UserModel.distinct("position", positionFilter);
     
     // Filter out null/empty values and sort
     const validPositions = positions

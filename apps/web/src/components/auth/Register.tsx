@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import type { ErrorWithMessage } from '@/types'
 
 interface FormData {
+  companyName: string
   fullName: string
   email: string
   password: string
@@ -21,6 +22,7 @@ interface FormData {
 }
 
 interface FormErrors {
+  companyName?: string
   fullName?: string
   email?: string
   password?: string
@@ -32,6 +34,7 @@ export default function Register() {
   const { t } = useTranslation(['auth', 'common'])
   const navigate = useNavigate()
   const [formData, setFormData] = useState<FormData>({
+    companyName: '',
     fullName: '',
     email: '',
     password: '',
@@ -45,6 +48,14 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false)
 
   // Validation functions
+  const validateCompanyName = (name: string): string | undefined => {
+    const trimmed = name.trim()
+    if (!trimmed) return 'Tên công ty không được để trống'
+    if (trimmed.length < 2) return 'Tên công ty phải có ít nhất 2 ký tự'
+    if (trimmed.length > 100) return 'Tên công ty không được vượt quá 100 ký tự'
+    return undefined
+  }
+
   const validateFullName = (name: string): string | undefined => {
     const trimmed = name.trim()
     if (!trimmed) return t('auth:register.fullNameRequired')
@@ -83,9 +94,8 @@ export default function Register() {
     hasNumber: /[0-9]/.test(formData.password),
   }
 
-  const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0
-
-  const isFormValid = 
+  const isFormValid =
+    !validateCompanyName(formData.companyName) &&
     !validateFullName(formData.fullName) &&
     !validateEmail(formData.email) &&
     !validatePassword(formData.password) &&
@@ -98,6 +108,9 @@ export default function Register() {
     const newErrors: FormErrors = { ...errors }
     
     switch (field) {
+      case 'companyName':
+        newErrors.companyName = validateCompanyName(formData.companyName)
+        break
       case 'fullName':
         newErrors.fullName = validateFullName(formData.fullName)
         break
@@ -135,6 +148,7 @@ export default function Register() {
     e.preventDefault()
     
     setTouched({
+      companyName: true,
       fullName: true,
       email: true,
       password: true,
@@ -142,6 +156,7 @@ export default function Register() {
     })
 
     const newErrors: FormErrors = {
+      companyName: validateCompanyName(formData.companyName),
       fullName: validateFullName(formData.fullName),
       email: validateEmail(formData.email),
       password: validatePassword(formData.password),
@@ -163,6 +178,7 @@ export default function Register() {
 
     try {
       await registerApi({
+        companyName: formData.companyName.trim(),
         name: formData.fullName.trim(),
         email: formData.email.trim(),
         password: formData.password,
@@ -191,6 +207,31 @@ export default function Register() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
+        <div className="space-y-1.5">
+          <Label htmlFor="companyName" className="text-[var(--text-main)] text-sm">Tên công ty</Label>
+          <Input
+            id="companyName"
+            type="text"
+            placeholder="Công ty TNHH ABC"
+            value={formData.companyName}
+            onChange={(e) => handleChange('companyName', e.target.value)}
+            onBlur={() => handleBlur('companyName')}
+            className={`h-9 text-sm ${touched.companyName && errors.companyName ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+            required
+            disabled={isLoading}
+            autoComplete="organization"
+          />
+          {touched.companyName && errors.companyName && (
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[10px] text-red-500"
+            >
+              {errors.companyName}
+            </motion.p>
+          )}
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="fullName" className="text-[var(--text-main)] text-sm">{t('auth:register.fullName')}</Label>
           <Input

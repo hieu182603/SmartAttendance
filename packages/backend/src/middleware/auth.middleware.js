@@ -15,7 +15,7 @@ export const authMiddleware = async (req, res, next) => {
         // Kiểm tra xem user có còn active không
         if (decoded.userId) {
             const user = await UserModel.findById(decoded.userId)
-                .select("isActive isTrial trialExpiresAt role department branch")
+                .select("isActive isTrial trialExpiresAt role department branch companyId")
                 .populate('department', '_id')
                 .populate('branch', '_id')
                 .lean();
@@ -29,7 +29,9 @@ export const authMiddleware = async (req, res, next) => {
             }
 
             // Kiểm tra trial expiration cho trial users
-            if (user.isTrial && user.trialExpiresAt) {
+            // Cho phép expired-trial user gọi /billing/upgrade để thanh toán
+            const isUpgradeRequest = req.originalUrl?.includes('/billing/upgrade');
+            if (user.isTrial && user.trialExpiresAt && !isUpgradeRequest) {
                 const now = new Date();
                 if (now > user.trialExpiresAt) {
                     return res.status(403).json({
@@ -47,6 +49,9 @@ export const authMiddleware = async (req, res, next) => {
                 branch: user.branch?._id,
                 userId: user._id
             };
+            // Always use fresh companyId from DB (not stale JWT value)
+            decoded.companyId = user.companyId ?? decoded.companyId ?? null;
+            decoded.isTrial = user.isTrial ?? false;
         }
 
         req.user = decoded;

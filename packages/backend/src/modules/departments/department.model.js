@@ -5,6 +5,12 @@ import mongoose from "mongoose";
  */
 const departmentSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     name: {
       type: String,
       required: true,

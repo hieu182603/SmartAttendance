@@ -436,7 +436,7 @@ class FaceDetectionService {
   validateCapturedImage(
     imageData: string,
     faceQuality: FaceQuality,
-    canvas: HTMLCanvasElement
+    _canvas: HTMLCanvasElement
   ): Promise<{ isValid: boolean, score: number, issues: string[] }> {
     return new Promise((resolve) => {
       const img = new Image();

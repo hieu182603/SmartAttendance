@@ -411,7 +411,7 @@ const LeaveBalancePage: React.FC = () => {
                                   value={
                                     type.total === 999 || type.total === null || type.total === 0
                                       ? 0
-                                      : ((type.used || 0) / type.total) * 100
+                                      : ((type.used || 0) / (type.total ?? 0)) * 100
                                   }
                                   className="h-2"
                                 />
@@ -433,7 +433,7 @@ const LeaveBalancePage: React.FC = () => {
                                   value={
                                     type.total === 999 || type.total === null || type.total === 0
                                       ? 100
-                                      : ((type.remaining || 0) / type.total) * 100
+                                      : ((type.remaining || 0) / (type.total ?? 0)) * 100
                                   }
                                   className="h-2"
                                 />

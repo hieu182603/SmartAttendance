@@ -24,6 +24,8 @@ import { notificationRouter } from "./modules/notifications/notification.router.
 import { faceRouter } from "./modules/face/face.router.js";
 import { configRouter } from "./modules/config/config.router.js";
 import { logRouter } from "./modules/logs/log.router.js";
+import { billingRouter } from "./modules/billing/billing.router.js";
+import { scheduleRouter } from "./modules/schedule/schedule.router.js";
 import {
   globalRateLimiter,
   attendanceRateLimiter,
@@ -31,6 +33,7 @@ import {
 import mongoose from "mongoose";
 import { isRedisEnabled, isRedisDegraded } from "./config/redis.js";
 import { aiServiceClient } from "./utils/aiServiceClient.js";
+import { getClientIpAddress } from "./utils/client-ip.util.js";
 
 const app = express();
 
@@ -42,9 +45,8 @@ const BLOCKED_IPS = new Set(
 
 app.use((req, res, next) => {
   if (BLOCKED_IPS.size === 0) return next();
-  const clientIP =
-    req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim();
-  if (BLOCKED_IPS.has(clientIP)) {
+  const clientIP = getClientIpAddress(req);
+  if (clientIP && BLOCKED_IPS.has(clientIP)) {
     return res.status(403).json({ message: "Access denied" });
   }
   next();
@@ -231,6 +233,8 @@ app.use(
 );
 app.use("/api/logs", logRouter);
 app.use("/api/config", configRouter);
+app.use("/api/billing", billingRouter);
+app.use("/api/schedules", scheduleRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });

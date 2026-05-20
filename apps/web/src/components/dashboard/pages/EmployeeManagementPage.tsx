@@ -12,7 +12,6 @@ import {
   Shield,
   ShieldCheck,
   ShieldAlert,
-  Info,
   Users,
   ChevronLeft,
   ChevronRight,
@@ -32,11 +31,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from 'sonner'
 import { getAllUsers, getUserById, updateUserByAdmin, createUserByAdmin, bulkImportUsers, downloadImportTemplate, type BulkImportResult } from '@/services/userService'
 import { getAllDepartments, type Department as DepartmentType } from '@/services/departmentService'
@@ -183,22 +181,12 @@ const getShiftName = (shift?: string | { _id: string; name: string; startTime?: 
   return shift.name || (t ? t('dashboard:employeeManagement.editDialog.noShift') : 'N/A')
 }
 
-// Helper function để lấy shift ID (cho form)
-const getShiftId = (shift?: string | { _id: string; name: string }): string => {
-  if (!shift) return ''
-  if (typeof shift === 'string') return shift
-  return shift._id || ''
-}
-
 const EmployeeManagementPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common'])
   const { user: currentUser } = useAuth()
   const { hasPermission } = usePermissions()
 
   const canView = hasPermission(Permission.USERS_VIEW)
-  const canCreate = hasPermission(Permission.USERS_CREATE)
-  const canUpdate = hasPermission(Permission.USERS_UPDATE)
-  const canDelete = hasPermission(Permission.USERS_DELETE)
   const canManageRolePermission = hasPermission(Permission.USERS_MANAGE_ROLE)
   
   if (!canView) {
@@ -208,7 +196,6 @@ const EmployeeManagementPage: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [shiftFilter, setShiftFilter] = useState<string>('all')
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -681,7 +668,6 @@ const EmployeeManagementPage: React.FC = () => {
     return canManageRole(currentUser.role as UserRoleType, targetRole)
   }
 
-  const canUpdateUser = () => canUpdate
   const canChangeRole = () => canManageRolePermission
 
   const stats: Stats = {
@@ -973,7 +959,7 @@ const EmployeeManagementPage: React.FC = () => {
                     <p className="text-[var(--text-sub)]">{t('dashboard:employeeManagement.table.noEmployees')}</p>
                   </div>
                 ) : (
-                  paginatedUsers.map((user, index) => (
+                  paginatedUsers.map((user) => (
                     <Card
                       key={user._id || user.id}
                       className="bg-[var(--shell)] border-[var(--border)]"

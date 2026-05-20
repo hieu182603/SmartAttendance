@@ -21,7 +21,6 @@ import {
   Clock,
   CheckCircle2,
   MoreVertical,
-  Archive,
   Merge,
   ArrowRightLeft,
   PowerOff,
@@ -46,7 +45,6 @@ import {
   transferResources,
   mergeBranches,
   reactivateBranch,
-  getBranchResources,
   getBranchesList,
   type Branch as BranchType,
 } from '@/services/branchService';
@@ -102,7 +100,7 @@ export function BranchesPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage] = useState(20);
   const [pagination, setPagination] = useState<{
     total: number;
     page: number;

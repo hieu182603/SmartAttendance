@@ -81,7 +81,7 @@ interface AnalyticsParams {
 const AttendanceAnalyticsPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common']);
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('7days')
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
+  const [selectedDepartment] = useState<string>('all')
   const [loading, setLoading] = useState(false)
   const [selectedDeptDetail, setSelectedDeptDetail] = useState<{ name: string; stats: { onTime: number; late: number; absent: number } } | null>(null)
   const [data, setData] = useState<AnalyticsData>({

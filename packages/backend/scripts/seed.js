@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import { CompanyModel } from '../src/modules/company/company.model.js';
 import { UserModel } from '../src/modules/users/user.model.js';
 import { ShiftModel } from '../src/modules/shifts/shift.model.js';
 // import { LocationModel } from '../src/modules/locations/location.model.js'; // Commented out - locations module not found
@@ -35,6 +36,7 @@ async function seed() {
 
         // Xóa data cũ
         console.log('🗑️  Clearing old data...');
+        await CompanyModel.deleteMany({});
         await UserModel.deleteMany({});
         await ShiftModel.deleteMany({});
         // await LocationModel.deleteMany({}); // Commented out - locations module not found
@@ -69,10 +71,25 @@ async function seed() {
 
         console.log('✅ Old data cleared\n');
 
+        // ========== 0. TẠO COMPANY (Công ty mặc định) ==========
+        console.log('🏭 Creating default company...');
+        const company = await CompanyModel.create({
+            name: 'SmartAttendance Demo Corp',
+            slug: 'smartattendance-demo',
+            email: 'contact@smartattendance.com',
+            phone: '0241234567',
+            plan: 'premium',
+            maxUsers: 999999,
+            isActive: true,
+        });
+        const companyId = company._id;
+        console.log(`✅ Created company: ${company.name}\n`);
+
         // ========== 1. TẠO SHIFTS (Ca làm việc) ==========
         console.log('📅 Creating shifts...');
         const shifts = await ShiftModel.insertMany([
             {
+                companyId,
                 name: 'Full time',
                 startTime: '08:00',
                 endTime: '17:00',
@@ -87,16 +104,16 @@ async function seed() {
         // ========== 1.5. TẠO REQUEST TYPES (Loại yêu cầu) ==========
         console.log('📋 Creating request types...');
         const requestTypes = [
-            { value: 'leave', label: 'Nghỉ phép', description: 'Nghỉ phép năm', sortOrder: 0, isActive: true, isSystem: true },
-            { value: 'sick', label: 'Nghỉ ốm', description: 'Nghỉ ốm', sortOrder: 1, isActive: true, isSystem: true },
-            { value: 'unpaid', label: 'Nghỉ không lương', description: 'Nghỉ không lương', sortOrder: 2, isActive: true, isSystem: true },
-            { value: 'compensatory', label: 'Nghỉ bù', description: 'Nghỉ bù', sortOrder: 3, isActive: true, isSystem: true },
-            { value: 'maternity', label: 'Nghỉ thai sản', description: 'Nghỉ thai sản', sortOrder: 4, isActive: true, isSystem: true },
-            { value: 'overtime', label: 'Tăng ca', description: 'Yêu cầu làm thêm giờ', sortOrder: 5, isActive: true, isSystem: true },
-            { value: 'remote', label: 'Làm từ xa', description: 'Làm việc từ xa', sortOrder: 6, isActive: true, isSystem: true },
-            { value: 'late', label: 'Đi muộn', description: 'Yêu cầu đi muộn', sortOrder: 7, isActive: true, isSystem: true },
-            { value: 'correction', label: 'Sửa công', description: 'Yêu cầu sửa chấm công', sortOrder: 8, isActive: true, isSystem: true },
-            { value: 'other', label: 'Yêu cầu khác', description: 'Các yêu cầu khác', sortOrder: 9, isActive: true, isSystem: true },
+            { companyId, value: 'leave', label: 'Nghỉ phép', description: 'Nghỉ phép năm', sortOrder: 0, isActive: true, isSystem: true },
+            { companyId, value: 'sick', label: 'Nghỉ ốm', description: 'Nghỉ ốm', sortOrder: 1, isActive: true, isSystem: true },
+            { companyId, value: 'unpaid', label: 'Nghỉ không lương', description: 'Nghỉ không lương', sortOrder: 2, isActive: true, isSystem: true },
+            { companyId, value: 'compensatory', label: 'Nghỉ bù', description: 'Nghỉ bù', sortOrder: 3, isActive: true, isSystem: true },
+            { companyId, value: 'maternity', label: 'Nghỉ thai sản', description: 'Nghỉ thai sản', sortOrder: 4, isActive: true, isSystem: true },
+            { companyId, value: 'overtime', label: 'Tăng ca', description: 'Yêu cầu làm thêm giờ', sortOrder: 5, isActive: true, isSystem: true },
+            { companyId, value: 'remote', label: 'Làm từ xa', description: 'Làm việc từ xa', sortOrder: 6, isActive: true, isSystem: true },
+            { companyId, value: 'late', label: 'Đi muộn', description: 'Yêu cầu đi muộn', sortOrder: 7, isActive: true, isSystem: true },
+            { companyId, value: 'correction', label: 'Sửa công', description: 'Yêu cầu sửa chấm công', sortOrder: 8, isActive: true, isSystem: true },
+            { companyId, value: 'other', label: 'Yêu cầu khác', description: 'Các yêu cầu khác', sortOrder: 9, isActive: true, isSystem: true },
         ];
         const createdRequestTypes = await RequestTypeModel.insertMany(requestTypes);
         console.log(`✅ Created ${createdRequestTypes.length} request types\n`);
@@ -110,6 +127,7 @@ async function seed() {
         console.log('🏢 Creating branches...');
         const branches = await BranchModel.insertMany([
             {
+                companyId,
                 name: 'Trụ sở chính Hà Nội',
                 code: 'HQ',
                 address: '123 Đường Láng, Đống Đa, Hà Nội',
@@ -125,6 +143,7 @@ async function seed() {
                 timezone: 'GMT+7',
             },
             {
+                companyId,
                 name: 'Chi nhánh TP.HCM',
                 code: 'HCM',
                 address: '456 Nguyễn Huệ, Quận 1, TP.HCM',
@@ -140,6 +159,7 @@ async function seed() {
                 timezone: 'GMT+7',
             },
             {
+                companyId,
                 name: 'Chi nhánh Đà Nẵng',
                 code: 'DN',
                 address: '789 Đường Bạch Đằng, Hải Châu, Đà Nẵng',
@@ -155,6 +175,7 @@ async function seed() {
                 timezone: 'GMT+7',
             },
             {
+                companyId,
                 name: 'Chi nhánh Cần Thơ',
                 code: 'CT',
                 address: '321 Đường Nguyễn Văn Cừ, Ninh Kiều, Cần Thơ',
@@ -170,6 +191,7 @@ async function seed() {
                 timezone: 'GMT+7',
             },
             {
+                companyId,
                 name: 'Chi nhánh Hải Phòng',
                 code: 'HP',
                 address: '654 Đường Lạch Tray, Ngô Quyền, Hải Phòng',
@@ -191,6 +213,7 @@ async function seed() {
         console.log('📁 Creating departments...');
         const departments = await DepartmentModel.insertMany([
             {
+                companyId,
                 name: 'Phòng Phát triển',
                 code: 'DEV',
                 description: 'Phòng ban phát triển phần mềm',
@@ -200,6 +223,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng Thiết kế',
                 code: 'DESIGN',
                 description: 'Phòng ban thiết kế UI/UX và sáng tạo',
@@ -209,6 +233,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng Marketing',
                 code: 'MKT',
                 description: 'Phòng ban marketing và truyền thông',
@@ -218,6 +243,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng Kinh doanh',
                 code: 'SALES',
                 description: 'Phòng ban kinh doanh và bán hàng',
@@ -227,6 +253,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng Nhân sự',
                 code: 'HR',
                 description: 'Phòng ban quản lý nhân sự',
@@ -236,6 +263,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng Tài chính',
                 code: 'FINANCE',
                 description: 'Phòng ban tài chính và kế toán',
@@ -245,6 +273,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng Vận hành',
                 code: 'OPS',
                 description: 'Phòng ban vận hành và quản lý hệ thống',
@@ -254,6 +283,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng Hỗ trợ',
                 code: 'SUPPORT',
                 description: 'Phòng ban hỗ trợ khách hàng',
@@ -263,6 +293,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng QA',
                 code: 'QA',
                 description: 'Phòng ban kiểm thử chất lượng',
@@ -272,6 +303,7 @@ async function seed() {
                 status: 'active',
             },
             {
+                companyId,
                 name: 'Phòng Sản phẩm',
                 code: 'PRODUCT',
                 description: 'Phòng ban quản lý sản phẩm',
@@ -425,6 +457,11 @@ async function seed() {
                 // employee1 always active for deterministic E2E tests; rest 90% active
                 isActive: i === 1 ? true : Math.random() > 0.1,
             });
+        }
+
+        // Add companyId to all non-SUPER_ADMIN users
+        for (const u of users) {
+            if (u.role !== 'SUPER_ADMIN') u.companyId = companyId;
         }
 
         const createdUsers = await UserModel.insertMany(users);

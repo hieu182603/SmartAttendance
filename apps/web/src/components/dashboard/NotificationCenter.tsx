@@ -1,5 +1,4 @@
 import React, { useMemo, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -170,7 +169,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { t } = useTranslation(['dashboard', 'common']);
   const {
     notifications: apiNotifications,
     unreadCount,

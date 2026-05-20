@@ -32,7 +32,7 @@ export const useFaceDetection = (): FaceDetectionState & FaceDetectionActions =>
   const [facePosition, setFacePosition] = useState<FacePosition | null>(null);
   const [detectionConfidence, setDetectionConfidence] = useState<number>(0);
   const [detectionStatus, setDetectionStatus] = useState<FaceDetectionStatus>("loading");
-  const [statusMessage, setStatusMessage] = useState<string>("Loading...");
+  const [statusMessage] = useState<string>("Loading...");
   const [multipleFaces, setMultipleFaces] = useState(false);
   const [maskColor, setMaskColor] = useState<"good" | "warning" | "error">("error");
 

@@ -1,8 +1,7 @@
 import api from '@/services/api'
 import type { LoginResponse, RegisterResponse, VerifyOtpResponse, VerifyResetOtpResponse, ForgotPasswordResponse, ResetPasswordResponse, ResendOtpResponse, User } from '@/types'
-
-export const register = async ({ name, email, password }: { name: string; email: string; password: string }): Promise<RegisterResponse> => {
-    return (await api.post('/auth/register', { name, email, password })).data
+export const register = async (data: { companyName: string; name: string; email: string; password: string }): Promise<RegisterResponse> => {
+    return (await api.post('/auth/register', data)).data
 }
 
 export const verifyOtp = async ({ email, otp }: { email: string; otp: string }): Promise<VerifyOtpResponse> => {

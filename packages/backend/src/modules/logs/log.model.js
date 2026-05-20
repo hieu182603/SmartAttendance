@@ -3,6 +3,12 @@ import mongoose from "mongoose";
 
 const logSchema = new mongoose.Schema(
     {
+        companyId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Company",
+            default: null,
+            index: true,
+        },
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",

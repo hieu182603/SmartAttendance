@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { UserRole, type UserRoleType, getRoleName, getRoleColor, getRoleBasePath } from "@/utils/roles";
+import { UserRole, type UserRoleType, getRoleBasePath } from "@/utils/roles";
 import { getDashboardStats } from "@/services/dashboardService";
 import { toast } from "sonner";
 import { Clock as ClockComponent } from "@/components/common/Clock";
@@ -185,10 +185,7 @@ export const DashboardOverview: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleAttendanceUpdated = ((event: Event) => {
-      const customEvent = event as CustomEvent<any>;
-      const data = customEvent.detail;
-
+    const handleAttendanceUpdated = ((_event: Event) => {
       // Refetch dashboard stats để cập nhật KPI và charts mà không cần F5 (silent update)
       fetchDashboardStatsSilent();
     }) as EventListener;

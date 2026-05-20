@@ -11,6 +11,7 @@ import {
 } from "@smartattendance/shared";
 import { logActivity } from "../../utils/logger.util.js";
 import { isRedisEnabled } from "../../config/redis.js";
+import { getClientIpAddress } from "../../utils/client-ip.util.js";
 
 const REFRESH_COOKIE = "sa_refresh";
 const COOKIE_OPTIONS = {
@@ -68,7 +69,9 @@ export class AuthController {
                 const fieldErrors = errors.fieldErrors || {};
                 let errorMessage = "Dữ liệu không hợp lệ";
 
-                if (fieldErrors.email) {
+                if (fieldErrors.companyName) {
+                    errorMessage = fieldErrors.companyName[0] || "Tên công ty không hợp lệ";
+                } else if (fieldErrors.email) {
                     errorMessage = fieldErrors.email[0] || "Email không hợp lệ";
                 } else if (fieldErrors.password) {
                     errorMessage = fieldErrors.password[0] || "Mật khẩu phải có ít nhất 6 ký tự";
@@ -180,7 +183,7 @@ export class AuthController {
 
             // Login user
             const result = await AuthService.login(parsedData, {
-                ipAddress: req.ip,
+                ipAddress: getClientIpAddress(req),
                 userAgent: req.headers["user-agent"],
             });
 
@@ -270,7 +273,7 @@ export class AuthController {
 
             // Verify OTP
             const result = await AuthService.verifyOTP(parse.data.email, parse.data.otp, {
-                ipAddress: req.ip,
+                ipAddress: getClientIpAddress(req),
                 userAgent: req.headers["user-agent"],
             });
 

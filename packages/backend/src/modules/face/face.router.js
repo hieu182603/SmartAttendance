@@ -117,6 +117,13 @@ faceRouter.put(
 faceRouter.delete("/register", FaceController.deleteFace);
 
 /**
+ * @route   DELETE /api/face/consent
+ * @desc    Withdraw biometric consent and delete face data (NĐ 13/2023/NĐ-CP right to withdraw)
+ * @access  Private
+ */
+faceRouter.delete("/consent", FaceController.withdrawConsent);
+
+/**
  * @route   POST /api/face/scan
  * @desc    Unified face scan — auto-detects registration vs verification + attendance
  * @access  Private

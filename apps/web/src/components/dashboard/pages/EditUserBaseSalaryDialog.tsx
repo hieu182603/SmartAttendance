@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { DollarSign, Info } from "lucide-react";
 import { toast } from "sonner";
-import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +43,6 @@ export default function EditUserBaseSalaryDialog({
   onOpenChange,
   onSuccess,
 }: EditUserBaseSalaryDialogProps) {
-  const { t } = useTranslation("dashboard");
   const [loading, setLoading] = useState(false);
   const [loadingInfo, setLoadingInfo] = useState(false);
   const [salaryInfo, setSalaryInfo] = useState<UserSalaryInfo | null>(null);

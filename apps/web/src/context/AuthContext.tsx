@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { getMe, login as loginApi, logoutApi } from '@/services/authService'
 import { setAccessToken } from '@/services/api'
 import type { User, LoginResponse } from '@/types'
+import { normalizeAuthUser } from '@/utils/userId'
 
 interface AuthContextType {
   token: string
@@ -32,7 +33,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true)
       try {
         const me = await getMe()
-        setUser(me)
+        setUser(normalizeAuthUser(me))
         if (me?.role) localStorage.setItem('sa_user_role', me.role)
       } catch {
         setUser(null)
@@ -58,7 +59,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const data = await loginApi({ email, password })
     // refreshToken is now an httpOnly cookie set by backend — no localStorage
     setTokenState(data.token)
-    setUser(data.user)
+    setUser(normalizeAuthUser(data.user as User))
     if (data.user?.role) localStorage.setItem('sa_user_role', data.user.role)
     window.dispatchEvent(new CustomEvent('auth-token-changed'))
     return data

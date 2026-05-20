@@ -403,10 +403,7 @@ export default function AdminAttendancePage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleAttendanceUpdated = ((event: Event) => {
-      const customEvent = event as CustomEvent<any>;
-      const data = customEvent.detail;
-
+    const handleAttendanceUpdated = ((_event: Event) => {
       fetchAttendance();
     }) as EventListener;
 

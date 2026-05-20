@@ -6,6 +6,12 @@ import mongoose from "mongoose";
  */
 const leaveTypeSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     code: {
       type: String,
       required: true,
@@ -50,5 +56,7 @@ const leaveTypeSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+leaveTypeSchema.index({ companyId: 1, code: 1 }, { unique: true });
 
 export const LeaveTypeModel = mongoose.model("LeaveType", leaveTypeSchema);

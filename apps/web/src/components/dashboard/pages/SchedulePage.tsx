@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import shiftService from "@/services/shiftService";
 import { getAttendanceHistory } from "@/services/attendanceService";
 import { useAuth } from "@/context/AuthContext";
+import { resolveUserId } from "@/utils/userId";
 import {
   getShiftStatusBadgeClass,
   type ShiftStatus,
@@ -63,9 +64,15 @@ const sanitizeNotes = (notes?: string): string | null => {
   return cleaned;
 };
 
+const parseTimeParts = (time?: string): [number, number] => {
+  const match = /^(\d{1,2}):(\d{2})/.exec(String(time ?? "").trim());
+  if (!match) return [0, 0];
+  return [Number(match[1]), Number(match[2])];
+};
+
 const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
-  const [sh, sm] = shift.startTime.split(":").map(Number);
-  const [eh, em] = shift.endTime.split(":").map(Number);
+  const [sh, sm] = parseTimeParts(shift.startTime);
+  const [eh, em] = parseTimeParts(shift.endTime);
   let startMin = sh * 60 + sm;
   let endMin = eh * 60 + em;
   if (endMin < startMin) {
@@ -75,12 +82,21 @@ const calculateShiftHours = (shift: EmployeeSchedule["shift"]): number => {
   return Math.max(totalMinutes, 0) / 60;
 };
 
+const isValidShiftTime = (startTime?: string, endTime?: string): boolean =>
+  /^(\d{1,2}):(\d{2})/.test(String(startTime ?? "").trim()) &&
+  /^(\d{1,2}):(\d{2})/.test(String(endTime ?? "").trim());
+
 const SchedulePage: React.FC = () => {
   const { t } = useTranslation(["dashboard", "common"]);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const userId = resolveUserId(user);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const defaultShiftName = t("dashboard:schedule.defaults.shiftName");
+  const defaultLocation = t("dashboard:schedule.defaults.location");
+  const defaultTeam = t("dashboard:schedule.defaults.team");
 
   // Update time every minute
   useEffect(() => {
@@ -91,13 +107,14 @@ const SchedulePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return;
+
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        if (!user?._id) {
+        if (!userId) {
           setSchedule([]);
-          setLoading(false);
           return;
         }
 
@@ -132,7 +149,7 @@ const SchedulePage: React.FC = () => {
             shiftService
               .getMySchedule(startDateStr, endDateStr)
               .catch(() => []),
-            getAttendanceHistory({ limit: 1000 }).catch((error) => {
+            getAttendanceHistory({ startDate: startDateStr, endDate: endDateStr, limit: 100 }).catch((error) => {
               console.error("[Schedule] Failed to load attendance:", error);
               toast.error("Không thể tải lịch sử điểm danh cho lịch làm việc");
               return { records: [], pagination: null };
@@ -228,7 +245,7 @@ const SchedulePage: React.FC = () => {
         ) {
           fallbackShift =
             availableShifts.find(
-              (s: any) => s.name === t("dashboard:schedule.defaults.shiftName")
+              (s: any) => s.name === defaultShiftName
             ) || availableShifts[0];
         }
 
@@ -308,7 +325,7 @@ const SchedulePage: React.FC = () => {
               status = "missed";
             }
 
-            if (shiftId && shiftName && startTime && endTime) {
+            if (shiftId && shiftName && isValidShiftTime(startTime, endTime)) {
               finalSchedule.push({
                 _id: `${dateStr}-${shiftId}`,
                 date: dateStr,
@@ -323,9 +340,9 @@ const SchedulePage: React.FC = () => {
                 location:
                   scheduleToUse.location ||
                   attendance?.location ||
-                  t("dashboard:schedule.defaults.location"),
+                  defaultLocation,
                 team:
-                  scheduleToUse.team || t("dashboard:schedule.defaults.team"),
+                  scheduleToUse.team || defaultTeam,
                 notes: scheduleToUse.notes || description,
                 attendanceRecord: attendance,
               });
@@ -377,8 +394,8 @@ const SchedulePage: React.FC = () => {
               status: virtualStatus,
               location:
                 attendance.location ||
-                t("dashboard:schedule.defaults.location"),
-              team: t("dashboard:schedule.defaults.team"),
+                defaultLocation,
+              team: defaultTeam,
               notes: attendance.notes || "",
               attendanceRecord: attendance,
             });
@@ -397,10 +414,8 @@ const SchedulePage: React.FC = () => {
       }
     };
 
-    if (user?._id) {
-      fetchData();
-    }
-  }, [user, t]);
+    fetchData();
+  }, [userId, authLoading, defaultShiftName, defaultLocation, defaultTeam]);
 
   const [liveTime, setLiveTime] = useState(new Date());
 
@@ -638,9 +653,10 @@ const SchedulePage: React.FC = () => {
 
   // Tìm ca hiện tại (đang diễn ra)
   const currentShift = todayShifts.find((s) => {
+    if (!isValidShiftTime(s.shift.startTime, s.shift.endTime)) return false;
     let now = currentTime.getHours() * 60 + currentTime.getMinutes();
-    const [sh, sm] = s.shift.startTime.split(":").map(Number);
-    const [eh, em] = s.shift.endTime.split(":").map(Number);
+    const [sh, sm] = parseTimeParts(s.shift.startTime);
+    const [eh, em] = parseTimeParts(s.shift.endTime);
     let startMin = sh * 60 + sm;
     let endMin = eh * 60 + em;
 
@@ -656,8 +672,8 @@ const SchedulePage: React.FC = () => {
   const countdown = currentShift
     ? (() => {
         let now = currentTime.getHours() * 60 + currentTime.getMinutes();
-        const [sh, sm] = currentShift.shift.startTime.split(":").map(Number);
-        const [eh, em] = currentShift.shift.endTime.split(":").map(Number);
+        const [sh, sm] = parseTimeParts(currentShift.shift.startTime);
+        const [eh, em] = parseTimeParts(currentShift.shift.endTime);
         let startMin = sh * 60 + sm;
         let endMin = eh * 60 + em;
 
@@ -735,12 +751,7 @@ const SchedulePage: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl text-[var(--text-main)] flex items-center space-x-3">
-              <motion.span
-                animate={{ rotate: [0, 360] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-              >
-                📆
-              </motion.span>
+              <span aria-hidden>📆</span>
               <span>{t("dashboard:schedule.title")}</span>
             </h1>
             <p className="text-[var(--text-sub)] mt-1">
@@ -848,12 +859,8 @@ const SchedulePage: React.FC = () => {
                     {countdown &&
                       currentShift &&
                       (() => {
-                        const [sh, sm] = currentShift.shift.startTime
-                          .split(":")
-                          .map(Number);
-                        const [eh, em] = currentShift.shift.endTime
-                          .split(":")
-                          .map(Number);
+                        const [sh, sm] = parseTimeParts(currentShift.shift.startTime);
+                        const [eh, em] = parseTimeParts(currentShift.shift.endTime);
                         let startMin = sh * 60 + sm;
                         let endMin = eh * 60 + em;
                         let now =
@@ -867,7 +874,8 @@ const SchedulePage: React.FC = () => {
 
                         const totalDuration = endMin - startMin;
                         const elapsed = now - startMin;
-                        const progress = (elapsed / totalDuration) * 100;
+                        const progress =
+                          totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0;
 
                         return (
                           <div className="mt-3">
@@ -905,7 +913,7 @@ const SchedulePage: React.FC = () => {
                                   : "bg-[var(--accent-cyan)]/30 dark:bg-[var(--accent-cyan)]/20"
                               }`}
                             >
-                              {shift.shift.name.toLowerCase().includes("sáng")
+                              {(shift.shift.name ?? "").toLowerCase().includes("sáng")
                                 ? "🌅"
                                 : "🌆"}
                             </div>

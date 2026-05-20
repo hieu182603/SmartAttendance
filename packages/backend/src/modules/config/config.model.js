@@ -5,10 +5,15 @@ import mongoose from "mongoose";
  */
 const systemConfigSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     key: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
       uppercase: true,
     },
@@ -48,8 +53,8 @@ const systemConfigSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Note: key already has unique: true in schema, category already has index: true
-// No need to create duplicate indexes
+// Unique per (companyId, key): null companyId = global defaults, non-null = company override
+systemConfigSchema.index({ companyId: 1, key: 1 }, { unique: true });
 
 export const SystemConfigModel = mongoose.model(
   "SystemConfig",

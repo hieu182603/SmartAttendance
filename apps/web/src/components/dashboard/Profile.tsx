@@ -68,9 +68,9 @@ interface ShowPassword {
 }
 
 interface PasswordErrors {
-  current: string;
-  new: string;
-  confirm: string;
+  current: string | undefined;
+  new: string | undefined;
+  confirm: string | undefined;
 }
 
 export function Profile({ role, user }: ProfileProps): React.JSX.Element {
@@ -149,7 +149,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     if (!profile.bankName) return
     const found = banksOptions.find(b => b.name === profile.bankName || b.shortname === profile.bankName)
     if (found && found.shortname && found.shortname !== profile.bankName) {
-      setProfile(p => ({ ...p, bankName: found.shortname }))
+      setProfile(p => ({ ...p, bankName: found.shortname ?? '' }))
     }
   }, [banksOptions])
 

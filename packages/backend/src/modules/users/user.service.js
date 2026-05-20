@@ -163,7 +163,7 @@ export class UserService {
     return { message: "Đổi mật khẩu thành công" };
   }
 
-  static async getAllUsers(options = {}) {
+  static async getAllUsers(options = {}, companyId = null) {
     const {
       page,
       limit,
@@ -175,6 +175,7 @@ export class UserService {
     } = options;
 
     const query = {};
+    if (companyId) query.companyId = companyId;
 
     // Search filter - tìm kiếm theo name, email
     // Note: Không thể search trực tiếp trên department vì nó là ObjectId reference
@@ -540,7 +541,7 @@ export class UserService {
   /**
    * Tạo user mới bởi admin
    */
-  static async createUserByAdmin(userData, adminRole) {
+  static async createUserByAdmin(userData, adminRole, companyId = null) {
     const { email, password, name, role, department, position, branch, phone, taxId, defaultShiftId, isActive = true } = userData;
 
     // Validate required fields
@@ -623,6 +624,7 @@ export class UserService {
       defaultShiftId: defaultShiftId || null,
       isActive,
       isVerified: true, // Admin created users are automatically verified
+      ...(companyId ? { companyId } : {}),
     });
 
     return user;
@@ -633,7 +635,7 @@ export class UserService {
    * Mỗi row: { name, email, password, role, department?, branch?, position?, phone? }
    * department/branch có thể là tên (string) — sẽ tự lookup ID
    */
-  static async bulkImportUsers(rows, adminRole) {
+  static async bulkImportUsers(rows, adminRole, companyId = null) {
     // Pre-load tất cả departments và branches để tránh N+1 queries
     const [allDepts, allBranches] = await Promise.all([
       DepartmentModel.find({}, "_id name").lean(),
@@ -688,7 +690,8 @@ export class UserService {
 
         const user = await UserService.createUserByAdmin(
           { email, password, name, role, department: deptId, branch: branchId, position, phone, taxId },
-          adminRole
+          adminRole,
+          companyId
         );
 
         results.created.push({ row: rowNum, email: user.email, name: user.name });

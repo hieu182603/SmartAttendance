@@ -59,7 +59,7 @@ export const sendMessage = async (
  * Get user's conversations
  */
 export const getConversations = async (
-  userId: string,
+  _userId: string,
   page: number = 1,
   limit: number = 10
 ): Promise<ConversationsResponse> => {
@@ -75,7 +75,7 @@ export const getConversations = async (
  */
 export const getConversation = async (
   conversationId: string,
-  userId: string
+  _userId: string
 ): Promise<{
   id: string;
   messages: ChatMessage[];
@@ -93,7 +93,7 @@ export const getConversation = async (
  */
 export const deleteConversation = async (
   conversationId: string,
-  userId: string
+  _userId: string
 ): Promise<void> => {
   await api.delete(`/rag/conversation/${conversationId}`);
 };

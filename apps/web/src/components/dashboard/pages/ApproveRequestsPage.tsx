@@ -68,10 +68,6 @@ interface Request {
   date?: string
 }
 
-interface GetAllRequestsResponse {
-  requests?: Request[]
-}
-
 interface Stats {
   pending: number
   approved: number

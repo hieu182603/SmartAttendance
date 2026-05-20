@@ -123,17 +123,26 @@ api.interceptors.response.use(
 
         // Handle 403 Forbidden - Insufficient permissions
         if (status === 403) {
-            const message = responseData?.message || 'Bạn không có quyền thực hiện hành động này.'
+            const data403 = responseData as { message?: string; trialExpired?: boolean; upgradeRequired?: boolean } | undefined
+            const message = data403?.message || 'Bạn không có quyền thực hiện hành động này.'
             const apiError = new Error(message) as ValidationError
             apiError.response = error.response
-            
-            // Store error message for toast notification (components will handle this)
-            // Redirect to user's base path if not already there
+
+            // Trial expired → redirect to upgrade page
+            if (data403?.trialExpired && data403?.upgradeRequired) {
+                const currentPath = window.location.pathname
+                if (!currentPath.includes('/upgrade')) {
+                    setTimeout(() => { window.location.href = '/employee/upgrade' }, 0)
+                }
+                return Promise.reject(apiError)
+            }
+
+            // Other 403 → redirect to role base path
             const currentPath = window.location.pathname
             const userRole = localStorage.getItem('sa_user_role')
             const basePaths = ['/employee', '/manager', '/hr', '/admin']
             const isOnBasePath = basePaths.some(path => currentPath.startsWith(path))
-            
+
             if (!isOnBasePath && userRole) {
                 const roleBasePaths: Record<string, string> = {
                     'EMPLOYEE': '/employee',
@@ -143,12 +152,9 @@ api.interceptors.response.use(
                     'SUPER_ADMIN': '/admin'
                 }
                 const redirectPath = roleBasePaths[userRole] || '/employee'
-                // Use window.location.href for redirect in interceptor (can't use navigate hook here)
-                setTimeout(() => {
-                    window.location.href = redirectPath
-                }, 2000) // Redirect after 2 seconds to show error message
+                setTimeout(() => { window.location.href = redirectPath }, 2000)
             }
-            
+
             return Promise.reject(apiError)
         }
 

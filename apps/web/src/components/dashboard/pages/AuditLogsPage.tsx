@@ -20,8 +20,7 @@ import {
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
-    ChevronsRight,
-    Info
+    ChevronsRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +35,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { getAllLogs, getLogStats, type AuditLog } from '@/services/logService';
+import { formatIpAddress } from '@/utils/formatIpAddress';
 
 interface AuditLogPage extends AuditLog {
     action: string;
@@ -228,7 +228,7 @@ export default function AuditLogsPage() {
             log.action,
             log.category,
             log.description,
-            log.ipAddress,
+            formatIpAddress(log.ipAddress),
             log.status
         ]);
 
@@ -517,7 +517,7 @@ export default function AuditLogsPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            filteredLogs.map((log, index) => (
+                                            filteredLogs.map((log) => (
                                                 <TableRow
                                                     key={log.id}
                                                     className={`border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-900/50 cursor-pointer ${log.status === 'failed' ? 'bg-red-500/5' :
@@ -765,7 +765,7 @@ export default function AuditLogsPage() {
                                     </div>
                                     <div className="space-y-1">
                                         <Label className="text-xs text-gray-600 dark:text-gray-400">{t('auditLogs.dialog.ipAddress')}</Label>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">{selectedLog.ipAddress || 'N/A'}</p>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">{formatIpAddress(selectedLog.ipAddress)}</p>
                                     </div>
                                 </div>
                             </div>

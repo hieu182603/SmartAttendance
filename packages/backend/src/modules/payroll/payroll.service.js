@@ -540,12 +540,14 @@ export async function generatePayrollRecord(userId, month) {
  * @param {string} month - Tháng (format: YYYY-MM)
  * @returns {Promise<Object>} { success, processed, errors }
  */
-export async function generatePayrollForMonth(month) {
-  const employees = await UserModel.find({
+export async function generatePayrollForMonth(month, companyId = null) {
+  const employeeQuery = {
     role: { $in: ["EMPLOYEE", "MANAGER", "SUPERVISOR"] },
     isActive: true,
     isTrial: { $ne: true },
-  }).select("_id name employeeId");
+  };
+  if (companyId) employeeQuery.companyId = companyId;
+  const employees = await UserModel.find(employeeQuery).select("_id name employeeId");
 
   const results = {
     success: [],
@@ -574,7 +576,7 @@ export async function generatePayrollForMonth(month) {
     }
   }
 
-  await generatePayrollReport(month);
+  await generatePayrollReport(month, companyId);
 
   return results;
 }
@@ -695,8 +697,10 @@ export async function previewPayrollRecord(userId, month) {
  * @param {string} month - Tháng (format: YYYY-MM)
  * @returns {Promise<Object>} Payroll report
  */
-export async function generatePayrollReport(month) {
-  const records = await PayrollRecordModel.find({ month }).lean();
+export async function generatePayrollReport(month, companyId = null) {
+  const reportQuery = { month };
+  if (companyId) reportQuery.companyId = companyId;
+  const records = await PayrollRecordModel.find(reportQuery).lean();
 
   if (records.length === 0) {
     return null;

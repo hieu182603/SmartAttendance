@@ -35,6 +35,7 @@ jest.unstable_mockModule("../../src/config/redis.js", () => ({
 jest.unstable_mockModule("../../src/utils/email.util.js", () => ({
   sendOTPEmail: jest.fn().mockResolvedValue({ success: true }),
   sendResetPasswordEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 // ── AI service mock ───────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ async function createVerifiedUser(email = "user@test.com", password = "SmartAtte
 
 // Dùng cho tests cần test full register→OTP→verify flow.
 async function registerAndVerify(email = "user@test.com", password = "SmartAttendance@2026!", name = "Test User") {
-  const regRes = await request(app).post("/api/auth/register").send({ email, password, name });
+  const regRes = await request(app).post("/api/auth/register").send({ email, password, name, companyName: "Test Company" });
 
   // Lấy OTP từ DB; nếu không có (email mock chưa trigger OTP creation), tạo trực tiếp.
   let otp = await OtpModel.findOne({ email, purpose: "verify_email" }).sort({ createdAt: -1 });
@@ -135,6 +136,7 @@ describe("TC-AUTH-001: Register success", () => {
       email: "newuser@test.com",
       password: "SmartAttendance@2026!",
       name: "Nguyen Van A",
+      companyName: "Test Company A",
     });
 
     expect(res.status).toBe(201);
@@ -158,12 +160,14 @@ describe("TC-AUTH-002: Register duplicate email", () => {
       email: "dup@test.com",
       password: "SmartAttendance@2026!",
       name: "User One",
+      companyName: "Dup Company",
     });
 
     const res = await request(app).post("/api/auth/register").send({
       email: "dup@test.com",
       password: "SmartAttendance@2026!",
       name: "User Two",
+      companyName: "Dup Company",
     });
 
     expect(res.status).toBe(409);
@@ -176,7 +180,7 @@ describe("TC-AUTH-002: Register duplicate email", () => {
 describe("TC-AUTH-003: Verify OTP success", () => {
   test("returns 200 and sets isVerified = true", async () => {
     const email = "verify@test.com";
-    await request(app).post("/api/auth/register").send({ email, password: "SmartAttendance@2026!", name: "Verify User" });
+    await request(app).post("/api/auth/register").send({ email, password: "SmartAttendance@2026!", name: "Verify User", companyName: "Verify Company" });
 
     const otp = await OtpModel.findOne({ email }).sort({ createdAt: -1 });
     const res = await request(app).post("/api/auth/verify-otp").send({ email, otp: otp.code });
@@ -196,7 +200,7 @@ describe("TC-AUTH-003: Verify OTP success", () => {
 describe("TC-AUTH-004: Verify OTP wrong code", () => {
   test("returns 400 for wrong OTP", async () => {
     const email = "wrongotp@test.com";
-    await request(app).post("/api/auth/register").send({ email, password: "SmartAttendance@2026!", name: "Wrong OTP" });
+    await request(app).post("/api/auth/register").send({ email, password: "SmartAttendance@2026!", name: "Wrong OTP", companyName: "OTP Test Company" });
 
     const res = await request(app).post("/api/auth/verify-otp").send({ email, otp: "000000" });
 
@@ -260,6 +264,7 @@ describe("TC-AUTH-007: Login unverified account", () => {
       email: "unverified@test.com",
       password: "SmartAttendance@2026!",
       name: "Unverified User",
+      companyName: "Unverified Company",
     });
 
     const res = await request(app).post("/api/auth/login").send({

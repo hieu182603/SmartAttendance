@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
 import { Calendar, Clock, CheckCircle, XCircle, Search, AlertCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -22,7 +21,6 @@ import {
 } from '@/services/leaveService'
 import { toast } from 'sonner'
 import type { ErrorWithMessage } from '@/types'
-import { useAuth } from '@/context/AuthContext'
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {
   leave: 'Nghỉ phép năm',
@@ -33,8 +31,6 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
 }
 
 export const LeaveApprovalPage: React.FC = () => {
-  const { t } = useTranslation(['dashboard', 'common'])
-  const { user } = useAuth()
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
