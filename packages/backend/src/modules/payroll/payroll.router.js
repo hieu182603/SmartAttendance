@@ -109,7 +109,7 @@ payrollRouter.get(
 
 payrollRouter.post(
   "/salary-matrix",
-  requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   createSalaryMatrix
 );
@@ -123,7 +123,7 @@ payrollRouter.get(
 
 payrollRouter.put(
   "/salary-matrix/:id",
-  requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   updateSalaryMatrix
 );
@@ -155,7 +155,7 @@ payrollRouter.get(
 
 payrollRouter.put(
   "/users/:id/base-salary",
-  requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   updateUserBaseSalary
 );

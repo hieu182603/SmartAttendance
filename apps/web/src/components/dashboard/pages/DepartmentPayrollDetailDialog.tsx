@@ -6,7 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, DollarSign, Users, AlertCircle } from 'lucide-react';
 import { getPayrollRecords } from '@/services/payrollService';
 import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
 
 interface DepartmentPayrollDetailDialogProps {
   isOpen: boolean;
@@ -39,7 +38,6 @@ export function DepartmentPayrollDetailDialog({
   stats,
   selectedMonth,
 }: DepartmentPayrollDetailDialogProps) {
-  const { t } = useTranslation(['dashboard', 'common']);
   const [loading, setLoading] = useState(false);
   const [payrollRecords, setPayrollRecords] = useState<EmployeePayroll[]>([]);
 

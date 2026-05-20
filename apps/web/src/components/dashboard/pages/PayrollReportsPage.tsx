@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import {
   DollarSign,
   TrendingUp,
-  TrendingDown,
   Download,
   Users,
   BarChart3,
@@ -106,26 +105,6 @@ const PayrollReportsPage: React.FC = () => {
 
   const currentPayroll =
     summary.find((item) => item.month === selectedMonth) || summary[0];
-
-  const currentIndex = summary.findIndex(
-    (item) => item.month === currentPayroll?.month
-  );
-  const previousPayroll =
-    currentIndex >= 0 ? summary[currentIndex + 1] : undefined;
-
-  const salaryChange =
-    currentPayroll && previousPayroll
-      ? (
-          ((currentPayroll.totalSalary - previousPayroll.totalSalary) /
-            previousPayroll.totalSalary) *
-          100
-        ).toFixed(1)
-      : null;
-
-  const employeeChange =
-    currentPayroll && previousPayroll
-      ? currentPayroll.totalEmployees - previousPayroll.totalEmployees
-      : 0;
 
   const filteredDepartments = useMemo(() => {
     if (!searchQuery) return departmentData;
@@ -325,8 +304,8 @@ const PayrollReportsPage: React.FC = () => {
                         borderRadius: "8px",
                         color: "var(--text-main)",
                       }}
-                      formatter={(value: number) =>
-                        `${value} ${t('dashboard:payrollReports.units.million')}`
+                      formatter={(value) =>
+                        `${value as number} ${t('dashboard:payrollReports.units.million')}`
                       }
                     />
                     <Legend />
@@ -379,8 +358,8 @@ const PayrollReportsPage: React.FC = () => {
                         borderRadius: "8px",
                         color: "var(--text-main)",
                       }}
-                      formatter={(value: number, _name, payload) =>
-                        `${payload?.payload?.department}: ${value}%`
+                      formatter={(value, _name, payload) =>
+                        `${(payload as { payload?: { department?: string } })?.payload?.department}: ${value as number}%`
                       }
                     />
                   </RePieChart>

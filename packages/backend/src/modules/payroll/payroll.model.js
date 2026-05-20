@@ -22,6 +22,12 @@ const monthlyTrendSchema = new mongoose.Schema(
 
 const payrollReportSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     month: { type: String, required: true },
     periodStart: { type: Date, required: true },
     periodEnd: { type: Date, required: true },
@@ -37,8 +43,8 @@ const payrollReportSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-payrollReportSchema.index({ month: 1 }, { unique: true });
-payrollReportSchema.index({ periodStart: -1 });
+payrollReportSchema.index({ companyId: 1, month: 1 }, { unique: true });
+payrollReportSchema.index({ companyId: 1, periodStart: -1 });
 
 export const PayrollReportModel = mongoose.model(
 
@@ -54,10 +60,16 @@ export const PayrollReportModel = mongoose.model(
  */
 const payrollRecordSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
       index: true,
     },
     month: {
@@ -239,8 +251,8 @@ const payrollRecordSchema = new mongoose.Schema(
 );
 
 // Indexes
-payrollRecordSchema.index({ userId: 1, month: -1 }, { unique: true });
-payrollRecordSchema.index({ month: -1, status: 1 });
+payrollRecordSchema.index({ companyId: 1, userId: 1, month: -1 }, { unique: true });
+payrollRecordSchema.index({ companyId: 1, month: -1, status: 1 });
 payrollRecordSchema.index({ department: 1, month: -1 });
 payrollRecordSchema.index({ status: 1, createdAt: -1 });
 // ✅ FIX: Thêm compound indexes cho performance

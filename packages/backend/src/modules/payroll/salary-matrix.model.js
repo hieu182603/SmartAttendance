@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const salaryMatrixSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     departmentCode: {
       type: String,
       required: true,
