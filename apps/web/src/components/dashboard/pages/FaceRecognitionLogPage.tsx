@@ -18,15 +18,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { getAllLogs, type AuditLog } from '@/services/logService';
+import { formatIpAddress } from '@/utils/formatIpAddress';
 
 const ACTION_LABELS: Record<string, string> = {
+  face_scan_success: 'Xác thực thành công',
+  face_fallback_otp_success: 'OTP fallback thành công',
   face_scan_failed: 'Xác thực thất bại',
   face_spoof_detected: 'Phát hiện giả mạo',
 };
 
-const ACTION_BADGE: Record<string, 'error' | 'warning' | 'outline'> = {
+const ACTION_BADGE: Record<string, 'error' | 'warning' | 'outline' | 'success'> = {
+  face_scan_success: 'success',
+  /** outline + class riêng để phân biệt với quét mặt thuần */
+  face_fallback_otp_success: 'outline',
   face_scan_failed: 'warning',
   face_spoof_detected: 'error',
+};
+
+/** Màu badge “Sự kiện” — OTP fallback dùng accent cyan, không trùng success */
+const ACTION_EVENT_BADGE_CLASS: Record<string, string> = {
+  face_fallback_otp_success:
+    '!text-[var(--accent-cyan)] !border-[var(--accent-cyan)]/45 bg-[var(--accent-cyan)]/12',
 };
 
 const ERROR_CODE_LABELS: Record<string, string> = {
@@ -46,6 +58,12 @@ interface FaceLog extends AuditLog {
   };
 }
 
+function getStatusBadge(status: FaceLog['status']): { variant: 'success' | 'error' | 'warning'; label: string } {
+  if (status === 'success') return { variant: 'success', label: 'Thành công' };
+  if (status === 'failed') return { variant: 'error', label: 'Thất bại' };
+  return { variant: 'warning', label: 'Cảnh báo' };
+}
+
 export default function FaceRecognitionLogPage() {
   const [logs, setLogs] = useState<FaceLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +73,7 @@ export default function FaceRecognitionLogPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
 
-  const [stats, setStats] = useState({ total: 0, spoofed: 0, verifyFailed: 0, serviceErrors: 0 });
+  const [stats, setStats] = useState({ total: 0, success: 0, failed: 0, serviceErrors: 0 });
 
   const fetchLogs = useCallback(async (page = 1) => {
     setLoading(true);
@@ -64,7 +82,6 @@ export default function FaceRecognitionLogPage() {
         category: 'face_recognition',
         page,
         limit: 20,
-        status: 'failed',
       };
       if (filterAction !== 'all') params.action = filterAction;
       if (startDate) params.startDate = startDate;
@@ -75,12 +92,12 @@ export default function FaceRecognitionLogPage() {
       setPagination({ total: res.pagination.total, totalPages: res.pagination.totalPages });
 
       // Compute stats from all logs (separate call without action filter)
-      const allRes = await getAllLogs({ category: 'face_recognition', status: 'failed', limit: 1000 } as any);
+      const allRes = await getAllLogs({ category: 'face_recognition', limit: 1000 } as any);
       const allLogs = allRes.logs as FaceLog[];
       setStats({
         total: allLogs.length,
-        spoofed: allLogs.filter(l => l.action === 'face_spoof_detected').length,
-        verifyFailed: allLogs.filter(l => l.metadata?.errorCode === 'FACE_VERIFICATION_FAILED').length,
+        success: allLogs.filter(l => l.status === 'success').length,
+        failed: allLogs.filter(l => l.status === 'failed').length,
         serviceErrors: allLogs.filter(l =>
           l.metadata?.errorCode === 'AI_SERVICE_UNAVAILABLE' || l.metadata?.errorCode === 'AI_SERVICE_TIMEOUT'
         ).length,
@@ -135,23 +152,23 @@ export default function FaceRecognitionLogPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-(--text-sub) flex items-center gap-1">
-              <ShieldAlert className="h-4 w-4 text-red-500" />
-              Giả mạo
+              <ShieldAlert className="h-4 w-4 text-emerald-500" />
+              Thành công
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-500">{stats.spoofed}</div>
+            <div className="text-2xl font-bold text-emerald-500">{stats.success}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-(--text-sub) flex items-center gap-1">
               <AlertTriangle className="h-4 w-4 text-orange-500" />
-              Không khớp
+              Thất bại
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{stats.verifyFailed}</div>
+            <div className="text-2xl font-bold text-orange-500">{stats.failed}</div>
           </CardContent>
         </Card>
         <Card>
@@ -176,6 +193,8 @@ export default function FaceRecognitionLogPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="face_scan_success">Xác thực thành công</SelectItem>
+              <SelectItem value="face_fallback_otp_success">OTP fallback thành công</SelectItem>
               <SelectItem value="face_scan_failed">Xác thực thất bại</SelectItem>
               <SelectItem value="face_spoof_detected">Phát hiện giả mạo</SelectItem>
             </SelectContent>
@@ -206,7 +225,8 @@ export default function FaceRecognitionLogPage() {
               <TableRow>
                 <TableHead>Thời gian</TableHead>
                 <TableHead>Nhân viên</TableHead>
-                <TableHead>Loại lỗi</TableHead>
+                <TableHead>Sự kiện</TableHead>
+                <TableHead>Trạng thái</TableHead>
                 <TableHead>Mã lỗi</TableHead>
                 <TableHead>Lần thất bại</TableHead>
                 <TableHead>OTP Fallback</TableHead>
@@ -216,19 +236,22 @@ export default function FaceRecognitionLogPage() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-(--text-sub)">
+                  <TableCell colSpan={8} className="text-center py-8 text-(--text-sub)">
                     Đang tải...
                   </TableCell>
                 </TableRow>
               )}
               {!loading && logs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-(--text-sub)">
+                  <TableCell colSpan={8} className="text-center py-8 text-(--text-sub)">
                     Không có dữ liệu
                   </TableCell>
                 </TableRow>
               )}
               {!loading && logs.map(log => (
+                (() => {
+                  const statusBadge = getStatusBadge(log.status);
+                  return (
                 <TableRow
                   key={log.id}
                   className={log.action === 'face_spoof_detected' ? 'bg-red-50 dark:bg-red-950/20' : ''}
@@ -249,27 +272,37 @@ export default function FaceRecognitionLogPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={ACTION_BADGE[log.action] || 'outline'}>
+                    <Badge
+                      variant={ACTION_BADGE[log.action] || 'outline'}
+                      className={ACTION_EVENT_BADGE_CLASS[log.action]}
+                    >
                       {ACTION_LABELS[log.action] || log.action}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={statusBadge.variant}>
+                      {statusBadge.label}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-(--text-sub)">
                     {ERROR_CODE_LABELS[log.metadata?.errorCode || ''] || log.metadata?.errorCode || '—'}
                   </TableCell>
                   <TableCell className="text-sm text-center">
-                    {log.metadata?.failCount != null ? (
+                    {log.metadata?.failCount == null ? '—' : (
                       <span className={log.metadata.failCount >= 3 ? 'text-red-500 font-semibold' : ''}>
                         {log.metadata.failCount}
                       </span>
-                    ) : '—'}
+                    )}
                   </TableCell>
                   <TableCell>
                     {log.metadata?.requireOtpFallback ? (
                       <Badge variant="outline" className="text-orange-600 border-orange-400">Đã gửi OTP</Badge>
                     ) : '—'}
                   </TableCell>
-                  <TableCell className="text-sm text-(--text-sub)">{log.ipAddress}</TableCell>
+                  <TableCell className="text-sm text-(--text-sub)">{formatIpAddress(log.ipAddress)}</TableCell>
                 </TableRow>
+                  );
+                })()
               ))}
             </TableBody>
           </Table>

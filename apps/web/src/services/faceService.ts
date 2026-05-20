@@ -464,6 +464,10 @@ export const faceService = {
         formData.append("liveness_challenge", livenessResult.challenge);
       }
 
+      // Consent fields (NĐ 13/2023/NĐ-CP)
+      formData.append("consent_given", "true");
+      formData.append("consent_channel", "web");
+
       const response = await api.post("/face/register", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -523,6 +527,13 @@ export const faceService = {
    */
   deleteFace: async (): Promise<void> => {
     await api.delete("/face/register");
+  },
+
+  /**
+   * Withdraw biometric consent and delete face data (NĐ 13/2023/NĐ-CP)
+   */
+  withdrawConsent: async (): Promise<void> => {
+    await api.delete("/face/consent");
   },
 };
 

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Animated,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +24,8 @@ export default function FaceRegistrationScreen() {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [showSuccess, setShowSuccess] = useState(false);
   const activeStep = 1;
@@ -90,6 +93,9 @@ export default function FaceRegistrationScreen() {
   const borderOpacity = ovalBorder;
 
   const handleCapture = () => {
+    // When wiring up the real API call, include consent fields in the FormData:
+    //   formData.append('consent_given', 'true');
+    //   formData.append('consent_channel', 'mobile');
     setShowSuccess(true);
     Animated.parallel([
       Animated.timing(successOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
@@ -103,6 +109,58 @@ export default function FaceRegistrationScreen() {
     successOpacity.setValue(0);
     navigation.goBack();
   };
+
+  if (!consentGiven) {
+    return (
+      <View style={s.consentRoot}>
+        <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background.base} />
+        <ScrollView contentContainerStyle={s.consentScroll} showsVerticalScrollIndicator={false}>
+          <Text style={s.consentTitle}>Đồng ý thu thập dữ liệu sinh trắc học</Text>
+
+          <Text style={s.consentBody}>
+            Theo Nghị định 13/2023/NĐ-CP, chúng tôi cần thu thập dữ liệu sinh trắc học của bạn để xác thực chấm công.
+          </Text>
+
+          <Text style={s.consentBullet}>{'• Hình ảnh khuôn mặt từ nhiều góc độ'}</Text>
+          <Text style={s.consentBullet}>{'• Dữ liệu nhận dạng khuôn mặt'}</Text>
+
+          <Text style={s.consentBody}>
+            Mục đích: Xác thực danh tính khi chấm công, phòng chống gian lận.
+          </Text>
+          <Text style={s.consentBody}>
+            Bạn có thể rút đồng ý và xóa dữ liệu bất kỳ lúc nào trong Cài đặt.
+          </Text>
+
+          <TouchableOpacity
+            style={s.checkboxRow}
+            onPress={() => setConsentChecked(v => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={[s.checkbox, consentChecked && s.checkboxChecked]}>
+              {consentChecked && (
+                <Icon name="checkmark-outline" size={14} color="#fff" library="ionicons" />
+              )}
+            </View>
+            <Text style={s.checkboxLabel}>
+              Tôi đã đọc và đồng ý với chính sách thu thập dữ liệu sinh trắc học
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[s.consentBtn, !consentChecked && s.consentBtnDisabled]}
+            onPress={() => { if (consentChecked) setConsentGiven(true); }}
+            activeOpacity={consentChecked ? 0.85 : 1}
+          >
+            <Text style={s.consentBtnText}>Đồng ý và tiếp tục</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.declineBtn} onPress={() => navigation.goBack()}>
+            <Text style={s.declineBtnText}>Từ chối</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  }
 
   if (!permission) return <View style={s.root} />;
   if (!permission.granted) {
@@ -575,6 +633,87 @@ function makeStyles(t: Theme) {
       color: '#fff',
       fontWeight: '700',
       fontSize: 15,
+    },
+    // Consent screen
+    consentRoot: {
+      flex: 1,
+      backgroundColor: t.colors.background.base,
+    },
+    consentScroll: {
+      padding: 24,
+      paddingTop: 60,
+      paddingBottom: 40,
+    },
+    consentTitle: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: t.colors.text.primary,
+      marginBottom: 20,
+      lineHeight: 30,
+    },
+    consentBody: {
+      fontSize: 14,
+      color: t.colors.text.secondary,
+      lineHeight: 22,
+      marginBottom: 12,
+    },
+    consentBullet: {
+      fontSize: 14,
+      color: t.colors.text.secondary,
+      lineHeight: 22,
+      marginBottom: 4,
+      paddingLeft: 8,
+    },
+    checkboxRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      marginTop: 20,
+      marginBottom: 24,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: t.colors.brand.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 1,
+      flexShrink: 0,
+    },
+    checkboxChecked: {
+      backgroundColor: t.colors.brand.primary,
+    },
+    checkboxLabel: {
+      flex: 1,
+      fontSize: 14,
+      color: t.colors.text.primary,
+      lineHeight: 22,
+    },
+    consentBtn: {
+      height: 52,
+      borderRadius: 9999,
+      backgroundColor: t.colors.brand.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    consentBtnDisabled: {
+      opacity: 0.4,
+    },
+    consentBtnText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#fff',
+    },
+    declineBtn: {
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    declineBtnText: {
+      fontSize: 15,
+      color: t.colors.text.secondary,
     },
   });
 }

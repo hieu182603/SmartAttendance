@@ -8,7 +8,6 @@ import { Loader2, Users, Clock, CheckCircle2, AlertCircle, XCircle } from 'lucid
 import { getAttendanceAnalytics } from '@/services/attendanceService';
 import { getAllDepartments, getDepartmentEmployees } from '@/services/departmentService';
 import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
 
 interface DepartmentAttendanceDetailDialogProps {
   isOpen: boolean;
@@ -37,7 +36,6 @@ export function DepartmentAttendanceDetailDialog({
   departmentName,
   stats,
 }: DepartmentAttendanceDetailDialogProps) {
-  const { t } = useTranslation(['dashboard', 'common']);
   const [loading, setLoading] = useState(false);
   const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<EmployeeAttendance[]>([]);
@@ -67,7 +65,7 @@ export function DepartmentAttendanceDetailDialog({
       const response = await getAllDepartments({ page: 1, limit: 1000 });
       const dept = response.departments.find((d) => d.name === departmentName);
       if (dept) {
-        setDepartmentId(dept._id || dept.id);
+        setDepartmentId(dept._id ?? dept.id ?? null);
       } else {
         toast.error('Không tìm thấy phòng ban');
       }

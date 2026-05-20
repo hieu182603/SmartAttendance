@@ -23,6 +23,7 @@ import { sendOTPEmail } from "../../utils/email.util.js";
 import crypto from "node:crypto";
 import { LogService } from "../logs/log.service.js";
 import { uploadFaceImage } from "../../utils/cloudinary.js";
+import { getClientIpAddress } from "../../utils/client-ip.util.js";
 
 const FACE_FAIL_THRESHOLD = FACE_FALLBACK_CONFIG.FAIL_THRESHOLD;
 const FACE_FAIL_TTL = FACE_FALLBACK_CONFIG.FAIL_TTL_SECONDS;
@@ -38,7 +39,16 @@ export class FaceController {
     try {
       const userId = req.user.userId;
       const files = req.files;
-      const { liveness_success, liveness_passed, liveness_confidence, liveness_challenge } = req.body;
+      const { liveness_success, liveness_passed, liveness_confidence, liveness_challenge, consent_given, consent_channel } = req.body;
+
+      // NĐ 13/2023: require explicit consent for biometric data
+      if (!consent_given || consent_given === 'false') {
+        return res.status(400).json({
+          success: false,
+          errorCode: "CONSENT_REQUIRED",
+          message: "Bạn cần đồng ý với chính sách thu thập dữ liệu sinh trắc học trước khi đăng ký khuôn mặt.",
+        });
+      }
 
       if (!files || files.length === 0) {
         return res.status(400).json({
@@ -57,6 +67,14 @@ export class FaceController {
 
       const faceService = new FaceService();
       const result = await faceService.registerUserFace(userId, files, livenessData);
+
+      // Save consent record (NĐ 13/2023)
+      await UserModel.findByIdAndUpdate(userId, {
+        "faceData.consent.given": true,
+        "faceData.consent.givenAt": new Date(),
+        "faceData.consent.version": "1.0",
+        "faceData.consent.channel": consent_channel || "web",
+      });
 
       return res.status(200).json({
         success: true,
@@ -289,6 +307,34 @@ export class FaceController {
   }
 
   /**
+   * Withdraw biometric consent and delete face data (NĐ 13/2023/NĐ-CP)
+   * DELETE /api/face/consent
+   */
+  static async withdrawConsent(req, res) {
+    try {
+      const userId = req.user.userId;
+      const faceService = new FaceService();
+      await faceService.deleteUserFace(userId);
+
+      await UserModel.findByIdAndUpdate(userId, {
+        "faceData.consent.given": false,
+        "faceData.consent.withdrawnAt": new Date(),
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Đã rút lại đồng ý và xóa dữ liệu sinh trắc học thành công.",
+      });
+    } catch (error) {
+      console.error("Consent withdrawal error:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Failed to withdraw consent",
+      });
+    }
+  }
+
+  /**
    * Create liveness verification session
    * POST /api/face/liveness/session
    */
@@ -474,6 +520,21 @@ export class FaceController {
       const faceService = new FaceService();
       const result = await faceService.faceScan(userId, files, null, deviceId || null);
 
+      await LogService.createLog({
+        userId,
+        action: "face_scan_success",
+        entityType: "face_recognition",
+        details: {
+          description: "Face scan verified successfully",
+          attendanceRecorded: Boolean(result.attendanceRecorded),
+          attendanceAction: result.action || null,
+          confidence: result.confidence ?? null,
+        },
+        ipAddress: getClientIpAddress(req),
+        userAgent: req.headers["user-agent"],
+        status: "success",
+      });
+
       return res.status(200).json({
         success: true,
         ...result,
@@ -519,7 +580,7 @@ export class FaceController {
             confidence: error.similarity,
             threshold: error.threshold,
           },
-          ipAddress: req.ip,
+          ipAddress: getClientIpAddress(req),
           userAgent: req.headers["user-agent"],
           status: "failed",
           errorMessage: error.message,
@@ -569,7 +630,7 @@ export class FaceController {
           action: "face_spoof_detected",
           entityType: "face_recognition",
           details: { errorCode: error.errorCode || "SPOOF_DETECTED", description: "Anti-spoofing check failed" },
-          ipAddress: req.ip,
+          ipAddress: getClientIpAddress(req),
           userAgent: req.headers["user-agent"],
           status: "failed",
           errorMessage: error.message,
@@ -615,7 +676,7 @@ export class FaceController {
           action: "face_scan_failed",
           entityType: "face_recognition",
           details: { errorCode: "AI_SERVICE_UNAVAILABLE" },
-          ipAddress: req.ip,
+          ipAddress: getClientIpAddress(req),
           userAgent: req.headers["user-agent"],
           status: "failed",
           errorMessage: "AI service unavailable",
@@ -633,7 +694,7 @@ export class FaceController {
           action: "face_scan_failed",
           entityType: "face_recognition",
           details: { errorCode: "AI_SERVICE_TIMEOUT" },
-          ipAddress: req.ip,
+          ipAddress: getClientIpAddress(req),
           userAgent: req.headers["user-agent"],
           status: "failed",
           errorMessage: "AI service timeout",
@@ -706,6 +767,21 @@ export class FaceController {
 
       const faceService = new FaceService();
       const result = await faceService.recordAttendanceWithOtpFallback(userId, failedFaceImages);
+
+      await LogService.createLog({
+        userId,
+        action: "face_fallback_otp_success",
+        entityType: "face_recognition",
+        details: {
+          description: "Attendance verified by OTP fallback after face scan failures",
+          attendanceRecorded: Boolean(result.attendanceRecorded),
+          attendanceAction: result.action || null,
+          failedImageCount: failedFaceImages.length,
+        },
+        ipAddress: getClientIpAddress(req),
+        userAgent: req.headers["user-agent"],
+        status: "success",
+      });
 
       return res.status(200).json({ success: true, ...result });
     } catch (error) {

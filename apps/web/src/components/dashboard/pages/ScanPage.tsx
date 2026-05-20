@@ -22,14 +22,13 @@ import { toast } from "sonner";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { faceService, type FaceStatus } from "@/services/faceService";
-import { useScanFaceDetection, type ScanDetectionStatus, type FaceBoundingBox } from "@/hooks/useScanFaceDetection";
+import { useScanFaceDetection, type ScanDetectionStatus } from "@/hooks/useScanFaceDetection";
 import { useVoiceFeedback } from "@/hooks/useVoiceFeedback";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 const MIN_WORK_MINUTES = 30; // Thời gian tối thiểu để check-out (30 phút)
-const MIN_WORK_HOURS = MIN_WORK_MINUTES / 60; // Convert sang giờ để tính toán
 const STANDARD_WORK_HOURS = 8;
 const EARTH_RADIUS_M = 6371e3;
 const PHOTO_MAX_WIDTH = 800;
@@ -162,20 +161,6 @@ const calculateDistance = (
   return EARTH_RADIUS_M * c;
 };
 
-const getLocationErrorMessage = (errorCode: number, t: any): string => {
-  const baseMessage = t("dashboard:scan.errors.locationFailed");
-  switch (errorCode) {
-    case 1:
-      return baseMessage + t("dashboard:scan.errors.locationPermissionDenied");
-    case 2:
-      return baseMessage + t("dashboard:scan.errors.locationUnavailable");
-    case 3:
-      return baseMessage + t("dashboard:scan.errors.locationTimeout");
-    default:
-      return baseMessage + t("dashboard:scan.errors.locationGeneric");
-  }
-};
-
 const parseAttendanceDate = (dateStr: string): string | null => {
   const dateMatch = dateStr.match(
     /(\d{1,2})\s*(?:tháng\s*)?(\d{1,2})(?:,\s*|\s+)(\d{4})/
@@ -205,6 +190,7 @@ const LiveClock: React.FC = () => {
 const ScanPage: React.FC = () => {
   const { t } = useTranslation(["dashboard", "common"]);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isTrial = user?.role === 'TRIAL';
 
   if (isTrial) {
@@ -266,7 +252,6 @@ const ScanPage: React.FC = () => {
   // Face registration status
   const [faceStatus, setFaceStatus] = useState<FaceStatus | null>(null);
   const [showFaceRegistrationPrompt, setShowFaceRegistrationPrompt] = useState(false);
-  const navigate = useNavigate();
   const [earlyCheckoutError, setEarlyCheckoutError] = useState<CheckInError | null>(null);
   const lastCheckoutPhotoRef = useRef<string | null>(null);
 

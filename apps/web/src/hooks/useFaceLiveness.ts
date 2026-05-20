@@ -63,7 +63,6 @@ const CHALLENGE_INSTRUCTIONS: Record<LivenessChallengeType, string> = {
   smile: 'Cười',
 };
 
-const MAX_RETRIES = 3;
 
 export const useFaceLiveness = (): LivenessState & LivenessActions => {
   const [state, setState] = useState<LivenessState>({
@@ -174,7 +173,7 @@ export const useFaceLiveness = (): LivenessState & LivenessActions => {
         confidence: 0,
         error_message: 'Session không tồn tại',
       };
-      setState(prev => ({ ...prev, result: error, step: 'failed', error: error.error_message || undefined }));
+      setState(prev => ({ ...prev, result: error, step: 'failed', error: error.error_message || null }));
       return error;
     }
 

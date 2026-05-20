@@ -1,8 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, AlertCircle, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ShieldAlert, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { faceService, parseFaceRegistrationError, formatFaceError } from "@/services/faceService";
 import faceDetectionService, {
@@ -134,7 +136,7 @@ const FaceRegistrationPage: React.FC = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [faceQuality, setFaceQuality] = useState<FaceQuality | null>(null);
-  const [facePosition, setFacePosition] = useState<FacePosition | null>(null);
+  const [, setFacePosition] = useState<FacePosition | null>(null);
   const [faceDetectionConfidence, setFaceDetectionConfidence] = useState<number>(0);
   const [detectionStatus, setDetectionStatus] = useState<FaceDetectionStatus>("loading");
   const [statusMessage, setStatusMessage] = useState<string>(t("dashboard:faceRegistration.status.loading"));
@@ -150,29 +152,35 @@ const FaceRegistrationPage: React.FC = () => {
 
   // User face registration status
   const [hasRegisteredFace, setHasRegisteredFace] = useState(false);
-  const [isCheckingFaceStatus, setIsCheckingFaceStatus] = useState(true);
+  const [, setIsCheckingFaceStatus] = useState(true);
+
+  // Consent state
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   // Manual capture only - no auto-capture states needed
 
   // Gallery interaction states
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [, setDragOverIndex] = useState<number | null>(null);
 
   // Animation states
   const [showFlash, setShowFlash] = useState<boolean>(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState<boolean>(false);
   const [isEntering, setIsEntering] = useState<boolean>(true);
-  const [showMilestoneCelebration, setShowMilestoneCelebration] = useState<boolean>(false);
+  const [showMilestoneCelebration] = useState<boolean>(false);
 
   // Performance optimization states
-  const [devicePerformance, setDevicePerformance] = useState<'high' | 'medium' | 'low'>('high');
+  const [, setDevicePerformance] = useState<'high' | 'medium' | 'low'>('high');
   const [adaptiveThrottleMs, setAdaptiveThrottleMs] = useState<number>(100);
 
   // Accessibility and keyboard shortcut states
   const [announcement, setAnnouncement] = useState<string>('');
 
   // Mobile instructions panel state
-  const [showInstructions, setShowInstructions] = useState<boolean>(false);
+  const [showInstructions] = useState<boolean>(false);
 
   // Check user's face registration status on mount
   useEffect(() => {
@@ -181,14 +189,19 @@ const FaceRegistrationPage: React.FC = () => {
         const status = await faceService.getFaceStatus();
         setHasRegisteredFace(status.isRegistered);
 
-        // If already registered, auto-verify liveness
+        // If already registered, consent was given previously — skip modal
         if (status.isRegistered) {
           setLivenessVerified(true);
+          setConsentGiven(true);
+        } else {
+          // Not yet registered: show consent modal before capture UI
+          setShowConsentModal(true);
         }
       } catch (error) {
         console.error('Failed to check face status:', error);
         // If error, assume not registered to be safe
         setHasRegisteredFace(false);
+        setShowConsentModal(true);
       } finally {
         setIsCheckingFaceStatus(false);
       }
@@ -528,55 +541,6 @@ const FaceRegistrationPage: React.FC = () => {
   // Auto-capture cooldown removed - manual capture only
 
 
-  const increaseProgress = useCallback(() => {
-    setProgress((prev) => {
-      const newProgress = Math.min(prev + 1, 100);
-
-      // Stop progress tracking when reaching 100%
-      if (newProgress === 100) {
-        stopProgressTracking();
-        return 100;
-      }
-
-      // Update current step based on progress
-      const step = PROGRESS_STEPS.find(
-        (s, idx) =>
-          newProgress >= s.threshold &&
-          (idx === PROGRESS_STEPS.length - 1 || newProgress < PROGRESS_STEPS[idx + 1].threshold)
-      );
-
-      // Use ref to avoid stale closure issue
-      if (step && step.key !== currentStepRef.current) {
-        setCurrentStep(step.key);
-
-        // Milestone celebration
-        if (step.key !== "detecting") {
-          setShowMilestoneCelebration(true);
-          setTimeout(() => setShowMilestoneCelebration(false), 1500);
-        }
-
-        // Voice feedback for milestones
-        if (step.key === "aligning") {
-          speakMessage(t("dashboard:faceRegistration.voice.aligning"));
-        } else if (step.key === "capturing") {
-          speakMessage(t("dashboard:faceRegistration.voice.capturing"));
-        } else if (step.key === "completed" && newProgress === 100) {
-          speakMessage(t("dashboard:faceRegistration.voice.completed"));
-        }
-      }
-
-      return newProgress;
-    });
-  }, [speakMessage, stopProgressTracking]);
-
-  const startProgressTracking = useCallback(() => {
-    if (progressIntervalRef.current) return;
-
-    progressIntervalRef.current = setInterval(() => {
-      increaseProgress();
-    }, 100);
-  }, [increaseProgress]);
-
   const startFaceDetection = () => {
     if (!videoRef.current || !canvasRef.current) return;
     // Don't start if model is not ready or has error
@@ -872,8 +836,8 @@ const FaceRegistrationPage: React.FC = () => {
   const drawBoundingBox = (
     ctx: CanvasRenderingContext2D,
     face: any, // Simplified for blazeface
-    width: number,
-    height: number,
+    _width: number,
+    _height: number,
     status: "good" | "warning" | "error"
   ) => {
     const boundingBox = faceDetectionService.normalizeBoundingBox(face);
@@ -884,20 +848,16 @@ const FaceRegistrationPage: React.FC = () => {
     const w = boundingBox.bottomRight[0] - x;
     const h = boundingBox.bottomRight[1] - y;
     const centerX = x + w / 2;
-    const centerY = y + h / 2;
 
     // Standard colors - green, yellow, red
     let primaryColor = "#10b981"; // green
-    let secondaryColor = "#34d399"; // lighter green
     let scanLineColor = "rgba(52, 211, 153, 0.8)";
 
     if (status === "warning") {
       primaryColor = "#f59e0b"; // yellow/amber
-      secondaryColor = "#fbbf24";
       scanLineColor = "rgba(251, 191, 36, 0.7)";
     } else if (status === "error") {
       primaryColor = "#ef4444"; // red
-      secondaryColor = "#f87171";
       scanLineColor = "rgba(248, 113, 113, 0.7)";
     }
 
@@ -1012,19 +972,16 @@ const FaceRegistrationPage: React.FC = () => {
     let primaryColor = "#10b981"; // green
     let secondaryColor = "#34d399"; // lighter green
     let maskColor = "rgba(16, 185, 129, 0.1)"; // green with opacity
-    let glowColor = "rgba(16, 185, 129, 0.3)";
     let status: "good" | "warning" | "error" = maskStatus;
 
     if (maskStatus === "error") {
       primaryColor = "#ef4444"; // red
       secondaryColor = "#f87171";
       maskColor = "rgba(239, 68, 68, 0.12)";
-      glowColor = "rgba(239, 68, 68, 0.3)";
     } else if (maskStatus === "warning") {
       primaryColor = "#f59e0b"; // yellow/amber
       secondaryColor = "#fbbf24";
       maskColor = "rgba(245, 158, 11, 0.12)";
-      glowColor = "rgba(245, 158, 11, 0.3)";
     }
 
     // Draw bounding box
@@ -1119,7 +1076,6 @@ const FaceRegistrationPage: React.FC = () => {
       ctx.save();
       ctx.fillStyle = secondaryColor;
       const dotRadius = 2.5;
-      const padding = 8;
 
       // Draw dots at corners of bounding box
       const corners = [
@@ -1549,21 +1505,6 @@ const FaceRegistrationPage: React.FC = () => {
     }
   };
 
-  // Get status color class
-  const getStatusColor = (status: FaceDetectionStatus): string => {
-    switch (status) {
-      case "good":
-        return "text-green-500";
-      case "warning":
-        return "text-amber-500";
-      case "error":
-        return "text-red-500";
-      case "loading":
-        return "text-blue-500";
-      default:
-        return "text-gray-500";
-    }
-  };
 
 
 
@@ -1578,8 +1519,114 @@ const FaceRegistrationPage: React.FC = () => {
   ).length;
   const canRegister = qualifyingImagesCount >= MIN_IMAGES;
 
+  const handleWithdrawConsent = async () => {
+    if (!window.confirm("Rút lại đồng ý sẽ xóa toàn bộ dữ liệu khuôn mặt của bạn. Tiếp tục?")) return;
+    setIsWithdrawing(true);
+    try {
+      await faceService.withdrawConsent();
+      toast.success("Đã rút lại đồng ý và xóa dữ liệu sinh trắc học thành công.");
+      setHasRegisteredFace(false);
+      setConsentGiven(false);
+      setConsentChecked(false);
+    } catch {
+      toast.error("Không thể rút lại đồng ý. Vui lòng thử lại sau.");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
   return (
     <div className="h-full min-h-0 w-full bg-[var(--background)] text-[var(--text-main)] flex flex-col overflow-hidden">
+      {/* Consent modal */}
+      <Dialog open={showConsentModal} onOpenChange={(open) => { if (!open && !consentGiven) setShowConsentModal(false); }}>
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-lg max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold pr-6">
+              Đồng ý thu thập dữ liệu sinh trắc học
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="overflow-y-auto flex-1 text-sm text-[var(--text-sub)] space-y-3 pr-1">
+            <p>
+              Theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân, chúng tôi cần sự đồng ý của bạn trước khi thu thập dữ liệu sinh trắc học (hình ảnh khuôn mặt, dữ liệu nhận dạng).
+            </p>
+
+            <div>
+              <p className="font-semibold text-[var(--text-main)] mb-1">Dữ liệu thu thập:</p>
+              <ul className="space-y-0.5 pl-1">
+                <li>• Hình ảnh khuôn mặt từ nhiều góc độ</li>
+                <li>• Dữ liệu vector nhận dạng khuôn mặt (embeddings)</li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-semibold text-[var(--text-main)] mb-1">Mục đích sử dụng:</p>
+              <ul className="space-y-0.5 pl-1">
+                <li>• Xác thực danh tính khi chấm công</li>
+                <li>• Phòng chống gian lận chấm công</li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-semibold text-[var(--text-main)] mb-1">Lưu trữ &amp; bảo mật:</p>
+              <ul className="space-y-0.5 pl-1">
+                <li>• Hình ảnh được lưu trữ trên Cloudinary (có mã hóa)</li>
+                <li>• Dữ liệu nhận dạng được lưu trong MongoDB</li>
+                <li>• Không chia sẻ với bên thứ ba ngoài mục đích trên</li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-semibold text-[var(--text-main)] mb-1">Quyền của bạn:</p>
+              <ul className="space-y-0.5 pl-1">
+                <li>• Có thể rút lại đồng ý và xóa dữ liệu bất kỳ lúc nào</li>
+                <li>• Thời hạn lưu giữ: trong suốt thời gian làm việc tại công ty</li>
+              </ul>
+            </div>
+
+            <p>
+              Xem{" "}
+              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] underline">
+                Chính sách bảo mật
+              </a>{" "}
+              và{" "}
+              <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] underline">
+                Điều khoản sử dụng
+              </a>{" "}
+              để biết thêm chi tiết.
+            </p>
+          </div>
+
+          <label className="flex items-start gap-2.5 cursor-pointer pt-2">
+            <Checkbox
+              checked={consentChecked}
+              onCheckedChange={(checked) => setConsentChecked(checked)}
+              className="mt-0.5 flex-shrink-0"
+            />
+            <span className="text-sm text-[var(--text-main)] leading-snug">
+              Tôi đã đọc và đồng ý với chính sách thu thập dữ liệu sinh trắc học
+            </span>
+          </label>
+
+          <DialogFooter className="pt-1">
+            <Button
+              variant="outline"
+              onClick={() => { setShowConsentModal(false); navigate(-1); }}
+              className="border-[var(--border)] text-[var(--text-sub)] hover:text-[var(--text-main)]"
+            >
+              Từ chối
+            </Button>
+            <Button
+              disabled={!consentChecked}
+              onClick={() => { setConsentGiven(true); setShowConsentModal(false); }}
+              className="bg-[var(--primary)] text-white disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Đồng ý và tiếp tục
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Screen reader announcements */}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
@@ -1693,6 +1740,29 @@ const FaceRegistrationPage: React.FC = () => {
               onDrop={handleDrop}
             />
           </div>
+
+          {/* Consent withdrawal — shown only when face already registered */}
+          {hasRegisteredFace && (
+            <div className="bg-[var(--surface)] border border-amber-500/30 rounded-xl p-3 flex flex-col gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-sub)]">
+                  Quản lý đồng ý
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--text-sub)] leading-5">
+                Theo NĐ 13/2023/NĐ-CP, bạn có quyền rút lại đồng ý và xóa dữ liệu sinh trắc học bất kỳ lúc nào.
+              </p>
+              <button
+                type="button"
+                onClick={handleWithdrawConsent}
+                disabled={isWithdrawing}
+                className="w-full py-2 rounded-lg text-[12px] font-semibold border border-red-500/40 text-red-500 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isWithdrawing ? "Đang xử lý..." : "Rút lại đồng ý & xóa dữ liệu"}
+              </button>
+            </div>
+          )}
 
           {/* Capture + Register panel */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 flex flex-col gap-2 flex-shrink-0">
