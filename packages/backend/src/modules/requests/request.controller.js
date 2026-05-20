@@ -167,6 +167,46 @@ export const createRequest = async (req, res) => {
       return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' })
     }
 
+    // Bug 1: startDate ≤ endDate
+    if (new Date(startDate) > new Date(endDate)) {
+      return res.status(400).json({ message: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc' })
+    }
+
+    // Bug 2 & 3: Leave-specific validations
+    const leaveRequestTypes = ['leave', 'sick', 'unpaid', 'compensatory', 'maternity']
+    if (leaveRequestTypes.includes(type)) {
+      // Bug 2: Overlap — check cả pending và approved (stricter hơn model hook chỉ check approved)
+      const overlapping = await RequestModel.findOne({
+        userId,
+        status: { $ne: 'rejected' },
+        startDate: { $lte: new Date(endDate) },
+        endDate: { $gte: new Date(startDate) },
+      })
+      if (overlapping) {
+        return res.status(400).json({ message: 'Đã có yêu cầu trùng ngày trong khoảng thời gian này' })
+      }
+
+      // Bug 3: Leave balance check — chỉ check leave (annual) và compensatory
+      if (['leave', 'compensatory'].includes(type)) {
+        const { UserModel } = await import('../users/user.model.js')
+        const user = await UserModel.findById(userId).select('leaveBalance')
+        if (user) {
+          user.initializeLeaveBalance()
+          const balanceType = type === 'leave' ? 'annual' : 'compensatory'
+          const balance = user.leaveBalance?.[balanceType]
+          if (balance) {
+            const requestedDays = Math.floor((new Date(endDate) - new Date(startDate)) / 86400000) + 1
+            const available = (balance.remaining || 0) - (balance.pending || 0)
+            if (requestedDays > available) {
+              return res.status(400).json({
+                message: `Số ngày phép còn lại không đủ (còn ${available} ngày, yêu cầu ${requestedDays} ngày)`
+              })
+            }
+          }
+        }
+      }
+    }
+
     const doc = await RequestModel.create({
       userId,
       type,
@@ -257,6 +297,9 @@ export const createRequest = async (req, res) => {
       submittedAt: formatDate(doc.createdAt),
     })
   } catch (error) {
+    if (error.name === 'ValidationError' || (error.message && error.name !== 'MongoServerError')) {
+      return res.status(400).json({ message: error.message || 'Dữ liệu không hợp lệ' })
+    }
     res.status(500).json({ message: 'Không tạo được yêu cầu' })
   }
 }
@@ -463,16 +506,27 @@ export const rejectRequest = async (req, res) => {
     const { comments } = req.body
     const approverId = req.user.userId
 
+    const approverRole = req.user.role
     const UserModel = (await import('../users/user.model.js')).UserModel
-    const approver = await UserModel.findById(approverId).select('name email')
+    const approver = await UserModel.findById(approverId).select('name email department')
 
-    const request = await RequestModel.findById(id).populate('userId', 'name email')
+    const request = await RequestModel.findById(id).populate('userId', 'name email department role')
     if (!request) {
       return res.status(404).json({ message: 'Không tìm thấy yêu cầu' })
     }
 
     if (request.status !== 'pending') {
       return res.status(400).json({ message: 'Yêu cầu đã được xử lý' })
+    }
+
+    if (approverRole === 'SUPERVISOR') {
+      if (!approver.department || !request.userId.department ||
+        approver.department.toString() !== request.userId.department.toString()) {
+        return res.status(403).json({ message: 'Bạn chỉ có thể từ chối yêu cầu từ nhân viên trong phòng ban của mình' })
+      }
+      if (!['EMPLOYEE', 'SUPERVISOR'].includes(request.userId.role)) {
+        return res.status(403).json({ message: 'Bạn không có quyền từ chối yêu cầu từ vai trò này' })
+      }
     }
 
     request.reject(comments || 'Không có lý do')
@@ -683,13 +737,23 @@ export const bulkRejectRequests = async (req, res) => {
     }
 
     const UserModel = (await import('../users/user.model.js')).UserModel
-    const approver = await UserModel.findById(approverId).select('name email')
+    const approver = await UserModel.findById(approverId)
+      .select('name email role department')
+      .populate('department', '_id')
+
+    if (!approver) {
+      return res.status(404).json({ message: 'Không tìm thấy người duyệt' })
+    }
 
     // Find all pending requests
     const requests = await RequestModel.find({
       _id: { $in: ids },
       status: 'pending'
-    }).populate('userId', 'name email')
+    }).populate({
+      path: 'userId',
+      select: 'name email department role',
+      populate: { path: 'department', select: '_id' }
+    })
 
     if (requests.length === 0) {
       return res.status(404).json({ message: 'Không tìm thấy yêu cầu nào ở trạng thái chờ duyệt' })
@@ -706,6 +770,11 @@ export const bulkRejectRequests = async (req, res) => {
     // Process each request
     for (const request of requests) {
       try {
+        if (!canApproveRequest(request, approver)) {
+          results.failed.push({ id: request._id.toString(), error: 'Không có quyền từ chối yêu cầu này' })
+          continue
+        }
+
         request.reject(rejectionReason)
         request.approvedBy = approverId
         await request.save()

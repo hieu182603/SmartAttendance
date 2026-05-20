@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Search, Calendar, Download, Eye, Edit, Trash2 } from "lucide-react";
@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import {
   getDepartmentAttendance,
   exportAttendanceAnalytics,
+  deleteAttendanceRecord,
   type AttendanceRecord,
 } from "@/services/attendanceService";
 import { getAttendanceStatusBadgeClass, type AttendanceStatus } from "@/utils/attendanceStatus";
@@ -79,6 +80,23 @@ const DepartmentAttendancePage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleView = (record: AttendanceRecord) => {
+    toast.info(
+      `${record.name} — ${record.date}: Vào ${record.checkIn || '--'}, Ra ${record.checkOut || '--'}, ${record.hours}h`
+    );
+  };
+
+  const handleDelete = async (record: AttendanceRecord) => {
+    if (!window.confirm(`Xóa bản ghi chấm công của ${record.name} ngày ${record.date}?`)) return;
+    try {
+      await deleteAttendanceRecord(record.id);
+      toast.success('Đã xóa bản ghi chấm công');
+      fetchData();
+    } catch {
+      toast.error('Không thể xóa bản ghi');
+    }
+  };
 
   const handleExport = async () => {
     try {
@@ -281,6 +299,7 @@ const DepartmentAttendancePage: React.FC = () => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
+                              onClick={() => handleView(record)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -288,6 +307,7 @@ const DepartmentAttendancePage: React.FC = () => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
+                              onClick={() => toast.info('Chức năng chỉnh sửa đang phát triển')}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -295,6 +315,7 @@ const DepartmentAttendancePage: React.FC = () => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-red-500"
+                              onClick={() => handleDelete(record)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

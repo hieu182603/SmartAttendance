@@ -12,7 +12,7 @@ export default function ProfilePage(): React.JSX.Element {
   const getRole = (): string => {
     if (!user?.role) return 'employee'
     // Use UserRole constants instead of hardcoded strings
-    const adminRoles: UserRoleType[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER]
+    const adminRoles: UserRoleType[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.SUPERVISOR]
     return adminRoles.includes(user.role as UserRoleType) ? 'admin' : 'employee'
   }
 

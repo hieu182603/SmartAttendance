@@ -373,3 +373,5 @@ export const LeaveApprovalPage: React.FC = () => {
   )
 }
 
+
+export default LeaveApprovalPage

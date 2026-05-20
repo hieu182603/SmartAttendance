@@ -144,6 +144,7 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.REQUESTS_VIEW_OWN,
         // Department view permissions (read-only, hỗ trợ MANAGER)
         Permission.ATTENDANCE_VIEW_DEPARTMENT,
+        Permission.ATTENDANCE_APPROVE,
         Permission.REQUESTS_APPROVE_DEPARTMENT,
         Permission.USERS_VIEW_DEPARTMENT, // Chỉ xem, không update
         Permission.SCHEDULE_VIEW_DEPARTMENT, // Chỉ xem, không manage
@@ -325,14 +326,15 @@ export function getRoleColor(role: UserRoleType): RoleColor {
  * Check if user can access admin panel
  */
 export function canAccessAdminPanel(role: UserRoleType): boolean {
-    return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY[UserRole.MANAGER];
+    return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY[UserRole.SUPERVISOR];
 }
 
 /**
  * Check if user can approve requests
  */
 export function canApproveRequests(role: UserRoleType): boolean {
-    return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY[UserRole.MANAGER];
+    return hasPermission(role, Permission.REQUESTS_APPROVE_DEPARTMENT)
+        || hasPermission(role, Permission.REQUESTS_APPROVE_ALL);
 }
 
 /**
