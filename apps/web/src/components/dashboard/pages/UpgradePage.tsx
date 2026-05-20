@@ -1,13 +1,14 @@
-import React, { useState } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Crown, Check, CreditCard, Users, Building, Zap, ArrowRight,
-  Shield, Clock, TrendingUp, Rocket, BarChart3, MapPin, Brain,
+  Shield, Clock, TrendingUp, Rocket, BarChart3, MapPin, Brain, X, QrCode, ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { billingService, type UpgradePaymentResult } from "@/services/billingService";
 
 interface PricingPlan {
   id: string;
@@ -90,30 +91,82 @@ const pricingPlans: PricingPlan[] = [
 const formatVND = (amount: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
 
-const UpgradePage: React.FC = () => {
+export type UpgradePageMode = "upgrade" | "catalog";
+
+interface UpgradePageProps {
+  /** upgrade = trial/dashboard (PayOS); catalog = public bảng giá từ landing */
+  mode?: UpgradePageMode;
+}
+
+const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
+  const isCatalog = mode === "catalog";
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<UpgradePaymentResult | null>(null);
+
+  useEffect(() => {
+    if (isCatalog) return;
+
+    const params = new URLSearchParams(location.search);
+    const payment = params.get("payment");
+
+    if (payment === "success") {
+      const orderCode = params.get("orderCode");
+      if (orderCode) {
+        const verifying = toast.loading("Đang xác nhận thanh toán...");
+        billingService
+          .pollPaymentStatusUntilPaid(Number(orderCode))
+          .then((result) => {
+            toast.dismiss(verifying);
+            if (result === "paid") {
+              toast.success("Thanh toán thành công! Gói của bạn đã được nâng cấp.");
+            } else if (result === "failed") {
+              toast.error("Thanh toán không thành công. Vui lòng liên hệ hỗ trợ.");
+            } else {
+              toast.warning(
+                "Thanh toán chưa được xác nhận. Nếu đã trừ tiền, vui lòng chờ vài phút hoặc liên hệ hỗ trợ."
+              );
+            }
+          })
+          .catch(() => {
+            toast.dismiss(verifying);
+            toast.warning("Không thể xác nhận trạng thái thanh toán. Vui lòng liên hệ hỗ trợ.");
+          });
+      } else {
+        toast.warning("Không thể xác nhận thanh toán — thiếu mã đơn hàng.");
+      }
+      params.delete("payment");
+      params.delete("orderCode");
+      navigate(location.pathname + (params.toString() ? `?${params.toString()}` : ""), { replace: true });
+    } else if (payment === "cancelled") {
+      toast.warning("Thanh toán đã bị hủy. Bạn có thể chọn lại gói và thử lại.");
+      params.delete("payment");
+      navigate(location.pathname + (params.toString() ? `?${params.toString()}` : ""), { replace: true });
+    }
+  }, [location.search, isCatalog, location.pathname, navigate]);
 
   const handleUpgrade = async () => {
     if (!selectedPlan) return;
     setIsProcessing(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      toast.success("🎉 Nâng cấp thành công! Chào mừng bạn đến với SmartAttendance.");
-      setTimeout(() => {
-        navigate("/employee");
-        window.location.reload();
-      }, 1500);
-    } catch {
-      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+      const result = await billingService.createUpgradePayment(
+        selectedPlan as "starter" | "standard" | "premium",
+        billingCycle
+      );
+      setPaymentResult(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Có lỗi xảy ra. Vui lòng thử lại.";
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
+    <>
     <div className="space-y-10 pb-10">
       {/* Header */}
       <motion.div
@@ -124,18 +177,20 @@ const UpgradePage: React.FC = () => {
         <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-900/20 dark:to-amber-900/20 px-4 py-2 rounded-full">
           <Crown className="h-5 w-5 text-orange-600" />
           <span className="text-orange-700 dark:text-orange-300 font-medium text-sm">
-            Nâng cấp tài khoản
+            {isCatalog ? "Bảng giá" : "Nâng cấp tài khoản"}
           </span>
         </div>
         <h1 className="text-3xl font-bold text-[var(--text-main)]">
-          Chọn gói phù hợp với doanh nghiệp
+          {isCatalog ? "Gói dịch vụ SmartAttendance" : "Chọn gói phù hợp với doanh nghiệp"}
         </h1>
         <p className="text-[var(--text-sub)] max-w-xl mx-auto text-sm">
-          Không có phí ẩn. Hủy bất cứ lúc nào. Hoàn tiền trong 30 ngày nếu không hài lòng.
+          {isCatalog
+            ? "Dùng thử 7 ngày miễn phí. Đăng ký để bắt đầu, nâng cấp và thanh toán sau trong tài khoản."
+            : "Không có phí ẩn. Hủy bất cứ lúc nào. Hoàn tiền trong 30 ngày nếu không hài lòng."}
         </p>
       </motion.div>
 
-      {/* Trial Banner */}
+      {!isCatalog && (
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -153,6 +208,7 @@ const UpgradePage: React.FC = () => {
         </div>
         <TrendingUp className="h-5 w-5 text-red-600 shrink-0" />
       </motion.div>
+      )}
 
       {/* Billing Toggle */}
       <div className="flex justify-center">
@@ -267,10 +323,16 @@ const UpgradePage: React.FC = () => {
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (isCatalog) {
+                        navigate("/register");
+                        return;
+                      }
                       setSelectedPlan(plan.id);
                     }}
                   >
-                    {isSelected ? (
+                    {isCatalog ? (
+                      "Đăng ký dùng thử"
+                    ) : isSelected ? (
                       <><Check className="h-4 w-4 mr-2" />Đã chọn</>
                     ) : (
                       "Chọn gói này"
@@ -284,7 +346,36 @@ const UpgradePage: React.FC = () => {
       </div>
 
       {/* CTA */}
-      {selectedPlan && (
+      {isCatalog ? (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] rounded-2xl p-8 text-white text-center"
+        >
+          <h2 className="text-2xl font-bold mb-2">Bắt đầu dùng thử 7 ngày miễn phí</h2>
+          <p className="text-white/80 mb-6 text-sm max-w-lg mx-auto">
+            Đăng ký tài khoản doanh nghiệp, sau đó chọn gói và thanh toán trong mục Nâng cấp.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Button
+              size="lg"
+              onClick={() => navigate("/register")}
+              className="bg-white text-[var(--primary)] hover:bg-gray-100 px-8 font-semibold shadow-lg"
+            >
+              Đăng ký miễn phí
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => navigate("/login")}
+              className="border-white/40 text-white hover:bg-white/10 px-8"
+            >
+              Đã có tài khoản
+            </Button>
+          </div>
+        </motion.div>
+      ) : selectedPlan && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -359,6 +450,67 @@ const UpgradePage: React.FC = () => {
         ))}
       </div>
     </div>
+    {/* QR Payment Modal — chỉ khi đã đăng nhập (upgrade) */}
+    <AnimatePresence>
+      {!isCatalog && paymentResult && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setPaymentResult(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-[var(--primary)]" />
+                <h3 className="font-semibold text-[var(--text-main)]">Thanh toán qua QR</h3>
+              </div>
+              <button
+                onClick={() => setPaymentResult(null)}
+                className="p-1 rounded-lg hover:bg-[var(--surface)] text-[var(--text-sub)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-[var(--text-sub)]">
+              Quét mã QR bằng ứng dụng ngân hàng hoặc nhấn nút để mở trang thanh toán.
+            </p>
+
+            {paymentResult.qrCode && (
+              <div className="flex justify-center">
+                <img
+                  src={paymentResult.qrCode}
+                  alt="QR thanh toán PayOS"
+                  className="w-48 h-48 rounded-xl border border-[var(--border)]"
+                />
+              </div>
+            )}
+
+            <p className="text-xs text-center text-[var(--text-sub)]">
+              Mã đơn hàng: <span className="font-mono font-medium">#{paymentResult.orderCode}</span>
+            </p>
+
+            <Button
+              className="w-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white border-0"
+              onClick={() => { window.location.href = paymentResult.checkoutUrl; }}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Thanh toán online
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   );
 };
 
