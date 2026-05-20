@@ -439,16 +439,11 @@ export class AuthController {
                 });
             }
 
-            const result = await AuthService.forgotPassword(parse.data.email);
-            return res.status(200).json(result);
+            await AuthService.forgotPassword(parse.data.email);
+            return res.status(200).json({ success: true, message: 'Nếu email tồn tại, OTP đã được gửi tới email của bạn.' });
         } catch (error) {
-            if (error.message === "Email not verified. Please verify your email first.") {
-                return res.status(400).json({ message: "Email not verified. Please verify your email first." });
-            }
             console.error("Forgot password error:", error);
-            return res.status(500).json({
-                message: error.message || "Internal server error"
-            });
+            return res.status(200).json({ success: true, message: 'Nếu email tồn tại, OTP đã được gửi tới email của bạn.' });
         }
     }
 
@@ -516,31 +511,15 @@ export class AuthController {
 
     /**
      * @swagger
-     * /api/auth/reset-password:
+     * /api/auth/refresh:
      *   post:
-     *     summary: Đặt lại mật khẩu mới
+     *     summary: Làm mới access token từ refresh token
      *     tags: [Auth]
-     *     requestBody:
-     *       required: true
-     *       content:
-     *         application/json:
-     *           schema:
-     *             type: object
-     *             required: [email, password]
-     *             properties:
-     *               email:
-     *                 type: string
-     *                 format: email
-     *               password:
-     *                 type: string
-     *                 minLength: 6
      *     responses:
      *       200:
-     *         description: Password reset successfully
-     *       400:
-     *         description: Invalid data or reset token expired
-     *       404:
-     *         description: User not found
+     *         description: Access token mới
+     *       401:
+     *         description: Refresh token không hợp lệ hoặc hết hạn
      */
     static async refresh(req, res) {
         try {

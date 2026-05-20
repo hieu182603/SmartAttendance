@@ -230,9 +230,10 @@ export async function calculateAttendanceData(userId, periodStart, periodEnd, ru
     overtimeDetails.weekday = Math.round(overtimeDetails.weekday * ratio * 10) / 10;
     overtimeDetails.weekend = Math.round(overtimeDetails.weekend * ratio * 10) / 10;
     overtimeDetails.holiday = Math.round(overtimeDetails.holiday * ratio * 10) / 10;
+    const originalOT = Math.round(totalOvertimeHours * 10) / 10;
     totalOvertimeHours = maxOT;
     console.warn(
-      `[payroll] OT capped at ${maxOT}h/month for user ${userId} (was ${Math.round(totalOvertimeHours * 10) / 10}h)`
+      `[payroll] OT capped at ${maxOT}h/month for user ${userId} (was ${originalOT}h)`
     );
   }
 
@@ -482,7 +483,13 @@ export async function generatePayrollRecord(userId, month) {
   };
 
   if (payrollRecord) {
-    if (payrollRecord.status === "pending") {
+    if (payrollRecord.status === "paid") {
+      console.warn(`[payroll] Skipping locked payroll ${payrollRecord._id} (status: paid)`);
+      return payrollRecord;
+    } else if (payrollRecord.status === "approved") {
+      console.warn(`[payroll] Skipping re-calc for approved payroll ${payrollRecord._id}`);
+      return payrollRecord;
+    } else if (payrollRecord.status === "pending") {
       Object.assign(payrollRecord, recordData);
       await payrollRecord.save();
     } else {
@@ -542,7 +549,7 @@ export async function generatePayrollRecord(userId, month) {
  */
 export async function generatePayrollForMonth(month, companyId = null) {
   const employeeQuery = {
-    role: { $in: ["EMPLOYEE", "MANAGER", "SUPERVISOR"] },
+    role: { $in: ["EMPLOYEE", "MANAGER", "SUPERVISOR", "HR_MANAGER"] },
     isActive: true,
     isTrial: { $ne: true },
   };

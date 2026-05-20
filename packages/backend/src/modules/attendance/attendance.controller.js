@@ -349,6 +349,7 @@ export const checkOut = async (req, res) => {
 export const getAttendanceAnalytics = async (req, res) => {
   try {
     const { from, to, department } = req.query;
+    const { role: requesterRole, userId: requesterId } = req.user;
 
     const dateQuery = buildDateQuery(from, to);
     if (Object.keys(dateQuery).length === 0) {
@@ -360,7 +361,12 @@ export const getAttendanceAnalytics = async (req, res) => {
     const attendanceQuery = { ...dateQuery };
     const userQuery = {};
 
-    if (department && department !== "all") {
+    if (['SUPERVISOR', 'MANAGER'].includes(requesterRole)) {
+      const requester = await UserModel.findById(requesterId).select('department');
+      if (requester?.department) {
+        userQuery.department = requester.department;
+      }
+    } else if (department && department !== "all") {
       userQuery.department = department;
     }
 

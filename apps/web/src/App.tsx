@@ -82,6 +82,9 @@ const SystemHealthPage = lazy(() =>
 const LeaveTypeManagementPage = lazy(() =>
   import("@/components/dashboard/pages/LeaveTypeManagementPage")
 );
+const LeaveApprovalPage = lazy(() =>
+  import("@/components/dashboard/pages/LeaveApprovalPage")
+);
 
 // Layout & Common Components - Lazy Load
 const DashboardLayout = lazy(() => import("@/components/dashboard/DashboardLayout"));
@@ -192,6 +195,15 @@ export default function App() {
                   >
                     <Route index element={<AdminReportsPage />} />
                   </Route>
+                  <Route
+                    path="leave-approval"
+                    element={<ProtectedRoute permission={Permission.REQUESTS_APPROVE_DEPARTMENT} />}
+                  >
+                    <Route index element={<LeaveApprovalPage />} />
+                  </Route>
+                  <Route path="leave-types">
+                    <Route index element={<LeaveTypeManagementPage />} />
+                  </Route>
                   {/* REMOVED: admin-attendance - Manager không có quyền truy cập */}
                   {/* Catch-all: redirect invalid manager routes to 404 */}
                   <Route path="*" element={<Navigate to="/not-found" replace />} />
@@ -287,11 +299,19 @@ export default function App() {
               {/* Admin Routes - ADMIN and SUPER_ADMIN */}
               <Route element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}>
                 <Route path="/admin" element={<DashboardLayout />}>
-                  {/* Common routes */}
+                  {/* Common employee routes */}
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="company-calendar" element={<CompanyCalendarPage />} />
                   <Route path="chatbot" element={<ChatbotPage />} />
                   <Route path="my-payslip" element={<MyPayslipPage />} />
+                  <Route path="scan" element={<ScanPage />} />
+                  <Route path="schedule" element={<SchedulePage />} />
+                  <Route path="requests" element={<RequestsPage />} />
+                  <Route path="history" element={<HistoryPage />} />
+                  <Route path="leave-balance" element={<LeaveBalancePage />} />
+                  <Route path="notifications" element={<NotificationsPage />} />
+                  <Route path="face-registration" element={<FaceRegistrationPage />} />
+                  <Route path="camera-checkin" element={<CameraCheckinPage />} />
                   {/* Admin specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
@@ -374,7 +394,7 @@ export default function App() {
                   </Route>
                   <Route
                     path="system-config"
-                    element={<ProtectedRoute permission={Permission.AUDIT_LOGS_VIEW} />}
+                    element={<ProtectedRoute permission={Permission.SYSTEM_SETTINGS_VIEW} />}
                   >
                     <Route index element={<SystemConfigPage />} />
                   </Route>
