@@ -17,14 +17,14 @@ configRouter.use(authMiddleware);
 
 configRouter.get(
   "/",
-  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER]),
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   requirePermission(PERMISSIONS.SYSTEM_SETTINGS_VIEW),
   listConfigs
 );
 
 configRouter.get(
   "/:key",
-  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER]),
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   requirePermission(PERMISSIONS.SYSTEM_SETTINGS_VIEW),
   getConfigByKey
 );
@@ -38,7 +38,7 @@ configRouter.post(
 
 configRouter.put(
   "/:key",
-  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER]),
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   requirePermission(PERMISSIONS.SYSTEM_SETTINGS_UPDATE),
   updateConfig
 );

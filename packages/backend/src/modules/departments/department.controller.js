@@ -9,6 +9,7 @@ export class DepartmentController {
   static async getAllDepartments(req, res) {
     try {
       const { page, limit, search, branchId, status } = req.query;
+      const companyId = req.user.companyId;
 
       const result = await DepartmentService.getAllDepartments({
         page,
@@ -16,6 +17,7 @@ export class DepartmentController {
         search,
         branchId,
         status,
+        companyId,
       });
 
       res.json(result);
@@ -31,7 +33,8 @@ export class DepartmentController {
    */
   static async getStats(req, res) {
     try {
-      const stats = await DepartmentService.getAllDepartmentsStats();
+      const companyId = req.user.companyId;
+      const stats = await DepartmentService.getAllDepartmentsStats(companyId);
       res.json(stats);
     } catch (error) {
       console.error("[departments] getStats error:", error);
@@ -73,7 +76,8 @@ export class DepartmentController {
         });
       }
 
-      const department = await DepartmentService.createDepartment(parse.data);
+      const companyId = req.user.companyId;
+      const department = await DepartmentService.createDepartment(parse.data, companyId);
 
       res.status(201).json({
         department,

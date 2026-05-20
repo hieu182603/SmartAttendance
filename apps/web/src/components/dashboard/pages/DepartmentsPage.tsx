@@ -110,7 +110,7 @@ export function DepartmentsPage() {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [itemsPerPage] = useState(20);
     const [pagination, setPagination] = useState<{
         total: number;
         page: number;

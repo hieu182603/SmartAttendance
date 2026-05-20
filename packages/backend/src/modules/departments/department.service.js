@@ -6,9 +6,11 @@ export class DepartmentService {
   /**
    * Tạo phòng ban mới
    */
-  static async createDepartment(data) {
-    // Kiểm tra code đã tồn tại chưa
-    const existingDepartment = await DepartmentModel.findOne({ code: data.code.toUpperCase() });
+  static async createDepartment(data, companyId) {
+    // Kiểm tra code đã tồn tại chưa (trong cùng công ty)
+    const uniquenessQuery = { code: data.code.toUpperCase() };
+    if (companyId) uniquenessQuery.companyId = companyId;
+    const existingDepartment = await DepartmentModel.findOne(uniquenessQuery);
     if (existingDepartment) {
       throw new Error("Mã phòng ban đã tồn tại");
     }
@@ -35,6 +37,7 @@ export class DepartmentService {
       managerId: data.managerId,
       budget: data.budget || 0,
       status: data.status || "active",
+      ...(companyId && { companyId }),
     });
 
     return department;
@@ -50,9 +53,11 @@ export class DepartmentService {
       search = "",
       branchId = "",
       status = "",
+      companyId,
     } = options;
 
     const query = {};
+    if (companyId) query.companyId = companyId;
 
     // Tìm kiếm
     if (search) {
@@ -113,16 +118,23 @@ export class DepartmentService {
   /**
    * Lấy thống kê tổng
    */
-  static async getAllDepartmentsStats() {
+  static async getAllDepartmentsStats(companyId) {
+    const deptFilter = companyId ? { companyId } : {};
+    const userFilter = companyId ? { companyId } : {};
+
     const [departments, totalEmployees, activeEmployees, totalBudget] = await Promise.all([
-      DepartmentModel.find({}),
-      UserModel.countDocuments({}),
-      UserModel.countDocuments({ isActive: true }),
-      DepartmentModel.aggregate([{ $group: { _id: null, total: { $sum: "$budget" } } }]),
+      DepartmentModel.find(deptFilter),
+      UserModel.countDocuments(userFilter),
+      UserModel.countDocuments({ ...userFilter, isActive: true }),
+      DepartmentModel.aggregate([
+        ...(companyId ? [{ $match: { companyId } }] : []),
+        { $group: { _id: null, total: { $sum: "$budget" } } },
+      ]),
     ]);
 
     // Tính tổng nhân viên theo department
     const employeeCountByDepartment = await UserModel.aggregate([
+      ...(companyId ? [{ $match: { companyId } }] : []),
       { $group: { _id: "$department", count: { $sum: 1 } } },
     ]);
 

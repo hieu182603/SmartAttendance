@@ -12,9 +12,11 @@ export class BranchService {
   /**
    * Tạo chi nhánh mới
    */
-  static async createBranch(data) {
-    // Kiểm tra code đã tồn tại chưa
-    const existingBranch = await BranchModel.findOne({ code: data.code.toUpperCase() });
+  static async createBranch(data, companyId) {
+    // Kiểm tra code đã tồn tại chưa (trong cùng công ty)
+    const uniquenessQuery = { code: data.code.toUpperCase() };
+    if (companyId) uniquenessQuery.companyId = companyId;
+    const existingBranch = await BranchModel.findOne(uniquenessQuery);
     if (existingBranch) {
       throw new Error("Mã chi nhánh đã tồn tại");
     }
@@ -40,6 +42,7 @@ export class BranchService {
       establishedDate: data.establishedDate ? new Date(data.establishedDate) : new Date(),
       status: data.status || "active",
       timezone: data.timezone || "GMT+7",
+      ...(companyId && { companyId }),
     });
 
     await invalidateBranchesCache();
@@ -55,9 +58,11 @@ export class BranchService {
       limit = 20,
       search = "",
       status = "",
+      companyId,
     } = options;
 
     const query = {};
+    if (companyId) query.companyId = companyId;
 
     // Tìm kiếm
     if (search) {
@@ -110,20 +115,26 @@ export class BranchService {
   /**
    * Lấy thống kê tổng
    */
-  static async getAllBranchesStats() {
+  static async getAllBranchesStats(companyId) {
+    const branchFilter = companyId ? { companyId } : {};
+    const userFilter = companyId ? { companyId } : {};
+    const deptFilter = companyId ? { companyId } : {};
+
     const [branches, totalEmployees, totalDepartments, activeBranches] = await Promise.all([
-      BranchModel.find({}),
-      UserModel.countDocuments({}),
-      DepartmentModel.countDocuments({}),
-      BranchModel.countDocuments({ status: "active" }),
+      BranchModel.find(branchFilter),
+      UserModel.countDocuments(userFilter),
+      DepartmentModel.countDocuments(deptFilter),
+      BranchModel.countDocuments({ ...branchFilter, status: "active" }),
     ]);
 
     // Tính tổng nhân viên và phòng ban theo branch
     const employeeCountByBranch = await UserModel.aggregate([
+      ...(companyId ? [{ $match: { companyId } }] : []),
       { $group: { _id: "$branch", count: { $sum: 1 } } },
     ]);
 
     const departmentCountByBranch = await DepartmentModel.aggregate([
+      ...(companyId ? [{ $match: { companyId } }] : []),
       { $group: { _id: "$branchId", count: { $sum: 1 } } },
     ]);
 
@@ -304,8 +315,10 @@ export class BranchService {
   /**
    * Lấy danh sách đơn giản (cho dropdown và check-in)
    */
-  static async getBranchesList() {
-    const branches = await BranchModel.find({ status: "active" })
+  static async getBranchesList(companyId) {
+    const query = { status: "active" };
+    if (companyId) query.companyId = companyId;
+    const branches = await BranchModel.find(query)
       .select("name code latitude longitude")
       .sort({ name: 1 });
 

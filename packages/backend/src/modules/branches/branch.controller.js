@@ -9,12 +9,14 @@ export class BranchController {
   static async getAllBranches(req, res) {
     try {
       const { page, limit, search, status } = req.query;
+      const companyId = req.user.companyId;
 
       const result = await BranchService.getAllBranches({
         page,
         limit,
         search,
         status,
+        companyId,
       });
 
       res.json(result);
@@ -30,7 +32,8 @@ export class BranchController {
    */
   static async getStats(req, res) {
     try {
-      const stats = await BranchService.getAllBranchesStats();
+      const companyId = req.user.companyId;
+      const stats = await BranchService.getAllBranchesStats(companyId);
       res.json(stats);
     } catch (error) {
       console.error("[branches] getStats error:", error);
@@ -44,7 +47,8 @@ export class BranchController {
    */
   static async getBranchesList(req, res) {
     try {
-      const branches = await BranchService.getBranchesList();
+      const companyId = req.user.companyId;
+      const branches = await BranchService.getBranchesList(companyId);
       res.json({ branches });
     } catch (error) {
       console.error("[branches] getBranchesList error:", error);
@@ -86,7 +90,8 @@ export class BranchController {
         });
       }
 
-      const branch = await BranchService.createBranch(parse.data);
+      const companyId = req.user.companyId;
+      const branch = await BranchService.createBranch(parse.data, companyId);
 
       res.status(201).json({
         branch,
