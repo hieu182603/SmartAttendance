@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { hasMinimumLevel, UserRole, getRoleBasePath, type UserRoleType } from '@/utils/roles'
+import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
 import { type PermissionType } from '@/utils/roles'
 import { usePermissions } from '@/hooks/usePermissions'
 import { motion } from 'framer-motion'
-import { AlertTriangle, Shield } from 'lucide-react'
+import { Shield } from 'lucide-react'
 import UnauthorizedPage from '@/components/UnauthorizedPage'
 
 interface ProtectedRouteProps {
@@ -23,7 +23,7 @@ export default function ProtectedRoute({
   permissions,
   requireAll = false,
 }: ProtectedRouteProps) {
-  const { token, loading, user } = useAuth()
+  const { loading, user } = useAuth()
   const { 
     hasPermission, 
     hasAnyPermission, 

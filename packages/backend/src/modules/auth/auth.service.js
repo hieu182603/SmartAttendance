@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { UserModel } from "../users/user.model.js";
 import { OtpModel } from "../otp/otp.model.js";
+import { CompanyModel } from "../company/company.model.js";
 import { generateTokenFromUser, verifyRefreshToken, generateAccessToken, generateRefreshToken } from "../../utils/jwt.util.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail, sendResetPasswordEmail } from "../../utils/email.util.js";
@@ -37,11 +38,12 @@ export class AuthService {
 
     // Đăng ký tài khoản mới
     static async register(userData) {
-        const { email, password, name } = userData;
+        const { email, password, name, companyName } = userData;
 
-        // Normalize email (lowercase, trim)
+        // Normalize inputs
         const normalizedEmail = email.toLowerCase().trim();
         const normalizedName = name.trim();
+        const normalizedCompanyName = companyName.trim();
 
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,23 +62,50 @@ export class AuthService {
             throw new Error("Email already registered");
         }
 
+        // Tạo Company cho tài khoản trial mới
+        let company;
+        try {
+            // Slug unique: tên công ty + timestamp base36
+            const baseSlug = normalizedCompanyName
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/(^-|-$)/g, "");
+            const slug = `${baseSlug}-${Date.now().toString(36)}`;
+
+            company = await CompanyModel.create({
+                name: normalizedCompanyName,
+                slug,
+                plan: "trial",
+                maxUsers: 5,
+                isActive: true,
+            });
+        } catch (error) {
+            throw new Error("Không thể tạo thông tin công ty. Vui lòng thử lại.");
+        }
+
         // Tạo tài khoản mới với role TRIAL (7 ngày dùng thử)
         let user;
         try {
             const trialExpiresAt = new Date();
-            trialExpiresAt.setDate(trialExpiresAt.getDate() + 7); // 7 ngày từ bây giờ
+            trialExpiresAt.setDate(trialExpiresAt.getDate() + 7);
 
             user = await UserModel.create({
                 email: normalizedEmail,
                 password,
                 name: normalizedName,
-                role: "TRIAL", // Đăng ký mặc định là TRIAL
+                role: "TRIAL",
                 isTrial: true,
-                trialExpiresAt: trialExpiresAt,
+                trialExpiresAt,
                 isVerified: false,
+                companyId: company._id,
             });
         } catch (error) {
-            // Handle duplicate email race condition
+            // Rollback company nếu tạo user thất bại
+            try {
+                await CompanyModel.findByIdAndDelete(company._id);
+            } catch (deleteError) {
+                console.error("Failed to cleanup company after user creation failure:", deleteError);
+            }
             if (error.code === 11000 || error.message.includes("duplicate")) {
                 throw new Error("Email already registered");
             }
@@ -102,19 +131,19 @@ export class AuthService {
                 console.warn("⚠️  Email không gửi được, nhưng OTP đã được tạo. User có thể xem OTP trong console hoặc request resend.");
             }
         } catch (error) {
-            // Nếu tạo OTP thất bại, xóa user đã tạo để tránh orphan data
+            // Rollback user và company nếu tạo OTP thất bại
             try {
                 await UserModel.findByIdAndDelete(user._id);
+                await CompanyModel.findByIdAndDelete(company._id);
             } catch (deleteError) {
-                console.error("Failed to cleanup user after OTP creation failure:", deleteError);
+                console.error("Failed to cleanup after OTP creation failure:", deleteError);
             }
             console.error("Failed to create OTP:", error);
             throw new Error("Không thể tạo mã OTP. Vui lòng thử lại.");
         }
 
         return {
-            message:
-                "Đăng ký thành công. Vui lòng kiểm tra email để xác thực OTP.",
+            message: "Đăng ký thành công. Vui lòng kiểm tra email để xác thực OTP.",
             userId: user._id,
             email: user.email,
         };

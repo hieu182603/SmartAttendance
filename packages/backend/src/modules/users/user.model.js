@@ -3,6 +3,12 @@ import { hashPassword, comparePassword } from "../../utils/bcrypt.util.js";
 
 const userSchema = new mongoose.Schema(
   {
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
     email: { type: String, unique: true, required: true },
     password: { type: String, required: true },
     name: { type: String, required: true },
@@ -121,6 +127,14 @@ const userSchema = new mongoose.Schema(
       faceImages: { type: [String], default: [] }, // Cloudinary URLs
       faceImagePublicIds: { type: [String], default: [] }, // Cloudinary public IDs for deletion
       lastVerifiedAt: { type: Date, default: null },
+      // NĐ 13/2023: explicit consent for biometric data collection
+      consent: {
+        given: { type: Boolean, default: false },
+        givenAt: { type: Date, default: null },
+        version: { type: String, default: null }, // policy version at time of consent
+        channel: { type: String, enum: ["web", "mobile", null], default: null },
+        withdrawnAt: { type: Date, default: null },
+      },
     },
   },
   { 

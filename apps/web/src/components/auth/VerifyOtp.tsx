@@ -19,7 +19,7 @@ export default function VerifyOtp() {
   const { setToken, setUser } = useAuth()
   const emailFromState = (location.state as LocationState)?.email || ''
   const purposeFromState = (location.state as LocationState)?.purpose || 'register' // 'register' or 'reset'
-  const [email, setEmail] = useState(emailFromState)
+  const [email] = useState(emailFromState)
   const [purpose] = useState(purposeFromState)
   const [otp, setOtp] = useState('')
   const [isLoading, setIsLoading] = useState(false)

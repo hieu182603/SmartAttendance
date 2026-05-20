@@ -236,6 +236,66 @@ export const sendResetPasswordEmail = async (to, otp, name = "User") => {
     }
 };
 
+const PLAN_LABELS = { starter: "Starter", standard: "Standard", premium: "Premium" };
+const CYCLE_LABELS = { monthly: "Hàng tháng", yearly: "Hàng năm" };
+
+/**
+ * Send payment confirmation email after successful plan upgrade.
+ * @param {{ to: string, name: string, plan: string, billingCycle: string, amount: number, orderCode: number }} params
+ */
+export const sendPaymentConfirmationEmail = async ({ to, name, plan, billingCycle, amount, orderCode }) => {
+    const hasEmailConfig = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+    const isDevMode = process.env.EMAIL_DEV_MODE === "true" || !hasEmailConfig;
+
+    const planLabel = PLAN_LABELS[plan] ?? plan;
+    const cycleLabel = CYCLE_LABELS[billingCycle] ?? billingCycle;
+    const formattedAmount = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
+
+    if (isDevMode) {
+        console.log(`[DEV] Payment confirmation: ${maskEmail(to)} | ${planLabel} | ${cycleLabel} | ${formattedAmount}`);
+        return { success: true, devMode: true };
+    }
+
+    try {
+        const transporter = createTransporter();
+        await transporter.sendMail({
+            from: `"SmartAttendance" <${process.env.EMAIL_USER}>`,
+            to,
+            subject: `[SmartAttendance] Thanh toán thành công — Gói ${planLabel}`,
+            html: `
+                <!DOCTYPE html><html><head><meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, sans-serif; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: linear-gradient(135deg, #06b6d4, #3b82f6); color: white; padding: 28px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .content { background: #f9f9f9; padding: 28px; border-radius: 0 0 10px 10px; }
+                    .info-box { background: white; border-left: 4px solid #06b6d4; padding: 16px; margin: 16px 0; border-radius: 4px; }
+                    .footer { text-align: center; margin-top: 20px; color: #888; font-size: 12px; }
+                </style></head>
+                <body><div class="container">
+                    <div class="header"><h1>SmartAttendance</h1><p>Thanh toán thành công!</p></div>
+                    <div class="content">
+                        <h2>Xin chào ${name}!</h2>
+                        <p>Gói dịch vụ của công ty bạn đã được nâng cấp thành công.</p>
+                        <div class="info-box">
+                            <p><strong>Mã đơn hàng:</strong> #${orderCode}</p>
+                            <p><strong>Gói:</strong> ${planLabel}</p>
+                            <p><strong>Chu kỳ:</strong> ${cycleLabel}</p>
+                            <p><strong>Số tiền:</strong> ${formattedAmount}</p>
+                        </div>
+                        <p>Cảm ơn bạn đã tin dùng SmartAttendance. Mọi thắc mắc vui lòng liên hệ bộ phận hỗ trợ.</p>
+                    </div>
+                    <div class="footer"><p>&copy; ${new Date().getFullYear()} SmartAttendance</p></div>
+                </div></body></html>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("[email] sendPaymentConfirmationEmail failed:", error.message);
+        return { success: false, error: error.message };
+    }
+};
+
 /**
  * Verify email transporter connection
  * @returns {Promise<boolean>} True if connection successful

@@ -30,6 +30,7 @@ export const generateTokenFromUser = (user) => {
         email: user.email,
         role: user.role || "EMPLOYEE",
         department_id: user.department,
+        companyId: user.companyId ?? null,
     };
     return {
         accessToken: generateAccessToken(payload),

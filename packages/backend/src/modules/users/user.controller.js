@@ -288,7 +288,8 @@ export class UserController {
    */
   static async getAllUsers(req, res) {
     try {
-      const result = await UserService.getAllUsers(req.query);
+      const companyId = req.user.companyId;
+      const result = await UserService.getAllUsers(req.query, companyId);
       return res.status(200).json(result);
     } catch (error) {
       console.error("[UserController] Get all users error:", error);
@@ -661,7 +662,8 @@ export class UserController {
         });
       }
 
-      const newUser = await UserService.createUserByAdmin(parse.data, currentUserRole);
+      const companyId = req.user.companyId;
+      const newUser = await UserService.createUserByAdmin(parse.data, currentUserRole, companyId);
 
       // Log successful action
       await logActivity(req, {
@@ -875,7 +877,8 @@ export class UserController {
       }
 
       const adminRole = req.user.role;
-      const results = await UserService.bulkImportUsers(rows, adminRole);
+      const companyId = req.user.companyId;
+      const results = await UserService.bulkImportUsers(rows, adminRole, companyId);
 
       await logActivity(req, {
         action: "bulk_import_users",

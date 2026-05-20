@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { getAdminSessions, forceLogoutUser, type ActiveSession } from '@/services/authService';
+import { formatIpAddress } from '@/utils/formatIpAddress';
 
 const ROLE_BADGE: Record<string, 'default' | 'warning' | 'error' | 'success' | 'outline'> = {
   SUPER_ADMIN: 'error',
@@ -231,7 +232,7 @@ export default function ActiveSessionsPage() {
                   <TableCell>
                     <div className="flex items-center gap-1 text-sm text-(--text-sub)">
                       <Globe className="h-3 w-3" />
-                      {session.ipAddress || '—'}
+                      {formatIpAddress(session.ipAddress)}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
