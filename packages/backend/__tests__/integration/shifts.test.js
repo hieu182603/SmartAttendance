@@ -24,6 +24,7 @@ jest.unstable_mockModule("../../src/config/redis.js", () => ({
 jest.unstable_mockModule("../../src/utils/email.util.js", () => ({
   sendOTPEmail: jest.fn().mockResolvedValue({ success: true }),
   sendResetPasswordEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 jest.unstable_mockModule("../../src/utils/aiServiceClient.js", () => ({

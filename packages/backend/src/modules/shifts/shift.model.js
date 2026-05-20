@@ -5,7 +5,13 @@ import mongoose from "mongoose";
  */
 const shiftSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, unique: true, trim: true },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
+    name: { type: String, required: true, trim: true },
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
     breakDuration: { type: Number, default: 0 },
@@ -129,5 +135,7 @@ shiftSchema.post('findOneAndUpdate', async function (doc) {
     console.error('[ShiftModel] Error updating schedules after shift update:', error);
   }
 });
+
+shiftSchema.index({ companyId: 1, name: 1 }, { unique: true });
 
 export const ShiftModel = mongoose.model("Shift", shiftSchema);

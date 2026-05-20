@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useTranslation } from 'react-i18next'
 import { Calendar, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,7 +24,6 @@ export const LeaveRequestList: React.FC<LeaveRequestListProps> = ({
   status = 'all',
   onRefresh,
 }) => {
-  const { t } = useTranslation(['dashboard', 'common'])
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -45,12 +43,7 @@ export const LeaveRequestList: React.FC<LeaveRequestListProps> = ({
         status: status === 'all' ? undefined : status,
       })
       setRequests(result.requests || [])
-      setPagination(result.pagination || {
-        page: currentPage,
-        limit: 20,
-        total: result.requests?.length || 0,
-        totalPages: result.pagination?.totalPages || 1,
-      })
+      setPagination(result.pagination)
     } catch (error) {
       const err = error as ErrorWithMessage
       toast.error(err.message || 'Không thể tải danh sách đơn nghỉ')
