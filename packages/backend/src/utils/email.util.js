@@ -249,7 +249,7 @@ export const sendPaymentConfirmationEmail = async ({ to, name, plan, billingCycl
 
     const planLabel = PLAN_LABELS[plan] ?? plan;
     const cycleLabel = CYCLE_LABELS[billingCycle] ?? billingCycle;
-    const formattedAmount = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
+    const formattedAmount = new globalThis.Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
 
     if (isDevMode) {
         console.log(`[DEV] Payment confirmation: ${maskEmail(to)} | ${planLabel} | ${cycleLabel} | ${formattedAmount}`);
