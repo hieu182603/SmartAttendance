@@ -709,29 +709,19 @@ export default function LandingPage() {
               </h3>
               <ul className="space-y-3">
                 {[
-                  { label: 'Về chúng tôi', href: '#' },
-                  { label: 'Tính năng', href: '#' },
+                  { label: 'Về chúng tôi', to: '/about' },
+                  { label: 'Tính năng', to: '/features' },
                   { label: 'Bảng giá', to: '/pricing' },
-                  { label: 'Khách hàng', href: '#' },
+                  { label: 'Khách hàng', to: '/customers' },
                 ].map((link, index) => (
                   <li key={index}>
-                    {'to' in link && link.to ? (
-                      <Link
-                        to={link.to}
-                        className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors duration-300 flex items-center space-x-2 group"
-                      >
-                        <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <span>{link.label}</span>
-                      </Link>
-                    ) : (
-                      <a
-                        href={link.href}
-                        className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors duration-300 flex items-center space-x-2 group"
-                      >
-                        <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <span>{link.label}</span>
-                      </a>
-                    )}
+                    <Link
+                      to={link.to}
+                      className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors duration-300 flex items-center space-x-2 group"
+                    >
+                      <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span>{link.label}</span>
+                    </Link>
                   </li>
                 ))}
               </ul>
