@@ -1,32 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Crown,
-  Check,
-  CreditCard,
-  Users,
-  Building,
-  Zap,
-  ArrowRight,
-  Shield,
-  Clock,
-  TrendingUp,
-  Rocket,
-  BarChart3,
-  MapPin,
-  Brain,
-  X,
-  QrCode,
-  ExternalLink,
+  Crown, Check, CreditCard, Users, Building, Zap, ArrowRight,
+  Shield, Clock, TrendingUp, Rocket, BarChart3, MapPin, Brain, X, QrCode, ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  billingService,
-  type UpgradePaymentResult,
-} from "@/services/billingService";
+import { billingService, type UpgradePaymentResult } from "@/services/billingService";
 
 interface PricingPlan {
   id: string;
@@ -107,9 +89,7 @@ const pricingPlans: PricingPlan[] = [
 ];
 
 const formatVND = (amount: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-    amount,
-  );
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
 
 export type UpgradePageMode = "upgrade" | "catalog";
 
@@ -122,29 +102,10 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
   const isCatalog = mode === "catalog";
   const navigate = useNavigate();
   const location = useLocation();
-  const [selectedPlan, setSelectedPlan] = useState<string | null>("standard");
-  const [employeeCount, setEmployeeCount] = useState<number>(150);
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
-    "yearly",
-  );
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentResult, setPaymentResult] =
-    useState<UpgradePaymentResult | null>(null);
-
-  // Auto-update selected plan when slider changes
-  const handleEmployeeCountChange = (count: number) => {
-    setEmployeeCount(count);
-    if (count <= 100) setSelectedPlan("starter");
-    else if (count <= 200) setSelectedPlan("standard");
-    else setSelectedPlan("premium");
-  };
-
-  const handlePlanSelect = (planId: string) => {
-    setSelectedPlan(planId);
-    if (planId === "starter") setEmployeeCount(75);
-    else if (planId === "standard") setEmployeeCount(150);
-    else if (planId === "premium") setEmployeeCount(300);
-  };
+  const [paymentResult, setPaymentResult] = useState<UpgradePaymentResult | null>(null);
 
   useEffect(() => {
     if (isCatalog) return;
@@ -161,43 +122,29 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
           .then((result) => {
             toast.dismiss(verifying);
             if (result === "paid") {
-              toast.success(
-                "Thanh toán thành công! Gói của bạn đã được nâng cấp.",
-              );
+              toast.success("Thanh toán thành công! Gói của bạn đã được nâng cấp.");
             } else if (result === "failed") {
-              toast.error(
-                "Thanh toán không thành công. Vui lòng liên hệ hỗ trợ.",
-              );
+              toast.error("Thanh toán không thành công. Vui lòng liên hệ hỗ trợ.");
             } else {
               toast.warning(
-                "Thanh toán chưa được xác nhận. Nếu đã trừ tiền, vui lòng chờ vài phút hoặc liên hệ hỗ trợ.",
+                "Thanh toán chưa được xác nhận. Nếu đã trừ tiền, vui lòng chờ vài phút hoặc liên hệ hỗ trợ."
               );
             }
           })
           .catch(() => {
             toast.dismiss(verifying);
-            toast.warning(
-              "Không thể xác nhận trạng thái thanh toán. Vui lòng liên hệ hỗ trợ.",
-            );
+            toast.warning("Không thể xác nhận trạng thái thanh toán. Vui lòng liên hệ hỗ trợ.");
           });
       } else {
         toast.warning("Không thể xác nhận thanh toán — thiếu mã đơn hàng.");
       }
       params.delete("payment");
       params.delete("orderCode");
-      navigate(
-        location.pathname + (params.toString() ? `?${params.toString()}` : ""),
-        { replace: true },
-      );
+      navigate(location.pathname + (params.toString() ? `?${params.toString()}` : ""), { replace: true });
     } else if (payment === "cancelled") {
-      toast.warning(
-        "Thanh toán đã bị hủy. Bạn có thể chọn lại gói và thử lại.",
-      );
+      toast.warning("Thanh toán đã bị hủy. Bạn có thể chọn lại gói và thử lại.");
       params.delete("payment");
-      navigate(
-        location.pathname + (params.toString() ? `?${params.toString()}` : ""),
-        { replace: true },
-      );
+      navigate(location.pathname + (params.toString() ? `?${params.toString()}` : ""), { replace: true });
     }
   }, [location.search, isCatalog, location.pathname, navigate]);
 
@@ -207,12 +154,11 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
     try {
       const result = await billingService.createUpgradePayment(
         selectedPlan as "starter" | "standard" | "premium",
-        billingCycle,
+        billingCycle
       );
       setPaymentResult(result);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Có lỗi xảy ra. Vui lòng thử lại.";
+      const msg = err instanceof Error ? err.message : "Có lỗi xảy ra. Vui lòng thử lại.";
       toast.error(msg);
     } finally {
       setIsProcessing(false);
@@ -221,473 +167,349 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
 
   return (
     <>
-      <div className="space-y-10 pb-10">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-3"
-        >
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-900/20 dark:to-amber-900/20 px-4 py-2 rounded-full">
-            <Crown className="h-5 w-5 text-orange-600" />
-            <span className="text-orange-700 dark:text-orange-300 font-medium text-sm">
-              {isCatalog ? "Bảng giá" : "Nâng cấp tài khoản"}
-            </span>
-          </div>
-          <h1 className="text-3xl font-bold text-[var(--text-main)]">
-            {isCatalog
-              ? "Gói dịch vụ SmartAttendance"
-              : "Chọn gói phù hợp với doanh nghiệp"}
-          </h1>
-          <p className="text-[var(--text-sub)] max-w-xl mx-auto text-sm">
-            {isCatalog
-              ? "Dùng thử 7 ngày miễn phí. Đăng ký để bắt đầu, nâng cấp và thanh toán sau trong tài khoản."
-              : "Không có phí ẩn. Hủy bất cứ lúc nào. Hoàn tiền trong 30 ngày nếu không hài lòng."}
+    <div className="space-y-10 pb-10">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center space-y-3"
+      >
+        <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-900/20 dark:to-amber-900/20 px-4 py-2 rounded-full">
+          <Crown className="h-5 w-5 text-orange-600" />
+          <span className="text-orange-700 dark:text-orange-300 font-medium text-sm">
+            {isCatalog ? "Bảng giá" : "Nâng cấp tài khoản"}
+          </span>
+        </div>
+        <h1 className="text-3xl font-bold text-[var(--text-main)]">
+          {isCatalog ? "Gói dịch vụ SmartAttendance" : "Chọn gói phù hợp với doanh nghiệp"}
+        </h1>
+        <p className="text-[var(--text-sub)] max-w-xl mx-auto text-sm">
+          {isCatalog
+            ? "Dùng thử 7 ngày miễn phí. Đăng ký để bắt đầu, nâng cấp và thanh toán sau trong tài khoản."
+            : "Không có phí ẩn. Hủy bất cứ lúc nào. Hoàn tiền trong 30 ngày nếu không hài lòng."}
+        </p>
+      </motion.div>
+
+      {!isCatalog && (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.1 }}
+        className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center justify-center gap-4"
+      >
+        <Clock className="h-5 w-5 text-red-600 shrink-0" />
+        <div className="text-center">
+          <p className="font-semibold text-red-900 dark:text-red-100 text-sm">
+            🔥 Bạn đang trong thời gian dùng thử 7 ngày miễn phí
           </p>
-        </motion.div>
-
-        {!isCatalog && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 }}
-            className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center justify-center gap-4"
-          >
-            <Clock className="h-5 w-5 text-red-600 shrink-0" />
-            <div className="text-center">
-              <p className="font-semibold text-red-900 dark:text-red-100 text-sm">
-                🔥 Bạn đang trong thời gian dùng thử 7 ngày miễn phí
-              </p>
-              <p className="text-xs text-red-700 dark:text-red-300">
-                Nâng cấp ngay để không bị gián đoạn dịch vụ
-              </p>
-            </div>
-            <TrendingUp className="h-5 w-5 text-red-600 shrink-0" />
-          </motion.div>
-        )}
-
-        {/* Billing Toggle & Employee Slider */}
-        <div className="max-w-2xl mx-auto space-y-8">
-          {/* Toggle */}
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-1 bg-[var(--surface)] border border-[var(--border)] rounded-full p-1.5 shadow-sm">
-              <button
-                onClick={() => setBillingCycle("monthly")}
-                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
-                  billingCycle === "monthly"
-                    ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-md transform scale-105"
-                    : "text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--surface)]"
-                }`}
-              >
-                Hàng tháng
-              </button>
-              <button
-                onClick={() => setBillingCycle("yearly")}
-                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-2 ${
-                  billingCycle === "yearly"
-                    ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-md transform scale-105"
-                    : "text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--surface)]"
-                }`}
-              >
-                Hàng năm
-                <motion.span
-                  animate={{
-                    scale: billingCycle === "yearly" ? [1, 1.2, 1] : 1,
-                  }}
-                  className="bg-[var(--success)] text-white text-xs px-2 py-0.5 rounded-full shadow-sm"
-                >
-                  -20%
-                </motion.span>
-              </button>
-            </div>
-          </div>
-
-          {/* Slider */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-sm relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-[var(--primary)]/5 to-[var(--accent-cyan)]/5" />
-            <div className="relative z-10">
-              <div className="flex justify-between text-sm mb-4 font-medium items-end">
-                <span className="text-[var(--text-sub)]">Doanh nghiệp nhỏ</span>
-                <div className="text-center">
-                  <div className="text-[var(--text-sub)] text-xs mb-1 uppercase tracking-wider">
-                    Quy mô hiện tại
-                  </div>
-                  <span className="text-[var(--text-main)] font-bold text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-                    {employeeCount} <span className="text-lg">nhân viên</span>
-                  </span>
-                </div>
-                <span className="text-[var(--text-sub)]">Doanh nghiệp lớn</span>
-              </div>
-
-              <input
-                type="range"
-                min="10"
-                max="500"
-                step="10"
-                value={employeeCount}
-                onChange={(e) =>
-                  handleEmployeeCountChange(parseInt(e.target.value))
-                }
-                className="w-full h-3 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-[var(--primary)] hover:accent-[var(--accent-cyan)] transition-colors"
-                style={{
-                  background: `linear-gradient(to right, var(--primary) ${((employeeCount - 10) / 490) * 100}%, var(--border) ${((employeeCount - 10) / 490) * 100}%)`,
-                }}
-              />
-
-              <div className="flex justify-between mt-2 text-xs text-[var(--text-sub)]">
-                <span>10</span>
-                <span>100</span>
-                <span>200</span>
-                <span>500+</span>
-              </div>
-            </div>
-          </motion.div>
+          <p className="text-xs text-red-700 dark:text-red-300">
+            Nâng cấp ngay để không bị gián đoạn dịch vụ
+          </p>
         </div>
+        <TrendingUp className="h-5 w-5 text-red-600 shrink-0" />
+      </motion.div>
+      )}
 
-        {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {pricingPlans.map((plan, index) => {
-            const Icon = plan.icon;
-            const isSelected = selectedPlan === plan.id;
-            const price =
-              billingCycle === "monthly" ? plan.priceMonthly : plan.priceYearly;
-
-            return (
-              <motion.div
-                key={plan.id}
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 + index * 0.1 }}
-                whileHover={{ y: -6 }}
-                className="relative"
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                    <span
-                      className={`bg-gradient-to-r ${plan.gradient} text-white text-xs font-bold px-4 py-1 rounded-full shadow`}
-                    >
-                      PHỔ BIẾN NHẤT
-                    </span>
-                  </div>
-                )}
-
-                <Card
-                  onClick={() => handlePlanSelect(plan.id)}
-                  className={`relative overflow-hidden cursor-pointer transition-all duration-500 h-full flex flex-col ${
-                    isSelected
-                      ? `ring-2 ring-[var(--primary)] shadow-2xl scale-105 z-10 bg-gradient-to-b from-[var(--surface)] to-[var(--bg)]`
-                      : "hover:shadow-xl scale-100 bg-[var(--surface)] opacity-70 hover:opacity-100"
-                  } ${
-                    plan.popular
-                      ? "border-[var(--primary)]"
-                      : "border-[var(--border)]"
-                  }`}
-                >
-                  {/* Gradient top bar */}
-                  <div
-                    className={`h-1 w-full bg-gradient-to-r ${plan.gradient}`}
-                  />
-
-                  <CardHeader className="text-center pb-2 pt-6">
-                    <div className="flex justify-center mb-3">
-                      <div className={`p-3 rounded-2xl ${plan.iconBg}`}>
-                        <Icon className="h-7 w-7" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-[var(--text-sub)] uppercase tracking-widest">
-                      {plan.subtitle}
-                    </p>
-                    <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                    <p className="text-xs text-[var(--text-sub)] mt-1">
-                      {plan.target}
-                    </p>
-
-                    <div className="mt-4">
-                      <div className="flex items-baseline justify-center gap-1">
-                        <span className="text-3xl font-bold text-[var(--text-main)]">
-                          {formatVND(price)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-[var(--text-sub)] mt-1">
-                        {billingCycle === "monthly" ? "/ tháng" : "/ năm"}
-                        {billingCycle === "yearly" && (
-                          <span className="ml-2 text-green-500 font-medium">
-                            (tiết kiệm{" "}
-                            {formatVND(
-                              plan.priceMonthly * 12 - plan.priceYearly,
-                            )}
-                            )
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pt-4 flex flex-col flex-1">
-                    <ul className="space-y-2.5 flex-1">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
-                          <span className="text-[var(--text-main)]">
-                            {feature}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Button
-                      className={`w-full mt-6 ${
-                        isSelected
-                          ? `bg-gradient-to-r ${plan.gradient} text-white border-0`
-                          : "bg-[var(--surface)] text-[var(--text-main)] border border-[var(--border)] hover:border-[var(--primary)]"
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isCatalog) {
-                          navigate("/register");
-                          return;
-                        }
-                        handlePlanSelect(plan.id);
-                      }}
-                    >
-                      {isCatalog ? (
-                        "Đăng ký dùng thử"
-                      ) : isSelected ? (
-                        <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Đã chọn
-                        </>
-                      ) : (
-                        "Chọn gói này"
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* CTA */}
-        {isCatalog ? (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] rounded-2xl p-8 text-white text-center"
+      {/* Billing Toggle */}
+      <div className="flex justify-center">
+        <div className="inline-flex items-center gap-1 bg-[var(--surface)] border border-[var(--border)] rounded-xl p-1">
+          <button
+            onClick={() => setBillingCycle("monthly")}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              billingCycle === "monthly"
+                ? "bg-[var(--primary)] text-white shadow"
+                : "text-[var(--text-sub)] hover:text-[var(--text-main)]"
+            }`}
           >
-            <h2 className="text-2xl font-bold mb-2">
-              Bắt đầu dùng thử 7 ngày miễn phí
-            </h2>
-            <p className="text-white/80 mb-6 text-sm max-w-lg mx-auto">
-              Đăng ký tài khoản doanh nghiệp, sau đó chọn gói và thanh toán
-              trong mục Nâng cấp.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button
-                size="lg"
-                onClick={() => navigate("/register")}
-                className="bg-white text-[var(--primary)] hover:bg-gray-100 px-8 font-semibold shadow-lg"
-              >
-                Đăng ký miễn phí
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => navigate("/login")}
-                className="border-white/40 text-white hover:bg-white/10 px-8"
-              >
-                Đã có tài khoản
-              </Button>
-            </div>
-          </motion.div>
-        ) : (
-          selectedPlan && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] rounded-2xl p-8 text-white text-center"
-            >
-              <h2 className="text-2xl font-bold mb-2">Sẵn sàng nâng cấp?</h2>
-              <p className="text-white/80 mb-6 text-sm max-w-lg mx-auto">
-                Bắt đầu trải nghiệm đầy đủ SmartAttendance ngay hôm nay. Thanh
-                toán an toàn, bảo mật.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Button
-                  size="lg"
-                  onClick={handleUpgrade}
-                  disabled={isProcessing}
-                  className="bg-white text-[var(--primary)] hover:bg-gray-100 px-8 font-semibold shadow-lg"
-                >
-                  {isProcessing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)] mr-2" />
-                      Đang xử lý...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Nâng cấp ngay
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-                <div className="flex items-center gap-4 text-sm text-white/70">
-                  <span className="flex items-center gap-1">
-                    <Shield className="h-4 w-4" />
-                    Bảo mật 100%
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Zap className="h-4 w-4" />
-                    Hủy bất cứ lúc nào
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          )
-        )}
-
-        {/* Feature comparison highlights */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4"
-        >
-          {[
-            {
-              icon: MapPin,
-              label: "GPS chống gian lận",
-              color: "text-blue-500",
-            },
-            { icon: Brain, label: "AI Chatbot RAG", color: "text-purple-500" },
-            {
-              icon: BarChart3,
-              label: "Analytics đa chiều",
-              color: "text-green-500",
-            },
-            {
-              icon: TrendingUp,
-              label: "Tính lương tự động",
-              color: "text-amber-500",
-            },
-          ].map((item, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]"
-            >
-              <item.icon className={`h-5 w-5 shrink-0 ${item.color}`} />
-              <span className="text-sm text-[var(--text-main)]">
-                {item.label}
-              </span>
-            </div>
-          ))}
-        </motion.div>
-
-        {/* FAQ */}
-        <div className="max-w-2xl mx-auto space-y-4">
-          <h2 className="text-center text-lg font-semibold text-[var(--text-main)]">
-            Câu hỏi thường gặp
-          </h2>
-          {[
-            {
-              q: "Tôi có thể hủy đăng ký bất cứ lúc nào không?",
-              a: "Có. Bạn sẽ tiếp tục sử dụng đến hết chu kỳ thanh toán hiện tại.",
-            },
-            {
-              q: "Có được hoàn tiền nếu không hài lòng không?",
-              a: "Có. Chúng tôi hoàn tiền 100% trong 30 ngày đầu nếu bạn không hài lòng.",
-            },
-            {
-              q: "Dữ liệu của tôi có được bảo mật không?",
-              a: "Hoàn toàn. Dữ liệu được mã hóa end-to-end và tuân thủ tiêu chuẩn bảo mật quốc tế.",
-            },
-          ].map((faq, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] space-y-1"
-            >
-              <p className="font-medium text-sm text-[var(--text-main)]">
-                {faq.q}
-              </p>
-              <p className="text-sm text-[var(--text-sub)]">{faq.a}</p>
-            </div>
-          ))}
+            Hàng tháng
+          </button>
+          <button
+            onClick={() => setBillingCycle("yearly")}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+              billingCycle === "yearly"
+                ? "bg-[var(--primary)] text-white shadow"
+                : "text-[var(--text-sub)] hover:text-[var(--text-main)]"
+            }`}
+          >
+            Hàng năm
+            <span className="bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+              -17%
+            </span>
+          </button>
         </div>
       </div>
-      {/* QR Payment Modal — chỉ khi đã đăng nhập (upgrade) */}
-      <AnimatePresence>
-        {!isCatalog && paymentResult && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={() => setPaymentResult(null)}
-          >
+
+      {/* Pricing Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {pricingPlans.map((plan, index) => {
+          const Icon = plan.icon;
+          const isSelected = selectedPlan === plan.id;
+          const price = billingCycle === "monthly" ? plan.priceMonthly : plan.priceYearly;
+
+          return (
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5"
+              key={plan.id}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 + index * 0.1 }}
+              whileHover={{ y: -6 }}
+              className="relative"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <QrCode className="h-5 w-5 text-[var(--primary)]" />
-                  <h3 className="font-semibold text-[var(--text-main)]">
-                    Thanh toán qua QR
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setPaymentResult(null)}
-                  className="p-1 rounded-lg hover:bg-[var(--surface)] text-[var(--text-sub)]"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <p className="text-sm text-[var(--text-sub)]">
-                Quét mã QR bằng ứng dụng ngân hàng hoặc nhấn nút để mở trang
-                thanh toán.
-              </p>
-
-              {paymentResult.qrCode && (
-                <div className="flex justify-center">
-                  <img
-                    src={paymentResult.qrCode}
-                    alt="QR thanh toán PayOS"
-                    className="w-48 h-48 rounded-xl border border-[var(--border)]"
-                  />
+              {plan.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                  <span className={`bg-gradient-to-r ${plan.gradient} text-white text-xs font-bold px-4 py-1 rounded-full shadow`}>
+                    PHỔ BIẾN NHẤT
+                  </span>
                 </div>
               )}
 
-              <p className="text-xs text-center text-[var(--text-sub)]">
-                Mã đơn hàng:{" "}
-                <span className="font-mono font-medium">
-                  #{paymentResult.orderCode}
-                </span>
-              </p>
-
-              <Button
-                className="w-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white border-0"
-                onClick={() => {
-                  window.location.href = paymentResult.checkoutUrl;
-                }}
+              <Card
+                onClick={() => setSelectedPlan(plan.id)}
+                className={`relative overflow-hidden cursor-pointer transition-all duration-300 h-full flex flex-col ${
+                  isSelected
+                    ? `ring-2 ring-[var(--primary)] shadow-xl`
+                    : "hover:shadow-lg"
+                } ${
+                  plan.popular
+                    ? "border-[var(--primary)]"
+                    : "border-[var(--border)]"
+                }`}
               >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Thanh toán online
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+                {/* Gradient top bar */}
+                <div className={`h-1 w-full bg-gradient-to-r ${plan.gradient}`} />
+
+                <CardHeader className="text-center pb-2 pt-6">
+                  <div className="flex justify-center mb-3">
+                    <div className={`p-3 rounded-2xl ${plan.iconBg}`}>
+                      <Icon className="h-7 w-7" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-[var(--text-sub)] uppercase tracking-widest">{plan.subtitle}</p>
+                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                  <p className="text-xs text-[var(--text-sub)] mt-1">{plan.target}</p>
+
+                  <div className="mt-4">
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-3xl font-bold text-[var(--text-main)]">
+                        {formatVND(price)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--text-sub)] mt-1">
+                      {billingCycle === "monthly" ? "/ tháng" : "/ năm"}
+                      {billingCycle === "yearly" && (
+                        <span className="ml-2 text-green-500 font-medium">
+                          (tiết kiệm {formatVND(plan.priceMonthly * 12 - plan.priceYearly)})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="pt-4 flex flex-col flex-1">
+                  <ul className="space-y-2.5 flex-1">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                        <span className="text-[var(--text-main)]">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    className={`w-full mt-6 ${
+                      isSelected
+                        ? `bg-gradient-to-r ${plan.gradient} text-white border-0`
+                        : "bg-[var(--surface)] text-[var(--text-main)] border border-[var(--border)] hover:border-[var(--primary)]"
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isCatalog) {
+                        navigate("/register");
+                        return;
+                      }
+                      setSelectedPlan(plan.id);
+                    }}
+                  >
+                    {isCatalog ? (
+                      "Đăng ký dùng thử"
+                    ) : isSelected ? (
+                      <><Check className="h-4 w-4 mr-2" />Đã chọn</>
+                    ) : (
+                      "Chọn gói này"
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
             </motion.div>
+          );
+        })}
+      </div>
+
+      {/* CTA */}
+      {isCatalog ? (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] rounded-2xl p-8 text-white text-center"
+        >
+          <h2 className="text-2xl font-bold mb-2">Bắt đầu dùng thử 7 ngày miễn phí</h2>
+          <p className="text-white/80 mb-6 text-sm max-w-lg mx-auto">
+            Đăng ký tài khoản doanh nghiệp, sau đó chọn gói và thanh toán trong mục Nâng cấp.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Button
+              size="lg"
+              onClick={() => navigate("/register")}
+              className="bg-white text-[var(--primary)] hover:bg-gray-100 px-8 font-semibold shadow-lg"
+            >
+              Đăng ký miễn phí
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => navigate("/login")}
+              className="border-white/40 text-white hover:bg-white/10 px-8"
+            >
+              Đã có tài khoản
+            </Button>
+          </div>
+        </motion.div>
+      ) : selectedPlan && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] rounded-2xl p-8 text-white text-center"
+        >
+          <h2 className="text-2xl font-bold mb-2">Sẵn sàng nâng cấp?</h2>
+          <p className="text-white/80 mb-6 text-sm max-w-lg mx-auto">
+            Bắt đầu trải nghiệm đầy đủ SmartAttendance ngay hôm nay. Thanh toán an toàn, bảo mật.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Button
+              size="lg"
+              onClick={handleUpgrade}
+              disabled={isProcessing}
+              className="bg-white text-[var(--primary)] hover:bg-gray-100 px-8 font-semibold shadow-lg"
+            >
+              {isProcessing ? (
+                <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)] mr-2" />Đang xử lý...</>
+              ) : (
+                <><CreditCard className="h-4 w-4 mr-2" />Nâng cấp ngay<ArrowRight className="h-4 w-4 ml-2" /></>
+              )}
+            </Button>
+            <div className="flex items-center gap-4 text-sm text-white/70">
+              <span className="flex items-center gap-1"><Shield className="h-4 w-4" />Bảo mật 100%</span>
+              <span className="flex items-center gap-1"><Zap className="h-4 w-4" />Hủy bất cứ lúc nào</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Feature comparison highlights */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      >
+        {[
+          { icon: MapPin, label: "GPS chống gian lận", color: "text-blue-500" },
+          { icon: Brain, label: "AI Chatbot RAG", color: "text-purple-500" },
+          { icon: BarChart3, label: "Analytics đa chiều", color: "text-green-500" },
+          { icon: TrendingUp, label: "Tính lương tự động", color: "text-amber-500" },
+        ].map((item, i) => (
+          <div key={i} className="flex items-center gap-3 p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
+            <item.icon className={`h-5 w-5 shrink-0 ${item.color}`} />
+            <span className="text-sm text-[var(--text-main)]">{item.label}</span>
+          </div>
+        ))}
+      </motion.div>
+
+      {/* FAQ */}
+      <div className="max-w-2xl mx-auto space-y-4">
+        <h2 className="text-center text-lg font-semibold text-[var(--text-main)]">Câu hỏi thường gặp</h2>
+        {[
+          {
+            q: "Tôi có thể hủy đăng ký bất cứ lúc nào không?",
+            a: "Có. Bạn sẽ tiếp tục sử dụng đến hết chu kỳ thanh toán hiện tại.",
+          },
+          {
+            q: "Có được hoàn tiền nếu không hài lòng không?",
+            a: "Có. Chúng tôi hoàn tiền 100% trong 30 ngày đầu nếu bạn không hài lòng.",
+          },
+          {
+            q: "Dữ liệu của tôi có được bảo mật không?",
+            a: "Hoàn toàn. Dữ liệu được mã hóa end-to-end và tuân thủ tiêu chuẩn bảo mật quốc tế.",
+          },
+        ].map((faq, i) => (
+          <div key={i} className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] space-y-1">
+            <p className="font-medium text-sm text-[var(--text-main)]">{faq.q}</p>
+            <p className="text-sm text-[var(--text-sub)]">{faq.a}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+    {/* QR Payment Modal — chỉ khi đã đăng nhập (upgrade) */}
+    <AnimatePresence>
+      {!isCatalog && paymentResult && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setPaymentResult(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-[var(--primary)]" />
+                <h3 className="font-semibold text-[var(--text-main)]">Thanh toán qua QR</h3>
+              </div>
+              <button
+                onClick={() => setPaymentResult(null)}
+                className="p-1 rounded-lg hover:bg-[var(--surface)] text-[var(--text-sub)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-[var(--text-sub)]">
+              Quét mã QR bằng ứng dụng ngân hàng hoặc nhấn nút để mở trang thanh toán.
+            </p>
+
+            {paymentResult.qrCode && (
+              <div className="flex justify-center">
+                <img
+                  src={paymentResult.qrCode}
+                  alt="QR thanh toán PayOS"
+                  className="w-48 h-48 rounded-xl border border-[var(--border)]"
+                />
+              </div>
+            )}
+
+            <p className="text-xs text-center text-[var(--text-sub)]">
+              Mã đơn hàng: <span className="font-mono font-medium">#{paymentResult.orderCode}</span>
+            </p>
+
+            <Button
+              className="w-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white border-0"
+              onClick={() => { window.location.href = paymentResult.checkoutUrl; }}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Thanh toán online
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </motion.div>
+      )}
+    </AnimatePresence>
     </>
   );
 };

@@ -13,9 +13,6 @@ const LandingPage = lazy(() => import("@/components/LandingPage"));
 const PrivacyPolicyPage = lazy(() => import("@/components/PrivacyPolicyPage"));
 const TermsOfServicePage = lazy(() => import("@/components/TermsOfServicePage"));
 const PublicPricingPage = lazy(() => import("@/components/PublicPricingPage"));
-const AboutUsPage = lazy(() => import("@/components/AboutUsPage"));
-const FeaturesPage = lazy(() => import("@/components/FeaturesPage"));
-const CustomersPage = lazy(() => import("@/components/CustomersPage"));
 const Login = lazy(() => import("@/components/auth/Login"));
 const Register = lazy(() => import("@/components/auth/Register"));
 const VerifyOtp = lazy(() => import("@/components/auth/VerifyOtp"));
@@ -115,9 +112,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/pricing" element={<PublicPricingPage />} />
-            <Route path="/about" element={<AboutUsPage />} />
-            <Route path="/features" element={<FeaturesPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />
