@@ -11,8 +11,13 @@ import { UserRole, Permission } from "@/utils/roles";
 // Public Pages - Lazy Load
 const LandingPage = lazy(() => import("@/components/LandingPage"));
 const PrivacyPolicyPage = lazy(() => import("@/components/PrivacyPolicyPage"));
-const TermsOfServicePage = lazy(() => import("@/components/TermsOfServicePage"));
+const TermsOfServicePage = lazy(
+  () => import("@/components/TermsOfServicePage"),
+);
 const PublicPricingPage = lazy(() => import("@/components/PublicPricingPage"));
+const AboutUsPage = lazy(() => import("@/components/AboutUsPage"));
+const FeaturesPage = lazy(() => import("@/components/FeaturesPage"));
+const CustomersPage = lazy(() => import("@/components/CustomersPage"));
 const Login = lazy(() => import("@/components/auth/Login"));
 const Register = lazy(() => import("@/components/auth/Register"));
 const VerifyOtp = lazy(() => import("@/components/auth/VerifyOtp"));
@@ -20,85 +25,132 @@ const ForgotPassword = lazy(() => import("@/components/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/components/auth/ResetPassword"));
 
 // Dashboard Pages - Lazy Load
-const HomePageWrapper = lazy(() => import("@/components/dashboard/HomePageWrapper"));
+const HomePageWrapper = lazy(
+  () => import("@/components/dashboard/HomePageWrapper"),
+);
 const ScanPage = lazy(() => import("@/components/dashboard/pages/ScanPage"));
-const SchedulePage = lazy(() => import("@/components/dashboard/pages/SchedulePage"));
-const RequestsPage = lazy(() => import("@/components/dashboard/pages/RequestsPage"));
-const HistoryPage = lazy(() => import("@/components/dashboard/pages/HistoryPage"));
-const LeaveBalancePage = lazy(() => import("@/components/dashboard/pages/LeaveBalancePage"));
-const NotificationsPage = lazy(() => import("@/components/dashboard/pages/NotificationsPage"));
-const CameraCheckinPage = lazy(() => import("@/components/dashboard/pages/CameraCheckinPage"));
-const ProfilePage = lazy(() => import("@/components/dashboard/pages/ProfilePage"));
-const FaceRegistrationPage = lazy(() => import("@/components/dashboard/pages/FaceRegistrationPage"));
-const CompanyCalendarPage = lazy(() => import("@/components/dashboard/pages/CompanyCalendarPage"));
-const ApproveRequestsPage = lazy(() => import("@/components/dashboard/pages/ApproveRequestsPage"));
-const AttendanceAnalyticsPage = lazy(() => import("@/components/dashboard/pages/AttendanceAnalyticsPage"));
-const EmployeeManagementPage = lazy(() => import("@/components/dashboard/pages/EmployeeManagementPage"));
-const PayrollReportsPage = lazy(() => import("@/components/dashboard/pages/PayrollReportsPage"));
-const AuditLogsPage = lazy(() => import("@/components/dashboard/pages/AuditLogsPage"));
-const PayrollPage = lazy(() => import("@/components/dashboard/pages/PayrollPage"));
-const PerformanceReviewPage = lazy(() => import("@/components/dashboard/pages/PerformanceReviewPage"));
-const AdminAttendancePage = lazy(() => import("@/components/dashboard/pages/AdminAttendancePage"));
-const AdminReportsPage = lazy(() => import("@/components/dashboard/pages/AdminReportsPage"));
-const UpgradePage = lazy(() => import("@/components/dashboard/pages/UpgradePage"));
-const ChatbotPage = lazy(() => import("@/components/dashboard/pages/ChatbotPage"));
-const MyPayslipPage = lazy(() => import("@/components/dashboard/pages/MyPayslipPage"));
+const SchedulePage = lazy(
+  () => import("@/components/dashboard/pages/SchedulePage"),
+);
+const RequestsPage = lazy(
+  () => import("@/components/dashboard/pages/RequestsPage"),
+);
+const HistoryPage = lazy(
+  () => import("@/components/dashboard/pages/HistoryPage"),
+);
+const LeaveBalancePage = lazy(
+  () => import("@/components/dashboard/pages/LeaveBalancePage"),
+);
+const NotificationsPage = lazy(
+  () => import("@/components/dashboard/pages/NotificationsPage"),
+);
+const CameraCheckinPage = lazy(
+  () => import("@/components/dashboard/pages/CameraCheckinPage"),
+);
+const ProfilePage = lazy(
+  () => import("@/components/dashboard/pages/ProfilePage"),
+);
+const FaceRegistrationPage = lazy(
+  () => import("@/components/dashboard/pages/FaceRegistrationPage"),
+);
+const CompanyCalendarPage = lazy(
+  () => import("@/components/dashboard/pages/CompanyCalendarPage"),
+);
+const ApproveRequestsPage = lazy(
+  () => import("@/components/dashboard/pages/ApproveRequestsPage"),
+);
+const AttendanceAnalyticsPage = lazy(
+  () => import("@/components/dashboard/pages/AttendanceAnalyticsPage"),
+);
+const EmployeeManagementPage = lazy(
+  () => import("@/components/dashboard/pages/EmployeeManagementPage"),
+);
+const PayrollReportsPage = lazy(
+  () => import("@/components/dashboard/pages/PayrollReportsPage"),
+);
+const AuditLogsPage = lazy(
+  () => import("@/components/dashboard/pages/AuditLogsPage"),
+);
+const PayrollPage = lazy(
+  () => import("@/components/dashboard/pages/PayrollPage"),
+);
+const PerformanceReviewPage = lazy(
+  () => import("@/components/dashboard/pages/PerformanceReviewPage"),
+);
+const AdminAttendancePage = lazy(
+  () => import("@/components/dashboard/pages/AdminAttendancePage"),
+);
+const AdminReportsPage = lazy(
+  () => import("@/components/dashboard/pages/AdminReportsPage"),
+);
+const UpgradePage = lazy(
+  () => import("@/components/dashboard/pages/UpgradePage"),
+);
+const ChatbotPage = lazy(
+  () => import("@/components/dashboard/pages/ChatbotPage"),
+);
+const MyPayslipPage = lazy(
+  () => import("@/components/dashboard/pages/MyPayslipPage"),
+);
 // Trial analytics page removed
 
 // Named Exports - Lazy Load with proper handling
 const BranchesPage = lazy(() =>
   import("@/components/dashboard/pages/BranchesPage").then((module) => ({
     default: module.BranchesPage,
-  }))
+  })),
 );
 const DepartmentsPage = lazy(() =>
   import("@/components/dashboard/pages/DepartmentsPage").then((module) => ({
     default: module.DepartmentsPage,
-  }))
+  })),
 );
 const ShiftsPage = lazy(() =>
   import("@/components/dashboard/pages/ShiftsPage").then((module) => ({
     default: module.ShiftsPage,
-  }))
+  })),
 );
-const SalaryMatrixManagementPage = lazy(() =>
-  import("@/components/dashboard/pages/SalaryMatrixManagementPage")
+const SalaryMatrixManagementPage = lazy(
+  () => import("@/components/dashboard/pages/SalaryMatrixManagementPage"),
 );
-const SystemConfigPage = lazy(() =>
-  import("@/components/dashboard/pages/SystemConfigPage")
+const SystemConfigPage = lazy(
+  () => import("@/components/dashboard/pages/SystemConfigPage"),
 );
-const RoleManagementPage = lazy(() =>
-  import("@/components/dashboard/pages/RoleManagementPage")
+const RoleManagementPage = lazy(
+  () => import("@/components/dashboard/pages/RoleManagementPage"),
 );
-const FaceRecognitionLogPage = lazy(() =>
-  import("@/components/dashboard/pages/FaceRecognitionLogPage")
+const FaceRecognitionLogPage = lazy(
+  () => import("@/components/dashboard/pages/FaceRecognitionLogPage"),
 );
-const ActiveSessionsPage = lazy(() =>
-  import("@/components/dashboard/pages/ActiveSessionsPage")
+const ActiveSessionsPage = lazy(
+  () => import("@/components/dashboard/pages/ActiveSessionsPage"),
 );
-const SystemHealthPage = lazy(() =>
-  import("@/components/dashboard/pages/SystemHealthPage")
+const SystemHealthPage = lazy(
+  () => import("@/components/dashboard/pages/SystemHealthPage"),
 );
-const LeaveTypeManagementPage = lazy(() =>
-  import("@/components/dashboard/pages/LeaveTypeManagementPage")
+const LeaveTypeManagementPage = lazy(
+  () => import("@/components/dashboard/pages/LeaveTypeManagementPage"),
 );
-const LeaveApprovalPage = lazy(() =>
-  import("@/components/dashboard/pages/LeaveApprovalPage")
+const LeaveApprovalPage = lazy(
+  () => import("@/components/dashboard/pages/LeaveApprovalPage"),
 );
 
 // Layout & Common Components - Lazy Load
-const DashboardLayout = lazy(() => import("@/components/dashboard/DashboardLayout"));
+const DashboardLayout = lazy(
+  () => import("@/components/dashboard/DashboardLayout"),
+);
 const NotFoundPage = lazy(() => import("@/components/NotFoundPage"));
-
 
 // Loading component sử dụng Loader2 từ lucide-react
 const PageLoading = () => {
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(["common"]);
   return (
     <div className="flex items-center justify-center min-h-screen bg-[var(--background)]">
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-[var(--primary)]" />
-        <p className="text-[var(--text-sub)] text-sm font-medium">{t('common:messages.loading')}</p>
+        <p className="text-[var(--text-sub)] text-sm font-medium">
+          {t("common:messages.loading")}
+        </p>
       </div>
     </div>
   );
@@ -112,6 +164,9 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/pricing" element={<PublicPricingPage />} />
+            <Route path="/about" element={<AboutUsPage />} />
+            <Route path="/features" element={<FeaturesPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -131,18 +186,29 @@ export default function App() {
                 <Route path="leave-balance" element={<LeaveBalancePage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="camera-checkin" element={<CameraCheckinPage />} />
-                <Route path="face-registration" element={<FaceRegistrationPage />} />
+                <Route
+                  path="face-registration"
+                  element={<FaceRegistrationPage />}
+                />
                 <Route path="profile" element={<ProfilePage />} />
-                <Route path="company-calendar" element={<CompanyCalendarPage />} />
+                <Route
+                  path="company-calendar"
+                  element={<CompanyCalendarPage />}
+                />
                 <Route path="upgrade" element={<UpgradePage />} />
                 <Route path="chatbot" element={<ChatbotPage />} />
                 <Route path="my-payslip" element={<MyPayslipPage />} />
                 {/* Catch-all: redirect invalid employee routes to 404 */}
-                <Route path="*" element={<Navigate to="/not-found" replace />} />
+                <Route
+                  path="*"
+                  element={<Navigate to="/not-found" replace />}
+                />
               </Route>
 
               {/* Manager Routes - SUPERVISOR and above */}
-              <Route element={<ProtectedRoute minimumRole={UserRole.SUPERVISOR} />}>
+              <Route
+                element={<ProtectedRoute minimumRole={UserRole.SUPERVISOR} />}
+              >
                 <Route path="/manager" element={<DashboardLayout />}>
                   {/* Common employee routes */}
                   <Route path="scan" element={<ScanPage />} />
@@ -151,53 +217,84 @@ export default function App() {
                   <Route path="history" element={<HistoryPage />} />
                   <Route path="leave-balance" element={<LeaveBalancePage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
-                  <Route path="camera-checkin" element={<CameraCheckinPage />} />
-                  <Route path="face-registration" element={<FaceRegistrationPage />} />
+                  <Route
+                    path="camera-checkin"
+                    element={<CameraCheckinPage />}
+                  />
+                  <Route
+                    path="face-registration"
+                    element={<FaceRegistrationPage />}
+                  />
                   <Route path="profile" element={<ProfilePage />} />
-                  <Route path="company-calendar" element={<CompanyCalendarPage />} />
+                  <Route
+                    path="company-calendar"
+                    element={<CompanyCalendarPage />}
+                  />
                   <Route path="chatbot" element={<ChatbotPage />} />
                   <Route path="my-payslip" element={<MyPayslipPage />} />
                   {/* Manager specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
                     path="approve-requests"
-                    element={<ProtectedRoute permission={Permission.REQUESTS_APPROVE_DEPARTMENT} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.REQUESTS_APPROVE_DEPARTMENT}
+                      />
+                    }
                   >
                     <Route index element={<ApproveRequestsPage />} />
                   </Route>
                   <Route
                     path="attendance-analytics"
-                    element={<ProtectedRoute permission={Permission.ANALYTICS_VIEW_DEPARTMENT} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.ANALYTICS_VIEW_DEPARTMENT}
+                      />
+                    }
                   >
                     <Route index element={<AttendanceAnalyticsPage />} />
                   </Route>
                   <Route
                     path="performance-review"
-                    element={<ProtectedRoute permission={Permission.USERS_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                    }
                   >
                     <Route index element={<PerformanceReviewPage />} />
                   </Route>
                   <Route
                     path="shifts"
-                    element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_DEPARTMENT} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.ATTENDANCE_VIEW_DEPARTMENT}
+                      />
+                    }
                   >
                     <Route index element={<ShiftsPage />} />
                   </Route>
                   <Route
                     path="payroll-reports"
-                    element={<ProtectedRoute permission={Permission.VIEW_REPORTS} />}
+                    element={
+                      <ProtectedRoute permission={Permission.VIEW_REPORTS} />
+                    }
                   >
                     <Route index element={<PayrollReportsPage />} />
                   </Route>
                   <Route
                     path="admin-reports"
-                    element={<ProtectedRoute permission={Permission.VIEW_REPORTS} />}
+                    element={
+                      <ProtectedRoute permission={Permission.VIEW_REPORTS} />
+                    }
                   >
                     <Route index element={<AdminReportsPage />} />
                   </Route>
                   <Route
                     path="leave-approval"
-                    element={<ProtectedRoute permission={Permission.REQUESTS_APPROVE_DEPARTMENT} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.REQUESTS_APPROVE_DEPARTMENT}
+                      />
+                    }
                   >
                     <Route index element={<LeaveApprovalPage />} />
                   </Route>
@@ -206,12 +303,17 @@ export default function App() {
                   </Route>
                   {/* REMOVED: admin-attendance - Manager không có quyền truy cập */}
                   {/* Catch-all: redirect invalid manager routes to 404 */}
-                  <Route path="*" element={<Navigate to="/not-found" replace />} />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/not-found" replace />}
+                  />
                 </Route>
               </Route>
 
               {/* HR Routes - HR_MANAGER and above */}
-              <Route element={<ProtectedRoute minimumRole={UserRole.HR_MANAGER} />}>
+              <Route
+                element={<ProtectedRoute minimumRole={UserRole.HR_MANAGER} />}
+              >
                 <Route path="/hr" element={<DashboardLayout />}>
                   {/* Common employee routes */}
                   <Route path="scan" element={<ScanPage />} />
@@ -220,71 +322,108 @@ export default function App() {
                   <Route path="history" element={<HistoryPage />} />
                   <Route path="leave-balance" element={<LeaveBalancePage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
-                  <Route path="camera-checkin" element={<CameraCheckinPage />} />
-                  <Route path="face-registration" element={<FaceRegistrationPage />} />
+                  <Route
+                    path="camera-checkin"
+                    element={<CameraCheckinPage />}
+                  />
+                  <Route
+                    path="face-registration"
+                    element={<FaceRegistrationPage />}
+                  />
                   <Route path="profile" element={<ProfilePage />} />
-                  <Route path="company-calendar" element={<CompanyCalendarPage />} />
+                  <Route
+                    path="company-calendar"
+                    element={<CompanyCalendarPage />}
+                  />
                   <Route path="chatbot" element={<ChatbotPage />} />
                   <Route path="my-payslip" element={<MyPayslipPage />} />
                   {/* HR specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
                     path="employee-management"
-                    element={<ProtectedRoute permission={Permission.USERS_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                    }
                   >
                     <Route index element={<EmployeeManagementPage />} />
                   </Route>
                   <Route
                     path="payroll-reports"
-                    element={<ProtectedRoute permission={Permission.PAYROLL_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} />
+                    }
                   >
                     <Route index element={<PayrollReportsPage />} />
                   </Route>
                   <Route
                     path="approve-requests"
-                    element={<ProtectedRoute permission={Permission.REQUESTS_APPROVE_ALL} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.REQUESTS_APPROVE_ALL}
+                      />
+                    }
                   >
                     <Route index element={<ApproveRequestsPage />} />
                   </Route>
                   <Route
                     path="attendance-analytics"
-                    element={<ProtectedRoute permission={Permission.ANALYTICS_VIEW_ALL} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.ANALYTICS_VIEW_ALL}
+                      />
+                    }
                   >
                     <Route index element={<AttendanceAnalyticsPage />} />
                   </Route>
                   <Route
                     path="payroll"
-                    element={<ProtectedRoute permission={Permission.PAYROLL_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} />
+                    }
                   >
                     <Route index element={<PayrollPage />} />
                   </Route>
                   <Route
                     path="salary-matrix"
-                    element={<ProtectedRoute permission={Permission.PAYROLL_MANAGE} />}
+                    element={
+                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} />
+                    }
                   >
                     <Route index element={<SalaryMatrixManagementPage />} />
                   </Route>
                   <Route
                     path="performance-review"
-                    element={<ProtectedRoute permission={Permission.USERS_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                    }
                   >
                     <Route index element={<PerformanceReviewPage />} />
                   </Route>
                   <Route
                     path="admin-attendance"
-                    element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_ALL} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.ATTENDANCE_VIEW_ALL}
+                      />
+                    }
                   >
                     <Route index element={<AdminAttendancePage />} />
                   </Route>
                   <Route
                     path="admin-reports"
-                    element={<ProtectedRoute permission={Permission.VIEW_REPORTS} />}
+                    element={
+                      <ProtectedRoute permission={Permission.VIEW_REPORTS} />
+                    }
                   >
                     <Route index element={<AdminReportsPage />} />
                   </Route>
                   <Route
                     path="shifts"
-                    element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_DEPARTMENT} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.ATTENDANCE_VIEW_DEPARTMENT}
+                      />
+                    }
                   >
                     <Route index element={<ShiftsPage />} />
                   </Route>
@@ -292,7 +431,10 @@ export default function App() {
                     <Route index element={<LeaveTypeManagementPage />} />
                   </Route>
                   {/* Catch-all: redirect invalid HR routes to 404 */}
-                  <Route path="*" element={<Navigate to="/not-found" replace />} />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/not-found" replace />}
+                  />
                 </Route>
               </Route>
 
@@ -301,7 +443,10 @@ export default function App() {
                 <Route path="/admin" element={<DashboardLayout />}>
                   {/* Common employee routes */}
                   <Route path="profile" element={<ProfilePage />} />
-                  <Route path="company-calendar" element={<CompanyCalendarPage />} />
+                  <Route
+                    path="company-calendar"
+                    element={<CompanyCalendarPage />}
+                  />
                   <Route path="chatbot" element={<ChatbotPage />} />
                   <Route path="my-payslip" element={<MyPayslipPage />} />
                   <Route path="scan" element={<ScanPage />} />
@@ -310,91 +455,137 @@ export default function App() {
                   <Route path="history" element={<HistoryPage />} />
                   <Route path="leave-balance" element={<LeaveBalancePage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
-                  <Route path="face-registration" element={<FaceRegistrationPage />} />
-                  <Route path="camera-checkin" element={<CameraCheckinPage />} />
+                  <Route
+                    path="face-registration"
+                    element={<FaceRegistrationPage />}
+                  />
+                  <Route
+                    path="camera-checkin"
+                    element={<CameraCheckinPage />}
+                  />
                   {/* Admin specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
                     path="employee-management"
-                    element={<ProtectedRoute permission={Permission.USERS_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                    }
                   >
                     <Route index element={<EmployeeManagementPage />} />
                   </Route>
                   <Route
                     path="departments"
-                    element={<ProtectedRoute permission={Permission.DEPARTMENTS_VIEW} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.DEPARTMENTS_VIEW}
+                      />
+                    }
                   >
                     <Route index element={<DepartmentsPage />} />
                   </Route>
                   <Route
                     path="branches"
-                    element={<ProtectedRoute permission={Permission.BRANCHES_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.BRANCHES_VIEW} />
+                    }
                   >
                     <Route index element={<BranchesPage />} />
                   </Route>
                   <Route
                     path="approve-requests"
-                    element={<ProtectedRoute permission={Permission.REQUESTS_APPROVE_ALL} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.REQUESTS_APPROVE_ALL}
+                      />
+                    }
                   >
                     <Route index element={<ApproveRequestsPage />} />
                   </Route>
                   <Route
                     path="attendance-analytics"
-                    element={<ProtectedRoute permission={Permission.ANALYTICS_VIEW_ALL} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.ANALYTICS_VIEW_ALL}
+                      />
+                    }
                   >
                     <Route index element={<AttendanceAnalyticsPage />} />
                   </Route>
                   <Route
                     path="payroll-reports"
-                    element={<ProtectedRoute permission={Permission.PAYROLL_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} />
+                    }
                   >
                     <Route index element={<PayrollReportsPage />} />
                   </Route>
                   <Route
                     path="payroll"
-                    element={<ProtectedRoute permission={Permission.PAYROLL_MANAGE} />}
+                    element={
+                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} />
+                    }
                   >
                     <Route index element={<PayrollPage />} />
                   </Route>
                   <Route
                     path="salary-matrix"
-                    element={<ProtectedRoute permission={Permission.PAYROLL_MANAGE} />}
+                    element={
+                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} />
+                    }
                   >
                     <Route index element={<SalaryMatrixManagementPage />} />
                   </Route>
                   <Route
                     path="performance-review"
-                    element={<ProtectedRoute permission={Permission.USERS_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                    }
                   >
                     <Route index element={<PerformanceReviewPage />} />
                   </Route>
                   <Route
                     path="shifts"
-                    element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_DEPARTMENT} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.ATTENDANCE_VIEW_DEPARTMENT}
+                      />
+                    }
                   >
                     <Route index element={<ShiftsPage />} />
                   </Route>
                   <Route
                     path="admin-attendance"
-                    element={<ProtectedRoute permission={Permission.ATTENDANCE_VIEW_ALL} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.ATTENDANCE_VIEW_ALL}
+                      />
+                    }
                   >
                     <Route index element={<AdminAttendancePage />} />
                   </Route>
                   <Route
                     path="admin-reports"
-                    element={<ProtectedRoute permission={Permission.VIEW_REPORTS} />}
+                    element={
+                      <ProtectedRoute permission={Permission.VIEW_REPORTS} />
+                    }
                   >
                     <Route index element={<AdminReportsPage />} />
                   </Route>
                   <Route
                     path="audit-logs"
-                    element={<ProtectedRoute permission={Permission.AUDIT_LOGS_VIEW} />}
+                    element={
+                      <ProtectedRoute permission={Permission.AUDIT_LOGS_VIEW} />
+                    }
                   >
                     <Route index element={<AuditLogsPage />} />
                   </Route>
                   <Route
                     path="system-config"
-                    element={<ProtectedRoute permission={Permission.SYSTEM_SETTINGS_VIEW} />}
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.SYSTEM_SETTINGS_VIEW}
+                      />
+                    }
                   >
                     <Route index element={<SystemConfigPage />} />
                   </Route>
@@ -423,13 +614,19 @@ export default function App() {
                     <Route index element={<SystemHealthPage />} />
                   </Route>
                   {/* Catch-all: redirect invalid admin routes to 404 */}
-                  <Route path="*" element={<Navigate to="/not-found" replace />} />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/not-found" replace />}
+                  />
                 </Route>
               </Route>
             </Route>
 
             {/* Redirect /upgrade to employee upgrade page */}
-            <Route path="/upgrade" element={<Navigate to="/employee/upgrade" replace />} />
+            <Route
+              path="/upgrade"
+              element={<Navigate to="/employee/upgrade" replace />}
+            />
 
             {/* Public legal pages — no auth required */}
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
@@ -446,4 +643,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-

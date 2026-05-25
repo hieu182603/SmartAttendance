@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion'
-import { useNavigate, Link } from 'react-router-dom'
+import { motion } from "framer-motion";
+import { useNavigate, Link } from "react-router-dom";
 import {
   ArrowRight,
   Sparkles,
@@ -23,34 +23,37 @@ import {
   Phone,
   Mail,
   Building2,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useTheme } from '@/components/ThemeProvider'
-import { useAuth } from '@/context/AuthContext'
-import { useEffect } from 'react'
-import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/ThemeProvider";
+import { useAuth } from "@/context/AuthContext";
+import { useEffect } from "react";
+import { getRoleBasePath, type UserRoleType } from "@/utils/roles";
 
 export default function LandingPage() {
-  const navigate = useNavigate()
-  const { toggleTheme } = useTheme()
-  const { token, loading, user } = useAuth()
+  const navigate = useNavigate();
+  const { toggleTheme } = useTheme();
+  const { token, loading, user } = useAuth();
 
   // Redirect to appropriate dashboard based on role if already logged in
   useEffect(() => {
     if (!loading && token && user?.role) {
-      const basePath = getRoleBasePath(user.role as UserRoleType)
-      navigate(basePath, { replace: true })
+      const basePath = getRoleBasePath(user.role as UserRoleType);
+      navigate(basePath, { replace: true });
     } else if (!loading && token) {
-      navigate('/employee', { replace: true })
+      navigate("/employee", { replace: true });
     }
-  }, [token, loading, navigate, user])
+  }, [token, loading, navigate, user]);
 
   const onGetStarted = () => {
-    navigate('/register')
-  }
+    navigate("/register");
+  };
 
   return (
-    <div className="min-h-screen bg-background overflow-hidden relative" style={{ backgroundColor: 'var(--background)' }}>
+    <div
+      className="min-h-screen bg-background overflow-hidden relative"
+      style={{ backgroundColor: "var(--background)" }}
+    >
       {/* Animated Background */}
       <div className="fixed inset-0 -z-10">
         {/* Gradient Orbs — CSS animations (off JS main thread) */}
@@ -103,7 +106,7 @@ export default function LandingPage() {
               <span className="sr-only">Toggle theme</span>
             </Button>
             <Button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate("/login")}
               variant="outline"
               className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--surface)] hover:border-[var(--accent-cyan)] transition-all duration-300"
             >
@@ -137,16 +140,12 @@ export default function LandingPage() {
               transition={{ duration: 0.8, delay: 0.4 }}
               className="text-3xl md:text-5xl lg:text-6xl font-bold leading-tight"
             >
-              <span className="text-[var(--text-main)]">
-                Tiết Kiệm{' '}
-              </span>
+              <span className="text-[var(--text-main)]">Tiết Kiệm </span>
               <span className="bg-gradient-to-r from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--success)] bg-clip-text text-transparent animate-gradient">
                 20 Giờ/Tháng
               </span>
               <br />
-              <span className="text-[var(--text-main)]">
-                Quản Lý Chấm Công
-              </span>
+              <span className="text-[var(--text-main)]">Quản Lý Chấm Công</span>
             </motion.h1>
 
             {/* Value Proposition */}
@@ -156,9 +155,15 @@ export default function LandingPage() {
               transition={{ duration: 0.8, delay: 0.5 }}
               className="text-lg md:text-xl text-[var(--text-sub)] max-w-lg leading-relaxed"
             >
-              Giúp 12,000+ doanh nghiệp Việt Nam{' '}
-              <span className="text-[var(--text-main)] font-semibold">loại bỏ gian lận chấm công</span>,{' '}
-              <span className="text-[var(--text-main)] font-semibold">tính lương chính xác</span> trong 3 phút thay vì 3 ngày.
+              Giúp 12,000+ doanh nghiệp Việt Nam{" "}
+              <span className="text-[var(--text-main)] font-semibold">
+                loại bỏ gian lận chấm công
+              </span>
+              ,{" "}
+              <span className="text-[var(--text-main)] font-semibold">
+                tính lương chính xác
+              </span>{" "}
+              trong 3 phút thay vì 3 ngày.
             </motion.p>
 
             {/* Benefits Bar - NEW */}
@@ -169,14 +174,16 @@ export default function LandingPage() {
               className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-4"
             >
               {[
-                { icon: CheckCircle, text: 'Giảm 95% gian lận chấm công' },
-                { icon: Zap, text: 'Tính lương tự động, 0 sai sót' },
-                { icon: Clock, text: 'Setup trong 5 phút' },
-                { icon: Shield, text: 'Dùng thử miễn phí 7 ngày' },
+                { icon: CheckCircle, text: "Giảm 95% gian lận chấm công" },
+                { icon: Zap, text: "Tính lương tự động, 0 sai sót" },
+                { icon: Clock, text: "Setup trong 5 phút" },
+                { icon: Shield, text: "Dùng thử miễn phí 7 ngày" },
               ].map((benefit, idx) => (
                 <div key={idx} className="flex items-center space-x-2">
                   <benefit.icon className="h-5 w-5 text-[var(--success)] flex-shrink-0" />
-                  <span className="text-sm text-[var(--text-main)]">{benefit.text}</span>
+                  <span className="text-sm text-[var(--text-main)]">
+                    {benefit.text}
+                  </span>
                 </div>
               ))}
             </motion.div>
@@ -211,7 +218,7 @@ export default function LandingPage() {
 
               {/* Secondary CTA */}
               <Button
-                onClick={() => navigate('/login')}
+                onClick={() => navigate("/login")}
                 size="lg"
                 variant="outline"
                 className="border-2 border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--surface)] hover:border-[var(--accent-cyan)] transition-all duration-300 px-8 py-6"
@@ -273,9 +280,7 @@ export default function LandingPage() {
                 <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[var(--warning)] to-[var(--error)] bg-clip-text text-transparent mb-1">
                   24/7
                 </div>
-                <div className="text-sm text-[var(--text-sub)]">
-                  Hỗ trợ
-                </div>
+                <div className="text-sm text-[var(--text-sub)]">Hỗ trợ</div>
               </div>
             </motion.div>
           </div>
@@ -292,7 +297,7 @@ export default function LandingPage() {
               <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-[var(--accent-cyan)]/5" />
               <div className="relative">
                 <div className="flex items-center space-x-3 mb-6">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)]">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)]">
                     <Camera className="h-8 w-8 text-white" />
                   </div>
                   <div>
@@ -306,13 +311,13 @@ export default function LandingPage() {
                 </div>
 
                 <div className="aspect-square bg-[var(--input-bg)] rounded-2xl border-2 border-[var(--accent-cyan)] relative overflow-hidden mb-6 animate-glow">
-                <img
-                  src="/ảnh/FACEid1.gif"
-                  alt="Face recognition demo"
-                  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-                  fetchPriority="high"
-                  style={{ display: 'block' }}
-                />
+                  <img
+                    src="/ảnh/FACEid1.gif"
+                    alt="Face recognition demo"
+                    className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                    fetchPriority="high"
+                    style={{ display: "block" }}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
@@ -320,9 +325,7 @@ export default function LandingPage() {
                     <CheckCircle className="h-4 w-4" />
                     <span>GPS verified</span>
                   </div>
-                  <div className="text-[var(--text-sub)]">
-                    08:45 AM
-                  </div>
+                  <div className="text-[var(--text-sub)]">08:45 AM</div>
                 </div>
               </div>
             </div>
@@ -330,16 +333,12 @@ export default function LandingPage() {
             {/* Floating Elements */}
             <div className="animate-float-badge-up absolute top-10 -right-10 z-20 bg-gradient-to-br from-[var(--success)]/90 to-[var(--accent-cyan)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--success)]/30">
               <MapPin className="h-8 w-8 text-white mb-2" />
-              <div className="text-white text-sm">
-                GPS Active
-              </div>
+              <div className="text-white text-sm">GPS Active</div>
             </div>
 
             <div className="animate-float-badge-down absolute bottom-10 -left-10 z-20 bg-gradient-to-br from-[var(--primary)]/90 to-[var(--warning)]/90 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-[var(--primary)]/30">
               <Users className="h-8 w-8 text-white mb-2" />
-              <div className="text-white text-sm">
-                52 Online
-              </div>
+              <div className="text-white text-sm">52 Online</div>
             </div>
           </motion.div>
         </div>
@@ -360,7 +359,7 @@ export default function LandingPage() {
             </span>
           </div>
           <h2 className="text-3xl md:text-5xl font-bold mb-4 text-[var(--text-main)]">
-            Xem SmartAttendance{' '}
+            Xem SmartAttendance{" "}
             <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
               Hoạt Động
             </span>
@@ -446,7 +445,9 @@ export default function LandingPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold mb-1">Product Demo</h3>
-                  <p className="text-sm text-white/80">Xem cách SmartAttendance giúp tiết kiệm thời gian quản lý</p>
+                  <p className="text-sm text-white/80">
+                    Xem cách SmartAttendance giúp tiết kiệm thời gian quản lý
+                  </p>
                 </div>
                 <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm">
                   1:30
@@ -462,8 +463,12 @@ export default function LandingPage() {
                 <CheckCircle className="h-5 w-5 text-[var(--success)]" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-[var(--text-main)]">Check-in</div>
-                <div className="text-xs text-[var(--text-sub)]">3 giây hoàn thành</div>
+                <div className="text-sm font-semibold text-[var(--text-main)]">
+                  Check-in
+                </div>
+                <div className="text-xs text-[var(--text-sub)]">
+                  3 giây hoàn thành
+                </div>
               </div>
             </div>
 
@@ -472,8 +477,12 @@ export default function LandingPage() {
                 <BarChart3 className="h-5 w-5 text-[var(--primary)]" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-[var(--text-main)]">Dashboard Real-time</div>
-                <div className="text-xs text-[var(--text-sub)]">Theo dõi ngay lập tức</div>
+                <div className="text-sm font-semibold text-[var(--text-main)]">
+                  Dashboard Real-time
+                </div>
+                <div className="text-xs text-[var(--text-sub)]">
+                  Theo dõi ngay lập tức
+                </div>
               </div>
             </div>
 
@@ -482,8 +491,12 @@ export default function LandingPage() {
                 <Zap className="h-5 w-5 text-[var(--accent-cyan)]" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-[var(--text-main)]">Tính Lương Tự Động</div>
-                <div className="text-xs text-[var(--text-sub)]">Chính xác 100%</div>
+                <div className="text-sm font-semibold text-[var(--text-main)]">
+                  Tính Lương Tự Động
+                </div>
+                <div className="text-xs text-[var(--text-sub)]">
+                  Chính xác 100%
+                </div>
               </div>
             </div>
           </div>
@@ -517,55 +530,46 @@ export default function LandingPage() {
               title: "Check-in",
               description:
                 "Chấm công nhanh chóng, chính xác với ảnh, GPS và nhận diện khuôn mặt độc quyền",
-              color:
-                "from-[var(--primary)] to-[var(--accent-cyan)]",
+              color: "from-[var(--primary)] to-[var(--accent-cyan)]",
               delay: 0.1,
             },
             {
               icon: MapPin,
               title: "Định vị GPS",
-              description:
-                "Xác minh vị trí chấm công tự động, chống gian lận",
-              color:
-                "from-[var(--success)] to-[var(--accent-cyan)]",
+              description: "Xác minh vị trí chấm công tự động, chống gian lận",
+              color: "from-[var(--success)] to-[var(--accent-cyan)]",
               delay: 0.2,
             },
             {
               icon: Zap,
               title: "Xử lý Real-time",
-              description:
-                "Dữ liệu cập nhật tức thì, không chậm trễ",
+              description: "Dữ liệu cập nhật tức thì, không chậm trễ",
               color: "from-[var(--warning)] to-[var(--error)]",
               delay: 0.3,
             },
             {
               icon: Shield,
               title: "Bảo mật tuyệt đối",
-              description:
-                "Mã hóa end-to-end, an toàn dữ liệu 100%",
+              description: "Mã hóa end-to-end, an toàn dữ liệu 100%",
               color: "from-[var(--error)] to-[var(--primary)]",
               delay: 0.4,
             },
             {
               icon: BarChart3,
               title: "Báo cáo chi tiết",
-              description:
-                "Phân tích sâu, xuất báo cáo đa dạng",
-              color:
-                "from-[var(--accent-cyan)] to-[var(--success)]",
+              description: "Phân tích sâu, xuất báo cáo đa dạng",
+              color: "from-[var(--accent-cyan)] to-[var(--success)]",
               delay: 0.5,
             },
             {
               icon: Users,
               title: "Quản lý linh hoạt",
-              description:
-                "Phân quyền chi tiết, dễ dàng mở rộng",
-              color:
-                "from-[var(--primary)] to-[var(--success)]",
+              description: "Phân quyền chi tiết, dễ dàng mở rộng",
+              color: "from-[var(--primary)] to-[var(--success)]",
               delay: 0.6,
             },
           ].map((feature, index) => {
-            const Icon = feature.icon
+            const Icon = feature.icon;
             return (
               <motion.div
                 key={index}
@@ -597,7 +601,7 @@ export default function LandingPage() {
                   </p>
                 </div>
               </motion.div>
-            )
+            );
           })}
         </div>
       </section>
@@ -641,7 +645,7 @@ export default function LandingPage() {
               transition={{ duration: 0.6, delay: 0.4 }}
             >
               <Button
-                onClick={() => navigate('/register')}
+                onClick={() => navigate("/register")}
                 size="lg"
                 className="bg-white text-[var(--primary)] hover:bg-white/90 text-lg px-12 py-6"
               >
@@ -670,8 +674,8 @@ export default function LandingPage() {
                 </span>
               </div>
               <p className="text-sm text-[var(--text-sub)] leading-relaxed">
-                Giải pháp chấm công thông minh hàng đầu Việt Nam,
-                giúp doanh nghiệp quản lý nhân sự hiệu quả và chính xác.
+                Giải pháp chấm công thông minh hàng đầu Việt Nam, giúp doanh
+                nghiệp quản lý nhân sự hiệu quả và chính xác.
               </p>
               <div className="flex items-center space-x-3">
                 <a
@@ -709,29 +713,19 @@ export default function LandingPage() {
               </h3>
               <ul className="space-y-3">
                 {[
-                  { label: 'Về chúng tôi', href: '#' },
-                  { label: 'Tính năng', href: '#' },
-                  { label: 'Bảng giá', to: '/pricing' },
-                  { label: 'Khách hàng', href: '#' },
+                  { label: "Về chúng tôi", to: "/about" },
+                  { label: "Tính năng", to: "/features" },
+                  { label: "Bảng giá", to: "/pricing" },
+                  { label: "Khách hàng", to: "/customers" },
                 ].map((link, index) => (
                   <li key={index}>
-                    {'to' in link && link.to ? (
-                      <Link
-                        to={link.to}
-                        className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors duration-300 flex items-center space-x-2 group"
-                      >
-                        <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <span>{link.label}</span>
-                      </Link>
-                    ) : (
-                      <a
-                        href={link.href}
-                        className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors duration-300 flex items-center space-x-2 group"
-                      >
-                        <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <span>{link.label}</span>
-                      </a>
-                    )}
+                    <Link
+                      to={link.to}
+                      className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors duration-300 flex items-center space-x-2 group"
+                    >
+                      <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <span>{link.label}</span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -745,10 +739,10 @@ export default function LandingPage() {
               </h3>
               <ul className="space-y-3">
                 {[
-                  { label: 'Hướng dẫn sử dụng', href: '#', icon: FileText },
-                  { label: 'Câu hỏi thường gặp', href: '#', icon: HelpCircle },
-                  { label: 'Hỗ trợ kỹ thuật', href: '#', icon: Shield },
-                  { label: 'Điều khoản dịch vụ', href: '#', icon: FileText },
+                  { label: "Hướng dẫn sử dụng", href: "#", icon: FileText },
+                  { label: "Câu hỏi thường gặp", href: "#", icon: HelpCircle },
+                  { label: "Hỗ trợ kỹ thuật", href: "#", icon: Shield },
+                  { label: "Điều khoản dịch vụ", href: "#", icon: FileText },
                 ].map((link, index) => (
                   <li key={index}>
                     <a
@@ -802,6 +796,5 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }
-
