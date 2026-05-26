@@ -15,7 +15,7 @@ export class NotificationService {
 
     // Emit real-time notification via Socket.io
     try {
-      emitNotification(data.userId, {
+      emitNotification(String(data.userId), {
         _id: notification._id,
         type: notification.type,
         title: notification.title,

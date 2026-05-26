@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react'
+import { useAuth } from '@/context/AuthContext'
 import { useSocket } from '@/hooks/useSocket'
 import {
   getNotifications,
@@ -22,6 +23,7 @@ interface NotificationsContextType {
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined)
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
+  const { token, user } = useAuth()
   const socket = useSocket()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,8 +47,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [unreadCount])
 
   const loadNotifications = useCallback(async () => {
-    // Check if user is authenticated before making API call
-    const token = localStorage.getItem('sa_token')
     if (!token) {
       setLoading(false)
       setNotifications([])
@@ -59,7 +59,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       setNotifications(data.notifications)
     } catch (error) {
       console.error('[useNotifications] loadNotifications error:', error)
-      // If 401 error, clear notifications (user logged out)
       const err = error as Error & { response?: { status?: number } }
       if (err.response?.status === 401) {
         setNotifications([])
@@ -67,41 +66,20 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [token])
 
   useEffect(() => {
-    // Only load notifications if user is authenticated
-    const token = localStorage.getItem('sa_token')
-    if (token) {
+    if (token && user) {
       loadNotifications()
     } else {
       setLoading(false)
       setNotifications([])
     }
-  }, [loadNotifications])
+  }, [token, user, loadNotifications])
 
-  // Listen for token changes (login/logout) to reload notifications
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'sa_token') {
-        if (e.newValue) {
-          // Token was added (user logged in)
-          loadNotifications()
-        } else {
-          // Token was removed (user logged out)
-          setNotifications([])
-          setLoading(false)
-        }
-      }
-    }
-
-    // Listen for storage events (from other tabs/windows)
-    window.addEventListener('storage', handleStorageChange)
-
-    // Also listen for custom events (from same tab)
-    const handleTokenChange = () => {
-      const token = localStorage.getItem('sa_token')
-      if (token) {
+    const handleAuthChange = () => {
+      if (token && user) {
         loadNotifications()
       } else {
         setNotifications([])
@@ -109,13 +87,14 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       }
     }
 
-    window.addEventListener('auth-token-changed', handleTokenChange)
+    window.addEventListener('auth-token-changed', handleAuthChange)
+    window.addEventListener('auth-token-refreshed', handleAuthChange)
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('auth-token-changed', handleTokenChange)
+      window.removeEventListener('auth-token-changed', handleAuthChange)
+      window.removeEventListener('auth-token-refreshed', handleAuthChange)
     }
-  }, [loadNotifications])
+  }, [token, user, loadNotifications])
 
   useEffect(() => {
     if (!socket) return

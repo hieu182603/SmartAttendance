@@ -245,7 +245,7 @@ export const createRequest = async (req, res) => {
       if (doc.userId?.department) {
         const departmentManagers = await UserModel.find({
           department: doc.userId.department._id || doc.userId.department,
-          role: { $in: ['MANAGER', 'HR_MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+          role: { $in: ['MANAGER', 'HR_MANAGER', 'SUPERVISOR', 'ADMIN', 'SUPER_ADMIN'] },
           isActive: true
         }).select('_id');
 
