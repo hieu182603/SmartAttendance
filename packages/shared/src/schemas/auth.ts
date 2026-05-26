@@ -12,10 +12,6 @@ export const registerSchema = z.object({
     .string()
     .min(2, "Họ và tên phải có ít nhất 2 ký tự")
     .max(100, "Họ và tên không được vượt quá 100 ký tự"),
-  companyName: z
-    .string()
-    .min(2, "Tên công ty phải có ít nhất 2 ký tự")
-    .max(100, "Tên công ty không được vượt quá 100 ký tự"),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
