@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Target, Shield, Zap, Heart, Award, Users } from 'lucide-react';
+import { Target, Shield, Zap, Heart, Users, Headset, Sparkles, ScanFace } from 'lucide-react';
 import { motion } from 'framer-motion';
+import PublicSiteLayout from '@/components/PublicSiteLayout';
 
 export default function AboutUsPage() {
   const values = [
@@ -34,30 +34,47 @@ export default function AboutUsPage() {
     }
   ];
 
-  return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--shell)]/80 backdrop-blur-xl">
-        <div className="container mx-auto flex h-16 items-center justify-between px-6">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm text-[var(--text-sub)] transition-colors hover:text-[var(--accent-cyan)]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Trang chủ
-          </Link>
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-[var(--accent-cyan)]" />
-            <span className="text-lg font-semibold text-[var(--text-main)]">SmartAttendance</span>
-          </div>
-          <Link
-            to="/login"
-            className="text-sm font-medium text-[var(--accent-cyan)] hover:underline"
-          >
-            Đăng nhập
-          </Link>
-        </div>
-      </header>
+  const stats = [
+    {
+      icon: Users,
+      value: "Sẵn sàng",
+      label: "Phục vụ doanh nghiệp",
+      desc: "Triển khai B2B theo quy mô",
+      iconBg: "bg-blue-500/15",
+      iconColor: "text-blue-400",
+      accent: "from-blue-500/20 to-transparent",
+    },
+    {
+      icon: ScanFace,
+      value: "90%",
+      label: "AI Face ID",
+      desc: "Độ chính xác nhận diện khuôn mặt",
+      iconBg: "bg-cyan-500/15",
+      iconColor: "text-[var(--accent-cyan)]",
+      accent: "from-cyan-500/20 to-transparent",
+    },
+    {
+      icon: Heart,
+      value: "100%",
+      label: "Tâm huyết đội ngũ",
+      desc: "Đồng hành dài hạn",
+      iconBg: "bg-emerald-500/15",
+      iconColor: "text-emerald-400",
+      accent: "from-emerald-500/20 to-transparent",
+    },
+    {
+      icon: Headset,
+      value: "24/7",
+      label: "Hỗ trợ",
+      desc: "Phản hồi nhanh qua ticket",
+      iconBg: "bg-amber-500/15",
+      iconColor: "text-amber-400",
+      accent: "from-amber-500/20 to-transparent",
+    },
+  ] as const;
 
+  return (
+    <PublicSiteLayout>
       <main className="pb-20">
         {/* Hero Section */}
         <section className="relative py-20 lg:py-32 overflow-hidden">
@@ -156,33 +173,65 @@ export default function AboutUsPage() {
         </section>
 
         {/* Stats Section */}
-        <section className="py-16 bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]">
+        <section className="py-16 lg:py-20">
           <div className="container mx-auto px-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
-              <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}>
-                <Users className="h-8 w-8 mx-auto mb-2 opacity-80" />
-                <div className="text-4xl font-bold mb-1">Sẵn sàng</div>
-                <div className="text-white/80 text-sm font-medium uppercase tracking-wider">Phục vụ doanh nghiệp</div>
+            <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)]/70 p-8 shadow-[0_8px_40px_rgba(0,0,0,0.12)] backdrop-blur-sm md:p-12">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[var(--primary)]/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-[var(--accent-cyan)]/10 blur-3xl" />
+
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="relative z-10 mx-auto mb-10 max-w-2xl text-center"
+              >
+                <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--accent-cyan)]/25 bg-[var(--accent-cyan)]/8 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[var(--accent-cyan)]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Cam kết của chúng tôi
+                </span>
+                <h2 className="text-3xl font-bold tracking-tight text-[var(--text-main)] md:text-4xl">
+                  Những con số{" "}
+                  <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
+                    bạn có thể tin cậy
+                  </span>
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-[var(--text-sub)] md:text-base">
+                  Cam kết rõ ràng về độ tin cậy, chất lượng dịch vụ và sự đồng hành lâu dài cùng doanh nghiệp.
+                </p>
               </motion.div>
-              <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }}>
-                <Award className="h-8 w-8 mx-auto mb-2 opacity-80" />
-                <div className="text-4xl font-bold mb-1">99.9%</div>
-                <div className="text-white/80 text-sm font-medium uppercase tracking-wider">Độ chính xác</div>
-              </motion.div>
-              <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.2 }}>
-                <Clock className="h-8 w-8 mx-auto mb-2 opacity-80" />
-                <div className="text-4xl font-bold mb-1">100%</div>
-                <div className="text-white/80 text-sm font-medium uppercase tracking-wider">Tâm huyết đội ngũ</div>
-              </motion.div>
-              <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.3 }}>
-                <Target className="h-8 w-8 mx-auto mb-2 opacity-80" />
-                <div className="text-4xl font-bold mb-1">24/7</div>
-                <div className="text-white/80 text-sm font-medium uppercase tracking-wider">Hỗ trợ</div>
-              </motion.div>
+
+              <div className="relative z-10 mx-auto grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {stats.map((stat, idx) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 16 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.07, duration: 0.4 }}
+                    className="group relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--accent-cyan)]/30 hover:shadow-[0_12px_32px_rgba(0,0,0,0.15)]"
+                  >
+                    <div
+                      className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${stat.accent} opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
+                    />
+                    <div className="relative">
+                      <div
+                        className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconBg} transition-transform duration-300 group-hover:scale-105`}
+                      >
+                        <stat.icon className={`h-5 w-5 ${stat.iconColor}`} strokeWidth={1.75} />
+                      </div>
+                      <p className="text-2xl font-bold tracking-tight text-[var(--text-main)] md:text-[1.75rem] leading-tight">
+                        {stat.value}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--text-main)]">{stat.label}</p>
+                      <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-sub)]">{stat.desc}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
       </main>
-    </div>
+    </PublicSiteLayout>
   );
 }

@@ -123,6 +123,18 @@ export class DashboardController {
       });
     }
   }
+
+  static async getSuperAdminStats(req, res) {
+    try {
+      const stats = await DashboardService.getSuperAdminStats();
+      return res.status(200).json(stats);
+    } catch (error) {
+      console.error("[DashboardController] getSuperAdminStats error:", error);
+      return res.status(500).json({
+        message: error.message || "Lỗi server. Vui lòng thử lại sau.",
+      });
+    }
+  }
 }
 
 

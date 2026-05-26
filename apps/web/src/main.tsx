@@ -1,3 +1,6 @@
+import { initSentry } from '@/config/sentry'
+initSentry()
+
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
@@ -8,6 +11,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AuthProvider } from '@/context/AuthContext'
 import { NotificationsProvider } from '@/context/NotificationsContext'
 import { PermissionsProvider } from '@/context/PermissionsContext'
+import { SuperAdminProvider } from '@/context/SuperAdminContext'
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -15,9 +19,11 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <AuthProvider>
           <PermissionsProvider>
-            <NotificationsProvider>
-              <App />
-            </NotificationsProvider>
+            <SuperAdminProvider>
+              <NotificationsProvider>
+                <App />
+              </NotificationsProvider>
+            </SuperAdminProvider>
           </PermissionsProvider>
         </AuthProvider>
       </BrowserRouter>

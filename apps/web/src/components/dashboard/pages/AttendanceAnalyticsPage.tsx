@@ -29,6 +29,7 @@ import {
 } from 'recharts'
 import { getAttendanceAnalytics, exportAttendanceAnalytics } from '@/services/attendanceService'
 import { DepartmentAttendanceDetailDialog } from './DepartmentAttendanceDetailDialog'
+import { SuperAdminCompanyFilterSlot } from '@/components/dashboard/SuperAdminCompanyFilterSlot'
 
 type Period = '7days' | '30days' | '90days'
 
@@ -224,7 +225,8 @@ const AttendanceAnalyticsPage: React.FC = () => {
             {t('dashboard:attendanceAnalytics.description')}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SuperAdminCompanyFilterSlot />
           <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as Period)}>
             <SelectTrigger className="w-[150px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
               <SelectValue

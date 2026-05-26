@@ -123,7 +123,10 @@ export class AuthController {
             });
 
             if (error.message === "Email already registered") {
-                return res.status(409).json({ message: "Email đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập." });
+                return res.status(400).json({
+                    message:
+                        "Không thể đăng ký với thông tin này. Vui lòng dùng email khác hoặc đăng nhập nếu bạn đã có tài khoản.",
+                });
             }
             if (error.message === "Không thể tạo mã OTP. Vui lòng thử lại.") {
                 return res.status(500).json({ message: error.message });
@@ -554,6 +557,12 @@ export class AuthController {
             console.error("Logout error:", error);
             return res.status(500).json({ message: "Internal server error" });
         }
+    }
+
+    /** Xóa refresh cookie khi access token đã hết hạn (không cần auth). */
+    static async clearSessionCookie(_req, res) {
+        res.clearCookie(REFRESH_COOKIE, { path: COOKIE_OPTIONS.path });
+        return res.status(200).json({ message: "Session cleared" });
     }
 
     static async getAdminSessions(req, res) {

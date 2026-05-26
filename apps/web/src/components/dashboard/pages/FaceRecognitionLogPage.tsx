@@ -19,17 +19,31 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { getAllLogs, type AuditLog } from '@/services/logService';
 import { formatIpAddress } from '@/utils/formatIpAddress';
+import { useAuth } from '@/context/AuthContext';
+import { SuperAdminCompanyFilterSlot } from '@/components/dashboard/SuperAdminCompanyFilterSlot';
+import { toast } from 'sonner';
 
 const ACTION_LABELS: Record<string, string> = {
   face_scan_success: 'Xác thực thành công',
+  face_scan_check_in: 'Check-in (khuôn mặt)',
+  face_scan_check_out: 'Check-out (khuôn mặt)',
   face_fallback_otp_success: 'OTP fallback thành công',
   face_scan_failed: 'Xác thực thất bại',
   face_spoof_detected: 'Phát hiện giả mạo',
 };
 
+function getEventLabel(log: FaceLog): string {
+  const base = ACTION_LABELS[log.action] || log.action;
+  const sub = log.metadata?.attendanceAction as string | undefined;
+  if (log.action === 'face_scan_success' && sub === 'check_in') return 'Xác thực thành công (Check-in)';
+  if (log.action === 'face_scan_success' && sub === 'check_out') return 'Xác thực thành công (Check-out)';
+  return base;
+}
+
 const ACTION_BADGE: Record<string, 'error' | 'warning' | 'outline' | 'success'> = {
   face_scan_success: 'success',
-  /** outline + class riêng để phân biệt với quét mặt thuần */
+  face_scan_check_in: 'success',
+  face_scan_check_out: 'success',
   face_fallback_otp_success: 'outline',
   face_scan_failed: 'warning',
   face_spoof_detected: 'error',
@@ -55,6 +69,7 @@ interface FaceLog extends AuditLog {
     requireOtpFallback?: boolean;
     confidence?: number;
     threshold?: number;
+    attendanceAction?: 'check_in' | 'check_out';
   };
 }
 
@@ -65,6 +80,7 @@ function getStatusBadge(status: FaceLog['status']): { variant: 'success' | 'erro
 }
 
 export default function FaceRecognitionLogPage() {
+  const { token, loading: authLoading } = useAuth();
   const [logs, setLogs] = useState<FaceLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterAction, setFilterAction] = useState('all');
@@ -76,6 +92,7 @@ export default function FaceRecognitionLogPage() {
   const [stats, setStats] = useState({ total: 0, success: 0, failed: 0, serviceErrors: 0 });
 
   const fetchLogs = useCallback(async (page = 1) => {
+    if (!token) return;
     setLoading(true);
     try {
       const params: Record<string, string | number> = {
@@ -87,12 +104,11 @@ export default function FaceRecognitionLogPage() {
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
 
-      const res = await getAllLogs(params as any);
+      const res = await getAllLogs(params);
       setLogs(res.logs as FaceLog[]);
       setPagination({ total: res.pagination.total, totalPages: res.pagination.totalPages });
 
-      // Compute stats from all logs (separate call without action filter)
-      const allRes = await getAllLogs({ category: 'face_recognition', limit: 1000 } as any);
+      const allRes = await getAllLogs({ category: 'face_recognition', limit: 1000 });
       const allLogs = allRes.logs as FaceLog[];
       setStats({
         total: allLogs.length,
@@ -102,15 +118,22 @@ export default function FaceRecognitionLogPage() {
           l.metadata?.errorCode === 'AI_SERVICE_UNAVAILABLE' || l.metadata?.errorCode === 'AI_SERVICE_TIMEOUT'
         ).length,
       });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Không tải được nhật ký';
+      toast.error(msg);
+      setLogs([]);
+      setPagination({ total: 0, totalPages: 0 });
+      setStats({ total: 0, success: 0, failed: 0, serviceErrors: 0 });
     } finally {
       setLoading(false);
     }
-  }, [filterAction, startDate, endDate]);
+  }, [filterAction, startDate, endDate, token]);
 
   useEffect(() => {
+    if (authLoading || !token) return;
     setCurrentPage(1);
     fetchLogs(1);
-  }, [fetchLogs]);
+  }, [authLoading, token, fetchLogs]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -123,8 +146,8 @@ export default function FaceRecognitionLogPage() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6 p-6"
     >
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-(--text-primary) flex items-center gap-2">
             <ScanFace className="h-6 w-6 text-(--primary)" />
             Nhật ký xác thực khuôn mặt
@@ -133,10 +156,13 @@ export default function FaceRecognitionLogPage() {
             Theo dõi các lần xác thực thất bại và cảnh báo bảo mật
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => fetchLogs(currentPage)} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Làm mới
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0 sm:ml-auto">
+          <SuperAdminCompanyFilterSlot />
+          <Button variant="outline" size="sm" onClick={() => fetchLogs(currentPage)} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Làm mới
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -186,7 +212,7 @@ export default function FaceRecognitionLogPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end">
-        <div className="w-48">
+        <div className="w-full sm:w-48">
           <Select value={filterAction} onValueChange={setFilterAction}>
             <SelectTrigger>
               <SelectValue placeholder="Loại sự kiện" />
@@ -276,7 +302,7 @@ export default function FaceRecognitionLogPage() {
                       variant={ACTION_BADGE[log.action] || 'outline'}
                       className={ACTION_EVENT_BADGE_CLASS[log.action]}
                     >
-                      {ACTION_LABELS[log.action] || log.action}
+                      {getEventLabel(log)}
                     </Badge>
                   </TableCell>
                   <TableCell>

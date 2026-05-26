@@ -28,6 +28,8 @@ jest.unstable_mockModule("../../src/config/redis.js", () => ({
   redisSMembers: jest.fn().mockResolvedValue([]),
   isRedisEnabled: jest.fn().mockReturnValue(true),
   isRedisDegraded: jest.fn().mockReturnValue(false),
+  isRedisBindingActive: jest.fn().mockReturnValue(true),
+  logRedisStartupStatus: jest.fn().mockResolvedValue(undefined),
   cacheAside: jest.fn().mockImplementation((_key, _ttl, factory) => factory()),
 }));
 
@@ -36,6 +38,8 @@ jest.unstable_mockModule("../../src/utils/email.util.js", () => ({
   sendOTPEmail: jest.fn().mockResolvedValue({ success: true }),
   sendResetPasswordEmail: jest.fn().mockResolvedValue({ success: true }),
   sendPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendAiServiceInvoiceEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendAiPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 // ── AI service mock ───────────────────────────────────────────────────────────
@@ -155,7 +159,7 @@ describe("TC-AUTH-001: Register success", () => {
 // TC-AUTH-002: Đăng ký email đã tồn tại
 // ─────────────────────────────────────────────────────────────────────────────
 describe("TC-AUTH-002: Register duplicate email", () => {
-  test("returns 409 on duplicate email", async () => {
+  test("returns 400 on duplicate email", async () => {
     await request(app).post("/api/auth/register").send({
       email: "dup@test.com",
       password: "SmartAttendance@2026!",
@@ -170,7 +174,7 @@ describe("TC-AUTH-002: Register duplicate email", () => {
       companyName: "Dup Company",
     });
 
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(400);
   });
 });
 

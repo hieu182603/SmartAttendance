@@ -29,6 +29,8 @@ import { redisGet, redisSet } from "../../config/redis.js";
 import { OtpModel } from "../otp/otp.model.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail } from "../../utils/email.util.js";
+import { getClientIpAddress } from "../../utils/client-ip.util.js";
+import { logFaceRecognitionEvent } from "../face/face-audit.util.js";
 
 const FACE_FAIL_THRESHOLD = FACE_FALLBACK_CONFIG.FAIL_THRESHOLD;
 const FACE_FAIL_TTL = FACE_FALLBACK_CONFIG.FAIL_TTL_SECONDS;
@@ -37,12 +39,30 @@ const faceFailKey = (userId) => `face_fail:${userId}`;
 /**
  * Track face verification failure. Returns true khi đạt threshold và đã gửi OTP.
  */
-async function handleFaceFailure(userId) {
+async function handleFaceFailure(userId, req, attendanceAction, extra = {}) {
   const current = (await redisGet(faceFailKey(userId))) || 0;
   const newCount = current + 1;
   await redisSet(faceFailKey(userId), newCount, FACE_FAIL_TTL);
 
-  if (newCount >= FACE_FAIL_THRESHOLD) {
+  const requireOtpFallback = newCount >= FACE_FAIL_THRESHOLD;
+
+  await logFaceRecognitionEvent({
+    userId,
+    action: "face_scan_failed",
+    status: "failed",
+    details: {
+      errorCode: extra.errorCode || "FACE_VERIFICATION_FAILED",
+      failCount: newCount,
+      requireOtpFallback,
+      attendanceAction,
+      ...(extra.similarity != null ? { confidence: extra.similarity } : {}),
+    },
+    ipAddress: req ? getClientIpAddress(req) : null,
+    userAgent: req?.headers?.["user-agent"] ?? null,
+    errorMessage: extra.errorMessage || null,
+  });
+
+  if (requireOtpFallback) {
     try {
       const user = await UserModel.findById(userId).select("email name").lean();
       const otpCode = generateOTP();
@@ -61,6 +81,40 @@ async function handleFaceFailure(userId) {
     return { requireOtpFallback: true, attemptsLeft: 0 };
   }
   return { requireOtpFallback: false, attemptsLeft: FACE_FAIL_THRESHOLD - newCount };
+}
+
+async function logAttendanceFaceSpoof(userId, req, attendanceAction, errorMessage) {
+  await logFaceRecognitionEvent({
+    userId,
+    action: "face_spoof_detected",
+    status: "failed",
+    details: {
+      errorCode: "SPOOF_DETECTED",
+      attendanceAction,
+      description: errorMessage,
+    },
+    ipAddress: req ? getClientIpAddress(req) : null,
+    userAgent: req?.headers?.["user-agent"] ?? null,
+    errorMessage,
+  });
+}
+
+async function logAttendanceFaceSuccess(userId, req, attendanceAction, faceSimilarity) {
+  await logFaceRecognitionEvent({
+    userId,
+    action: "face_scan_success",
+    status: "success",
+    details: {
+      description:
+        attendanceAction === "check_out"
+          ? "Face verified on check-out"
+          : "Face verified on check-in",
+      attendanceAction,
+      ...(faceSimilarity != null ? { confidence: faceSimilarity } : {}),
+    },
+    ipAddress: getClientIpAddress(req),
+    userAgent: req.headers["user-agent"],
+  });
 }
 
 // ============================================================================
@@ -224,8 +278,16 @@ export const checkIn = async (req, res) => {
     );
 
     if (!result.success) {
+      if (result.code === "SPOOF_DETECTED") {
+        await logAttendanceFaceSpoof(userId, req, "check_in", result.error);
+      }
       if (result.code === "FACE_VERIFICATION_FAILED") {
-        const { requireOtpFallback, attemptsLeft } = await handleFaceFailure(userId);
+        const { requireOtpFallback, attemptsLeft } = await handleFaceFailure(
+          userId,
+          req,
+          "check_in",
+          { similarity: result.similarity, errorMessage: result.error }
+        );
         return res.status(400).json({
           success: false,
           message: requireOtpFallback
@@ -246,6 +308,10 @@ export const checkIn = async (req, res) => {
         code: result.code,
         data: result.data,
       });
+    }
+
+    if (result.data?.faceVerified) {
+      await logAttendanceFaceSuccess(userId, req, "check_in", result.data.faceSimilarity);
     }
 
     res.json({
@@ -301,8 +367,16 @@ export const checkOut = async (req, res) => {
     );
 
     if (!result.success) {
+      if (result.code === "SPOOF_DETECTED") {
+        await logAttendanceFaceSpoof(userId, req, "check_out", result.error);
+      }
       if (result.code === "FACE_VERIFICATION_FAILED") {
-        const { requireOtpFallback, attemptsLeft } = await handleFaceFailure(userId);
+        const { requireOtpFallback, attemptsLeft } = await handleFaceFailure(
+          userId,
+          req,
+          "check_out",
+          { similarity: result.similarity, errorMessage: result.error }
+        );
         return res.status(400).json({
           success: false,
           message: requireOtpFallback
@@ -320,6 +394,10 @@ export const checkOut = async (req, res) => {
         code: result.code,
         data: result.data,
       });
+    }
+
+    if (result.data?.faceVerified) {
+      await logAttendanceFaceSuccess(userId, req, "check_out", result.data.faceSimilarity);
     }
 
     res.json({
@@ -349,7 +427,7 @@ export const checkOut = async (req, res) => {
 export const getAttendanceAnalytics = async (req, res) => {
   try {
     const { from, to, department } = req.query;
-    const { role: requesterRole, userId: requesterId } = req.user;
+    const { role: requesterRole, userId: requesterId, companyId } = req.user;
 
     const dateQuery = buildDateQuery(from, to);
     if (Object.keys(dateQuery).length === 0) {
@@ -359,7 +437,8 @@ export const getAttendanceAnalytics = async (req, res) => {
     }
 
     const attendanceQuery = { ...dateQuery };
-    const userQuery = {};
+    const isSuperAdmin = requesterRole === 'SUPER_ADMIN';
+    const userQuery = isSuperAdmin ? {} : { companyId };
 
     if (['SUPERVISOR', 'MANAGER'].includes(requesterRole)) {
       const requester = await UserModel.findById(requesterId).select('department');
@@ -633,7 +712,9 @@ export const getAllAttendance = async (req, res) => {
     const { start, end } = getDateRange(date);
     const dateQuery = { $gte: start, $lt: end };
 
-    const userQuery = {};
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+    const companyFilter = isSuperAdmin ? (req.query.companyId || null) : req.user.companyId;
+    const userQuery = companyFilter ? { companyId: companyFilter } : {};
     if (search) {
       userQuery.$or = [
         { name: { $regex: search, $options: "i" } },

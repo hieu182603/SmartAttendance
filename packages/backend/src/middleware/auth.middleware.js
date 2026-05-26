@@ -42,14 +42,14 @@ export const authMiddleware = async (req, res, next) => {
                 }
             }
 
-            // Attach full user context to avoid additional queries in chatbot
+            // Always use fresh role/company from DB (not stale JWT)
+            decoded.role = user.role;
             decoded.userContext = {
                 role: user.role,
                 department: user.department?._id,
                 branch: user.branch?._id,
                 userId: user._id
             };
-            // Always use fresh companyId from DB (not stale JWT value)
             decoded.companyId = user.companyId ?? decoded.companyId ?? null;
             decoded.isTrial = user.isTrial ?? false;
         }

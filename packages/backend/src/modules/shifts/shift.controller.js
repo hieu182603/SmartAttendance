@@ -1,9 +1,12 @@
 import { ShiftModel } from "./shift.model.js";
 import { shiftAssignmentService } from "./shiftAssignment.service.js";
+import { resolveTenantCompanyId } from "../../utils/tenantCompany.util.js";
 /** * Lấy toàn bộ danh sách các ca làm việc (kèm employeeCount) */
 export const getAllShifts = async (req, res) => {
   try {
-    const shifts = await ShiftModel.find().sort({ createdAt: -1 }).lean();
+    const companyId = resolveTenantCompanyId(req);
+    const shiftQuery = companyId ? { companyId } : {};
+    const shifts = await ShiftModel.find(shiftQuery).sort({ createdAt: -1 }).lean();
 
     // Lấy employee count cho tất cả shifts
     const counts = await shiftAssignmentService.getShiftEmployeeCounts();

@@ -45,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
+import { SuperAdminCompanyFilterSlot } from "@/components/dashboard/SuperAdminCompanyFilterSlot";
 import {
   getPayrollRecords,
   getDepartments,
@@ -625,7 +626,7 @@ export default function PayrollPage() {
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="p-6 mt-4">
             <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
                   <Input
@@ -636,6 +637,7 @@ export default function PayrollPage() {
                   />
                 </div>
               </div>
+              <SuperAdminCompanyFilterSlot />
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white pointer-events-none z-10" />
                 <Input
@@ -1019,7 +1021,7 @@ export default function PayrollPage() {
                       setItemsPerPage(newLimit);
                       setCurrentPage(1);
                     }}>
-                      <SelectTrigger className="w-20 h-8 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                      <SelectTrigger className="h-8 min-w-[3.5rem] w-auto shrink-0 px-2.5 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent side="top">

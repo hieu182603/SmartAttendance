@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getAttendanceAnalytics, exportAttendanceAnalytics } from "@/services/attendanceService";
+import { SuperAdminCompanyFilterSlot } from "@/components/dashboard/SuperAdminCompanyFilterSlot";
 
 interface DailyData {
   date: string;
@@ -242,7 +243,8 @@ export default function AdminReportsPage() {
             {t("dashboard:adminReports.description") || "Phân tích chi tiết chấm công"}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <SuperAdminCompanyFilterSlot />
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-40 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
               <SelectValue

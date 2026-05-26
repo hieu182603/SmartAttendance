@@ -328,6 +328,13 @@ export const getAllRequests = async (req, res) => {
     const currentUser = await UserModel.findById(userId).select('department')
 
     let userQuery = {}
+
+    // SUPER_ADMIN có thể lọc theo công ty cụ thể; các role khác bị ràng buộc vào công ty của họ
+    const companyFilter = userRole === 'SUPER_ADMIN' ? req.query.companyId : req.user.companyId
+    if (companyFilter) {
+      userQuery.companyId = companyFilter
+    }
+
     if (search) {
       userQuery.$or = [
         { name: { $regex: search, $options: 'i' } },

@@ -50,6 +50,7 @@ import {
 } from '@/services/branchService';
 import { TransferResourcesWizard } from './TransferResourcesWizard';
 import api from '@/services/api';
+import { SuperAdminCompanyFilterSlot } from '@/components/dashboard/SuperAdminCompanyFilterSlot';
 
 interface Branch {
   id: string;
@@ -546,17 +547,22 @@ export function BranchesPage() {
         </motion.div>
       </div>
 
-      {/* Search */}
+      {/* Search & company filter */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6 mt-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
-            <Input
-              placeholder={t('dashboard:branches.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
-            />
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
+                <Input
+                  placeholder={t('dashboard:branches.searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
+                />
+              </div>
+            </div>
+            <SuperAdminCompanyFilterSlot />
           </div>
         </CardContent>
       </Card>

@@ -12,6 +12,7 @@ import {
   Bell,
   Wallet,
   ChevronDown,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
@@ -27,7 +28,12 @@ import {
   getRoleColor,
   getRoleBasePath,
 } from "@/utils/roles";
-import { getMenuByPermissionsWithTranslations, type MenuItem } from "@/utils/menuItems";
+import {
+  getMenuByPermissionsWithTranslations,
+  PAYROLL_MENU_IDS,
+  PLATFORM_MENU_IDS,
+  type MenuItem,
+} from "@/utils/menuItems";
 import { usePermissionsOverride } from "@/context/PermissionsContext";
 
 
@@ -97,8 +103,12 @@ const DashboardLayout: React.FC = () => {
   const filteredMenu = useMemo(() => {
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
       const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
-      const employeeItems = menu.filter(item =>
-        item.section === 'employee' && (item.id === 'company-calendar' || item.id === 'profile' || item.id === 'chatbot')
+      const employeeSidebarIds =
+        userRole === UserRole.SUPER_ADMIN
+          ? ['profile', 'chatbot']
+          : ['company-calendar', 'profile', 'chatbot'];
+      const employeeItems = menu.filter(
+        item => item.section === 'employee' && employeeSidebarIds.includes(item.id),
       );
       return [...adminItems, ...employeeItems];
     }
@@ -234,41 +244,107 @@ const DashboardLayout: React.FC = () => {
                         </div>
                       )}
                       {(() => {
-                        const payrollItemIds = new Set(["payroll", "payroll-reports", "salary-matrix"]);
-                        const payrollItems = sections.admin.filter((item) => payrollItemIds.has(item.id));
-                        const otherAdminItems = sections.admin.filter((item) => !payrollItemIds.has(item.id));
+                        const isSuperAdmin = userRole === UserRole.SUPER_ADMIN;
+                        const payrollItems = sections.admin.filter((item) => PAYROLL_MENU_IDS.has(item.id));
+                        const platformItems = isSuperAdmin
+                          ? sections.admin.filter((item) => PLATFORM_MENU_IDS.has(item.id))
+                          : [];
+                        const otherAdminItems = sections.admin.filter(
+                          (item) =>
+                            !PAYROLL_MENU_IDS.has(item.id) &&
+                            !(isSuperAdmin && PLATFORM_MENU_IDS.has(item.id))
+                        );
+                        const homeItem = otherAdminItems.find((item) => item.id === "home");
+                        const mainAdminItems = otherAdminItems.filter((item) => item.id !== "home");
                         const isPayrollGroupActive = payrollItems.some((item) => currentPage === item.id);
                         const isPayrollGroupOpen = isPayrollGroupActive || openMenuGroups.payroll;
+                        const isPlatformGroupActive = platformItems.some((item) => currentPage === item.id);
+                        const isPlatformGroupOpen = isPlatformGroupActive || openMenuGroups.platform;
 
-                        return (
-                          <>
-                            {otherAdminItems.map((item) => {
-                              const Icon = item.icon;
-                              const isActive = currentPage === item.id;
-                              return (
-                                <NavLink
-                                  key={item.id}
-                                  to={item.path}
-                                  onClick={() => {
-                                    setIsSidebarOpen(false);
-                                  }}
-                                  title={isSidebarCollapsed ? item.label : undefined}
-                                  className={`
+                        const renderNavItem = (item: MenuItem) => {
+                          const Icon = item.icon;
+                          const isActive = currentPage === item.id;
+                          return (
+                            <NavLink
+                              key={item.id}
+                              to={item.path}
+                              onClick={() => setIsSidebarOpen(false)}
+                              title={isSidebarCollapsed ? item.label : undefined}
+                              className={`
                               w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
                               transition-all duration-200
                               ${isActive
-                                      ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
-                                      : "text-[var(--text-main)] hover:bg-[var(--shell)]"
-                                    }
+                                ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                              }
                             `}
+                            >
+                              <Icon className="h-5 w-5" />
+                              {!isSidebarCollapsed && <span className="text-sm">{item.label}</span>}
+                            </NavLink>
+                          );
+                        };
+
+                        const renderSubNavItem = (item: MenuItem) => {
+                          const isActive = currentPage === item.id;
+                          return (
+                            <NavLink
+                              key={item.id}
+                              to={item.path}
+                              onClick={() => setIsSidebarOpen(false)}
+                              className={`
+                                        w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200
+                                        ${isActive
+                                          ? "bg-[var(--primary)]/15 text-[var(--accent-cyan)]"
+                                          : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                                        }
+                                      `}
+                            >
+                              {item.label}
+                            </NavLink>
+                          );
+                        };
+
+                        return (
+                          <>
+                            {homeItem && renderNavItem(homeItem)}
+
+                            {platformItems.length > 0 && (
+                              <div className={`${isSidebarCollapsed ? "mt-1" : "mt-2"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenMenuGroups((prev) => ({ ...prev, platform: !isPlatformGroupOpen }))
+                                  }
+                                  title={isSidebarCollapsed ? tMenu("platform-group") : undefined}
+                                  className={`
+                                w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
+                                transition-all duration-200
+                                ${isPlatformGroupActive
+                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                                }
+                              `}
                                 >
-                                  <Icon className="h-5 w-5" />
+                                  <Building2 className="h-5 w-5" />
                                   {!isSidebarCollapsed && (
-                                    <span className="text-sm">{item.label}</span>
+                                    <>
+                                      <span className="text-sm flex-1 text-left">{tMenu("platform-group")}</span>
+                                      <ChevronDown
+                                        className={`h-4 w-4 transition-transform duration-200 ${isPlatformGroupOpen ? "rotate-180" : ""}`}
+                                      />
+                                    </>
                                   )}
-                                </NavLink>
-                              );
-                            })}
+                                </button>
+                                {!isSidebarCollapsed && isPlatformGroupOpen && (
+                                  <div className="mt-1 ml-4 space-y-1 border-l border-[var(--border)] pl-3">
+                                    {platformItems.map(renderSubNavItem)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {mainAdminItems.map(renderNavItem)}
 
                             {payrollItems.length > 0 && (
                               <div className={`${isSidebarCollapsed ? "mt-1" : "mt-2"}`}>
@@ -300,27 +376,7 @@ const DashboardLayout: React.FC = () => {
 
                                 {!isSidebarCollapsed && isPayrollGroupOpen && (
                                   <div className="mt-1 ml-4 space-y-1 border-l border-[var(--border)] pl-3">
-                                    {payrollItems.map((item) => {
-                                      const isActive = currentPage === item.id;
-                                      return (
-                                        <NavLink
-                                          key={item.id}
-                                          to={item.path}
-                                          onClick={() => {
-                                            setIsSidebarOpen(false);
-                                          }}
-                                          className={`
-                                        w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200
-                                        ${isActive
-                                              ? "bg-[var(--primary)]/15 text-[var(--accent-cyan)]"
-                                              : "text-[var(--text-main)] hover:bg-[var(--shell)]"
-                                            }
-                                      `}
-                                        >
-                                          {item.label}
-                                        </NavLink>
-                                      );
-                                    })}
+                                    {payrollItems.map(renderSubNavItem)}
                                   </div>
                                 )}
                               </div>

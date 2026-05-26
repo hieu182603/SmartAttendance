@@ -43,6 +43,7 @@ import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { UserRole, Permission, type UserRoleType } from "@/utils/roles";
 import RoleGuard from "@/components/RoleGuard";
+import { SuperAdminCompanyFilterSlot } from "@/components/dashboard/SuperAdminCompanyFilterSlot";
 import api from "@/services/api";
 
 export default function PerformanceReviewPage() {
@@ -485,7 +486,7 @@ export default function PerformanceReviewPage() {
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6 mt-4">
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
                 <Input
@@ -496,6 +497,7 @@ export default function PerformanceReviewPage() {
                 />
               </div>
             </div>
+            <SuperAdminCompanyFilterSlot />
             <Select value={filterPeriod} onValueChange={setFilterPeriod}>
               <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                 <SelectValue placeholder={t('dashboard:performanceReview.dialog.period')} />

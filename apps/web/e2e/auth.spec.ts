@@ -90,11 +90,13 @@ test.describe("TC-E2E-006: Logout flow", () => {
     await logoutBtn.click();
 
     await page.waitForURL((url) => url.pathname.includes("/login"), { timeout: 10_000 });
+    await page.waitForLoadState("domcontentloaded");
     expect(page.url()).toContain("/login");
 
-    // localStorage tokens should be cleared
-    const token = await page.evaluate(() => localStorage.getItem("sa_token"));
-    expect(token).toBeNull();
+    // Access token is in-memory only; persisted role must be cleared after logout
+    await expect
+      .poll(async () => page.evaluate(() => localStorage.getItem("sa_user_role")))
+      .toBeNull();
   });
 
   test("sau logout, truy cập /employee redirect về /login", async ({ page, context }) => {

@@ -17,10 +17,11 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 
 class UserPrincipal:
     """User principal containing authentication information"""
-    def __init__(self, user_id: str, role: str, department_id: Optional[str] = None):
+    def __init__(self, user_id: str, role: str, department_id: Optional[str] = None, company_id: Optional[str] = None):
         self.user_id = user_id
         self.role = role
         self.department_id = department_id
+        self.company_id = company_id
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT access token"""
@@ -43,6 +44,9 @@ def verify_token(token: str) -> UserPrincipal:
         # Normalize role to lowercase for consistent comparison
         role: str = payload.get("role", "").lower()
         department_id: Optional[str] = payload.get("department_id")
+        company_id: Optional[str] = payload.get("companyId") or payload.get("company_id")
+        if company_id is None:
+            logger.warning("JWT token missing companyId — token may be from old auth flow")
 
         if user_id is None or not role:
             raise HTTPException(
@@ -50,7 +54,7 @@ def verify_token(token: str) -> UserPrincipal:
                 detail="Invalid token: missing user information"
             )
 
-        return UserPrincipal(user_id=user_id, role=role, department_id=department_id)
+        return UserPrincipal(user_id=user_id, role=role, department_id=department_id, company_id=company_id)
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(

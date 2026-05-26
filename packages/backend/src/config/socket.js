@@ -64,6 +64,11 @@ export function initializeSocket(server) {
     io.on("connection", (socket) => {
         // Join user's personal room
         socket.join(`user:${socket.userId}`);
+        // Join role-based room so emitAttendanceUpdateToAdmins works
+        const role = socket.user?.role;
+        if (role && ["ADMIN", "SUPER_ADMIN", "HR", "MANAGER", "SUPERVISOR"].includes(role)) {
+            socket.join("admins");
+        }
     });
 
     return io;

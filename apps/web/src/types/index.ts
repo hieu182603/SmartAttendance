@@ -8,6 +8,7 @@ export interface User {
   name: string
   email: string
   role: string
+  companyName?: string
   isVerified?: boolean
   isActive?: boolean
   avatar?: string

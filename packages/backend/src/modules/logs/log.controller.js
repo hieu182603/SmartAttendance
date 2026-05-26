@@ -1,4 +1,5 @@
 import { LogService } from "./log.service.js";
+import { resolveTenantCompanyId } from "../../utils/tenantCompany.util.js";
 
 export const LogController = {
   /**
@@ -20,6 +21,8 @@ export const LogController = {
         endDate,
       } = req.query;
 
+      const companyFilter = resolveTenantCompanyId(req);
+
       const result = await LogService.getAllLogs({
         page,
         limit,
@@ -30,6 +33,7 @@ export const LogController = {
         userId,
         startDate,
         endDate,
+        companyId: companyFilter,
       });
 
       res.status(200).json(result);
@@ -52,6 +56,7 @@ export const LogController = {
       const stats = await LogService.getLogStats({
         startDate,
         endDate,
+        companyId: resolveTenantCompanyId(req),
       });
 
       res.status(200).json(stats);

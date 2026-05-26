@@ -297,6 +297,119 @@ export const sendPaymentConfirmationEmail = async ({ to, name, plan, billingCycl
 };
 
 /**
+ * Send AI service invoice email to company admin.
+ * @param {{ to, name, companyName, periodLabel, totalTokens, amountVnd, invoiceCode, dueAt, payUrl }} params
+ */
+export const sendAiServiceInvoiceEmail = async ({ to, name, companyName, periodLabel, totalTokens, amountVnd, invoiceCode, dueAt, payUrl }) => {
+    const hasEmailConfig = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+    const isDevMode = process.env.EMAIL_DEV_MODE === "true" || !hasEmailConfig;
+
+    const formattedAmount = new globalThis.Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amountVnd);
+    const formattedDue = dueAt ? new Date(dueAt).toLocaleDateString("vi-VN") : "N/A";
+
+    if (isDevMode) {
+        console.log(`[DEV] AI Invoice email: ${maskEmail(to)} | code=${invoiceCode} | ${periodLabel} | tokens=${totalTokens} | ${formattedAmount} | due=${formattedDue}`);
+        return { success: true, devMode: true };
+    }
+
+    try {
+        const transporter = createTransporter();
+        await transporter.sendMail({
+            from: `"SmartAttendance" <${process.env.EMAIL_USER}>`,
+            to,
+            subject: `[SmartAttendance] Hóa đơn chi phí AI — ${periodLabel}`,
+            html: `
+                <!DOCTYPE html><html><head><meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, sans-serif; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: linear-gradient(135deg, #06b6d4, #3b82f6); color: white; padding: 28px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .content { background: #f9f9f9; padding: 28px; border-radius: 0 0 10px 10px; }
+                    .info-box { background: white; border-left: 4px solid #06b6d4; padding: 16px; margin: 16px 0; border-radius: 4px; }
+                    .pay-btn { display: inline-block; background: #3b82f6; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 16px; }
+                    .footer { text-align: center; margin-top: 20px; color: #888; font-size: 12px; }
+                </style></head>
+                <body><div class="container">
+                    <div class="header"><h1>SmartAttendance</h1><p>Hóa đơn chi phí dịch vụ AI</p></div>
+                    <div class="content">
+                        <h2>Kính gửi ${name},</h2>
+                        <p>Hóa đơn chi phí dịch vụ AI của <strong>${companyName}</strong> cho kỳ <strong>${periodLabel}</strong> đã được phát hành.</p>
+                        <div class="info-box">
+                            <p><strong>Mã hóa đơn:</strong> #${invoiceCode}</p>
+                            <p><strong>Kỳ thanh toán:</strong> ${periodLabel}</p>
+                            <p><strong>Tổng token sử dụng:</strong> ${totalTokens.toLocaleString("vi-VN")}</p>
+                            <p><strong>Số tiền:</strong> ${formattedAmount}</p>
+                            <p><strong>Hạn thanh toán:</strong> ${formattedDue}</p>
+                        </div>
+                        ${payUrl ? `<a href="${payUrl}" class="pay-btn">Thanh toán ngay</a>` : ""}
+                        <p style="margin-top:16px">Mọi thắc mắc vui lòng liên hệ bộ phận hỗ trợ SmartAttendance.</p>
+                    </div>
+                    <div class="footer"><p>&copy; ${new Date().getFullYear()} SmartAttendance</p></div>
+                </div></body></html>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("[email] sendAiServiceInvoiceEmail failed:", error.message);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Send AI payment confirmation email after invoice is paid.
+ * @param {{ to, name, companyName, periodLabel, amountVnd, invoiceCode }} params
+ */
+export const sendAiPaymentConfirmationEmail = async ({ to, name, companyName, periodLabel, amountVnd, invoiceCode }) => {
+    const hasEmailConfig = process.env.EMAIL_USER && process.env.EMAIL_PASS;
+    const isDevMode = process.env.EMAIL_DEV_MODE === "true" || !hasEmailConfig;
+
+    const formattedAmount = new globalThis.Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amountVnd);
+
+    if (isDevMode) {
+        console.log(`[DEV] AI Payment confirmation: ${maskEmail(to)} | code=${invoiceCode} | ${periodLabel} | ${formattedAmount}`);
+        return { success: true, devMode: true };
+    }
+
+    try {
+        const transporter = createTransporter();
+        await transporter.sendMail({
+            from: `"SmartAttendance" <${process.env.EMAIL_USER}>`,
+            to,
+            subject: `[SmartAttendance] Xác nhận thanh toán chi phí AI — ${periodLabel}`,
+            html: `
+                <!DOCTYPE html><html><head><meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, sans-serif; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: linear-gradient(135deg, #10b981, #3b82f6); color: white; padding: 28px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .content { background: #f9f9f9; padding: 28px; border-radius: 0 0 10px 10px; }
+                    .info-box { background: white; border-left: 4px solid #10b981; padding: 16px; margin: 16px 0; border-radius: 4px; }
+                    .footer { text-align: center; margin-top: 20px; color: #888; font-size: 12px; }
+                </style></head>
+                <body><div class="container">
+                    <div class="header"><h1>SmartAttendance</h1><p>Thanh toán chi phí AI thành công!</p></div>
+                    <div class="content">
+                        <h2>Kính gửi ${name},</h2>
+                        <p>Chúng tôi xác nhận đã nhận được thanh toán chi phí dịch vụ AI của <strong>${companyName}</strong>.</p>
+                        <div class="info-box">
+                            <p><strong>Mã hóa đơn:</strong> #${invoiceCode}</p>
+                            <p><strong>Kỳ:</strong> ${periodLabel}</p>
+                            <p><strong>Số tiền đã thanh toán:</strong> ${formattedAmount}</p>
+                        </div>
+                        <p>Cảm ơn bạn đã tin dùng SmartAttendance.</p>
+                    </div>
+                    <div class="footer"><p>&copy; ${new Date().getFullYear()} SmartAttendance</p></div>
+                </div></body></html>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("[email] sendAiPaymentConfirmationEmail failed:", error.message);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
  * Verify email transporter connection
  * @returns {Promise<boolean>} True if connection successful
  */

@@ -69,6 +69,7 @@ from app.services.rag.query_handlers import (
 from app.services.rag.conversations import ConversationManager
 from app.services.rag.documents import DocumentManager
 from app.services.rag.cache import get_rag_cache, RAGCache
+from app.services.usage_tracker import invoke_llm_with_usage
 
 logger = logging.getLogger(__name__)
 
@@ -484,7 +485,8 @@ TRẢ LỜI:"""
         message: str,
         conversation_id: Optional[str] = None,
         department_id: Optional[str] = None,
-        role: str = "employee"
+        role: str = "employee",
+        company_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Process a user message using RAG
@@ -523,7 +525,8 @@ TRẢ LỜI:"""
             # Detect intent and route to appropriate handler
             response_text, sources = await self._route_query(
                 message, role, user_id, department_id,
-                conversation_history=conversation_history
+                conversation_history=conversation_history,
+                company_id=company_id,
             )
 
             # Add assistant response to conversation
@@ -848,7 +851,9 @@ TRẢ LỜI:"""
     async def _rewrite_query_with_context(
         self,
         message: str,
-        conversation_history: str
+        conversation_history: str,
+        company_id: Optional[str] = None,
+        user_id: str = "system",
     ) -> str:
         """
         Rewrite a follow-up question into a standalone question using prior context.
@@ -865,7 +870,10 @@ TRẢ LỜI:"""
                 history=conversation_history[-2000:],
                 message=safe_message,
             )
-            response = await self.llm.ainvoke(prompt)
+            response = await invoke_llm_with_usage(
+                self.llm, prompt,
+                company_id=company_id, user_id=user_id, operation="rewrite",
+            )
             rewritten = self._extract_response_text(response, fallback=message).strip()
             rewritten = rewritten.strip('"').strip("'").strip()
             if not rewritten:
@@ -882,20 +890,22 @@ TRẢ LỜI:"""
         role: str,
         user_id: str,
         department_id: Optional[str],
-        conversation_history: str = ""
+        conversation_history: str = "",
+        company_id: Optional[str] = None,
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Route query to appropriate handler based on intent with hybrid retrieval support
-        
+
         Uses caching when available to improve performance.
-        
+
         Args:
             message: User message
             role: User role
             user_id: User ID
             department_id: Department ID
             conversation_history: Formatted prior conversation context
-        
+            company_id: Company ID for usage tracking
+
         Returns:
             Tuple of (response_text, sources)
         """
@@ -905,7 +915,9 @@ TRẢ LỜI:"""
         # Rewrite follow-up questions (with anaphora/pronouns) into standalone
         # form using conversation_history, so downstream intent detection and
         # vector search see a self-contained query.
-        message = await self._rewrite_query_with_context(message, conversation_history)
+        message = await self._rewrite_query_with_context(
+            message, conversation_history, company_id=company_id, user_id=user_id
+        )
 
         # Check cache for intent first
         cached_intent = self._cache.get_intent(message)
@@ -920,7 +932,9 @@ TRẢ LỜI:"""
             if intent_type == 'dynamic':
                 logger.info(f"Regex intent returned 'dynamic', trying LLM fallback for: '{message}'")
                 try:
-                    llm_intent, llm_details = await IntentDetector.detect_intent_with_llm(message)
+                    llm_intent, llm_details = await IntentDetector.detect_intent_with_llm(
+                        message, company_id=company_id, user_id=user_id
+                    )
                     if llm_intent != 'general':  # LLM found a specific intent
                         intent_type = llm_intent
                         details = llm_details
@@ -934,28 +948,31 @@ TRẢ LỜI:"""
         # Check if hybrid approach should be used
         use_hybrid = self._should_use_hybrid(intent_type, message)
         use_vector_search = self._should_use_vector_search(intent_type, message) or use_hybrid
-        
+
         # Route based on intent and retrieval strategy
         if use_hybrid:
             # Hybrid approach: combine vector search and DB query
             response_text, sources = await self._handle_hybrid_query(
                 message, intent_type, details, role, user_id, department_id,
-                conversation_history=conversation_history
+                conversation_history=conversation_history,
+                company_id=company_id,
             )
         elif use_vector_search and intent_type == 'general':
             # Use vector search for general questions
             response_text, sources = await self._handle_general_question_with_rag(
                 message, role, department_id,
-                conversation_history=conversation_history
+                conversation_history=conversation_history,
+                company_id=company_id, user_id=user_id,
             )
         elif intent_type == 'general':
             # Fallback for general questions without vector search
             response_text = await self._handle_general_question(
                 message, role, department_id,
-                conversation_history=conversation_history
+                conversation_history=conversation_history,
+                company_id=company_id, user_id=user_id,
             )
             sources = []
-        
+
         elif intent_type in ('employee', 'department', 'request', 'attendance', 'branch', 'shift', 'payroll', 'schedule', 'shift_assignment'):
             # Unified domain handler routing with conversation_history support
             handler = self._query_handlers.get(intent_type)
@@ -990,7 +1007,7 @@ TRẢ LỜI:"""
                 ):
                     logger.info(f"Domain handler returned fallback response, trying dynamic query for: '{message}'")
                     dynamic_response = await self._handle_dynamic_query(
-                        message, role, user_id, department_id
+                        message, role, user_id, department_id, company_id=company_id
                     )
                     if dynamic_response and not dynamic_response.startswith("Xin lỗi"):
                         response_text = dynamic_response
@@ -1014,7 +1031,7 @@ TRẢ LỜI:"""
         else:
             # Dynamic query for unknown intents
             response_text = await self._handle_dynamic_query(
-                message, role, user_id, department_id
+                message, role, user_id, department_id, company_id=company_id
             )
             sources = self._create_db_query_sources('dynamic', 'query')
         
@@ -1033,7 +1050,8 @@ TRẢ LỜI:"""
         role: str,
         user_id: str,
         department_id: Optional[str],
-        conversation_history: str = ""
+        conversation_history: str = "",
+        company_id: Optional[str] = None,
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Handle query using hybrid approach (vector search + DB query)
@@ -1114,7 +1132,10 @@ TRẢ LỜI:"""
                 conversation_history=conversation_history
             )
             try:
-                response = await self.llm.ainvoke(prompt)
+                response = await invoke_llm_with_usage(
+                    self.llm, prompt,
+                    company_id=company_id, user_id=user_id, operation="qa",
+                )
                 response_text = self._extract_response_text(response, fallback="")
                 # Trigger fallback block below if LLM returned empty/None content
                 if not response_text:
@@ -1131,13 +1152,15 @@ TRẢ LỜI:"""
                 else:
                     response_text = await self._handle_general_question(
                         message, role, department_id,
-                        conversation_history=conversation_history
+                        conversation_history=conversation_history,
+                        company_id=company_id, user_id=user_id,
                     )
         else:
             # Fallback if no context available
             response_text = await self._handle_general_question(
                 message, role, department_id,
-                conversation_history=conversation_history
+                conversation_history=conversation_history,
+                company_id=company_id, user_id=user_id,
             )
         
         # Ensure response_text is never None or empty
@@ -1201,7 +1224,9 @@ HƯỚNG DẪN TRẢ LỜI:
         message: str,
         role: str,
         department_id: Optional[str],
-        conversation_history: str = ""
+        conversation_history: str = "",
+        company_id: Optional[str] = None,
+        user_id: str = "system",
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """Handle general questions with RAG (vector search + context augmentation)"""
         try:
@@ -1212,25 +1237,28 @@ HƯỚNG DẪN TRẢ LỜI:
                 user_role=role,
                 department_id=department_id
             )
-            
+
             # Filter out low-relevance results
             retrieved_docs = [
                 doc for doc in retrieved_docs
                 if doc.get("score", 0) >= VECTOR_SEARCH_MIN_SCORE
             ]
             logger.debug(f"Vector search returned {len(retrieved_docs)} relevant docs (min_score={VECTOR_SEARCH_MIN_SCORE})")
-            
+
             # Augment context with retrieved documents
             context = self._augment_context_with_documents(retrieved_docs)
-            
+
             # Create prompt with context and conversation history
             prompt = self._create_rag_prompt(
                 message, context, role, department_id,
                 conversation_history=conversation_history
             )
-            
+
             # Generate response using LLM
-            response = await self.llm.ainvoke(prompt)
+            response = await invoke_llm_with_usage(
+                self.llm, prompt,
+                company_id=company_id, user_id=user_id, operation="general",
+            )
             response_text = self._extract_response_text(response)
 
             # Format sources from retrieved documents
@@ -1248,15 +1276,17 @@ HƯỚNG DẪN TRẢ LỜI:
         message: str,
         role: str,
         department_id: Optional[str],
-        conversation_history: str = ""
+        conversation_history: str = "",
+        company_id: Optional[str] = None,
+        user_id: str = "system",
     ) -> str:
         """Handle general questions without document retrieval (fallback)"""
         history_section = ""
         if conversation_history:
             history_section = f"\n=== LỊCH SỬ HỘI THOẠI GẦN ĐÂY ===\n{conversation_history}\n"
-        
+
         role_prompt = _get_role_prompt(role)
-        
+
         prompt = f"""{SYSTEM_PROMPT}
 {role_prompt}
 {history_section}
@@ -1278,7 +1308,10 @@ HƯỚNG DẪN:
 
         greeting_fallback = "Xin chào! Tôi là trợ lý AI SmartBot của hệ thống SmartAttendance. Tôi có thể giúp bạn với các câu hỏi về chấm công, lương, nghỉ phép và các thông tin khác trong hệ thống."
         try:
-            response = await self.llm.ainvoke(prompt)
+            response = await invoke_llm_with_usage(
+                self.llm, prompt,
+                company_id=company_id, user_id=user_id, operation="general",
+            )
             return self._extract_response_text(response, fallback=greeting_fallback)
         except Exception as e:
             logger.error(f"Error in general question handling: {str(e)}")
@@ -1453,7 +1486,8 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
         message: str,
         role: str,
         user_id: str,
-        department_id: Optional[str]
+        department_id: Optional[str],
+        company_id: Optional[str] = None,
     ) -> str:
         """
         Handle dynamic queries using LLM to generate MongoDB queries
@@ -1461,7 +1495,10 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
         try:
             # Generate query from natural language
             prompt = DynamicQueryGenerator.build_prompt(message, role, user_id, department_id)
-            response = await self.llm.ainvoke(prompt)
+            response = await invoke_llm_with_usage(
+                self.llm, prompt,
+                company_id=company_id, user_id=user_id, operation="intent_detect",
+            )
 
             # Parse response (safely extract text; empty string surfaces as a parse error below)
             query_data = DynamicQueryGenerator.parse_response(

@@ -5,18 +5,39 @@ let _memToken = ''
 export const setAccessToken = (token: string) => { _memToken = token }
 export const getAccessToken = () => _memToken
 
+// SUPER_ADMIN company filter — injected as ?companyId= on relevant GET requests
+let _superAdminCompanyId: string | null = null
+export const setSuperAdminCompanyFilter = (id: string | null) => { _superAdminCompanyId = id }
+export const getSuperAdminCompanyFilter = () => _superAdminCompanyId
+
+// Paths that should receive the company filter when set
+const COMPANY_FILTERED_PREFIXES = ['/users', '/attendance', '/payroll', '/requests', '/leave', '/logs', '/performance', '/departments', '/branches', '/shifts']
+const shouldInjectCompany = (url = '') =>
+  COMPANY_FILTERED_PREFIXES.some(p => url === p || url.startsWith(p + '?') || url.startsWith(p + '/'))
+
 let _isRefreshing = false
+let _loggingOut = false
 let _failQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = []
+
+export const setLoggingOut = (value: boolean) => { _loggingOut = value }
 
 const processQueue = (err: unknown, token: string | null) => {
   _failQueue.forEach(({ resolve, reject }) => (err ? reject(err) : resolve(token!)))
   _failQueue = []
 }
 
+const PROTECTED_ROUTE_PREFIXES = ['/employee', '/manager', '/hr', '/admin'] as const
+
+const isProtectedPath = (pathname = window.location.pathname) =>
+  PROTECTED_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+
 const forceLogout = () => {
   _memToken = ''
   localStorage.removeItem('sa_user_role')
-  if (window.location.pathname !== '/login') {
+  // Only redirect from dashboard routes — public/404 pages should stay put
+  if (isProtectedPath() && window.location.pathname !== '/login') {
     setTimeout(() => { window.location.href = '/login' }, 0)
   }
 }
@@ -64,6 +85,14 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     return config
 })
 
+// Inject ?companyId= for SUPER_ADMIN when a company is selected
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    if (_superAdminCompanyId && config.method === 'get' && shouldInjectCompany(config.url)) {
+        config.params = { ...config.params, companyId: _superAdminCompanyId }
+    }
+    return config
+})
+
 api.interceptors.response.use(
     (res: AxiosResponse) => res,
     async (error: AxiosError) => {
@@ -85,6 +114,11 @@ api.interceptors.response.use(
             const isRefreshEndpoint = error.config?.url?.includes('/auth/refresh')
             if (isRefreshEndpoint) {
                 forceLogout()
+                return Promise.reject(error)
+            }
+
+            const isLogoutEndpoint = error.config?.url?.includes('/auth/logout')
+            if (_loggingOut || isLogoutEndpoint) {
                 return Promise.reject(error)
             }
 

@@ -1,125 +1,228 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { motion } from "framer-motion";
+import PublicSiteLayout from "@/components/PublicSiteLayout";
 
+// ── Sections data ────────────────────────────────────────────────────
+const sections = [
+  {
+    id: "section-1",
+    title: "1. Chấp thuận Điều khoản dịch vụ",
+    content: (
+      <>
+        <p>
+          Bằng việc đăng ký tài khoản doanh nghiệp B2B hoặc đăng nhập vào hệ
+          thống ứng dụng chấm công SmartAttendance, bạn xác nhận đã đọc, hiểu rõ
+          và đồng ý ràng buộc bởi toàn bộ các điều khoản nêu tại văn bản thỏa
+          thuận này.
+        </p>
+        <p>
+          Nếu bạn đại diện cho một tổ chức hoặc doanh nghiệp, bạn cam kết rằng
+          mình có toàn quyền đại diện hợp pháp để thông qua thỏa thuận cung cấp
+          dịch vụ công nghệ thông tin này.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "section-2",
+    title: "2. Chính sách xử lý dữ liệu sinh trắc học",
+    content: (
+      <>
+        <p>
+          SmartAttendance tuân thủ Nghị định 13/2023/NĐ-CP về Bảo vệ dữ liệu cá
+          nhân. Dữ liệu sinh trắc học khuôn mặt là dữ liệu nhạy cảm cực kỳ
+          quan trọng:
+        </p>
+        <p>
+          <strong>Mục đích xử lý:</strong> Phục vụ nhận dạng, xác thực danh tính
+          chấm công hàng ngày cho nhân viên công ty.
+        </p>
+        <p>
+          <strong>Nguyên tắc lưu trữ:</strong> Chúng tôi chỉ lưu trữ Vector mã
+          hóa 512 con số đặc trưng của khuôn mặt dưới dạng Hash không thể phục
+          hồi ngược lại ảnh chân dung gốc. Mọi bức ảnh chụp chấm công hàng ngày
+          chỉ được lưu trữ bộ nhớ tạm để so sánh và bị xóa tự động khỏi luồng
+          xử lý AI ngay khi có kết quả.
+        </p>
+        <p>
+          <strong>Quyền rút lại sự đồng ý:</strong> Người lao động có quyền từ
+          chối cung cấp sinh trắc học. Khi đó, doanh nghiệp có thể chỉ định
+          phương pháp chấm công thay thế bằng nhập mã OTP Email do hệ thống tự
+          sinh.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "section-3",
+    title: "3. Cam kết SLA và Mức độ sẵn sàng",
+    content: (
+      <>
+        <p>
+          SmartAttendance cam kết tỷ lệ hoạt động ổn định của máy chủ cloud
+          (Uptime) tối thiểu đạt <strong>99.9%</strong> hàng tháng (ngoại trừ
+          thời gian bảo trì định kỳ đã thông báo trước ít nhất 24 giờ).
+        </p>
+        <p>
+          Trong trường hợp hệ thống gặp lỗi gián đoạn máy chủ AI do lỗi của nhà
+          cung cấp liên tục quá 4 giờ, doanh nghiệp khách hàng sẽ được hoàn trả
+          phí dịch vụ tương ứng số ngày mất kết nối vào chu kỳ thanh toán tiếp
+          theo.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "section-4",
+    title: "4. Trách nhiệm của Khách hàng",
+    content: (
+      <>
+        <p>
+          Khách hàng (doanh nghiệp thuê phần mềm) có trách nhiệm hướng dẫn nhân
+          viên chấm công tuân thủ đúng quy định, bảo mật tài khoản cá nhân, và
+          không cấu hình toạ độ GPS giả lập để chấm công từ xa trái quy định.
+        </p>
+        <p>
+          Mọi hành vi can thiệp kỹ thuật sửa đổi gói API hoặc giả mạo gói dữ
+          liệu chấm công sẽ bị từ chối phục vụ dịch vụ và khóa tài khoản vĩnh
+          viễn không bồi thường.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "section-5",
+    title: "5. Thay đổi Điều khoản dịch vụ",
+    content: (
+      <>
+        <p>
+          Nhà phát triển có quyền sửa đổi các điều khoản này tại bất kỳ thời
+          điểm nào. Mọi điều chỉnh sẽ được gửi thông báo trước 15 ngày qua
+          email quản trị doanh nghiệp và hiển thị trên màn hình đăng nhập của
+          website.
+        </p>
+        <p>
+          Việc tiếp tục sử dụng hệ thống sau khi điều khoản mới có hiệu lực đồng
+          nghĩa với việc bạn đồng ý với các thay đổi đó.
+        </p>
+      </>
+    ),
+  },
+];
+
+// ── Main Page ────────────────────────────────────────────────────────
 const TermsOfServicePage: React.FC = () => {
+  const [activeSection, setActiveSection] = useState("section-1");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // ScrollSpy
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const scrollTop = container.scrollTop;
+    const containerTop = container.offsetTop;
+
+    for (let i = sections.length - 1; i >= 0; i--) {
+      const el = document.getElementById(sections[i].id);
+      if (el) {
+        const offsetTop = el.offsetTop - containerTop;
+        if (scrollTop >= offsetTop - 50) {
+          setActiveSection(sections[i].id);
+          break;
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+
+  function scrollToSection(sectionId: string) {
+    const container = scrollContainerRef.current;
+    const el = document.getElementById(sectionId);
+    if (container && el) {
+      container.scrollTo({
+        top: el.offsetTop - container.offsetTop,
+        behavior: "smooth",
+      });
+    }
+    setActiveSection(sectionId);
+  }
+
   return (
-    <div className="min-h-screen bg-white text-gray-900 px-4 py-12 max-w-3xl mx-auto">
-      <Link
-        to="/"
-        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 mb-8"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Trang chủ
-      </Link>
+    <PublicSiteLayout>
+      <main className="pb-20">
+        {/* Hero */}
+        <section className="relative overflow-hidden py-16 lg:py-24">
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[var(--primary)]/20 via-[var(--background)] to-[var(--background)]" />
+          <div className="container mx-auto px-6 text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+              <h1 className="mb-4 text-4xl font-extrabold md:text-5xl">
+                <span className="bg-gradient-to-r from-[var(--text-main)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
+                  Điều Khoản Dịch Vụ
+                </span>
+              </h1>
+              <p className="mx-auto max-w-2xl text-lg text-[var(--text-sub)]">
+                Quy định pháp lý, chính sách bảo mật sinh trắc học và thỏa thuận
+                mức độ dịch vụ (SLA) B2B.
+              </p>
+            </motion.div>
+          </div>
+        </section>
 
-      <h1 className="text-3xl font-bold mb-2">Điều khoản sử dụng dịch vụ</h1>
-      <p className="text-sm text-gray-500 mb-8">Cập nhật lần cuối: ngày 20 tháng 5 năm 2026</p>
+        {/* TOS Content */}
+        <section className="container mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/40 p-6 backdrop-blur-lg md:p-8"
+            style={{ boxShadow: "0 8px 30px rgba(0,0,0,0.3)" }}
+          >
+            <div className="grid gap-8 md:grid-cols-[240px_1fr]">
+              {/* Scrollspy TOC */}
+              <nav className="sticky top-[7rem] hidden h-fit flex-col gap-2 border-l-2 border-[var(--border)] pl-4 md:flex">
+                {sections.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => scrollToSection(s.id)}
+                    className={`truncate text-left text-sm transition-all duration-300 ${
+                      activeSection === s.id
+                        ? "translate-x-1 text-[var(--accent-cyan)]"
+                        : "text-[var(--text-sub)] hover:text-[var(--accent-cyan)]"
+                    }`}
+                  >
+                    {s.title}
+                  </button>
+                ))}
+              </nav>
 
-      <section className="space-y-6 text-sm leading-7 text-gray-700">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">1. Chấp nhận điều khoản</h2>
-          <p>
-            Bằng cách truy cập hoặc sử dụng hệ thống SmartAttendance ("Dịch vụ"), bạn đồng ý bị ràng buộc
-            bởi các Điều khoản này. Nếu bạn không đồng ý với bất kỳ điều khoản nào, vui lòng không sử dụng
-            Dịch vụ. Dịch vụ chỉ được cung cấp cho tổ chức, doanh nghiệp và nhân viên của họ thông qua
-            thỏa thuận B2B.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">2. Mô tả dịch vụ</h2>
-          <p>
-            SmartAttendance là hệ thống quản lý chấm công thông minh sử dụng công nghệ nhận diện khuôn mặt,
-            cung cấp các tính năng: chấm công bằng khuôn mặt, quản lý lịch làm việc, quản lý nghỉ phép,
-            tính bảng lương, báo cáo nhân sự, và chatbot hỗ trợ nhân sự.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">3. Tài khoản và quyền truy cập</h2>
-          <ul className="space-y-1 pl-4">
-            <li>• Tài khoản được tạo và quản lý bởi quản trị viên của tổ chức bạn.</li>
-            <li>• Bạn chịu trách nhiệm bảo mật thông tin đăng nhập và mọi hoạt động phát sinh từ tài khoản của mình.</li>
-            <li>• Không được chia sẻ thông tin đăng nhập với người khác.</li>
-            <li>• Vui lòng thông báo ngay cho quản trị viên nếu phát hiện truy cập trái phép vào tài khoản của bạn.</li>
-          </ul>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">4. Sử dụng hợp lệ</h2>
-          <p className="mb-2">Bạn đồng ý chỉ sử dụng Dịch vụ cho mục đích hợp pháp và không:</p>
-          <ul className="space-y-1 pl-4">
-            <li>• Chấm công hộ hoặc gian lận dữ liệu chấm công.</li>
-            <li>• Cố gắng truy cập trái phép vào dữ liệu của người dùng khác.</li>
-            <li>• Phá hoại, làm gián đoạn hoặc làm quá tải hệ thống.</li>
-            <li>• Sử dụng dữ liệu thu thập được cho mục đích ngoài phạm vi công việc.</li>
-            <li>• Vi phạm bất kỳ quy định pháp luật nào áp dụng.</li>
-          </ul>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">5. Dữ liệu sinh trắc học</h2>
-          <p>
-            Việc đăng ký và sử dụng tính năng nhận diện khuôn mặt là tự nguyện. Bạn có quyền rút lại sự
-            đồng ý và xóa dữ liệu sinh trắc học bất kỳ lúc nào. Khi rút lại đồng ý, tính năng chấm công
-            bằng khuôn mặt sẽ không còn khả dụng cho tài khoản của bạn. Xem{" "}
-            <Link to="/privacy-policy" className="text-blue-600 underline hover:text-blue-700">
-              Chính sách bảo mật
-            </Link>{" "}
-            để biết thêm chi tiết.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">6. Sở hữu trí tuệ</h2>
-          <p>
-            Tất cả bản quyền, nhãn hiệu và quyền sở hữu trí tuệ liên quan đến Dịch vụ thuộc về SmartAttendance.
-            Bạn được cấp phép giới hạn, không độc quyền, không thể chuyển nhượng để sử dụng Dịch vụ theo
-            các điều khoản này.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">7. Giới hạn trách nhiệm</h2>
-          <p>
-            Dịch vụ được cung cấp "nguyên trạng" ("as-is"). Chúng tôi không đảm bảo dịch vụ sẽ hoạt động
-            không gián đoạn hay không có lỗi. Trong phạm vi tối đa được pháp luật cho phép, chúng tôi
-            không chịu trách nhiệm về bất kỳ thiệt hại gián tiếp, ngẫu nhiên hoặc hậu quả nào phát sinh
-            từ việc sử dụng Dịch vụ.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">8. Luật áp dụng</h2>
-          <p>
-            Các Điều khoản này được điều chỉnh bởi pháp luật Việt Nam. Mọi tranh chấp sẽ được giải quyết
-            tại Tòa án có thẩm quyền tại Thành phố Hồ Chí Minh, Việt Nam.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">9. Thay đổi điều khoản</h2>
-          <p>
-            Chúng tôi có thể sửa đổi Điều khoản này theo thời gian. Phiên bản mới nhất luôn được đăng tải
-            tại trang này với ngày cập nhật. Việc tiếp tục sử dụng Dịch vụ sau khi thay đổi có nghĩa là
-            bạn chấp nhận điều khoản mới.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">10. Liên hệ</h2>
-          <p>
-            Mọi câu hỏi về Điều khoản sử dụng, vui lòng liên hệ quản trị viên hệ thống của tổ chức bạn
-            hoặc gửi yêu cầu qua tính năng hỗ trợ trong ứng dụng.
-          </p>
-        </div>
-      </section>
-
-      <div className="mt-12 pt-6 border-t border-gray-200 text-xs text-gray-400">
-        © 2026 SmartAttendance. Phiên bản 1.0.
-      </div>
-    </div>
+              {/* Scrollable content */}
+              <div
+                ref={scrollContainerRef}
+                className="max-h-[60vh] overflow-y-auto scroll-smooth rounded-2xl border border-[var(--border)] bg-[var(--surface)]/20 p-6 md:p-8"
+              >
+                {sections.map((s) => (
+                  <div key={s.id} id={s.id} className="mb-8 last:mb-0">
+                    <h3 className="mb-4 border-b border-[color:rgba(255,255,255,0.05)] pb-2 text-xl font-bold text-[var(--text-main)]">
+                      {s.title}
+                    </h3>
+                    <div className="space-y-4 text-justify leading-relaxed text-[var(--text-sub)]">
+                      {s.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </section>
+      </main>
+    </PublicSiteLayout>
   );
 };
 

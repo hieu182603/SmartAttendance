@@ -108,6 +108,10 @@ export const Permission = {
     SYSTEM_SETTINGS_UPDATE: 'SYSTEM_SETTINGS_UPDATE',
     AUDIT_LOGS_VIEW: 'AUDIT_LOGS_VIEW',
 
+    // Super Admin only
+    FEATURE_TOGGLE_MANAGE: 'FEATURE_TOGGLE_MANAGE',
+    BILLING_MANAGE_ALL: 'BILLING_MANAGE_ALL',
+
     // Legacy permissions (keep for backward compatibility)
     VIEW_OWN_ATTENDANCE: 'ATTENDANCE_VIEW_OWN',
     VIEW_ALL_ATTENDANCE: 'ATTENDANCE_VIEW_ALL',
@@ -251,6 +255,8 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.SYSTEM_SETTINGS_VIEW,
         Permission.SYSTEM_SETTINGS_UPDATE,
         Permission.AUDIT_LOGS_VIEW,
+        Permission.FEATURE_TOGGLE_MANAGE,
+        Permission.BILLING_MANAGE_ALL,
     ] as PermissionType[], // All permissions (explicit list to avoid duplicates from legacy permissions)
 };
 

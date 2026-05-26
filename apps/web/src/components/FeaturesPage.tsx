@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Camera, MapPin, Zap, BarChart3, CheckCircle2, XCircle } from 'lucide-react';
+import { Camera, Clock, MapPin, Zap, BarChart3, CheckCircle2, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import PublicSiteLayout from '@/components/PublicSiteLayout';
 
 export default function FeaturesPage() {
   const [activeTab, setActiveTab] = useState(0);
@@ -44,29 +44,7 @@ export default function FeaturesPage() {
   const ActiveIcon = features[activeTab].icon;
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--shell)]/80 backdrop-blur-xl">
-        <div className="container mx-auto flex h-16 items-center justify-between px-6">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm text-[var(--text-sub)] transition-colors hover:text-[var(--accent-cyan)]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Trang chủ
-          </Link>
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-[var(--accent-cyan)]" />
-            <span className="text-lg font-semibold text-[var(--text-main)]">SmartAttendance</span>
-          </div>
-          <Link
-            to="/login"
-            className="text-sm font-medium text-[var(--accent-cyan)] hover:underline"
-          >
-            Đăng nhập
-          </Link>
-        </div>
-      </header>
-
+    <PublicSiteLayout>
       <main className="pb-20">
         {/* Header */}
         <section className="py-20 text-center container mx-auto px-6">
@@ -159,34 +137,44 @@ export default function FeaturesPage() {
           </div>
 
           <div className="max-w-4xl mx-auto overflow-hidden rounded-2xl border border-[var(--border)] shadow-lg">
-            <div className="grid grid-cols-3 bg-[var(--surface)] text-[var(--text-main)] font-bold">
-              <div className="p-5 border-b border-r border-[var(--border)]">Tiêu chí</div>
-              <div className="p-5 border-b border-r border-[var(--border)] text-center text-red-500 bg-red-500/5">Cách Truyền Thống</div>
-              <div className="p-5 border-b border-[var(--border)] text-center text-[var(--primary)] bg-[var(--primary)]/5 flex items-center justify-center gap-2">
-                <Clock className="h-5 w-5" /> SmartAttendance
+            <div className="grid grid-cols-[minmax(140px,1fr)_1fr_1fr] bg-[var(--surface)] text-[var(--text-main)] font-bold">
+              <div className="border-b border-r border-[var(--border)] p-5 text-left">Tiêu chí</div>
+              <div className="border-b border-r border-[var(--border)] bg-red-500/5 p-5 text-left text-red-500">
+                Cách Truyền Thống
+              </div>
+              <div className="flex items-center gap-2 border-b border-[var(--border)] bg-[var(--primary)]/5 p-5 text-left text-[var(--primary)]">
+                <Clock className="h-5 w-5 shrink-0" />
+                SmartAttendance
               </div>
             </div>
 
             {[
-              { label: "Thời gian Check-in", old: "30s - 1 phút / người", new: "< 1 giây / người" },
+              { label: "Thời gian Check-in", old: "30s - 1 phút / người", new: "20s / người" },
               { label: "Chống gian lận", old: "Dễ dàng chấm hộ", new: "Bảo mật tuyệt đối với Face ID & GPS" },
               { label: "Dữ liệu", old: "Cập nhật cuối tháng", new: "Real-time liên tục" },
               { label: "Tính lương", old: "Mất 3-5 ngày, dễ sai sót", new: "Tự động 100%, xuất trong 1 click" },
               { label: "Chi phí phần cứng", old: "Cao (mua máy chấm công)", new: "0đ (Dùng thiết bị di động cá nhân)" },
             ].map((row, idx) => (
-              <div key={idx} className="grid grid-cols-3 bg-[var(--bg)] border-b border-[var(--border)] hover:bg-[var(--surface)]/50 transition-colors">
-                <div className="p-5 border-r border-[var(--border)] text-[var(--text-main)] font-medium">{row.label}</div>
-                <div className="p-5 border-r border-[var(--border)] flex items-center justify-center gap-2 text-[var(--text-sub)]">
-                  <XCircle className="h-4 w-4 text-red-400 shrink-0" /> <span className="text-sm">{row.old}</span>
+              <div
+                key={idx}
+                className="grid grid-cols-[minmax(140px,1fr)_1fr_1fr] items-center border-b border-[var(--border)] bg-[var(--background)] transition-colors last:border-b-0 hover:bg-[var(--surface)]/50"
+              >
+                <div className="border-r border-[var(--border)] p-5 text-left font-medium text-[var(--text-main)]">
+                  {row.label}
                 </div>
-                <div className="p-5 flex items-center justify-center gap-2 text-[var(--text-main)] font-semibold">
-                  <CheckCircle2 className="h-5 w-5 text-[var(--success)] shrink-0" /> <span className="text-sm">{row.new}</span>
+                <div className="flex items-center gap-2 border-r border-[var(--border)] p-5 text-left text-[var(--text-sub)]">
+                  <XCircle className="h-4 w-4 shrink-0 text-red-400" />
+                  <span className="text-sm leading-snug">{row.old}</span>
+                </div>
+                <div className="flex items-center gap-2 p-5 text-left font-semibold text-[var(--text-main)]">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-[var(--success)]" />
+                  <span className="text-sm leading-snug">{row.new}</span>
                 </div>
               </div>
             ))}
           </div>
         </section>
       </main>
-    </div>
+    </PublicSiteLayout>
   );
 }

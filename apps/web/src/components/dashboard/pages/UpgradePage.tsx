@@ -1,695 +1,898 @@
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Crown,
-  Check,
-  CreditCard,
-  Users,
-  Building,
-  Zap,
-  ArrowRight,
-  Shield,
-  Clock,
-  TrendingUp,
-  Rocket,
-  BarChart3,
-  MapPin,
-  Brain,
-  X,
-  QrCode,
-  ExternalLink,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  billingService,
-  type UpgradePaymentResult,
-} from "@/services/billingService";
+import { billingService } from "@/services/billingService";
+import { useAuth } from "@/context/AuthContext";
 
-interface PricingPlan {
-  id: string;
-  name: string;
-  subtitle: string;
-  target: string;
-  priceMonthly: number;
-  priceYearly: number;
-  features: string[];
-  icon: React.ComponentType<any>;
-  popular?: boolean;
-  gradient: string;
-  iconBg: string;
+// ─── Plan config (mirrors packages/shared PLAN_CONFIG) ───────────────────────
+const PLAN_IDS = ["starter", "standard", "premium"] as const;
+type PlanId = (typeof PLAN_IDS)[number];
+
+const PLAN_PRICES: Record<PlanId, { mo: number; yr: number }> = {
+  starter:  { mo: 1_000_000, yr: 12_000_000 },
+  standard: { mo: 2_900_000, yr: 35_000_000 },
+  premium:  { mo: 6_600_000, yr: 80_000_000 },
+};
+
+const PLAN_ICONS: Record<PlanId, string> = {
+  starter:  "🚀",
+  standard: "👥",
+  premium:  "🏢",
+};
+
+// Tailwind gradient / accent classes per plan
+const PLAN_ACCENT = {
+  starter:  { grad: "from-blue-500 to-cyan-400",   glow: "shadow-blue-500/25",   badge: "bg-blue-500/10 text-blue-400",   check: "bg-blue-500/15 text-blue-400",   btn: "from-blue-500 to-cyan-400",   bar: "from-blue-500 to-cyan-400"   },
+  standard: { grad: "from-violet-500 to-purple-500", glow: "shadow-violet-500/25", badge: "bg-violet-500/10 text-violet-400", check: "bg-violet-500/15 text-violet-400", btn: "from-violet-500 to-purple-500", bar: "from-violet-500 to-purple-500" },
+  premium:  { grad: "from-amber-500 to-orange-500", glow: "shadow-amber-500/20",   badge: "bg-amber-500/10 text-amber-400",   check: "bg-amber-500/13 text-amber-400",   btn: "from-amber-500 to-orange-500", bar: "from-amber-500 to-orange-500"  },
+};
+
+// ─── State types ──────────────────────────────────────────────────────────────
+type Screen     = "pricing" | "checkout";
+type CheckoutStep = "info" | "qr" | "processing" | "success" | "cancelled" | "pending";
+type Billing    = "mo" | "yr";
+
+interface FormData {
+  companyName:    string;
+  employeeCount:  string;
+  customerName:   string;
+  customerEmail:  string;
+  customerPhone:  string;
+  billingMonths:  string;
+  notes:          string;
+  confirmEmail:   string;
 }
 
-const pricingPlans: PricingPlan[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    subtitle: "Gói Cơ Bản",
-    target: "Doanh nghiệp 50 – 100 nhân sự",
-    priceMonthly: 1000000,
-    priceYearly: 12000000,
-    icon: Rocket,
-    gradient: "from-blue-500 to-cyan-500",
-    iconBg: "bg-blue-500/10 text-blue-500",
-    features: [
-      "Phân quyền Admin & Nhân viên",
-      "Chấm công GPS chính xác",
-      "Lịch sử & báo cáo chấm công cơ bản",
-      "Quản lý ca làm việc",
-      "Thông báo real-time",
-      "Hỗ trợ kỹ thuật cơ bản",
-    ],
-  },
-  {
-    id: "standard",
-    name: "Standard",
-    subtitle: "Gói Tiêu Chuẩn",
-    target: "Doanh nghiệp 101 – 200 nhân sự",
-    priceMonthly: 2900000,
-    priceYearly: 35000000,
-    icon: Users,
-    gradient: "from-violet-500 to-purple-600",
-    iconBg: "bg-violet-500/10 text-violet-500",
-    popular: true,
-    features: [
-      "Tất cả tính năng Starter",
-      "Phân quyền Manager & HR Manager",
-      "Phê duyệt đơn từ trực tuyến (paperless)",
-      "Nghỉ phép, tăng ca, công tác...",
-      "Báo cáo phân tích chuyên sâu",
-      "Đánh giá hiệu suất nhân viên",
-      "Hỗ trợ ưu tiên",
-    ],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    subtitle: "Gói Nâng Cao",
-    target: "Doanh nghiệp trên 200 nhân sự",
-    priceMonthly: 6600000,
-    priceYearly: 80000000,
-    icon: Building,
-    gradient: "from-amber-500 to-orange-500",
-    iconBg: "bg-amber-500/10 text-amber-500",
-    features: [
-      "Tất cả tính năng Standard",
-      "Quyền Super Admin toàn hệ thống",
-      "Tự động hóa tính lương hoàn toàn",
-      "Nhận diện khuôn mặt AI (anti-spoofing)",
-      "AI Chatbot RAG hỏi đáp dữ liệu",
-      "Analytics đa chiều & xuất báo cáo",
-      "Quản lý đa chi nhánh, đa phòng ban",
-      "Hỗ trợ 24/7 + tùy chỉnh theo yêu cầu",
-    ],
-  },
-];
+const vnd = (n: number) => new Intl.NumberFormat("vi-VN").format(n);
 
-const formatVND = (amount: number) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-    amount,
-  );
+const QR_TOTAL_SECS = 900; // 15 min
 
 export type UpgradePageMode = "upgrade" | "catalog";
 
 interface UpgradePageProps {
-  /** upgrade = trial/dashboard (PayOS); catalog = public bảng giá từ landing */
   mode?: UpgradePageMode;
 }
 
+// ─── Grid-background helper ───────────────────────────────────────────────────
+const gridBgStyle: React.CSSProperties = {
+  backgroundImage: [
+    "linear-gradient(rgba(26,45,74,.35) 1px, transparent 1px)",
+    "linear-gradient(90deg, rgba(26,45,74,.35) 1px, transparent 1px)",
+  ].join(", "),
+  backgroundSize: "44px 44px",
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
-  const isCatalog = mode === "catalog";
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [selectedPlan, setSelectedPlan] = useState<string | null>("standard");
-  const [employeeCount, setEmployeeCount] = useState<number>(150);
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
-    "yearly",
-  );
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentResult, setPaymentResult] =
-    useState<UpgradePaymentResult | null>(null);
+  const { t } = useTranslation(["dashboard"]);
+  const navigate    = useNavigate();
+  const { user }    = useAuth();
+  const isCatalog   = mode === "catalog";
 
-  // Auto-update selected plan when slider changes
-  const handleEmployeeCountChange = (count: number) => {
-    setEmployeeCount(count);
-    if (count <= 100) setSelectedPlan("starter");
-    else if (count <= 200) setSelectedPlan("standard");
-    else setSelectedPlan("premium");
-  };
+  // Screen state
+  const [screen,      setScreen]      = useState<Screen>("pricing");
+  const [billing,     setBilling]     = useState<Billing>("mo");
+  const [chosenPlan,  setChosenPlan]  = useState<PlanId>("standard");
+  const [step,        setStep]        = useState<CheckoutStep>("info");
+  const [isCreating,  setIsCreating]  = useState(false);
 
-  const handlePlanSelect = (planId: string) => {
-    setSelectedPlan(planId);
-    if (planId === "starter") setEmployeeCount(75);
-    else if (planId === "standard") setEmployeeCount(150);
-    else if (planId === "premium") setEmployeeCount(300);
-  };
+  // Payment result
+  const [qrCode,      setQrCode]      = useState<string>("");
+  const [orderCode,   setOrderCode]   = useState<number | null>(null);
+  const [orderCodeDisplay, setOrderCodeDisplay] = useState<string>("");
 
+  // QR timer
+  const [qrSecs, setQrSecs] = useState(QR_TOTAL_SECS);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Form state
+  const [form, setForm] = useState<FormData>({
+    companyName:   "",
+    employeeCount: "",
+    customerName:  "",
+    customerEmail: "",
+    customerPhone: "",
+    billingMonths: "1",
+    notes:         "",
+    confirmEmail:  "",
+  });
+
+  // Pre-fill from auth user
   useEffect(() => {
-    if (isCatalog) return;
+    if (!user || isCatalog) return;
+    setForm((f) => ({
+      ...f,
+      companyName:   f.companyName   || user.companyName || "",
+      customerName:  f.customerName  || user.name        || "",
+      customerEmail: f.customerEmail || user.email       || "",
+      customerPhone: f.customerPhone || user.phone       || "",
+      confirmEmail:  f.confirmEmail  || user.email       || "",
+    }));
+  }, [user, isCatalog]);
 
-    const params = new URLSearchParams(location.search);
-    const payment = params.get("payment");
+  // Sync billingMonths when cycle changes
+  useEffect(() => {
+    setForm((f) => ({
+      ...f,
+      billingMonths: billing === "yr" ? "12" : f.billingMonths === "12" ? "1" : f.billingMonths,
+    }));
+  }, [billing]);
 
-    if (payment === "success") {
-      const orderCode = params.get("orderCode");
-      if (orderCode) {
-        const verifying = toast.loading("Đang xác nhận thanh toán...");
-        billingService
-          .pollPaymentStatusUntilPaid(Number(orderCode))
-          .then((result) => {
-            toast.dismiss(verifying);
-            if (result === "paid") {
-              toast.success(
-                "Thanh toán thành công! Gói của bạn đã được nâng cấp.",
-              );
-            } else if (result === "failed") {
-              toast.error(
-                "Thanh toán không thành công. Vui lòng liên hệ hỗ trợ.",
-              );
-            } else {
-              toast.warning(
-                "Thanh toán chưa được xác nhận. Nếu đã trừ tiền, vui lòng chờ vài phút hoặc liên hệ hỗ trợ.",
-              );
-            }
-          })
-          .catch(() => {
-            toast.dismiss(verifying);
-            toast.warning(
-              "Không thể xác nhận trạng thái thanh toán. Vui lòng liên hệ hỗ trợ.",
-            );
-          });
-      } else {
-        toast.warning("Không thể xác nhận thanh toán — thiếu mã đơn hàng.");
-      }
-      params.delete("payment");
-      params.delete("orderCode");
-      navigate(
-        location.pathname + (params.toString() ? `?${params.toString()}` : ""),
-        { replace: true },
-      );
-    } else if (payment === "cancelled") {
-      toast.warning(
-        "Thanh toán đã bị hủy. Bạn có thể chọn lại gói và thử lại.",
-      );
-      params.delete("payment");
-      navigate(
-        location.pathname + (params.toString() ? `?${params.toString()}` : ""),
-        { replace: true },
-      );
+  // ─── Timer helpers ──────────────────────────────────────────────────────────
+  const stopTimer = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  };
+
+  const startTimer = () => {
+    stopTimer();
+    setQrSecs(QR_TOTAL_SECS);
+    timerRef.current = setInterval(() => {
+      setQrSecs((s) => {
+        if (s <= 1) { stopTimer(); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => () => stopTimer(), []);
+
+  const timerDisplay = () => {
+    const m = Math.floor(qrSecs / 60).toString().padStart(2, "0");
+    const s = (qrSecs % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  // ─── Navigation ─────────────────────────────────────────────────────────────
+  const goCheckout = (planId: PlanId) => {
+    setChosenPlan(planId);
+    setStep("info");
+    setQrCode("");
+    setOrderCode(null);
+    setScreen("checkout");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const goPricing = () => {
+    stopTimer();
+    setScreen("pricing");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ─── Keyboard ESC to go back ────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && screen === "checkout") goPricing();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [screen]);
+
+  // ─── Step 1: Create payment link → get QR ──────────────────────────────────
+  const handleCreatePayment = async () => {
+    const { companyName, employeeCount, customerName, customerEmail, customerPhone, billingMonths } = form;
+    if (!companyName.trim() || !customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
+      toast.error(t("dashboard:upgrade.checkout.errorFillRequired"));
+      return;
     }
-  }, [location.search, isCatalog, location.pathname, navigate]);
+    const count = Number.parseInt(employeeCount, 10);
+    if (!Number.isFinite(count) || count < 1) {
+      toast.error(t("dashboard:upgrade.checkout.errorEmployeeCount"));
+      return;
+    }
+    const months = billing === "yr" ? 12 : Number.parseInt(billingMonths, 10);
 
-  const handleUpgrade = async () => {
-    if (!selectedPlan) return;
-    setIsProcessing(true);
+    setIsCreating(true);
     try {
-      const result = await billingService.createUpgradePayment(
-        selectedPlan as "starter" | "standard" | "premium",
-        billingCycle,
-      );
-      setPaymentResult(result);
+      const result = await billingService.createUpgradePayment({
+        plan:          chosenPlan,
+        billingCycle:  billing === "mo" ? "monthly" : "yearly",
+        companyName:   companyName.trim(),
+        employeeCount: count,
+        customerName:  customerName.trim(),
+        customerEmail: customerEmail.trim(),
+        customerPhone: customerPhone.trim(),
+        billingMonths: months,
+        notes:         form.notes.trim() || undefined,
+      });
+
+      if (!result.qrCode && !result.checkoutUrl) {
+        toast.error(t("dashboard:upgrade.checkout.errorCreatePayment"));
+        return;
+      }
+
+      setQrCode(result.qrCode || "");
+      setOrderCode(result.orderCode);
+      setOrderCodeDisplay(`#SA-${result.orderCode}`);
+      setForm((f) => ({ ...f, confirmEmail: f.confirmEmail || customerEmail.trim() }));
+      setStep("qr");
+      startTimer();
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Có lỗi xảy ra. Vui lòng thử lại.";
+      const msg = err instanceof Error ? err.message : t("dashboard:upgrade.checkout.errorCreatePayment");
       toast.error(msg);
     } finally {
-      setIsProcessing(false);
+      setIsCreating(false);
     }
   };
 
+  // ─── Step 2: Poll status after "I have paid" ────────────────────────────────
+  const handleIPaid = async () => {
+    if (!orderCode) return;
+    stopTimer();
+    setStep("processing");
+    const result = await billingService.pollPaymentStatusUntilPaid(orderCode);
+    if (result === "paid")    setStep("success");
+    else if (result === "failed") setStep("cancelled");
+    else                          setStep("pending");
+  };
+
+  // ─── Derived values ──────────────────────────────────────────────────────────
+  const p      = PLAN_PRICES[chosenPlan];
+  const price  = billing === "mo" ? p.mo : p.yr;
+  const accent = PLAN_ACCENT[chosenPlan];
+  const months = billing === "yr" ? 12 : Number.parseInt(form.billingMonths || "1", 10) || 1;
+  const totalAmount = billing === "mo" ? p.mo * months : p.yr;
+
+  const planName = t(`dashboard:upgrade.plans.${chosenPlan}.name`);
+  const planSub  = t(`dashboard:upgrade.plans.${chosenPlan}.sub`);
+  const planTarget = t(`dashboard:upgrade.plans.${chosenPlan}.target`);
+  const planFeats: string[] = t(`dashboard:upgrade.plans.${chosenPlan}.feats`, { returnObjects: true }) as string[];
+
+  const periodLabel = billing === "mo"
+    ? t("dashboard:upgrade.billingMonthly")
+    : t("dashboard:upgrade.billingYearly");
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ────────────────────────────────────────────────────────────────────────────
   return (
-    <>
-      <div className="space-y-10 pb-10">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-3"
-        >
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-900/20 dark:to-amber-900/20 px-4 py-2 rounded-full">
-            <Crown className="h-5 w-5 text-orange-600" />
-            <span className="text-orange-700 dark:text-orange-300 font-medium text-sm">
-              {isCatalog ? "Bảng giá" : "Nâng cấp tài khoản"}
-            </span>
-          </div>
-          <h1 className="text-3xl font-bold text-[var(--text-main)]">
-            {isCatalog
-              ? "Gói dịch vụ SmartAttendance"
-              : "Chọn gói phù hợp với doanh nghiệp"}
-          </h1>
-          <p className="text-[var(--text-sub)] max-w-xl mx-auto text-sm">
-            {isCatalog
-              ? "Dùng thử 7 ngày miễn phí. Đăng ký để bắt đầu, nâng cấp và thanh toán sau trong tài khoản."
-              : "Không có phí ẩn. Hủy bất cứ lúc nào. Hoàn tiền trong 30 ngày nếu không hài lòng."}
-          </p>
-        </motion.div>
+    <div className="relative min-h-screen -mx-4 -mt-4 sm:-mx-6 sm:-mt-6" style={gridBgStyle}>
 
-        {!isCatalog && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 }}
-            className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center justify-center gap-4"
-          >
-            <Clock className="h-5 w-5 text-red-600 shrink-0" />
-            <div className="text-center">
-              <p className="font-semibold text-red-900 dark:text-red-100 text-sm">
-                🔥 Bạn đang trong thời gian dùng thử 7 ngày miễn phí
-              </p>
-              <p className="text-xs text-red-700 dark:text-red-300">
-                Nâng cấp ngay để không bị gián đoạn dịch vụ
-              </p>
+      {/* ══ SCREEN 1: PRICING ═══════════════════════════════════════════════ */}
+      {screen === "pricing" && (
+        <div className="min-h-screen flex flex-col">
+
+          {/* Hero */}
+          <section className="text-center pt-14 pb-10 px-6 max-w-xl mx-auto">
+            <div className="inline-flex items-center gap-1.5 text-[var(--accent-cyan)] text-[10px] font-mono font-medium
+              tracking-widest uppercase border border-[var(--accent-cyan)]/20 bg-[var(--accent-cyan)]/5
+              px-3.5 py-1.5 rounded-full mb-5">
+              ✦ {t("dashboard:upgrade.eyebrow")}
             </div>
-            <TrendingUp className="h-5 w-5 text-red-600 shrink-0" />
-          </motion.div>
-        )}
+            <h1 className="font-extrabold text-[clamp(26px,5vw,46px)] leading-tight tracking-tight text-[var(--text-main)] mb-3">
+              {t("dashboard:upgrade.title")}{" "}
+              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                {t("dashboard:upgrade.titleHighlight")}
+              </span>
+              {t("dashboard:upgrade.titleSuffix")}
+            </h1>
 
-        {/* Billing Toggle & Employee Slider */}
-        <div className="max-w-2xl mx-auto space-y-8">
-          {/* Toggle */}
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-1 bg-[var(--surface)] border border-[var(--border)] rounded-full p-1.5 shadow-sm">
+            {/* Billing toggle */}
+            <div className="inline-flex bg-[var(--surface)] border border-[var(--border)] rounded-full p-1 gap-1 mt-6 mb-12">
               <button
-                onClick={() => setBillingCycle("monthly")}
-                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
-                  billingCycle === "monthly"
-                    ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-md transform scale-105"
-                    : "text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--surface)]"
+                type="button"
+                onClick={() => setBilling("mo")}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                  billing === "mo"
+                    ? "bg-[var(--primary)] text-white shadow-md shadow-blue-500/25"
+                    : "text-[var(--text-sub)] hover:text-[var(--text-main)]"
                 }`}
               >
-                Hàng tháng
+                {t("dashboard:upgrade.billingMonthly")}
               </button>
               <button
-                onClick={() => setBillingCycle("yearly")}
-                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center gap-2 ${
-                  billingCycle === "yearly"
-                    ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-md transform scale-105"
-                    : "text-[var(--text-sub)] hover:text-[var(--text-main)] hover:bg-[var(--surface)]"
+                type="button"
+                onClick={() => setBilling("yr")}
+                className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                  billing === "yr"
+                    ? "bg-[var(--primary)] text-white shadow-md shadow-blue-500/25"
+                    : "text-[var(--text-sub)] hover:text-[var(--text-main)]"
                 }`}
               >
-                Hàng năm
-                <motion.span
-                  animate={{
-                    scale: billingCycle === "yearly" ? [1, 1.2, 1] : 1,
-                  }}
-                  className="bg-[var(--success)] text-white text-xs px-2 py-0.5 rounded-full shadow-sm"
-                >
-                  -20%
-                </motion.span>
+                {t("dashboard:upgrade.billingYearly")}
+                <span className="font-mono text-[9px] font-semibold bg-green-500/15 text-green-400
+                  border border-green-500/25 px-1.5 py-0.5 rounded-full">
+                  {t("dashboard:upgrade.saveTag")}
+                </span>
               </button>
             </div>
-          </div>
+          </section>
 
-          {/* Slider */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-sm relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-[var(--primary)]/5 to-[var(--accent-cyan)]/5" />
-            <div className="relative z-10">
-              <div className="flex justify-between text-sm mb-4 font-medium items-end">
-                <span className="text-[var(--text-sub)]">Doanh nghiệp nhỏ</span>
-                <div className="text-center">
-                  <div className="text-[var(--text-sub)] text-xs mb-1 uppercase tracking-wider">
-                    Quy mô hiện tại
-                  </div>
-                  <span className="text-[var(--text-main)] font-bold text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-                    {employeeCount} <span className="text-lg">nhân viên</span>
-                  </span>
-                </div>
-                <span className="text-[var(--text-sub)]">Doanh nghiệp lớn</span>
-              </div>
+          {/* Plan cards */}
+          <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 pb-16">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {PLAN_IDS.map((id) => {
+                const ac    = PLAN_ACCENT[id];
+                const pp    = PLAN_PRICES[id];
+                const price = billing === "mo" ? pp.mo : pp.yr;
+                const note  = billing === "yr"
+                  ? t("dashboard:upgrade.saveAmount", { amount: vnd(pp.mo * 12 - pp.yr) })
+                  : t("dashboard:upgrade.payMonthly");
+                const feats: string[] = t(`dashboard:upgrade.plans.${id}.feats`, { returnObjects: true }) as string[];
+                const isPopular = id === "standard";
 
-              <input
-                type="range"
-                min="10"
-                max="500"
-                step="10"
-                value={employeeCount}
-                onChange={(e) =>
-                  handleEmployeeCountChange(parseInt(e.target.value))
-                }
-                className="w-full h-3 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-[var(--primary)] hover:accent-[var(--accent-cyan)] transition-colors"
-                style={{
-                  background: `linear-gradient(to right, var(--primary) ${((employeeCount - 10) / 490) * 100}%, var(--border) ${((employeeCount - 10) / 490) * 100}%)`,
-                }}
-              />
-
-              <div className="flex justify-between mt-2 text-xs text-[var(--text-sub)]">
-                <span>10</span>
-                <span>100</span>
-                <span>200</span>
-                <span>500+</span>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {pricingPlans.map((plan, index) => {
-            const Icon = plan.icon;
-            const isSelected = selectedPlan === plan.id;
-            const price =
-              billingCycle === "monthly" ? plan.priceMonthly : plan.priceYearly;
-
-            return (
-              <motion.div
-                key={plan.id}
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 + index * 0.1 }}
-                whileHover={{ y: -6 }}
-                className="relative"
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                    <span
-                      className={`bg-gradient-to-r ${plan.gradient} text-white text-xs font-bold px-4 py-1 rounded-full shadow`}
-                    >
-                      PHỔ BIẾN NHẤT
-                    </span>
-                  </div>
-                )}
-
-                <Card
-                  onClick={() => handlePlanSelect(plan.id)}
-                  className={`relative overflow-hidden cursor-pointer transition-all duration-500 h-full flex flex-col ${
-                    isSelected
-                      ? `ring-2 ring-[var(--primary)] shadow-2xl scale-105 z-10 bg-gradient-to-b from-[var(--surface)] to-[var(--bg)]`
-                      : "hover:shadow-xl scale-100 bg-[var(--surface)] opacity-70 hover:opacity-100"
-                  } ${
-                    plan.popular
-                      ? "border-[var(--primary)]"
-                      : "border-[var(--border)]"
-                  }`}
-                >
-                  {/* Gradient top bar */}
-                  <div
-                    className={`h-1 w-full bg-gradient-to-r ${plan.gradient}`}
-                  />
-
-                  <CardHeader className="text-center pb-2 pt-6">
-                    <div className="flex justify-center mb-3">
-                      <div className={`p-3 rounded-2xl ${plan.iconBg}`}>
-                        <Icon className="h-7 w-7" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-[var(--text-sub)] uppercase tracking-widest">
-                      {plan.subtitle}
-                    </p>
-                    <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                    <p className="text-xs text-[var(--text-sub)] mt-1">
-                      {plan.target}
-                    </p>
-
-                    <div className="mt-4">
-                      <div className="flex items-baseline justify-center gap-1">
-                        <span className="text-3xl font-bold text-[var(--text-main)]">
-                          {formatVND(price)}
+                return (
+                  <div key={id} className="relative flex flex-col">
+                    {isPopular && (
+                      <div className="absolute -top-3 right-4 z-10">
+                        <span className={`bg-gradient-to-r ${ac.grad} text-white text-[9px] font-bold
+                          tracking-widest uppercase px-3 py-1 rounded-full shadow-lg ${ac.glow}`}>
+                          {t("dashboard:upgrade.popularBadge")}
                         </span>
                       </div>
-                      <p className="text-xs text-[var(--text-sub)] mt-1">
-                        {billingCycle === "monthly" ? "/ tháng" : "/ năm"}
-                        {billingCycle === "yearly" && (
-                          <span className="ml-2 text-green-500 font-medium">
-                            (tiết kiệm{" "}
-                            {formatVND(
-                              plan.priceMonthly * 12 - plan.priceYearly,
-                            )}
-                            )
+                    )}
+
+                    <div className={`relative flex flex-col flex-1 rounded-2xl overflow-hidden
+                      bg-[var(--surface)] border border-[var(--border)]
+                      transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:${ac.glow}
+                      ${isPopular ? "border-violet-500/40" : ""}`}>
+
+                      {/* Top color bar */}
+                      <div className={`h-0.5 w-full bg-gradient-to-r ${ac.bar}`} />
+
+                      {/* Ambient corner glow */}
+                      <div className={`absolute top-0 right-0 w-36 h-36 rounded-full pointer-events-none
+                        bg-gradient-radial opacity-0 dark:opacity-100`}
+                        style={{ background: `radial-gradient(circle at top right, ${
+                          id === "starter" ? "rgba(59,130,246,.08)" :
+                          id === "standard" ? "rgba(139,92,246,.08)" : "rgba(245,158,11,.07)"
+                        }, transparent 70%)` }} />
+
+                      <div className="p-6 flex flex-col flex-1">
+                        {/* Icon + name */}
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl mb-4 ${ac.badge}`}>
+                          {PLAN_ICONS[id]}
+                        </div>
+                        <p className={`font-bold text-[17px] tracking-tight mb-0.5 bg-gradient-to-r ${ac.grad} bg-clip-text text-transparent`}>
+                          {t(`dashboard:upgrade.plans.${id}.name`)}
+                        </p>
+                        <p className="text-xs text-[var(--text-sub)] mb-1">
+                          {t(`dashboard:upgrade.plans.${id}.sub`)}
+                        </p>
+                        <span className="inline-block font-mono text-[10px] text-[var(--text-sub)]/60
+                          bg-[var(--shell)] border border-[var(--border)] px-2.5 py-0.5 rounded-md mb-5">
+                          {t(`dashboard:upgrade.plans.${id}.target`)}
+                        </span>
+
+                        {/* Price */}
+                        <div className="flex items-baseline gap-1 mb-1">
+                          <span className="text-xs text-[var(--text-sub)] self-start pt-1.5">₫</span>
+                          <span className="font-mono text-3xl font-semibold leading-none tracking-tight text-[var(--text-main)]">
+                            {vnd(price)}
                           </span>
+                          <span className="text-xs text-[var(--text-sub)]">
+                            {billing === "mo" ? t("dashboard:upgrade.perMonth") : t("dashboard:upgrade.perYear")}
+                          </span>
+                        </div>
+                        <p className={`font-mono text-[10px] mb-5 min-h-[14px] ${billing === "yr" ? "text-green-400" : "text-[var(--text-sub)]/50"}`}>
+                          {note}
+                        </p>
+
+                        <div className="h-px bg-[var(--border)] mb-4" />
+
+                        {/* Features */}
+                        <ul className="flex flex-col gap-2.5 mb-6 flex-1">
+                          {feats.map((f, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[13px] text-[var(--text-sub)]">
+                              <span className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center
+                                text-[9px] font-bold mt-0.5 ${ac.check}`}>✓</span>
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+
+                        {/* CTA */}
+                        <button
+                          type="button"
+                          onClick={() => isCatalog ? navigate("/register") : goCheckout(id)}
+                          className={`w-full py-3 rounded-xl text-sm font-semibold text-white
+                            bg-gradient-to-r ${ac.btn} shadow-lg ${ac.glow}
+                            hover:brightness-110 hover:-translate-y-px active:brightness-95
+                            transition-all duration-150 relative overflow-hidden`}
+                        >
+                          <span className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
+                          <span className="relative">
+                            {isCatalog
+                              ? "Đăng ký dùng thử"
+                              : t("dashboard:upgrade.selectPlan", { name: t(`dashboard:upgrade.plans.${id}.name`) })}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Trust strip */}
+          <div className="border-t border-[var(--border)] flex flex-wrap items-center justify-center
+            gap-x-6 gap-y-2 px-6 py-5 text-xs text-[var(--text-sub)]">
+            <span>🔒 {t("dashboard:upgrade.trust.ssl")}</span>
+            <span>⚡ {t("dashboard:upgrade.trust.activate")}</span>
+            <span>🏦 {t("dashboard:upgrade.trust.payos")}</span>
+            <span>↩️ {t("dashboard:upgrade.trust.refund")}</span>
+            <span>🇻🇳 {t("dashboard:upgrade.trust.local")}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ══ SCREEN 2: CHECKOUT ══════════════════════════════════════════════ */}
+      {screen === "checkout" && (
+        <div className="min-h-screen flex flex-col">
+
+          {/* Top bar */}
+          <div className="sticky top-0 z-50 flex items-center justify-between px-5 sm:px-10 h-[54px]
+            bg-[var(--background)]/92 backdrop-blur-md border-b border-[var(--border)]">
+            <button
+              type="button"
+              onClick={goPricing}
+              className="flex items-center gap-2.5 font-bold text-[var(--text-main)] text-sm bg-transparent border-none cursor-pointer"
+            >
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold text-white
+                bg-gradient-to-br from-blue-700 to-sky-600">S</span>
+              Smart<em className="not-italic text-[var(--accent-cyan)]">Attendance</em>
+            </button>
+            <button
+              type="button"
+              onClick={goPricing}
+              className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--text-sub)]
+                border border-[var(--border)] rounded-lg px-3.5 py-1.5 hover:border-[var(--border)]/80
+                hover:text-[var(--text-main)] transition-colors bg-transparent cursor-pointer"
+            >
+              ← {t("dashboard:upgrade.checkout.backBtn")}
+            </button>
+          </div>
+
+          {/* Two-column body */}
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 max-w-4xl w-full mx-auto px-4 sm:px-8 py-10 gap-10 items-start">
+
+            {/* ── LEFT: Order summary ── */}
+            <div className="space-y-5">
+
+              {/* Plan hero card */}
+              <div className={`relative overflow-hidden rounded-2xl bg-[var(--surface)]
+                border border-[var(--border)] p-6`}>
+                {/* top bar */}
+                <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${accent.bar}`} />
+
+                <div className="flex items-start gap-3.5 mb-5">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${accent.badge}`}>
+                    {PLAN_ICONS[chosenPlan]}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-mono text-[var(--text-sub)]/60 uppercase tracking-wider mb-1">
+                      {t("dashboard:upgrade.checkout.subscriptionLabel")}
+                    </p>
+                    <p className={`font-extrabold text-xl tracking-tight bg-gradient-to-r ${accent.grad} bg-clip-text text-transparent`}>
+                      {planName}
+                    </p>
+                    <p className="text-sm text-[var(--text-sub)]">{planSub}</p>
+                  </div>
+                </div>
+
+                {/* Price breakdown */}
+                <div className="rounded-xl border border-[var(--border)] overflow-hidden bg-[var(--shell)]">
+                  {[
+                    [t("dashboard:upgrade.checkout.planLabel"), planName],
+                    [t("dashboard:upgrade.checkout.billingPeriod"), periodLabel],
+                    [t("dashboard:upgrade.checkout.employeeCountLabel"), planTarget],
+                  ].map(([label, val]) => (
+                    <div key={label} className="flex justify-between items-center px-4 py-2.5
+                      border-b border-[var(--border)] text-[13px]">
+                      <span className="text-[var(--text-sub)]">{label}</span>
+                      <span className="font-mono text-[12.5px] font-medium text-[var(--text-main)]">{val}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center px-4 py-2.5 bg-green-500/5 text-[13px]">
+                    <span className="text-green-400 font-medium">{t("dashboard:upgrade.checkout.total")}</span>
+                    <span className="font-mono text-sm font-semibold text-green-400">
+                      {vnd(totalAmount)} ₫
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Features */}
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+                <p className="font-mono text-[10px] text-[var(--text-sub)]/50 uppercase tracking-widest mb-4">
+                  {t("dashboard:upgrade.checkout.includes")}
+                </p>
+                <ul className="flex flex-col gap-2.5">
+                  {planFeats.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-[13px] text-[var(--text-sub)]">
+                      <span className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center
+                        text-[9px] font-bold mt-0.5 ${accent.check}`}>✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* ── RIGHT: Payment form card ── */}
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+
+              {/* ── STEP: info ── */}
+              {step === "info" && (
+                <>
+                  <div className="px-6 pt-5 pb-4 border-b border-[var(--border)]">
+                    <p className="font-mono text-[9.5px] text-[var(--text-sub)]/50 uppercase tracking-widest mb-1">
+                      {t("dashboard:upgrade.checkout.formStep")}
+                    </p>
+                    <p className="font-bold text-[17px] tracking-tight text-[var(--text-main)]">
+                      {t("dashboard:upgrade.checkout.formTitle")}
+                    </p>
+                  </div>
+
+                  <div className="px-6 py-5 space-y-3.5">
+                    {/* Mini plan summary */}
+                    <div className="flex items-center justify-between bg-[var(--shell)] border border-[var(--border)]
+                      rounded-lg px-3.5 py-2.5 text-[13px] mb-1">
+                      <span className="font-semibold text-[var(--text-main)]">{planName}</span>
+                      <span className={`font-mono font-semibold text-sm bg-gradient-to-r ${accent.grad} bg-clip-text text-transparent`}>
+                        {vnd(price)} ₫
+                      </span>
+                    </div>
+
+                    {/* Company */}
+                    <Field label={`${t("dashboard:upgrade.checkout.companyName")} *`}>
+                      <input
+                        type="text"
+                        value={form.companyName}
+                        onChange={(e) => setForm((f) => ({ ...f, companyName: e.target.value }))}
+                        placeholder={t("dashboard:upgrade.checkout.companyNamePlaceholder")}
+                        className={inputCls}
+                      />
+                    </Field>
+
+                    {/* Contact name */}
+                    <Field label={`${t("dashboard:upgrade.checkout.contactName")} *`}>
+                      <input
+                        type="text"
+                        value={form.customerName}
+                        onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
+                        placeholder={t("dashboard:upgrade.checkout.contactNamePlaceholder")}
+                        className={inputCls}
+                      />
+                    </Field>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Email */}
+                      <Field label={`${t("dashboard:upgrade.checkout.email")} *`}>
+                        <input
+                          type="email"
+                          value={form.customerEmail}
+                          onChange={(e) => setForm((f) => ({ ...f, customerEmail: e.target.value }))}
+                          placeholder={t("dashboard:upgrade.checkout.emailPlaceholder")}
+                          className={inputCls}
+                        />
+                      </Field>
+
+                      {/* Phone */}
+                      <Field label={`${t("dashboard:upgrade.checkout.phone")} *`}>
+                        <input
+                          type="tel"
+                          value={form.customerPhone}
+                          onChange={(e) => setForm((f) => ({ ...f, customerPhone: e.target.value }))}
+                          placeholder={t("dashboard:upgrade.checkout.phonePlaceholder")}
+                          className={inputCls}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Employee count */}
+                      <Field label={`${t("dashboard:upgrade.checkout.employeeCountField")} *`}>
+                        <input
+                          type="number"
+                          min={1}
+                          value={form.employeeCount}
+                          onChange={(e) => setForm((f) => ({ ...f, employeeCount: e.target.value }))}
+                          placeholder={t("dashboard:upgrade.checkout.employeeCountPlaceholder")}
+                          className={inputCls}
+                        />
+                      </Field>
+
+                      {/* Billing months */}
+                      <Field label={`${t("dashboard:upgrade.checkout.billingMonths")} *`}>
+                        {billing === "yr" ? (
+                          <input type="number" value={12} disabled className={`${inputCls} opacity-50 cursor-not-allowed`} />
+                        ) : (
+                          <select
+                            value={form.billingMonths}
+                            onChange={(e) => setForm((f) => ({ ...f, billingMonths: e.target.value }))}
+                            className={inputCls}
+                          >
+                            {(["1", "3", "6", "12"] as const).map((m) => (
+                              <option key={m} value={m}>
+                                {t(`dashboard:upgrade.checkout.months${m}` as `dashboard:upgrade.checkout.months1`)}
+                              </option>
+                            ))}
+                          </select>
                         )}
+                      </Field>
+                    </div>
+
+                    {/* Notes */}
+                    <Field label={t("dashboard:upgrade.checkout.notes")}>
+                      <input
+                        type="text"
+                        value={form.notes}
+                        onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                        placeholder={t("dashboard:upgrade.checkout.notesPlaceholder")}
+                        className={inputCls}
+                      />
+                    </Field>
+
+                    {/* Create QR button */}
+                    <button
+                      type="button"
+                      onClick={handleCreatePayment}
+                      disabled={isCreating}
+                      className={`w-full flex items-center justify-center gap-2 py-3.5 mt-1 rounded-xl
+                        text-[14px] font-semibold text-white relative overflow-hidden
+                        bg-gradient-to-r ${accent.btn} shadow-lg ${accent.glow}
+                        hover:brightness-110 hover:-translate-y-px active:brightness-95
+                        disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150`}
+                    >
+                      <span className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
+                      <span className="relative">
+                        {isCreating
+                          ? t("dashboard:upgrade.checkout.validating")
+                          : t("dashboard:upgrade.checkout.createQR")}
+                      </span>
+                      {!isCreating && <span className="relative">→</span>}
+                    </button>
+
+                    <p className="flex items-center justify-center gap-1.5 text-[11px] text-[var(--text-sub)]/40 text-center">
+                      🔐 {t("dashboard:upgrade.checkout.sslNote")}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* ── STEP: qr ── */}
+              {step === "qr" && (
+                <>
+                  <div className="px-6 pt-5 pb-4 border-b border-[var(--border)]">
+                    <p className="font-mono text-[9.5px] text-[var(--text-sub)]/50 uppercase tracking-widest mb-1">
+                      {t("dashboard:upgrade.checkout.qrStepLabel")}
+                    </p>
+                    <p className="font-bold text-[17px] tracking-tight text-[var(--text-main)]">
+                      {t("dashboard:upgrade.checkout.qrTitle")}
+                    </p>
+                  </div>
+
+                  <div className="px-6 py-5 space-y-4">
+                    {/* Mini plan summary */}
+                    <div className="flex items-center justify-between bg-[var(--shell)] border border-[var(--border)]
+                      rounded-lg px-3.5 py-2.5 text-[13px]">
+                      <span className="font-semibold text-[var(--text-main)]">{planName}</span>
+                      <span className={`font-mono font-semibold text-sm bg-gradient-to-r ${accent.grad} bg-clip-text text-transparent`}>
+                        {vnd(totalAmount)} ₫
+                      </span>
+                    </div>
+
+                    {/* QR box */}
+                    <div className="bg-[var(--shell)] border border-[var(--border)] rounded-xl p-5 text-center">
+                      <div className="w-36 h-36 rounded-xl border border-[var(--border)] mx-auto mb-3
+                        flex items-center justify-center overflow-hidden bg-white">
+                        {qrCode ? (
+                          <img
+                            src={qrCode.startsWith("http") ? qrCode : `data:image/png;base64,${qrCode}`}
+                            alt="QR Code"
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          /* Fallback placeholder if no QR string */
+                          <div className="w-full h-full flex items-center justify-center
+                            bg-gradient-to-br from-blue-700 to-sky-600 text-white text-xl font-extrabold">
+                            SA
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-[var(--text-sub)] mb-1.5">
+                        {t("dashboard:upgrade.checkout.scanHint")}
+                      </p>
+                      <p className={`font-mono text-2xl font-semibold ${qrSecs < 60 ? "text-red-400 animate-pulse" : "text-amber-400"}`}>
+                        {timerDisplay()}
                       </p>
                     </div>
-                  </CardHeader>
 
-                  <CardContent className="pt-4 flex flex-col flex-1">
-                    <ul className="space-y-2.5 flex-1">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
-                          <span className="text-[var(--text-main)]">
-                            {feature}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    {/* Confirm email */}
+                    <Field label={t("dashboard:upgrade.checkout.confirmEmail")}>
+                      <input
+                        type="email"
+                        value={form.confirmEmail}
+                        onChange={(e) => setForm((f) => ({ ...f, confirmEmail: e.target.value }))}
+                        placeholder={t("dashboard:upgrade.checkout.confirmEmailPlaceholder")}
+                        className={inputCls}
+                      />
+                    </Field>
 
-                    <Button
-                      className={`w-full mt-6 ${
-                        isSelected
-                          ? `bg-gradient-to-r ${plan.gradient} text-white border-0`
-                          : "bg-[var(--surface)] text-[var(--text-main)] border border-[var(--border)] hover:border-[var(--primary)]"
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isCatalog) {
-                          navigate("/register");
-                          return;
-                        }
-                        handlePlanSelect(plan.id);
-                      }}
+                    {/* I paid button */}
+                    <button
+                      type="button"
+                      onClick={handleIPaid}
+                      className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl
+                        text-[14px] font-semibold text-white relative overflow-hidden
+                        bg-gradient-to-r ${accent.btn} shadow-lg ${accent.glow}
+                        hover:brightness-110 hover:-translate-y-px active:brightness-95
+                        transition-all duration-150`}
                     >
-                      {isCatalog ? (
-                        "Đăng ký dùng thử"
-                      ) : isSelected ? (
-                        <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Đã chọn
-                        </>
-                      ) : (
-                        "Chọn gói này"
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
+                      <span className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
+                      <span className="relative">{t("dashboard:upgrade.checkout.iPaid")}</span>
+                      <span className="relative">→</span>
+                    </button>
 
-        {/* CTA */}
-        {isCatalog ? (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] rounded-2xl p-8 text-white text-center"
-          >
-            <h2 className="text-2xl font-bold mb-2">
-              Bắt đầu dùng thử 7 ngày miễn phí
-            </h2>
-            <p className="text-white/80 mb-6 text-sm max-w-lg mx-auto">
-              Đăng ký tài khoản doanh nghiệp, sau đó chọn gói và thanh toán
-              trong mục Nâng cấp.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button
-                size="lg"
-                onClick={() => navigate("/register")}
-                className="bg-white text-[var(--primary)] hover:bg-gray-100 px-8 font-semibold shadow-lg"
-              >
-                Đăng ký miễn phí
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => navigate("/login")}
-                className="border-white/40 text-white hover:bg-white/10 px-8"
-              >
-                Đã có tài khoản
-              </Button>
-            </div>
-          </motion.div>
-        ) : (
-          selectedPlan && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] rounded-2xl p-8 text-white text-center"
-            >
-              <h2 className="text-2xl font-bold mb-2">Sẵn sàng nâng cấp?</h2>
-              <p className="text-white/80 mb-6 text-sm max-w-lg mx-auto">
-                Bắt đầu trải nghiệm đầy đủ SmartAttendance ngay hôm nay. Thanh
-                toán an toàn, bảo mật.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Button
-                  size="lg"
-                  onClick={handleUpgrade}
-                  disabled={isProcessing}
-                  className="bg-white text-[var(--primary)] hover:bg-gray-100 px-8 font-semibold shadow-lg"
-                >
-                  {isProcessing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[var(--primary)] mr-2" />
-                      Đang xử lý...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Nâng cấp ngay
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-                <div className="flex items-center gap-4 text-sm text-white/70">
-                  <span className="flex items-center gap-1">
-                    <Shield className="h-4 w-4" />
-                    Bảo mật 100%
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Zap className="h-4 w-4" />
-                    Hủy bất cứ lúc nào
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          )
-        )}
+                    <p className="flex items-center justify-center gap-1.5 text-[11px] text-[var(--text-sub)]/40 text-center">
+                      🔐 {t("dashboard:upgrade.checkout.sslNote")}
+                    </p>
+                  </div>
+                </>
+              )}
 
-        {/* Feature comparison highlights */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4"
-        >
-          {[
-            {
-              icon: MapPin,
-              label: "GPS chống gian lận",
-              color: "text-blue-500",
-            },
-            { icon: Brain, label: "AI Chatbot RAG", color: "text-purple-500" },
-            {
-              icon: BarChart3,
-              label: "Analytics đa chiều",
-              color: "text-green-500",
-            },
-            {
-              icon: TrendingUp,
-              label: "Tính lương tự động",
-              color: "text-amber-500",
-            },
-          ].map((item, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]"
-            >
-              <item.icon className={`h-5 w-5 shrink-0 ${item.color}`} />
-              <span className="text-sm text-[var(--text-main)]">
-                {item.label}
-              </span>
-            </div>
-          ))}
-        </motion.div>
-
-        {/* FAQ */}
-        <div className="max-w-2xl mx-auto space-y-4">
-          <h2 className="text-center text-lg font-semibold text-[var(--text-main)]">
-            Câu hỏi thường gặp
-          </h2>
-          {[
-            {
-              q: "Tôi có thể hủy đăng ký bất cứ lúc nào không?",
-              a: "Có. Bạn sẽ tiếp tục sử dụng đến hết chu kỳ thanh toán hiện tại.",
-            },
-            {
-              q: "Có được hoàn tiền nếu không hài lòng không?",
-              a: "Có. Chúng tôi hoàn tiền 100% trong 30 ngày đầu nếu bạn không hài lòng.",
-            },
-            {
-              q: "Dữ liệu của tôi có được bảo mật không?",
-              a: "Hoàn toàn. Dữ liệu được mã hóa end-to-end và tuân thủ tiêu chuẩn bảo mật quốc tế.",
-            },
-          ].map((faq, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] space-y-1"
-            >
-              <p className="font-medium text-sm text-[var(--text-main)]">
-                {faq.q}
-              </p>
-              <p className="text-sm text-[var(--text-sub)]">{faq.a}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-      {/* QR Payment Modal — chỉ khi đã đăng nhập (upgrade) */}
-      <AnimatePresence>
-        {!isCatalog && paymentResult && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            onClick={() => setPaymentResult(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <QrCode className="h-5 w-5 text-[var(--primary)]" />
-                  <h3 className="font-semibold text-[var(--text-main)]">
-                    Thanh toán qua QR
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setPaymentResult(null)}
-                  className="p-1 rounded-lg hover:bg-[var(--surface)] text-[var(--text-sub)]"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <p className="text-sm text-[var(--text-sub)]">
-                Quét mã QR bằng ứng dụng ngân hàng hoặc nhấn nút để mở trang
-                thanh toán.
-              </p>
-
-              {paymentResult.qrCode && (
-                <div className="flex justify-center">
-                  <img
-                    src={paymentResult.qrCode}
-                    alt="QR thanh toán PayOS"
-                    className="w-48 h-48 rounded-xl border border-[var(--border)]"
-                  />
+              {/* ── STEP: processing ── */}
+              {step === "processing" && (
+                <div className="flex flex-col items-center text-center px-6 py-14">
+                  <div className="w-14 h-14 rounded-full border-[3px] border-[var(--border)]
+                    border-t-[var(--primary)] animate-spin mb-6" />
+                  <p className="font-bold text-[20px] tracking-tight text-[var(--text-main)] mb-2">
+                    {t("dashboard:upgrade.checkout.processing")}
+                  </p>
+                  <p className="text-sm text-[var(--text-sub)]">
+                    {t("dashboard:upgrade.checkout.processingDesc")}
+                  </p>
                 </div>
               )}
 
-              <p className="text-xs text-center text-[var(--text-sub)]">
-                Mã đơn hàng:{" "}
-                <span className="font-mono font-medium">
-                  #{paymentResult.orderCode}
-                </span>
-              </p>
+              {/* ── STEP: success ── */}
+              {step === "success" && (
+                <div className="relative flex flex-col items-center text-center px-6 py-12 overflow-hidden">
+                  {/* shimmer bar */}
+                  <div className="absolute top-0 left-0 right-0 h-0.5"
+                    style={{ background: "linear-gradient(90deg,#3b82f6,#22d3ee,#10b981,#22d3ee,#3b82f6)",
+                      backgroundSize: "200%", animation: "shimmer 2s linear infinite" }} />
 
-              <Button
-                className="w-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white border-0"
-                onClick={() => {
-                  window.location.href = paymentResult.checkoutUrl;
-                }}
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Thanh toán online
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+                  <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center text-3xl mb-5
+                    bg-green-500/12 border-2 border-green-500/28"
+                    style={{ animation: "popIn .35s cubic-bezier(.34,1.56,.64,1) both" }}>✓</div>
+
+                  <p className="font-bold text-xl text-green-400 mb-2">
+                    {t("dashboard:upgrade.checkout.success")}
+                  </p>
+                  <p className="text-sm text-[var(--text-sub)] max-w-xs mb-6">
+                    {t("dashboard:upgrade.checkout.successDesc")}
+                  </p>
+
+                  {/* Order table */}
+                  <div className="w-full max-w-xs border border-[var(--border)] rounded-xl overflow-hidden
+                    text-[12.5px] text-left mb-6">
+                    {[
+                      [t("dashboard:upgrade.checkout.orderPlan"), planName],
+                      [t("dashboard:upgrade.checkout.orderCode"),  orderCodeDisplay],
+                      [t("dashboard:upgrade.checkout.orderMethod"), t("dashboard:upgrade.checkout.methodQR")],
+                      [t("dashboard:upgrade.checkout.orderTotal"),  `${vnd(totalAmount)} ₫`],
+                    ].map(([label, val], i, arr) => (
+                      <div key={label}
+                        className={`flex justify-between items-center px-3.5 py-2.5
+                          ${i < arr.length - 1 ? "border-b border-[var(--border)]" : "bg-green-500/5"}`}>
+                        <span className={i === arr.length - 1 ? "text-green-400 font-medium" : "text-[var(--text-sub)]"}>
+                          {label}
+                        </span>
+                        <span className={`font-mono font-semibold ${i === arr.length - 1 ? "text-green-400" : "text-[var(--text-main)]"}`}>
+                          {val}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2.5 flex-wrap justify-center">
+                    <PillBtn primary onClick={() => navigate("/dashboard")}>
+                      {t("dashboard:upgrade.checkout.toDashboard")} →
+                    </PillBtn>
+                    <PillBtn onClick={goPricing}>
+                      {t("dashboard:upgrade.checkout.close")}
+                    </PillBtn>
+                  </div>
+                </div>
+              )}
+
+              {/* ── STEP: cancelled ── */}
+              {step === "cancelled" && (
+                <StatePanel
+                  icon="✕" iconCls="bg-red-500/10 border-2 border-red-500/25"
+                  title={t("dashboard:upgrade.checkout.cancelled")} titleCls="text-red-400"
+                  desc={t("dashboard:upgrade.checkout.cancelledDesc")}
+                >
+                  <PillBtn primary onClick={() => { setStep("info"); startTimer(); }}>
+                    {t("dashboard:upgrade.checkout.retry")}
+                  </PillBtn>
+                  <PillBtn onClick={goPricing}>
+                    {t("dashboard:upgrade.checkout.chooseOther")}
+                  </PillBtn>
+                </StatePanel>
+              )}
+
+              {/* ── STEP: pending ── */}
+              {step === "pending" && (
+                <StatePanel
+                  icon="⏳" iconCls="bg-amber-500/10 border-2 border-amber-500/25"
+                  title={t("dashboard:upgrade.checkout.pending")} titleCls="text-amber-400"
+                  desc={t("dashboard:upgrade.checkout.pendingDesc")}
+                >
+                  <PillBtn primary onClick={() => navigate("/dashboard")}>
+                    {t("dashboard:upgrade.checkout.toDashboard")}
+                  </PillBtn>
+                  <PillBtn onClick={goPricing}>
+                    {t("dashboard:upgrade.checkout.toSupport")}
+                  </PillBtn>
+                </StatePanel>
+              )}
+
+            </div>{/* .co-right */}
+          </div>{/* .co-body */}
+        </div>
+      )}
+
+      {/* Global keyframe styles */}
+      <style>{`
+        @keyframes shimmer { to { background-position: 200%; } }
+        @keyframes popIn   { from { transform: scale(0) rotate(-15deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+      `}</style>
+    </div>
   );
 };
+
+// ─── Small shared sub-components ─────────────────────────────────────────────
+const inputCls =
+  "w-full px-3 py-2.5 rounded-lg text-[13.5px] font-sans outline-none transition-all " +
+  "bg-[var(--shell)] border border-[var(--border)] text-[var(--text-main)] " +
+  "placeholder:text-[var(--text-sub)]/40 focus:border-[var(--primary)] " +
+  "focus:ring-2 focus:ring-[var(--primary)]/15 " +
+  "[&_option]:bg-[var(--shell)] [&_option]:text-[var(--text-main)]";
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div>
+    <label className="block text-[11.5px] font-medium text-[var(--text-sub)] mb-1.5 tracking-wide">
+      {label}
+    </label>
+    {children}
+  </div>
+);
+
+const PillBtn: React.FC<{ primary?: boolean; onClick?: () => void; children: React.ReactNode }> = ({
+  primary, onClick, children,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`px-6 py-2.5 rounded-xl text-[13.5px] font-semibold transition-all cursor-pointer border
+      ${primary
+        ? "bg-[var(--primary)] text-white border-transparent hover:bg-blue-600"
+        : "bg-[var(--surface)] text-[var(--text-sub)] border-[var(--border)] hover:border-[var(--border)]/60 hover:text-[var(--text-main)]"
+      }`}
+  >
+    {children}
+  </button>
+);
+
+const StatePanel: React.FC<{
+  icon: string; iconCls: string;
+  title: string; titleCls: string;
+  desc: string;
+  children: React.ReactNode;
+}> = ({ icon, iconCls, title, titleCls, desc, children }) => (
+  <div className="flex flex-col items-center text-center px-6 py-12">
+    <div className={`w-[72px] h-[72px] rounded-full flex items-center justify-center text-3xl mb-5 ${iconCls}`}
+      style={{ animation: "popIn .35s cubic-bezier(.34,1.56,.64,1) both" }}>
+      {icon}
+    </div>
+    <p className={`font-bold text-xl mb-2 ${titleCls}`}>{title}</p>
+    <p className="text-sm text-[var(--text-sub)] max-w-xs mb-6">{desc}</p>
+    <div className="flex gap-2.5 flex-wrap justify-center">{children}</div>
+  </div>
+);
 
 export default UpgradePage;

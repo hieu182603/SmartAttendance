@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Sparkles,
@@ -11,28 +11,15 @@ import {
   Users,
   BarChart3,
   CheckCircle,
-  Sun,
-  Moon,
-  Facebook,
-  Twitter,
-  Linkedin,
-  Instagram,
-  BookOpen,
-  FileText,
-  HelpCircle,
-  Phone,
-  Mail,
-  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/components/ThemeProvider";
 import { useAuth } from "@/context/AuthContext";
 import { useEffect } from "react";
 import { getRoleBasePath, type UserRoleType } from "@/utils/roles";
+import PublicSiteLayout from "@/components/PublicSiteLayout";
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { toggleTheme } = useTheme();
   const { token, loading, user } = useAuth();
 
   // Redirect to appropriate dashboard based on role if already logged in
@@ -50,72 +37,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-background overflow-hidden relative"
-      style={{ backgroundColor: "var(--background)" }}
-    >
-      {/* Animated Background */}
-      <div className="fixed inset-0 -z-10">
-        {/* Gradient Orbs — CSS animations (off JS main thread) */}
-        <div className="animate-orb-1 absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] rounded-full blur-[120px] opacity-20" />
-        <div className="animate-orb-2 absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-[var(--accent-cyan)] to-[var(--success)] rounded-full blur-[100px] opacity-20" />
-        <div className="animate-orb-3 absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-gradient-to-r from-[var(--warning)] to-[var(--error)] rounded-full blur-[80px] opacity-10" />
-
-        {/* Grid Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-10" />
-      </div>
-
-      {/* Header */}
-      <motion.header
-        initial={{ y: -100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="sticky top-0 z-50 backdrop-blur-xl bg-[var(--shell)]/80 border-b border-[var(--border)]"
-      >
-        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-          <motion.div
-            className="flex items-center space-x-3"
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 400 }}
-          >
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] rounded-xl blur-lg opacity-50 animate-glow" />
-              <div className="relative bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] p-2 rounded-xl">
-                <Clock className="h-6 w-6 text-white" />
-              </div>
-            </div>
-            <span className="text-2xl bg-gradient-to-r from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--success)] bg-clip-text text-transparent animate-gradient">
-              SmartAttendance
-            </span>
-          </motion.div>
-
-          <motion.div
-            initial={{ x: 100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="flex items-center space-x-3"
-          >
-            <Button
-              onClick={toggleTheme}
-              variant="ghost"
-              size="icon"
-              className="text-[var(--text-main)] hover:bg-[var(--surface)]"
-            >
-              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-[var(--warning)]" />
-              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-[var(--accent-cyan)]" />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
-            <Button
-              onClick={() => navigate("/login")}
-              variant="outline"
-              className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--surface)] hover:border-[var(--accent-cyan)] transition-all duration-300"
-            >
-              Đăng nhập
-            </Button>
-          </motion.div>
-        </div>
-      </motion.header>
-
+    <PublicSiteLayout>
       {/* Hero Section */}
       <section className="container mx-auto px-6 pt-8 pb-8">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -658,143 +580,6 @@ export default function LandingPage() {
           </div>
         </motion.div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-[var(--border)] bg-[var(--surface)]/50 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 ">
-            {/* Company Info */}
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-br from-[var(--primary)] to-[var(--accent-cyan)] p-2 rounded-xl">
-                  <Clock className="h-6 w-6 text-white" />
-                </div>
-                <span className="text-xl text-[var(--text-main)]">
-                  Attendance Smart
-                </span>
-              </div>
-              <p className="text-sm text-[var(--text-sub)] leading-relaxed">
-                Giải pháp chấm công thông minh hàng đầu Việt Nam, giúp doanh
-                nghiệp quản lý nhân sự hiệu quả và chính xác.
-              </p>
-              <div className="flex items-center space-x-3">
-                <a
-                  href="#"
-                  className="p-2 rounded-lg bg-[var(--shell)] hover:bg-[var(--primary)] text-[var(--text-sub)] hover:text-white transition-all duration-300"
-                >
-                  <Facebook className="h-5 w-5" />
-                </a>
-                <a
-                  href="#"
-                  className="p-2 rounded-lg bg-[var(--shell)] hover:bg-[var(--accent-cyan)] text-[var(--text-sub)] hover:text-white transition-all duration-300"
-                >
-                  <Twitter className="h-5 w-5" />
-                </a>
-                <a
-                  href="#"
-                  className="p-2 rounded-lg bg-[var(--shell)] hover:bg-[var(--primary)] text-[var(--text-sub)] hover:text-white transition-all duration-300"
-                >
-                  <Linkedin className="h-5 w-5" />
-                </a>
-                <a
-                  href="#"
-                  className="p-2 rounded-lg bg-[var(--shell)] hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-500 text-[var(--text-sub)] hover:text-white transition-all duration-300"
-                >
-                  <Instagram className="h-5 w-5" />
-                </a>
-              </div>
-            </div>
-
-            {/* Quick Links */}
-            <div>
-              <h3 className="text-[var(--text-main)] mb-4 flex items-center space-x-2">
-                <Zap className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>Liên kết nhanh</span>
-              </h3>
-              <ul className="space-y-3">
-                {[
-                  { label: "Về chúng tôi", to: "/about" },
-                  { label: "Tính năng", to: "/features" },
-                  { label: "Bảng giá", to: "/pricing" },
-                  { label: "Khách hàng", to: "/customers" },
-                ].map((link, index) => (
-                  <li key={index}>
-                    <Link
-                      to={link.to}
-                      className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors duration-300 flex items-center space-x-2 group"
-                    >
-                      <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <span>{link.label}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Resources */}
-            <div>
-              <h3 className="text-[var(--text-main)] mb-4 flex items-center space-x-2">
-                <BookOpen className="h-5 w-5 text-[var(--success)]" />
-                <span>Tài nguyên</span>
-              </h3>
-              <ul className="space-y-3">
-                {[
-                  { label: "Hướng dẫn sử dụng", href: "#", icon: FileText },
-                  { label: "Câu hỏi thường gặp", href: "#", icon: HelpCircle },
-                  { label: "Hỗ trợ kỹ thuật", href: "#", icon: Shield },
-                  { label: "Điều khoản dịch vụ", href: "#", icon: FileText },
-                ].map((link, index) => (
-                  <li key={index}>
-                    <a
-                      href={link.href}
-                      className="text-sm text-[var(--text-sub)] hover:text-[var(--success)] transition-colors duration-300 flex items-center space-x-2 group"
-                    >
-                      <link.icon className="h-4 w-4 opacity-60 group-hover:opacity-100" />
-                      <span>{link.label}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h3 className="text-[var(--text-main)] mb-4 flex items-center space-x-2">
-                <Phone className="h-5 w-5 text-[var(--warning)]" />
-                <span>Liên hệ</span>
-              </h3>
-              <ul className="space-y-4">
-                <li className="flex items-start space-x-3">
-                  <Building2 className="h-5 w-5 text-[var(--text-sub)] flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-[var(--text-sub)]">
-                      Tầng 12, Tòa nhà Smart city, Hà Nội
-                    </p>
-                  </div>
-                </li>
-                <li className="flex items-center space-x-3">
-                  <Phone className="h-5 w-5 text-[var(--success)] flex-shrink-0" />
-                  <a
-                    href="tel:1900123456"
-                    className="text-sm text-[var(--text-sub)] hover:text-[var(--success)] transition-colors"
-                  >
-                    1900123456
-                  </a>
-                </li>
-                <li className="flex items-center space-x-3">
-                  <Mail className="h-5 w-5 text-[var(--accent-cyan)] flex-shrink-0" />
-                  <a
-                    href="mailto:hieunguyenn1501@gmail.com"
-                    className="text-sm text-[var(--text-sub)] hover:text-[var(--accent-cyan)] transition-colors"
-                  >
-                    hieunguyenn1501@gmail.com
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </PublicSiteLayout>
   );
 }

@@ -46,6 +46,7 @@ import { UserRole, ROLE_NAMES, ROLE_COLORS, canManageRole, type UserRoleType } f
 import { Permission } from '@/utils/roles'
 import { usePermissions } from '@/hooks/usePermissions'
 import RoleGuard from '@/components/RoleGuard'
+import { SuperAdminCompanyFilterSlot } from '@/components/dashboard/SuperAdminCompanyFilterSlot'
 import UnauthorizedPage from '@/components/UnauthorizedPage'
 import type { ErrorWithMessage } from '@/types'
 import EditUserBaseSalaryDialog from './EditUserBaseSalaryDialog'
@@ -691,24 +692,24 @@ const EmployeeManagementPage: React.FC = () => {
           </h1>
         </div>
         <RoleGuard permission={Permission.USERS_CREATE}>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
-              size="sm"
               onClick={() => downloadImportTemplate()}
               title="Tải file mẫu"
+              className="h-9 px-3 text-sm"
             >
-              <Download className="h-4 w-4 mr-1" />
+              <Download className="h-4 w-4 mr-1.5" />
               Mẫu
             </Button>
-            <label>
+            <label className="inline-flex">
               <Button
                 variant="outline"
-                size="sm"
                 disabled={isImporting}
                 onClick={() => document.getElementById('bulk-import-input')?.click()}
+                className="h-9 px-3 text-sm"
               >
-                <Upload className="h-4 w-4 mr-1" />
+                <Upload className="h-4 w-4 mr-1.5" />
                 {isImporting ? 'Đang import...' : 'Import CSV'}
               </Button>
               <input
@@ -721,9 +722,9 @@ const EmployeeManagementPage: React.FC = () => {
             </label>
             <Button
               onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:from-[var(--primary)]/90 hover:to-[var(--accent-cyan)]/90 text-white px-4 py-2 h-9"
+              className="h-9 px-4 text-sm bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:from-[var(--primary)]/90 hover:to-[var(--accent-cyan)]/90 text-white"
             >
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4 mr-1.5" />
               {t('dashboard:employeeManagement.createUser.button', 'Tạo tài khoản')}
             </Button>
           </div>
@@ -731,23 +732,36 @@ const EmployeeManagementPage: React.FC = () => {
       </div>
       {/* Search & Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardContent className="p-4 md:p-6 mt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-3 md:gap-4">
-            {/* Search Bar - Wider */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
-              <Input
-                placeholder={t('dashboard:employeeManagement.searchPlaceholder')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
-              />
-            </div>
+        <CardContent className="p-4 md:p-6 mt-4 space-y-3 md:space-y-4">
+          {/* Search — full width */}
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
+            <Input
+              placeholder={t('dashboard:employeeManagement.searchPlaceholder')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
+            />
+          </div>
+
+          {/* Filters */}
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 ${
+              currentUser?.role === UserRole.SUPER_ADMIN
+                ? 'lg:grid-cols-4'
+                : 'lg:grid-cols-3'
+            }`}
+          >
+            {currentUser?.role === UserRole.SUPER_ADMIN && (
+              <div className="relative min-w-0">
+                <SuperAdminCompanyFilterSlot layout="grid" />
+              </div>
+            )}
 
             {/* Role Filter */}
-            <div className="relative">
+            <div className="relative min-w-0">
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                <SelectTrigger className="h-10 w-full bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                   <SelectValue placeholder={t('dashboard:employeeManagement.filterByRole')} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
@@ -768,9 +782,9 @@ const EmployeeManagementPage: React.FC = () => {
             </div>
 
             {/* Status Filter */}
-            <div className="relative">
+            <div className="relative min-w-0">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                <SelectTrigger className="h-10 w-full bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                   <SelectValue placeholder={t('dashboard:employeeManagement.filterByStatus')} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
@@ -792,9 +806,9 @@ const EmployeeManagementPage: React.FC = () => {
             </div>
 
             {/* Shift Filter */}
-            <div className="relative">
+            <div className="relative min-w-0">
               <Select value={shiftFilter} onValueChange={setShiftFilter}>
-                <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                <SelectTrigger className="h-10 w-full bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                   <SelectValue placeholder={t('dashboard:employeeManagement.filterByShift') || 'Lọc theo ca'} />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
@@ -1054,7 +1068,7 @@ const EmployeeManagementPage: React.FC = () => {
                     setItemsPerPage(Number(v))
                     setCurrentPage(1)
                   }}>
-                    <SelectTrigger className="w-20 h-8 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
+                    <SelectTrigger className="h-8 min-w-[3.5rem] w-auto shrink-0 px-2.5 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent side="top">

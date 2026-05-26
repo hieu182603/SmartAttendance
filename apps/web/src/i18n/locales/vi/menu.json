@@ -26,11 +26,16 @@
   "chatbot": "Trợ lý AI",
   "my-payslip": "Lương",
   "payroll-group": "Lương",
+  "platform-group": "Nền tảng SaaS",
   "leave-types": "Quản lý loại phép",
   "system-config": "Cấu hình hệ thống",
   "role-management": "Cấu hình quyền theo role",
   "face-recognition-logs": "Nhật ký khuôn mặt",
   "active-sessions": "Phiên đăng nhập",
-  "system-health": "Trạng thái hệ thống"
+  "system-health": "Trạng thái hệ thống",
+  "feature-toggles": "Quản lý chức năng",
+  "ticket-management": "Quản lý thanh toán",
+  "company-management": "Quản lý công ty",
+  "ai-billing": "Quản lý chi phí AI"
 }
 

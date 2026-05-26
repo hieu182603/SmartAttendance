@@ -10,6 +10,8 @@ import json
 import logging
 from typing import Tuple, Dict, Any, Optional
 
+from app.services.usage_tracker import invoke_llm_with_usage
+
 logger = logging.getLogger(__name__)
 
 # LLM intent classification prompt (detailed - returns JSON with intent + query_type + params)
@@ -959,7 +961,12 @@ class IntentDetector:
         return 'dynamic', {}
     
     @classmethod
-    async def detect_intent_with_llm(cls, message: str) -> Tuple[str, Dict[str, Any]]:
+    async def detect_intent_with_llm(
+        cls,
+        message: str,
+        company_id: Optional[str] = None,
+        user_id: str = "system",
+    ) -> Tuple[str, Dict[str, Any]]:
         """
         Detect intent using LLM classification (async fallback).
         
@@ -980,7 +987,10 @@ class IntentDetector:
         try:
             safe_message = (message or "").replace("</user_question>", "</u_q>")
             prompt = LLM_INTENT_PROMPT.format(message=safe_message)
-            response = await cls._llm.ainvoke(prompt)
+            response = await invoke_llm_with_usage(
+                cls._llm, prompt,
+                company_id=company_id, user_id=user_id, operation="intent_detect",
+            )
             
             response_text = response.content.strip() if hasattr(response, 'content') else str(response).strip()
             

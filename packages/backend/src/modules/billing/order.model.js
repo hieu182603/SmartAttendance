@@ -11,6 +11,17 @@ const orderSchema = new mongoose.Schema(
     payosPaymentLinkId: { type: String },
     paidAt:           { type: Date },
     confirmationEmailSent: { type: Boolean, default: false },
+    paymentMethod:    { type: String, enum: ["payos", "bank_transfer", "manual"], default: "payos" },
+    bankTransferProof: { type: String },
+    notes:            { type: String },
+    processedBy:      { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    processedAt:      { type: Date },
+    customerName:     { type: String },
+    customerEmail:    { type: String },
+    customerPhone:    { type: String },
+    companyName:      { type: String },
+    employeeCount:    { type: Number },
+    billingMonths:    { type: Number },
   },
   { timestamps: true }
 );

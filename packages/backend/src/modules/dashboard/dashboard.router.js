@@ -17,5 +17,11 @@ dashboardRouter.get("/summary", DashboardController.getDashboardSummary);
 
 dashboardRouter.get("/pending-actions", DashboardController.getPendingActions);
 
+dashboardRouter.get(
+  "/superadmin-stats",
+  requireRole([ROLES.SUPER_ADMIN]),
+  DashboardController.getSuperAdminStats
+);
+
 
 

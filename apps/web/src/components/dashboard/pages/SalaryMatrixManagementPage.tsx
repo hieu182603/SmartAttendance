@@ -9,6 +9,7 @@ import {
   FileX,
 } from "lucide-react";
 import { toast } from "sonner";
+import { SuperAdminCompanyFilterSlot } from "@/components/dashboard/SuperAdminCompanyFilterSlot";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -284,24 +285,28 @@ export default function SalaryMatrixManagementPage() {
 
       <Card className="border-[var(--border)] bg-[var(--shell)]">
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-5">
-            <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-3 h-3 w-3 text-[var(--text-sub)]" />
+          <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-4 mt-5">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
                 placeholder="Tìm kiếm theo chức vụ..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-[var(--border)]"
+                className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
               />
             </div>
+            <div className="w-full md:w-48 shrink-0 min-w-0 [&_button]:bg-[var(--input-bg)]">
+              <SuperAdminCompanyFilterSlot layout="grid" />
+            </div>
+            <div className="w-full md:w-48 shrink-0 min-w-0">
             <Select
               value={filterDepartment}
               onValueChange={setFilterDepartment}
             >
-              <SelectTrigger className="border-[var(--border)]">
+              <SelectTrigger className="h-10 w-full bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
                 <SelectValue placeholder="Tất cả phòng ban" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
                 <SelectItem value="all">Tất cả phòng ban</SelectItem>
                 {departments.map((dept) => (
                   <SelectItem key={dept.code} value={dept.code}>
@@ -310,21 +315,24 @@ export default function SalaryMatrixManagementPage() {
                 ))}
               </SelectContent>
             </Select>
+            </div>
+            <div className="w-full md:w-48 shrink-0 min-w-0">
             <Select
               value={String(filterActive)}
               onValueChange={(value) =>
                 setFilterActive(value === "all" ? "all" : value === "true")
               }
             >
-              <SelectTrigger className="border-[var(--border)]">
+              <SelectTrigger className="h-10 w-full bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
                 <SelectItem value="all">Tất cả</SelectItem>
                 <SelectItem value="true">Đang hoạt động</SelectItem>
                 <SelectItem value="false">Đã vô hiệu</SelectItem>
               </SelectContent>
             </Select>
+            </div>
           </div>
         </CardContent>
       </Card>

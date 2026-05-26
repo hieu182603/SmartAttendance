@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
-import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Loader2 } from "lucide-react";
+import { Users, Clock, CheckCircle, XCircle, TrendingUp, Activity, FileText, BarChart3, Home, Shield, UserCog, Loader2, AlertCircle, DollarSign, Star } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -199,6 +199,37 @@ export const DashboardOverview: React.FC = () => {
 
   // Get base path based on user role
   const basePath = useMemo(() => getRoleBasePath(userRole), [userRole]);
+
+  // Quick actions khác nhau theo role
+  const quickActions = useMemo(() => {
+    switch (userRole) {
+      case UserRole.ADMIN:
+        return [
+          { label: "Quản lý nhân viên", desc: "Thêm, sửa, phân quyền", gradient: "from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--primary)]", icon: Users, path: `${basePath}/employee-management`, badge: "Quản lý" },
+          { label: "System Health", desc: "Monitor trạng thái hệ thống", gradient: "from-cyan-500 to-blue-500", icon: Activity, path: `${basePath}/system-health`, badge: "Hệ thống" },
+          { label: "Audit Logs", desc: "Lịch sử hoạt động", gradient: "from-violet-500 to-purple-600", icon: AlertCircle, path: `${basePath}/audit-logs`, badge: "Log" },
+        ];
+      case UserRole.HR_MANAGER:
+        return [
+          { label: "Quản lý nhân viên", desc: "Hồ sơ, thông tin nhân sự", gradient: "from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--primary)]", icon: Users, path: `${basePath}/employee-management`, badge: "Nhân sự" },
+          { label: "Bảng lương", desc: "Tính lương, phê duyệt", gradient: "from-emerald-500 to-teal-600", icon: DollarSign, path: `${basePath}/payroll`, badge: "Payroll" },
+          { label: "Phê duyệt nghỉ phép", desc: "Xử lý đơn nghỉ phép", gradient: "from-violet-500 to-purple-600", icon: FileText, path: `${basePath}/leave-approval`, badge: "Nghỉ phép" },
+        ];
+      case UserRole.MANAGER:
+      case UserRole.SUPERVISOR:
+        return [
+          { label: "Phê duyệt yêu cầu", desc: "Đơn nghỉ phép, WFH", gradient: "from-emerald-500 to-teal-600", icon: FileText, path: `${basePath}/approve-requests`, badge: "Yêu cầu" },
+          { label: "Phân tích chuyên cần", desc: "Thống kê phòng ban", gradient: "from-violet-500 to-purple-600", icon: BarChart3, path: `${basePath}/attendance-analytics`, badge: "Phân tích" },
+          { label: "Đánh giá hiệu suất", desc: "Review nhân viên", gradient: "from-amber-500 to-orange-500", icon: Star, path: `${basePath}/performance-review`, badge: "KPI" },
+        ];
+      default:
+        return [
+          { label: "Admin Dashboard", desc: t('dashboard:overview.systemOverview'), gradient: "from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--primary)]", icon: Home, path: basePath, badge: "Trang chính" },
+          { label: "Phê duyệt yêu cầu", desc: "Xử lý đơn nghỉ phép, WFH", gradient: "from-emerald-500 to-teal-600", icon: FileText, path: `${basePath}/approve-requests`, badge: t('dashboard:overview.management') },
+          { label: t('dashboard:overview.attendanceAnalysis'), desc: "Báo cáo và insights chi tiết", gradient: "from-violet-500 to-purple-600", icon: BarChart3, path: `${basePath}/attendance-analytics`, badge: "Phân tích" },
+        ];
+    }
+  }, [userRole, basePath, t]);
 
   // Prepare KPI data from API - đảm bảo luôn có giá trị mặc định
   const kpiData: KPICard[] = [
@@ -410,82 +441,28 @@ export const DashboardOverview: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Dashboard Home - Primary */}
-              <motion.button
-                onClick={() => navigate(basePath)}
-                className="relative p-6 rounded-2xl bg-gradient-to-br from-[var(--primary)] via-[var(--accent-cyan)] to-[var(--primary)] hover:shadow-2xl transition-all duration-300 text-white text-left overflow-hidden group"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.98 }}
-                initial={!hasMounted ? { opacity: 0, y: 20 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={!hasMounted ? { delay: 0.7 } : { duration: 0 }}
-              >
-                <motion.div
-                  className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-300"
-                  animate={{
-                    backgroundPosition: ["0% 0%", "100% 100%"],
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    repeatType: "reverse",
-                  }}
-                />
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <Home className="h-10 w-10" />
-                    <Badge className="bg-white/20 text-white border-white/30">Trang chính</Badge>
+              {quickActions.map(({ label, desc, gradient, icon: Icon, path, badge }, index) => (
+                <motion.button
+                  key={label}
+                  onClick={() => navigate(path)}
+                  className={`relative p-6 rounded-2xl bg-gradient-to-br ${gradient} hover:shadow-2xl transition-all duration-300 text-white text-left overflow-hidden group`}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  whileTap={{ scale: 0.98 }}
+                  initial={!hasMounted ? { opacity: 0, y: 20 } : false}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={!hasMounted ? { delay: 0.7 + index * 0.1 } : { duration: 0 }}
+                >
+                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-300" />
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-3">
+                      <Icon className="h-10 w-10" />
+                      <Badge className="bg-white/20 text-white border-white/30">{badge}</Badge>
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">{label}</h3>
+                    <p className="text-sm opacity-90">{desc}</p>
                   </div>
-                  <h3 className="text-xl font-bold mb-2">Admin Dashboard</h3>
-                  <p className="text-sm opacity-90">{t('dashboard:overview.systemOverview')}</p>
-                </div>
-              </motion.button>
-
-              {/* Approve Requests - Secondary */}
-              <motion.button
-                onClick={() => navigate(`${basePath}/approve-requests`)}
-                className="relative p-6 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:shadow-2xl transition-all duration-300 text-white text-left overflow-hidden group"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.98 }}
-                initial={!hasMounted ? { opacity: 0, y: 20 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={!hasMounted ? { delay: 0.8 } : { duration: 0 }}
-              >
-                <motion.div
-                  className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-300"
-                />
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <FileText className="h-10 w-10" />
-                    <Badge className="bg-white/20 text-white border-white/30">{t('dashboard:overview.management')}</Badge>
-                  </div>
-                  <h3 className="text-xl font-bold mb-2">Phê duyệt yêu cầu</h3>
-                  <p className="text-sm opacity-90">Xử lý đơn nghỉ phép, WFH</p>
-                </div>
-              </motion.button>
-
-              {/* Attendance Analytics - Secondary */}
-              <motion.button
-                onClick={() => navigate(`${basePath}/attendance-analytics`)}
-                className="relative p-6 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 hover:shadow-2xl transition-all duration-300 text-white text-left overflow-hidden group"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.98 }}
-                initial={!hasMounted ? { opacity: 0, y: 20 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={!hasMounted ? { delay: 0.9 } : { duration: 0 }}
-              >
-                <motion.div
-                  className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-all duration-300"
-                />
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-3">
-                    <BarChart3 className="h-10 w-10" />
-                    <Badge className="bg-white/20 text-white border-white/30">Phân tích</Badge>
-                  </div>
-                  <h3 className="text-xl font-bold mb-2">{t('dashboard:overview.attendanceAnalysis')}</h3>
-                  <p className="text-sm opacity-90">Báo cáo và insights chi tiết</p>
-                </div>
-              </motion.button>
+                </motion.button>
+              ))}
             </div>
           </CardContent>
         </Card>

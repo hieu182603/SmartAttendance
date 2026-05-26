@@ -133,6 +133,31 @@ export const getDashboardStats = async (config: AxiosRequestConfig = {}): Promis
   }
 }
 
+export interface SuperAdminStats {
+  billing: {
+    totalRevenue: number
+    pendingCount: number
+    monthCount: number
+    monthlyStats: Array<{ _id: { year: number; month: number }; revenue: number; count: number }>
+    planStats: Array<{ _id: string; revenue: number; count: number }>
+  }
+  companies: {
+    total: number
+    active: number
+    byPlan: { trial: number; starter: number; standard: number; premium: number }
+  }
+  attendance: {
+    kpi: { totalEmployees: number; presentToday: number; lateToday: number; absentToday: number }
+    attendanceData: Array<{ date: string; present: number; late: number; absent: number }>
+    growthPercentage: number
+  }
+}
+
+export const getSuperAdminStats = async (config: AxiosRequestConfig = {}): Promise<SuperAdminStats> => {
+  const { data } = await api.get('/dashboard/superadmin-stats', config)
+  return data as SuperAdminStats
+}
+
 
 
 

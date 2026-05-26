@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Navigate, Outlet, useNavigate } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
 import { type PermissionType } from '@/utils/roles'
@@ -31,7 +31,15 @@ export default function ProtectedRoute({
     hasMinimumRole 
   } = usePermissions()
   const navigate = useNavigate()
+  const location = useLocation()
   const [showUnauthorized, setShowUnauthorized] = useState(false)
+
+  const paymentReturnRedirect =
+    !loading &&
+    !user &&
+    (location.search.includes('payment=success') || location.search.includes('payment=cancelled'))
+      ? `/payment/return${location.search}`
+      : null
 
   // Get user role once to avoid repeated access
   const userRole = user?.role as UserRoleType | undefined
@@ -103,6 +111,10 @@ export default function ProtectedRoute({
         </motion.div>
       </div>
     )
+  }
+
+  if (paymentReturnRedirect) {
+    return <Navigate to={paymentReturnRedirect} replace />
   }
 
   // Not authenticated - redirect BEFORE checking hasAccess (which is null when user is null)

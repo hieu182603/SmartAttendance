@@ -18,6 +18,8 @@ jest.unstable_mockModule("../../src/config/redis.js", () => ({
   redisSMembers: jest.fn().mockResolvedValue([]),
   isRedisEnabled: jest.fn().mockReturnValue(false),
   isRedisDegraded: jest.fn().mockReturnValue(false),
+  isRedisBindingActive: jest.fn().mockReturnValue(false),
+  logRedisStartupStatus: jest.fn().mockResolvedValue(undefined),
   cacheAside: jest.fn().mockImplementation((_k, _t, f) => f()),
 }));
 
@@ -25,6 +27,8 @@ jest.unstable_mockModule("../../src/utils/email.util.js", () => ({
   sendOTPEmail: jest.fn().mockResolvedValue({ success: true }),
   sendResetPasswordEmail: jest.fn().mockResolvedValue({ success: true }),
   sendPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendAiServiceInvoiceEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendAiPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 jest.unstable_mockModule("../../src/utils/aiServiceClient.js", () => ({

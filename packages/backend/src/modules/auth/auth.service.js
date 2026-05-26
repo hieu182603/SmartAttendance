@@ -5,7 +5,15 @@ import { CompanyModel } from "../company/company.model.js";
 import { generateTokenFromUser, verifyRefreshToken, generateAccessToken, generateRefreshToken } from "../../utils/jwt.util.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail, sendResetPasswordEmail } from "../../utils/email.util.js";
-import { redisSet, redisDel, redisGet, redisSAdd, redisSRem, redisSMembers, isRedisEnabled } from "../../config/redis.js";
+import {
+    redisSet,
+    redisDel,
+    redisGet,
+    redisSAdd,
+    redisSRem,
+    redisSMembers,
+    isRedisBindingActive,
+} from "../../config/redis.js";
 
 const REFRESH_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 const refreshKey = (userId) => `refresh:${userId}`;
@@ -38,12 +46,12 @@ export class AuthService {
 
     // Đăng ký tài khoản mới
     static async register(userData) {
-        const { email, password, name, companyName } = userData;
+        const { email, password, name } = userData;
 
         // Normalize inputs
         const normalizedEmail = email.toLowerCase().trim();
         const normalizedName = name.trim();
-        const normalizedCompanyName = companyName.trim();
+        const normalizedCompanyName = `Doanh nghiệp ${normalizedName}`;
 
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -272,9 +280,14 @@ export class AuthService {
         const user = await UserModel.findById(userId)
             .select("-password -otp -otpExpires")
             .populate("department", "name code")
-            .populate("branch", "name address");
+            .populate("branch", "name address")
+            .populate("companyId", "name");
         if (!user) throw new Error("User not found");
-        return user;
+        const plain = user.toObject();
+        if (plain.companyId && typeof plain.companyId === "object") {
+            plain.companyName = plain.companyId.name;
+        }
+        return plain;
     }
 
     // Quên mật khẩu - Gửi OTP để reset password
@@ -381,9 +394,8 @@ export class AuthService {
             throw new Error("Invalid or expired refresh token");
         }
 
-        // When Redis is enabled, enforce token binding (rotation + revocation).
-        // Without Redis the check is skipped — JWT signature is the only guard.
-        if (isRedisEnabled()) {
+        // Bind refresh token in Redis only when Redis is reachable (not degraded).
+        if (isRedisBindingActive()) {
             const stored = await redisGet(refreshKey(decoded.userId));
             if (!stored || stored !== token) {
                 throw new Error("Refresh token revoked");

@@ -18,6 +18,9 @@ const PublicPricingPage = lazy(() => import("@/components/PublicPricingPage"));
 const AboutUsPage = lazy(() => import("@/components/AboutUsPage"));
 const FeaturesPage = lazy(() => import("@/components/FeaturesPage"));
 const CustomersPage = lazy(() => import("@/components/CustomersPage"));
+const UserGuidePage = lazy(() => import("@/components/UserGuidePage"));
+const FAQPage = lazy(() => import("@/components/FAQPage"));
+const TechSupportPage = lazy(() => import("@/components/TechSupportPage"));
 const Login = lazy(() => import("@/components/auth/Login"));
 const Register = lazy(() => import("@/components/auth/Register"));
 const VerifyOtp = lazy(() => import("@/components/auth/VerifyOtp"));
@@ -29,69 +32,30 @@ const HomePageWrapper = lazy(
   () => import("@/components/dashboard/HomePageWrapper"),
 );
 const ScanPage = lazy(() => import("@/components/dashboard/pages/ScanPage"));
-const SchedulePage = lazy(
-  () => import("@/components/dashboard/pages/SchedulePage"),
-);
-const RequestsPage = lazy(
-  () => import("@/components/dashboard/pages/RequestsPage"),
-);
-const HistoryPage = lazy(
-  () => import("@/components/dashboard/pages/HistoryPage"),
-);
-const LeaveBalancePage = lazy(
-  () => import("@/components/dashboard/pages/LeaveBalancePage"),
-);
-const NotificationsPage = lazy(
-  () => import("@/components/dashboard/pages/NotificationsPage"),
-);
-const CameraCheckinPage = lazy(
-  () => import("@/components/dashboard/pages/CameraCheckinPage"),
-);
-const ProfilePage = lazy(
-  () => import("@/components/dashboard/pages/ProfilePage"),
-);
-const FaceRegistrationPage = lazy(
-  () => import("@/components/dashboard/pages/FaceRegistrationPage"),
-);
-const CompanyCalendarPage = lazy(
-  () => import("@/components/dashboard/pages/CompanyCalendarPage"),
-);
-const ApproveRequestsPage = lazy(
-  () => import("@/components/dashboard/pages/ApproveRequestsPage"),
-);
-const AttendanceAnalyticsPage = lazy(
-  () => import("@/components/dashboard/pages/AttendanceAnalyticsPage"),
-);
-const EmployeeManagementPage = lazy(
-  () => import("@/components/dashboard/pages/EmployeeManagementPage"),
-);
-const PayrollReportsPage = lazy(
-  () => import("@/components/dashboard/pages/PayrollReportsPage"),
-);
-const AuditLogsPage = lazy(
-  () => import("@/components/dashboard/pages/AuditLogsPage"),
-);
-const PayrollPage = lazy(
-  () => import("@/components/dashboard/pages/PayrollPage"),
-);
-const PerformanceReviewPage = lazy(
-  () => import("@/components/dashboard/pages/PerformanceReviewPage"),
-);
-const AdminAttendancePage = lazy(
-  () => import("@/components/dashboard/pages/AdminAttendancePage"),
-);
-const AdminReportsPage = lazy(
-  () => import("@/components/dashboard/pages/AdminReportsPage"),
-);
-const UpgradePage = lazy(
-  () => import("@/components/dashboard/pages/UpgradePage"),
-);
-const ChatbotPage = lazy(
-  () => import("@/components/dashboard/pages/ChatbotPage"),
-);
-const MyPayslipPage = lazy(
-  () => import("@/components/dashboard/pages/MyPayslipPage"),
-);
+const SchedulePage = lazy(() => import("@/components/dashboard/pages/SchedulePage"));
+const RequestsPage = lazy(() => import("@/components/dashboard/pages/RequestsPage"));
+const HistoryPage = lazy(() => import("@/components/dashboard/pages/HistoryPage"));
+const LeaveBalancePage = lazy(() => import("@/components/dashboard/pages/LeaveBalancePage"));
+const NotificationsPage = lazy(() => import("@/components/dashboard/pages/NotificationsPage"));
+const CameraCheckinPage = lazy(() => import("@/components/dashboard/pages/CameraCheckinPage"));
+const ProfilePage = lazy(() => import("@/components/dashboard/pages/ProfilePage"));
+const FaceRegistrationPage = lazy(() => import("@/components/dashboard/pages/FaceRegistrationPage"));
+const CompanyCalendarPage = lazy(() => import("@/components/dashboard/pages/CompanyCalendarPage"));
+const ApproveRequestsPage = lazy(() => import("@/components/dashboard/pages/ApproveRequestsPage"));
+const AttendanceAnalyticsPage = lazy(() => import("@/components/dashboard/pages/AttendanceAnalyticsPage"));
+const EmployeeManagementPage = lazy(() => import("@/components/dashboard/pages/EmployeeManagementPage"));
+const PayrollReportsPage = lazy(() => import("@/components/dashboard/pages/PayrollReportsPage"));
+const AuditLogsPage = lazy(() => import("@/components/dashboard/pages/AuditLogsPage"));
+const PayrollPage = lazy(() => import("@/components/dashboard/pages/PayrollPage"));
+const PerformanceReviewPage = lazy(() => import("@/components/dashboard/pages/PerformanceReviewPage"));
+const AdminAttendancePage = lazy(() => import("@/components/dashboard/pages/AdminAttendancePage"));
+const AdminReportsPage = lazy(() => import("@/components/dashboard/pages/AdminReportsPage"));
+const UpgradePage = lazy(() => import("@/components/dashboard/pages/UpgradePage"));
+const PaymentReturnPage = lazy(() => import("@/components/PaymentReturnPage"));
+const AiPaymentReturnPage = lazy(() => import("@/components/AiPaymentReturnPage"));
+const AiUsageBillingPage = lazy(() => import("@/components/dashboard/pages/AiUsageBillingPage"));
+const ChatbotPage = lazy(() => import("@/components/dashboard/pages/ChatbotPage"));
+const MyPayslipPage = lazy(() => import("@/components/dashboard/pages/MyPayslipPage"));
 // Trial analytics page removed
 
 // Named Exports - Lazy Load with proper handling
@@ -134,6 +98,15 @@ const LeaveTypeManagementPage = lazy(
 const LeaveApprovalPage = lazy(
   () => import("@/components/dashboard/pages/LeaveApprovalPage"),
 );
+const FeatureTogglePage = lazy(() =>
+  import("@/components/dashboard/pages/FeatureTogglePage")
+);
+const TicketManagementPage = lazy(() =>
+  import("@/components/dashboard/pages/TicketManagementPage")
+);
+const CompanyManagementPage = lazy(() =>
+  import("@/components/dashboard/pages/CompanyManagementPage")
+);
 
 // Layout & Common Components - Lazy Load
 const DashboardLayout = lazy(
@@ -173,6 +146,8 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/verify-reset-otp" element={<VerifyOtp />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/payment/return" element={<PaymentReturnPage />} />
+            <Route path="/payment/ai-return" element={<AiPaymentReturnPage />} />
 
             {/* Protected Routes - All authenticated users */}
             <Route element={<ProtectedRoute />}>
@@ -191,11 +166,20 @@ export default function App() {
                   element={<FaceRegistrationPage />}
                 />
                 <Route path="profile" element={<ProfilePage />} />
+                <Route path="company-calendar" element={<CompanyCalendarPage />} />
                 <Route
-                  path="company-calendar"
-                  element={<CompanyCalendarPage />}
-                />
-                <Route path="upgrade" element={<UpgradePage />} />
+                  path="upgrade"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        UserRole.TRIAL, UserRole.EMPLOYEE, UserRole.SUPERVISOR,
+                        UserRole.MANAGER, UserRole.HR_MANAGER, UserRole.ADMIN,
+                      ]}
+                    />
+                  }
+                >
+                  <Route index element={<UpgradePage />} />
+                </Route>
                 <Route path="chatbot" element={<ChatbotPage />} />
                 <Route path="my-payslip" element={<MyPayslipPage />} />
                 {/* Catch-all: redirect invalid employee routes to 404 */}
@@ -613,6 +597,34 @@ export default function App() {
                   >
                     <Route index element={<SystemHealthPage />} />
                   </Route>
+                  <Route
+                    path="feature-toggles"
+                    element={<ProtectedRoute minimumRole={UserRole.SUPER_ADMIN} />}
+                  >
+                    <Route index element={<FeatureTogglePage />} />
+                  </Route>
+                  <Route
+                    path="ticket-management"
+                    element={<ProtectedRoute minimumRole={UserRole.SUPER_ADMIN} />}
+                  >
+                    <Route index element={<TicketManagementPage />} />
+                  </Route>
+                  <Route
+                    path="company-management"
+                    element={<ProtectedRoute minimumRole={UserRole.SUPER_ADMIN} />}
+                  >
+                    <Route index element={<CompanyManagementPage />} />
+                  </Route>
+                  <Route
+                    path="ai-billing"
+                    element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}
+                  >
+                    <Route index element={<AiUsageBillingPage />} />
+                  </Route>
+                  <Route
+                    path="ai-billing/manage"
+                    element={<Navigate to="/admin/ai-billing" replace />}
+                  />
                   {/* Catch-all: redirect invalid admin routes to 404 */}
                   <Route
                     path="*"
@@ -631,6 +643,9 @@ export default function App() {
             {/* Public legal pages — no auth required */}
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+            <Route path="/user-guide" element={<UserGuidePage />} />
+            <Route path="/faq" element={<FAQPage />} />
+            <Route path="/tech-support" element={<TechSupportPage />} />
 
             {/* Public 404 route */}
             <Route path="/not-found" element={<NotFoundPage />} />

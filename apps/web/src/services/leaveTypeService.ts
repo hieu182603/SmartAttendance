@@ -29,7 +29,10 @@ export const listLeaveTypes = async (activeOnly = false): Promise<LeaveType[]> =
   const { data } = await api.get("/leave/types", {
     params: activeOnly ? { activeOnly: "true" } : undefined,
   });
-  return data.data || [];
+  const payload = data?.data ?? data;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
 };
 
 export const getLeaveType = async (id: string): Promise<LeaveType> => {

@@ -9,12 +9,23 @@ export interface UpgradePaymentResult {
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 10;
 
+export interface CreateUpgradePaymentPayload {
+  plan: "starter" | "standard" | "premium";
+  billingCycle: "monthly" | "yearly";
+  companyName: string;
+  employeeCount: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  billingMonths: number;
+  notes?: string;
+}
+
 export const billingService = {
   createUpgradePayment: async (
-    plan: "starter" | "standard" | "premium",
-    billingCycle: "monthly" | "yearly"
+    payload: CreateUpgradePaymentPayload
   ): Promise<UpgradePaymentResult> => {
-    const { data } = await api.post("/billing/upgrade", { plan, billingCycle });
+    const { data } = await api.post("/billing/upgrade", payload);
     return data.data as UpgradePaymentResult;
   },
 
