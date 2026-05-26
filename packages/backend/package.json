@@ -62,6 +62,7 @@
   "jest": {
     "testEnvironment": "node",
     "transform": {},
+    "globalSetup": "<rootDir>/__tests__/globalSetup.js",
     "testMatch": [
       "**/__tests__/**/*.test.js"
     ],
