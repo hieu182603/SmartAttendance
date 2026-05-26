@@ -49,6 +49,22 @@ CHATBOT_MAX_MESSAGES = int(os.getenv("CHATBOT_MAX_MESSAGES", "50"))
 CHATBOT_TEMPERATURE = float(os.getenv("CHATBOT_TEMPERATURE", "0.7"))
 CHATBOT_MAX_TOKENS = int(os.getenv("CHATBOT_MAX_TOKENS", "2000"))
 
+# AI Token Pricing
+AI_PRICE_GEMINI_FLASH_INPUT_PER_1M = float(os.getenv("AI_PRICE_GEMINI_FLASH_INPUT_PER_1M", "0.075"))
+AI_PRICE_GEMINI_FLASH_OUTPUT_PER_1M = float(os.getenv("AI_PRICE_GEMINI_FLASH_OUTPUT_PER_1M", "0.30"))
+AI_PRICE_EMBEDDING_PER_1M = float(os.getenv("AI_PRICE_EMBEDDING_PER_1M", "0.025"))
+AI_USD_TO_VND = float(os.getenv("AI_USD_TO_VND", "25500"))
+
+def calc_cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    """Calculate estimated cost in USD based on model and token counts."""
+    if "embedding" in model or model == "text-embedding-004":
+        total = prompt_tokens + completion_tokens
+        return (total / 1_000_000) * AI_PRICE_EMBEDDING_PER_1M
+    # Default: gemini-2.5-flash or similar
+    input_cost = (prompt_tokens / 1_000_000) * AI_PRICE_GEMINI_FLASH_INPUT_PER_1M
+    output_cost = (completion_tokens / 1_000_000) * AI_PRICE_GEMINI_FLASH_OUTPUT_PER_1M
+    return input_cost + output_cost
+
 # Create models directory if not exists
 MODELS_DIR.mkdir(exist_ok=True)
 

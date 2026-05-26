@@ -88,7 +88,8 @@ async def chat_with_rag(
             message=body.message,
             conversation_id=body.conversation_id,
             department_id=current_user.department_id,
-            role=current_user.role
+            role=current_user.role,
+            company_id=current_user.company_id,
         )
 
         # Add background task to update conversation metadata
