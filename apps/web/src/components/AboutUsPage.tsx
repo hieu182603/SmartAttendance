@@ -85,7 +85,7 @@ export default function AboutUsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-4xl md:text-6xl font-bold text-[var(--text-main)] mb-6">
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-[var(--text-main)] mb-6">
                 Câu chuyện của <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">SmartAttendance</span>
               </h1>
               <p className="text-lg md:text-xl text-[var(--text-sub)] max-w-3xl mx-auto leading-relaxed">
@@ -100,7 +100,7 @@ export default function AboutUsPage() {
         <section className="py-16 bg-[var(--surface)]/30 border-y border-[var(--border)]">
           <div className="container mx-auto px-6">
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-[var(--text-main)] mb-4">Hành trình phát triển</h2>
+              <h2 className="text-3xl font-bold tracking-tight text-[var(--text-main)] mb-4">Hành trình phát triển</h2>
               <p className="text-[var(--text-sub)]">Những cột mốc quan trọng định hình chúng tôi hôm nay.</p>
             </div>
             
@@ -147,7 +147,7 @@ export default function AboutUsPage() {
         <section className="py-20">
           <div className="container mx-auto px-6">
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-[var(--text-main)] mb-4">Giá trị cốt lõi</h2>
+              <h2 className="text-3xl font-bold tracking-tight text-[var(--text-main)] mb-4">Giá trị cốt lõi</h2>
               <p className="text-[var(--text-sub)]">Nền tảng cho mọi hoạt động và sản phẩm của chúng tôi.</p>
             </div>
 
@@ -159,9 +159,9 @@ export default function AboutUsPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group"
+                  className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 hover:shadow-2xl hover:shadow-[var(--accent-cyan)]/10 hover:border-[var(--accent-cyan)]/30 transition-all duration-500 hover:-translate-y-2 group"
                 >
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-4 ${value.bg} group-hover:scale-110 transition-transform duration-300`}>
+                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-4 ${value.bg} group-hover:scale-110 group-hover:-translate-y-1 transition-transform duration-500`}>
                     <value.icon className={`h-6 w-6 ${value.color}`} />
                   </div>
                   <h3 className="text-lg font-bold text-[var(--text-main)] mb-2">{value.title}</h3>
@@ -185,7 +185,7 @@ export default function AboutUsPage() {
                 viewport={{ once: true }}
                 className="relative z-10 mx-auto mb-10 max-w-2xl text-center"
               >
-                <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--accent-cyan)]/25 bg-[var(--accent-cyan)]/8 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[var(--accent-cyan)]">
+                <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--accent-cyan)]/25 bg-[var(--accent-cyan)]/8 px-4 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-[var(--accent-cyan)]">
                   <Sparkles className="h-3.5 w-3.5" />
                   Cam kết của chúng tôi
                 </span>
