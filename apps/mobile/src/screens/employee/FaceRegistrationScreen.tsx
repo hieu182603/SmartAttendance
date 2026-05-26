@@ -7,6 +7,8 @@ import {
   Animated,
   StatusBar,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,10 +16,12 @@ import { useNavigation } from '@react-navigation/native';
 import { Icon } from '../../components/ui/Icon';
 import { useTheme } from '../../theme';
 import type { Theme } from '../../theme';
+import { FaceService } from '../../services/face.service';
 
 const SCAN_TARGET_W = 240;
 const SCAN_TARGET_H = 290;
 const BRACKET_SIZE = 28;
+const REQUIRED_PHOTOS = 4;
 
 export default function FaceRegistrationScreen() {
   const navigation = useNavigation<any>();
@@ -28,7 +32,10 @@ export default function FaceRegistrationScreen() {
   const [consentChecked, setConsentChecked] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [showSuccess, setShowSuccess] = useState(false);
-  const activeStep = 1;
+  const [capturedPhotos, setCapturedPhotos] = useState<Array<{ uri: string }>>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeStep, setActiveStep] = useState(1);
+  const cameraRef = useRef<CameraView>(null);
 
   const STEPS = [
     'Hướng dẫn chụp ảnh',
@@ -92,15 +99,47 @@ export default function FaceRegistrationScreen() {
 
   const borderOpacity = ovalBorder;
 
-  const handleCapture = () => {
-    // When wiring up the real API call, include consent fields in the FormData:
-    //   formData.append('consent_given', 'true');
-    //   formData.append('consent_channel', 'mobile');
+  const showSuccessAnimation = () => {
     setShowSuccess(true);
     Animated.parallel([
       Animated.timing(successOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.spring(successScale, { toValue: 1, tension: 34, friction: 5, useNativeDriver: true }),
     ]).start();
+  };
+
+  const submitPhotos = async (photos: Array<{ uri: string }>) => {
+    setIsSubmitting(true);
+    setActiveStep(2);
+    try {
+      await FaceService.registerFace(photos);
+      setActiveStep(3);
+      showSuccessAnimation();
+    } catch (err: any) {
+      setActiveStep(1);
+      setCapturedPhotos([]);
+      Alert.alert(
+        'Đăng ký thất bại',
+        err?.response?.data?.message || 'Không thể gửi dữ liệu. Vui lòng thử lại.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCapture = async () => {
+    if (!cameraRef.current || isSubmitting) return;
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7, skipProcessing: true });
+      if (!photo) return;
+      const updated = [...capturedPhotos, { uri: photo.uri }];
+      setCapturedPhotos(updated);
+      if (updated.length >= REQUIRED_PHOTOS) {
+        await submitPhotos(updated);
+      }
+    } catch {
+      Alert.alert('Lỗi', 'Không thể chụp ảnh. Vui lòng thử lại.', [{ text: 'OK' }]);
+    }
   };
 
   const handleFinish = () => {
@@ -191,7 +230,7 @@ export default function FaceRegistrationScreen() {
 
       {/* Camera area */}
       <View style={s.camArea}>
-        <CameraView style={StyleSheet.absoluteFill} facing="front" />
+        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
 
         <View style={s.scanTarget}>
           <View style={s.faceWrap}>
@@ -236,9 +275,11 @@ export default function FaceRegistrationScreen() {
         </View>
 
         {/* Status text */}
-        <Text style={s.statusText}>Hướng dẫn chụp ảnh</Text>
+        <Text style={s.statusText}>
+          {isSubmitting ? 'Đang xử lý...' : `Chụp ảnh ${capturedPhotos.length}/${REQUIRED_PHOTOS}`}
+        </Text>
         <Text style={s.statusSub}>
-          Cập nhật dữ liệu sinh trắc học
+          {isSubmitting ? 'Vui lòng chờ trong giây lát' : 'Giữ khuôn mặt trong khung hình'}
         </Text>
       </View>
 
@@ -292,7 +333,7 @@ export default function FaceRegistrationScreen() {
         style={s.captureBtnWrap}
         onPress={handleCapture}
         activeOpacity={0.85}
-        disabled={showSuccess}
+        disabled={showSuccess || isSubmitting}
       >
         <LinearGradient
           colors={[theme.colors.brand.primary, theme.colors.brand.primaryHover] as unknown as readonly [string, ...string[]]}
@@ -300,7 +341,12 @@ export default function FaceRegistrationScreen() {
           end={{ x: 1, y: 1 }}
           style={s.captureBtn}
         >
-          <Text style={s.captureBtnText}>Chụp ảnh</Text>
+          {isSubmitting
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={s.captureBtnText}>
+                {capturedPhotos.length === 0 ? 'Bắt đầu chụp' : `Chụp tiếp (${capturedPhotos.length}/${REQUIRED_PHOTOS})`}
+              </Text>
+          }
         </LinearGradient>
       </TouchableOpacity>
 
