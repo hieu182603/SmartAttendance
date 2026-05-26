@@ -51,7 +51,7 @@ export default function LandingPage() {
             >
               <Sparkles className="h-4 w-4 text-[var(--accent-cyan)]" />
               <span className="text-sm font-medium text-[var(--text-main)]">
-                ⭐ Được 12,000+ doanh nghiệp Việt Nam tin dùng
+                ⭐ Nền tảng chấm công AI thế hệ mới 2026
               </span>
             </motion.div>
 
@@ -77,9 +77,9 @@ export default function LandingPage() {
               transition={{ duration: 0.8, delay: 0.5 }}
               className="text-lg md:text-xl text-[var(--text-sub)] max-w-lg leading-relaxed"
             >
-              Giúp 12,000+ doanh nghiệp Việt Nam{" "}
+              Giải pháp đột phá giúp doanh nghiệp{" "}
               <span className="text-[var(--text-main)] font-semibold">
-                loại bỏ gian lận chấm công
+                loại bỏ hoàn toàn gian lận chấm công
               </span>
               ,{" "}
               <span className="text-[var(--text-main)] font-semibold">
@@ -182,10 +182,10 @@ export default function LandingPage() {
             >
               <div>
                 <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent mb-1">
-                  12,000+
+                  20h+
                 </div>
                 <div className="text-sm text-[var(--text-sub)]">
-                  Doanh nghiệp tin dùng
+                  Tiết kiệm mỗi tháng
                 </div>
               </div>
               <div className="h-12 w-px bg-[var(--border)]" />
@@ -557,7 +557,7 @@ export default function LandingPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="text-xl text-white/90 mb-8 max-w-2xl mx-auto"
             >
-              Hàng ngàn doanh nghiệp đã tin tưởng. Đến lượt bạn!
+              Tương lai của quản trị nhân sự bắt đầu từ đây. Cùng chúng tôi định hình tương lai!
             </motion.p>
 
             <motion.div

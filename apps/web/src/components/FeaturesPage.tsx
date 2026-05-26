@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Camera, Clock, MapPin, Zap, BarChart3, CheckCircle2, XCircle } from 'lucide-react';
+import { Camera, Clock, MapPin, Zap, BarChart3, CheckCircle2, XCircle, Sparkles, Shield, ShieldCheck, Cloud, Smartphone, Monitor, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PublicSiteLayout from '@/components/PublicSiteLayout';
 
@@ -51,7 +51,7 @@ export default function FeaturesPage() {
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-5xl font-bold text-[var(--text-main)] mb-6"
+            className="text-4xl md:text-5xl font-bold tracking-tight text-[var(--text-main)] mb-6"
           >
             Tính năng <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">Vượt trội</span>
           </motion.h1>
@@ -106,10 +106,14 @@ export default function FeaturesPage() {
                     transition={{ duration: 0.3 }}
                     className="absolute inset-0 flex flex-col"
                   >
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${features[activeTab].color} flex items-center justify-center mb-6 shadow-lg`}>
+                    <motion.div 
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                      className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${features[activeTab].color} flex items-center justify-center mb-6 shadow-lg shadow-[var(--accent-cyan)]/20`}
+                    >
                       <ActiveIcon className="h-8 w-8 text-white" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-[var(--text-main)] mb-4">{features[activeTab].title}</h2>
+                    </motion.div>
+                    <h2 className="text-3xl font-bold tracking-tight text-[var(--text-main)] mb-4">{features[activeTab].title}</h2>
                     <p className="text-lg text-[var(--text-sub)] mb-8 leading-relaxed">
                       {features[activeTab].description}
                     </p>
@@ -129,49 +133,96 @@ export default function FeaturesPage() {
           </div>
         </section>
 
-        {/* Comparison Table */}
+        {/* Bento Grid Features */}
         <section className="container mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-[var(--text-main)] mb-4">Sự khác biệt rõ ràng</h2>
-            <p className="text-[var(--text-sub)]">Tại sao 12,000+ doanh nghiệp chọn SmartAttendance thay vì phương pháp truyền thống.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-[var(--text-main)] mb-4">Công nghệ lõi <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">Đột phá</span></h2>
+            <p className="text-[var(--text-sub)] max-w-2xl mx-auto">Kiến trúc hệ thống được xây dựng để đảm bảo hiệu năng cao, bảo mật tuyệt đối và trải nghiệm mượt mà nhất.</p>
           </div>
 
-          <div className="max-w-4xl mx-auto overflow-hidden rounded-2xl border border-[var(--border)] shadow-lg">
-            <div className="grid grid-cols-[minmax(140px,1fr)_1fr_1fr] bg-[var(--surface)] text-[var(--text-main)] font-bold">
-              <div className="border-b border-r border-[var(--border)] p-5 text-left">Tiêu chí</div>
-              <div className="border-b border-r border-[var(--border)] bg-red-500/5 p-5 text-left text-red-500">
-                Cách Truyền Thống
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Liveness Detection - Big Card */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="md:col-span-2 rounded-3xl border border-[var(--border)] bg-[var(--surface)]/50 p-8 md:p-10 relative overflow-hidden group hover:border-[var(--accent-cyan)]/30 transition-colors"
+            >
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Shield className="w-48 h-48 text-[var(--accent-cyan)]" />
               </div>
-              <div className="flex items-center gap-2 border-b border-[var(--border)] bg-[var(--primary)]/5 p-5 text-left text-[var(--primary)]">
-                <Clock className="h-5 w-5 shrink-0" />
-                SmartAttendance
+              <div className="relative z-10">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)]">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <h3 className="text-2xl font-bold text-[var(--text-main)] mb-3">Chống giả mạo (Anti-spoofing)</h3>
+                <p className="text-[var(--text-sub)] max-w-md">Thuật toán Liveness Detection phân tích độ sâu khuôn mặt 3D, loại bỏ hoàn toàn rủi ro sử dụng hình ảnh, video hay mặt nạ để chấm công hộ.</p>
               </div>
-            </div>
+            </motion.div>
 
-            {[
-              { label: "Thời gian Check-in", old: "30s - 1 phút / người", new: "20s / người" },
-              { label: "Chống gian lận", old: "Dễ dàng chấm hộ", new: "Bảo mật tuyệt đối với Face ID & GPS" },
-              { label: "Dữ liệu", old: "Cập nhật cuối tháng", new: "Real-time liên tục" },
-              { label: "Tính lương", old: "Mất 3-5 ngày, dễ sai sót", new: "Tự động 100%, xuất trong 1 click" },
-              { label: "Chi phí phần cứng", old: "Cao (mua máy chấm công)", new: "0đ (Dùng thiết bị di động cá nhân)" },
-            ].map((row, idx) => (
-              <div
-                key={idx}
-                className="grid grid-cols-[minmax(140px,1fr)_1fr_1fr] items-center border-b border-[var(--border)] bg-[var(--background)] transition-colors last:border-b-0 hover:bg-[var(--surface)]/50"
-              >
-                <div className="border-r border-[var(--border)] p-5 text-left font-medium text-[var(--text-main)]">
-                  {row.label}
-                </div>
-                <div className="flex items-center gap-2 border-r border-[var(--border)] p-5 text-left text-[var(--text-sub)]">
-                  <XCircle className="h-4 w-4 shrink-0 text-red-400" />
-                  <span className="text-sm leading-snug">{row.old}</span>
-                </div>
-                <div className="flex items-center gap-2 p-5 text-left font-semibold text-[var(--text-main)]">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-[var(--success)]" />
-                  <span className="text-sm leading-snug">{row.new}</span>
-                </div>
+            {/* Lightning Speed - Square Card */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/50 p-8 relative overflow-hidden group hover:border-[var(--primary)]/30 transition-colors flex flex-col justify-between"
+            >
+              <div className="absolute -bottom-6 -right-6 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Zap className="w-40 h-40 text-[var(--primary)]" />
               </div>
-            ))}
+              <div className="relative z-10">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)]">
+                  <Zap className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold text-[var(--text-main)] mb-3">Tốc độ &lt; 1s</h3>
+                <p className="text-[var(--text-sub)] text-sm">Kiến trúc Edge Computing cho phép xử lý nhận diện ngay trên thiết bị nhanh chóng.</p>
+              </div>
+            </motion.div>
+
+            {/* Cloud Sync - Square Card */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/50 p-8 relative overflow-hidden group hover:border-[var(--success)]/30 transition-colors"
+            >
+              <div className="absolute top-8 right-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                <Cloud className="w-24 h-24 text-[var(--success)]" />
+              </div>
+              <div className="relative z-10">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--success)]/10 text-[var(--success)]">
+                  <Cloud className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold text-[var(--text-main)] mb-3">Đồng bộ Cloud</h3>
+                <p className="text-[var(--text-sub)] text-sm">Dữ liệu được mã hóa đầu cuối và đồng bộ thời gian thực lên máy chủ bảo mật.</p>
+              </div>
+            </motion.div>
+
+            {/* Multi-platform - Wide Card */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="md:col-span-2 rounded-3xl border border-[var(--border)] bg-[var(--surface)]/50 p-8 relative overflow-hidden group hover:border-[var(--text-main)]/20 transition-colors flex flex-col md:flex-row items-center gap-8"
+            >
+              <div className="flex-1 relative z-10">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--shell)] text-[var(--text-main)] border border-[var(--border)]">
+                  <Smartphone className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold text-[var(--text-main)] mb-3">Đa nền tảng (Cross-platform)</h3>
+                <p className="text-[var(--text-sub)] text-sm max-w-md">Sử dụng mượt mà trên thiết bị di động cá nhân và Web Dashboard. Không phụ thuộc vào thiết bị phần cứng chuyên dụng.</p>
+              </div>
+              <div className="shrink-0 flex gap-4 text-[var(--text-sub)]/20 group-hover:text-[var(--text-main)]/40 transition-colors">
+                <Smartphone className="w-10 h-10" />
+                <Monitor className="w-10 h-10" />
+                <Globe className="w-10 h-10" />
+              </div>
+            </motion.div>
+
           </div>
         </section>
       </main>

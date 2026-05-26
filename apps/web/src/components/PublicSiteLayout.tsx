@@ -114,7 +114,7 @@ function PublicSiteFooter() {
               <span className="text-xl text-[var(--text-main)]">Attendance Smart</span>
             </div>
             <p className="text-sm leading-relaxed text-[var(--text-sub)]">
-              Giải pháp chấm công thông minh hàng đầu Việt Nam, giúp doanh nghiệp quản lý nhân sự hiệu quả và chính xác.
+              Nền tảng chấm công thông minh thế hệ mới, giúp doanh nghiệp quản lý nhân sự hiệu quả và chính xác.
             </p>
             <div className="flex items-center space-x-3">
               <a

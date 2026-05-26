@@ -62,7 +62,7 @@ export default function CustomersPage() {
           <motion.h1 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-4xl md:text-6xl font-bold text-[var(--text-main)] mb-6"
+            className="text-4xl md:text-6xl font-bold tracking-tight text-[var(--text-main)] mb-6"
           >
             Cùng chúng tôi <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">Định hình</span> tương lai
           </motion.h1>
@@ -79,7 +79,7 @@ export default function CustomersPage() {
         {/* Tech Stack Marquee */}
         <section className="py-10 border-y border-[var(--border)] bg-[var(--surface)]/30">
           <div className="container mx-auto px-6 mb-6 text-center">
-            <h3 className="text-sm font-bold text-[var(--text-sub)] uppercase tracking-widest">
+            <h3 className="font-mono text-[10px] font-bold text-[var(--text-sub)] uppercase tracking-widest">
               Được xây dựng trên nền tảng công nghệ hàng đầu
             </h3>
           </div>
@@ -105,7 +105,7 @@ export default function CustomersPage() {
         {/* Target Audience */}
         <section className="py-20 container mx-auto px-6 border-t border-[var(--border)]">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-[var(--text-main)] mb-4">Hệ thống này dành cho ai?</h2>
+            <h2 className="text-3xl font-bold tracking-tight text-[var(--text-main)] mb-4">Hệ thống này dành cho ai?</h2>
             <p className="text-[var(--text-sub)]">SmartAttendance được thiết kế linh hoạt để giải quyết nỗi đau của mọi mô hình kinh doanh.</p>
           </div>
 
@@ -119,10 +119,11 @@ export default function CustomersPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.2 }}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-8 hover:shadow-xl transition-all duration-300"
+                  whileHover={{ y: -8 }}
+                  className="group bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-8 hover:shadow-2xl hover:shadow-[var(--accent-cyan)]/10 hover:border-[var(--accent-cyan)]/30 transition-all duration-500"
                 >
                   <div className={`h-14 w-14 rounded-2xl flex items-center justify-center mb-6 ${item.bg}`}>
-                    <Icon className={`h-7 w-7 ${item.color}`} />
+                    <Icon className={`h-7 w-7 ${item.color} group-hover:scale-110 transition-transform duration-500`} />
                   </div>
                   <h3 className="text-xl font-bold text-[var(--text-main)] mb-3">{item.title}</h3>
                   <p className="text-[var(--text-sub)] leading-relaxed">
@@ -138,7 +139,7 @@ export default function CustomersPage() {
         <section className="py-20 bg-[var(--surface)]/50 border-y border-[var(--border)]">
           <div className="container mx-auto px-6">
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-[var(--text-main)] mb-4">Đặc quyền Đối tác Tiên phong</h2>
+              <h2 className="text-3xl font-bold tracking-tight text-[var(--text-main)] mb-4">Đặc quyền Đối tác Tiên phong</h2>
               <p className="text-[var(--text-sub)]">Chỉ áp dụng cho 100 doanh nghiệp đầu tiên đăng ký sử dụng hệ thống.</p>
             </div>
 
@@ -150,11 +151,12 @@ export default function CustomersPage() {
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.15 }}
-                  className="bg-[var(--bg)] border border-[var(--border)] p-8 rounded-2xl text-center relative overflow-hidden group"
+                  whileHover={{ y: -8 }}
+                  className="bg-[var(--bg)] border border-[var(--border)] p-8 rounded-2xl text-center relative overflow-hidden group hover:shadow-2xl hover:shadow-[var(--primary)]/10 hover:border-[var(--primary)]/50 transition-all duration-500"
                 >
                   <div className="absolute inset-0 bg-gradient-to-b from-[var(--primary)]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="relative z-10">
-                    <perk.icon className="h-10 w-10 mx-auto text-[var(--primary)] mb-4" />
+                    <perk.icon className="h-10 w-10 mx-auto text-[var(--primary)] mb-4 group-hover:scale-110 group-hover:-translate-y-1 transition-transform duration-500" />
                     <h3 className="text-lg font-bold text-[var(--text-main)] mb-2">{perk.title}</h3>
                     <p className="text-sm text-[var(--text-sub)]">{perk.description}</p>
                   </div>
@@ -174,7 +176,7 @@ export default function CustomersPage() {
           >
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
             <div className="relative z-10">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">Bạn đã sẵn sàng để trở thành người đầu tiên?</h2>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Bạn đã sẵn sàng để trở thành người đầu tiên?</h2>
               <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto">
                 Để lại thông tin và chúng tôi sẽ liên hệ để thiết lập toàn bộ hệ thống cho doanh nghiệp của bạn ngay hôm nay.
               </p>
