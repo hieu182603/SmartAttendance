@@ -49,6 +49,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SuperAdminCompanyFilterSlot } from "@/components/dashboard/SuperAdminCompanyFilterSlot";
 
 
 interface AttendanceRecordItem {
@@ -543,17 +544,45 @@ export default function AdminAttendancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-3xl text-[var(--text-main)]">{t('dashboard:adminAttendance.title')}</h1>
-        <p className="text-sm text-[var(--text-sub)]">
-          {t('dashboard:adminAttendance.currentRole')}{" "}
-          <span className="font-semibold text-[var(--text-main)]">{ROLE_NAMES[resolvedRole]}</span>
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2 min-w-0">
+          <h1 className="text-3xl text-[var(--text-main)]">{t('dashboard:adminAttendance.title')}</h1>
+          <p className="text-sm text-[var(--text-sub)]">
+            {t('dashboard:adminAttendance.currentRole')}{" "}
+            <span className="font-semibold text-[var(--text-main)]">{ROLE_NAMES[resolvedRole]}</span>
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 shrink-0 sm:ml-auto">
+          <Button
+            variant="outline"
+            disabled={!roleConfig.canExport}
+            className="h-9 px-3 text-sm border-[var(--border)] text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() =>
+              toast.success(
+                roleConfig.canExport
+                  ? t('dashboard:adminAttendance.toasts.exporting')
+                  : t('dashboard:adminAttendance.toasts.noPermission')
+              )
+            }
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {t('dashboard:adminAttendance.export')}
+          </Button>
+          {roleConfig.canEdit && (
+            <Button
+              onClick={() => setIsManualDialogOpen(true)}
+              className="h-9 px-3 text-sm whitespace-nowrap"
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Thêm thủ công
+            </Button>
+          )}
+        </div>
       </div>
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="mt-4 flex flex-col gap-6 p-6">
-          <div className="flex flex-col gap-4 md:flex-row">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:flex-wrap">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
                 placeholder={t('dashboard:adminAttendance.searchPlaceholder')}
@@ -562,17 +591,21 @@ export default function AdminAttendancePage() {
                 className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
               />
             </div>
+            <div className="w-full md:w-48 shrink-0 min-w-0">
+              <SuperAdminCompanyFilterSlot layout="grid" />
+            </div>
             <Input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+              className="w-full md:w-48 shrink-0 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]"
             />
+            <div className="w-full md:w-48 shrink-0 min-w-0">
             <Select
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value as StatusFilterValue)}
             >
-              <SelectTrigger className="md:w-48 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]">
+              <SelectTrigger className="h-10 w-full bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                 <SelectValue placeholder={t('dashboard:adminAttendance.table.status')} />
               </SelectTrigger>
               <SelectContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
@@ -583,30 +616,7 @@ export default function AdminAttendancePage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              disabled={!roleConfig.canExport}
-              className="border-[var(--border)] text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() =>
-                toast.success(
-                  roleConfig.canExport
-                    ? t('dashboard:adminAttendance.toasts.exporting')
-                    : t('dashboard:adminAttendance.toasts.noPermission')
-                )
-              }
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {t('dashboard:adminAttendance.export')}
-            </Button>
-            {roleConfig.canEdit && (
-              <Button
-                onClick={() => setIsManualDialogOpen(true)}
-                className="whitespace-nowrap"
-              >
-                <Clock className="h-4 w-4 mr-2" />
-                Thêm thủ công
-              </Button>
-            )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -876,7 +886,7 @@ export default function AdminAttendancePage() {
                   onValueChange={(v) => handlePageSizeChange(Number(v))}
                   disabled={isLoading}
                 >
-                  <SelectTrigger className="w-24 h-9 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
+                  <SelectTrigger className="h-9 min-w-[3.5rem] w-auto shrink-0 px-2.5 bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent side="top" className="bg-[var(--surface)] border-[var(--border)]">

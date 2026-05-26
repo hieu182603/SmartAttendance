@@ -10,6 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
+import { SuperAdminCompanyFilterSlot } from "@/components/dashboard/SuperAdminCompanyFilterSlot";
 import {
   BarChart,
   Bar,
@@ -128,7 +129,8 @@ const PayrollReportsPage: React.FC = () => {
             {t('dashboard:payrollReports.description')}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SuperAdminCompanyFilterSlot />
           <Select
             value={selectedMonth}
             onValueChange={(value) => setSelectedMonth(value)}

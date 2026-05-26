@@ -12,6 +12,7 @@ import shiftService from '@/services/shiftService';
 import { getDepartmentsList, type DepartmentListResponse } from '@/services/departmentService';
 import { getAllUsers } from '@/services/userService';
 import { useTranslation } from 'react-i18next';
+import { SuperAdminCompanyFilterSlot } from '@/components/dashboard/SuperAdminCompanyFilterSlot';
 
 interface Shift {
   _id?: string;
@@ -347,8 +348,8 @@ export function ShiftsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl text-[var(--text-main)]">
             {t('dashboard:shifts.title')}
           </h1>
@@ -357,14 +358,16 @@ export function ShiftsPage() {
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90">
-              <Plus className="h-4 w-4 mr-2" />
-              Tạo ca mới
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 sm:ml-auto">
+          <SuperAdminCompanyFilterSlot />
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90">
+                <Plus className="h-4 w-4 mr-2" />
+                Tạo ca mới
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
             <DialogHeader>
               <DialogTitle>Tạo ca làm việc mới</DialogTitle>
               <DialogDescription className="text-[var(--text-sub)]">
@@ -440,8 +443,9 @@ export function ShiftsPage() {
                 </Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Shift Cards */}

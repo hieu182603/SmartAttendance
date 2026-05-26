@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { Button } from '@/components/ui/button'
@@ -12,23 +12,31 @@ import { useAuth } from '@/context/AuthContext'
 import { toast } from 'sonner'
 import type { ErrorWithMessage } from '@/types'
 import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
+import { resolveSafeRedirect } from '@/utils/safeRedirect'
 
 export default function Login() {
   const { t } = useTranslation(['auth', 'common'])
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { login, token, loading, user } = useAuth()
 
+  const redirectAfterLogin = searchParams.get('redirect')
+
   const defaultRoute = useMemo(() => {
+    if (redirectAfterLogin) {
+      return resolveSafeRedirect(redirectAfterLogin, '/employee')
+    }
     if (!user?.role) return '/employee'
     return getRoleBasePath(user.role as UserRoleType)
-  }, [user])
+  }, [user, redirectAfterLogin])
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (skip right after explicit logout)
   useEffect(() => {
-    if (!loading && token) {
+    if (sessionStorage.getItem('sa_logged_out') === '1') return
+    if (!loading && (token || user)) {
       navigate(defaultRoute, { replace: true })
     }
-  }, [token, loading, navigate, defaultRoute])
+  }, [token, user, loading, navigate, defaultRoute])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)

@@ -33,6 +33,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { SuperAdminCompanyFilterSlot } from '@/components/dashboard/SuperAdminCompanyFilterSlot';
 import { toast } from 'sonner';
 import { getAllLogs, getLogStats, type AuditLog } from '@/services/logService';
 import { formatIpAddress } from '@/utils/formatIpAddress';
@@ -430,7 +431,7 @@ export default function AuditLogsPage() {
             <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                 <CardContent className="p-6 mt-4">
                     <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-600 dark:text-gray-400" />
                                 <Input
@@ -441,6 +442,7 @@ export default function AuditLogsPage() {
                                 />
                             </div>
                         </div>
+                        <SuperAdminCompanyFilterSlot />
                         <Select value={filterAction} onValueChange={setFilterAction}>
                             <SelectTrigger className="w-full md:w-[180px] bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                                 <SelectValue placeholder={t('auditLogs.filters.action')} />
@@ -648,7 +650,7 @@ export default function AuditLogsPage() {
                                         <div className="flex items-center gap-2">
                                             <span>{t('auditLogs.pagination.rowsPerPage')}</span>
                                             <Select value={pageSize.toString()} onValueChange={(v) => handlePageSizeChange(Number(v))}>
-                                                <SelectTrigger className="w-20 h-8 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
+                                                <SelectTrigger className="h-8 min-w-[3.5rem] w-auto shrink-0 px-2.5 bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent side="top">

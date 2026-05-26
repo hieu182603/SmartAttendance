@@ -1,6 +1,6 @@
 import api from '@/services/api'
 import type { LoginResponse, RegisterResponse, VerifyOtpResponse, VerifyResetOtpResponse, ForgotPasswordResponse, ResetPasswordResponse, ResendOtpResponse, User } from '@/types'
-export const register = async (data: { companyName: string; name: string; email: string; password: string }): Promise<RegisterResponse> => {
+export const register = async (data: { name: string; email: string; password: string }): Promise<RegisterResponse> => {
     return (await api.post('/auth/register', data)).data
 }
 
@@ -37,7 +37,12 @@ export const refreshTokenApi = async (refreshToken: string): Promise<{ token: st
 }
 
 export const logoutApi = async (): Promise<void> => {
-    await api.post('/auth/logout')
+    try {
+        await api.post('/auth/logout')
+    } catch {
+        // Token có thể đã hết hạn — vẫn xóa httpOnly refresh cookie
+        await api.post('/auth/logout/clear')
+    }
 }
 
 export interface ActiveSession {

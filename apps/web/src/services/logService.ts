@@ -50,15 +50,7 @@ export const getAllLogs = async (params: LogParams = {}): Promise<LogsResponse> 
     return data as LogsResponse
   } catch (error) {
     console.warn('[logs] getAllLogs failed', (error as Error).message)
-    return {
-      logs: [],
-      pagination: {
-        page: 1,
-        limit: 20,
-        total: 0,
-        totalPages: 0,
-      },
-    }
+    throw error
   }
 }
 

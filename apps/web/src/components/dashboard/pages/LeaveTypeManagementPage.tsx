@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { CalendarDays, Plus, Pencil, Trash2, X, Check, UserCog } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CalendarDays, Plus, Pencil, Trash2, X, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +13,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -28,28 +21,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   listLeaveTypes,
   createLeaveType,
   updateLeaveType,
   deleteLeaveType,
-  adjustLeaveBalance,
   type LeaveType,
   type CreateLeaveTypePayload,
 } from "@/services/leaveTypeService";
-import { getAllUsers } from "@/services/userService";
+import { useAuth } from "@/context/AuthContext";
 import { useTranslation } from "react-i18next";
-
-interface UserOption {
-  _id: string;
-  name: string;
-  email: string;
-}
+import { SuperAdminCompanyFilterSlot } from "@/components/dashboard/SuperAdminCompanyFilterSlot";
 
 type LeaveTypeForm = {
-  code: string;
   name: string;
   description: string;
   defaultQuotaDays: number;
@@ -59,7 +44,6 @@ type LeaveTypeForm = {
 };
 
 const emptyForm = (): LeaveTypeForm => ({
-  code: "",
   name: "",
   description: "",
   defaultQuotaDays: 12,
@@ -68,62 +52,50 @@ const emptyForm = (): LeaveTypeForm => ({
   isActive: true,
 });
 
-const BALANCE_LEAVE_TYPES = [
-  { value: "annual", label: "Nghỉ phép năm" },
-  { value: "sick", label: "Nghỉ ốm" },
-  { value: "unpaid", label: "Nghỉ không lương" },
-  { value: "compensatory", label: "Nghỉ bù" },
-  { value: "maternity", label: "Nghỉ thai sản" },
-] as const;
+/** Tạo mã nội bộ từ tên khi thêm loại phép mới (backend vẫn cần `code`). */
+function slugifyLeaveTypeCode(name: string): string {
+  const slug = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 32);
+  return slug.length >= 1 ? slug : `leave_${Date.now().toString(36).slice(-8)}`;
+}
 
 export default function LeaveTypeManagementPage() {
   const { t } = useTranslation();
+  const { token, loading: authLoading } = useAuth();
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Leave type form dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<LeaveTypeForm>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Leave balance adjustment
-  const [users, setUsers] = useState<UserOption[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [balanceForm, setBalanceForm] = useState({
-    userId: "",
-    leaveType: "annual" as (typeof BALANCE_LEAVE_TYPES)[number]["value"],
-    total: 12,
-  });
-  const [adjusting, setAdjusting] = useState(false);
-
-  const loadTypes = async () => {
+  const loadTypes = useCallback(async () => {
+    if (!token) return;
     setLoading(true);
     try {
       const data = await listLeaveTypes();
       setLeaveTypes(data);
-    } catch {
-      toast.error(t("dashboard:leaveTypeMgmt.toasts.loadTypesError"));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t("dashboard:leaveTypeMgmt.toasts.loadTypesError");
+      toast.error(msg);
+      setLeaveTypes([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, t]);
 
-  const loadUsers = async () => {
-    if (users.length > 0) return;
-    setLoadingUsers(true);
-    try {
-      const raw = await getAllUsers({ limit: 500 }) as { users?: UserOption[] } | UserOption[];
-      setUsers(Array.isArray(raw) ? raw : (raw.users ?? []));
-    } catch {
-      toast.error(t("dashboard:leaveTypeMgmt.toasts.loadUsersError"));
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  useEffect(() => { loadTypes(); }, []);
+  useEffect(() => {
+    if (authLoading || !token) return;
+    loadTypes();
+  }, [authLoading, token, loadTypes]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -134,7 +106,6 @@ export default function LeaveTypeManagementPage() {
   const openEdit = (lt: LeaveType) => {
     setEditingId(lt._id);
     setForm({
-      code: lt.code,
       name: lt.name,
       description: lt.description ?? "",
       defaultQuotaDays: lt.defaultQuotaDays,
@@ -147,22 +118,24 @@ export default function LeaveTypeManagementPage() {
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error(t("dashboard:leaveTypeMgmt.toasts.nameRequired")); return; }
-    if (!editingId && !form.code.trim()) { toast.error(t("dashboard:leaveTypeMgmt.toasts.codeRequired")); return; }
     setSaving(true);
     try {
-      const payload: CreateLeaveTypePayload = {
-        code: form.code,
-        name: form.name,
-        description: form.description || undefined,
+      const fields = {
+        name: form.name.trim(),
+        description: form.description.trim() || undefined,
         defaultQuotaDays: form.defaultQuotaDays,
         isPaid: form.isPaid,
         requiresApproval: form.requiresApproval,
         isActive: form.isActive,
       };
       if (editingId) {
-        await updateLeaveType(editingId, payload);
+        await updateLeaveType(editingId, fields);
         toast.success(t("dashboard:leaveTypeMgmt.toasts.updateSuccess"));
       } else {
+        const payload: CreateLeaveTypePayload = {
+          code: slugifyLeaveTypeCode(form.name),
+          ...fields,
+        };
         await createLeaveType(payload);
         toast.success(t("dashboard:leaveTypeMgmt.toasts.createSuccess"));
       }
@@ -186,28 +159,6 @@ export default function LeaveTypeManagementPage() {
     }
   };
 
-  const handleAdjustBalance = async () => {
-    if (!balanceForm.userId) { toast.error(t("dashboard:leaveTypeMgmt.toasts.selectUser")); return; }
-    if (balanceForm.total < 0 || balanceForm.total > 365) { toast.error(t("dashboard:leaveTypeMgmt.toasts.invalidQuota")); return; }
-    setAdjusting(true);
-    try {
-      const result = await adjustLeaveBalance(balanceForm.userId, {
-        leaveType: balanceForm.leaveType,
-        total: balanceForm.total,
-      });
-      toast.success(
-        t("dashboard:leaveTypeMgmt.toasts.adjustSuccess", {
-          type: BALANCE_LEAVE_TYPES.find((item) => item.value === balanceForm.leaveType)?.label,
-          remaining: result.remaining,
-        })
-      );
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : t("dashboard:leaveTypeMgmt.toasts.adjustError"));
-    } finally {
-      setAdjusting(false);
-    }
-  };
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -217,245 +168,155 @@ export default function LeaveTypeManagementPage() {
         </h1>
       </div>
 
-      <Tabs defaultValue="types">
-        <TabsList>
-          <TabsTrigger value="types">{t("dashboard:leaveTypeMgmt.tabs.types")}</TabsTrigger>
-          <TabsTrigger value="balance" onClick={loadUsers}>
-            <UserCog className="w-4 h-4 mr-1" />
-            {t("dashboard:leaveTypeMgmt.tabs.balance")}
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ---- TAB 1: Leave types CRUD ---- */}
-        <TabsContent value="types" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-base">{t("dashboard:leaveTypeMgmt.listTitle")}</CardTitle>
-              <Button size="sm" onClick={openCreate}>
-                <Plus className="w-4 h-4 mr-1" /> {t("dashboard:leaveTypeMgmt.add")}
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="py-12 text-center text-[var(--text-sub)]">
-                  {t("dashboard:leaveTypeMgmt.loading")}
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Tên</TableHead>
-                      <TableHead className="w-24 text-center">Quota mặc định</TableHead>
-                      <TableHead className="w-24 text-center">Có lương</TableHead>
-                      <TableHead className="w-28 text-center">Cần duyệt</TableHead>
-                      <TableHead className="w-24 text-center">Trạng thái</TableHead>
-                      <TableHead className="w-24 text-right">Thao tác</TableHead>
+      <Card>
+        <CardHeader className="pb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base">{t("dashboard:leaveTypeMgmt.listTitle")}</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <SuperAdminCompanyFilterSlot />
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="w-4 h-4 mr-1" /> {t("dashboard:leaveTypeMgmt.add")}
+          </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="py-12 text-center text-[var(--text-sub)]">
+              {t("dashboard:leaveTypeMgmt.loading")}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tên</TableHead>
+                  <TableHead className="whitespace-nowrap text-center">Quota mặc định</TableHead>
+                  <TableHead className="w-24 text-center">Có lương</TableHead>
+                  <TableHead className="w-28 text-center">Cần duyệt</TableHead>
+                  <TableHead className="w-24 text-center">Trạng thái</TableHead>
+                  <TableHead className="w-24 text-right">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {leaveTypes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-[var(--text-sub)]">
+                      {t("dashboard:leaveTypeMgmt.empty")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  leaveTypes.map((lt) => (
+                    <TableRow key={lt._id}>
+                      <TableCell className="font-medium">{lt.name}</TableCell>
+                      <TableCell className="text-center">
+                        {t("dashboard:leaveTypeMgmt.days", { count: lt.defaultQuotaDays })}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={lt.isPaid ? "default" : "outline"}>
+                          {lt.isPaid ? "Có" : "Không"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={lt.requiresApproval ? "default" : "outline"}>
+                          {lt.requiresApproval ? "Có" : "Không"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={lt.isActive ? "success" : "error"}>
+                          {lt.isActive ? "Hoạt động" : "Tắt"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(lt)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => setDeleteId(lt._id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {leaveTypes.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-[var(--text-sub)]">
-                          {t("dashboard:leaveTypeMgmt.empty")}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      leaveTypes.map((lt) => (
-                        <TableRow key={lt._id}>
-                          <TableCell className="font-mono text-sm">{lt.code}</TableCell>
-                          <TableCell className="font-medium">{lt.name}</TableCell>
-                          <TableCell className="text-center">
-                            {t("dashboard:leaveTypeMgmt.days", { count: lt.defaultQuotaDays })}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={lt.isPaid ? "default" : "outline"}>
-                              {lt.isPaid ? "Có" : "Không"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={lt.requiresApproval ? "default" : "outline"}>
-                              {lt.requiresApproval ? "Có" : "Không"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={lt.isActive ? "success" : "error"}>
-                              {lt.isActive ? "Hoạt động" : "Tắt"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(lt)}>
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => setDeleteId(lt._id)}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* ---- TAB 2: Leave balance adjustment ---- */}
-        <TabsContent value="balance" className="mt-4">
-          <Card className="max-w-lg">
-            <CardHeader>
-            <CardTitle className="text-base">
-              {t("dashboard:leaveTypeMgmt.balanceTitle")}
-            </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <Label>{t("dashboard:leaveTypeMgmt.fields.employee")}</Label>
-                <Select
-                  value={balanceForm.userId}
-                  onValueChange={(v) => setBalanceForm((f) => ({ ...f, userId: v }))}
-                  disabled={loadingUsers}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={loadingUsers
-                        ? t("dashboard:leaveTypeMgmt.loading")
-                        : t("dashboard:leaveTypeMgmt.fields.employeePlaceholder")}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map((u) => (
-                      <SelectItem key={u._id} value={u._id}>
-                        {u.name} — {u.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>{t("dashboard:leaveTypeMgmt.fields.leaveType")}</Label>
-                <Select
-                  value={balanceForm.leaveType}
-                  onValueChange={(v) =>
-                    setBalanceForm((f) => ({
-                      ...f,
-                      leaveType: v as (typeof BALANCE_LEAVE_TYPES)[number]["value"],
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BALANCE_LEAVE_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>{t("dashboard:leaveTypeMgmt.fields.quota")}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={365}
-                  value={balanceForm.total}
-                  onChange={(e) =>
-                    setBalanceForm((f) => ({ ...f, total: Number(e.target.value) }))
-                  }
-                />
-              </div>
-              <Button onClick={handleAdjustBalance} disabled={adjusting} className="w-full">
-                {adjusting
-                  ? t("dashboard:leaveTypeMgmt.actions.updating")
-                  : t("dashboard:leaveTypeMgmt.actions.updateQuota")}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Create / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-lg bg-[var(--surface)] border-[var(--border)]">
+          <DialogHeader className="space-y-1 pb-0">
             <DialogTitle>
               {editingId
                 ? t("dashboard:leaveTypeMgmt.dialog.editTitle")
                 : t("dashboard:leaveTypeMgmt.dialog.createTitle")}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Code <span className="text-destructive">*</span></Label>
+          <div className="space-y-5 pt-2">
+            <div className="grid grid-cols-[1fr_6.5rem] gap-4">
+              <div className="space-y-2 min-w-0">
+                <Label>
+                  Tên loại phép <span className="text-destructive">*</span>
+                </Label>
                 <Input
-                  value={form.code}
-                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toLowerCase() }))}
-                  disabled={!!editingId}
-                  placeholder="vd: annual"
-                  className="font-mono"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Ví dụ: Nghỉ phép năm"
                 />
               </div>
-              <div className="space-y-1">
-                <Label>Quota mặc định (ngày)</Label>
+              <div className="space-y-2">
+                <Label className="whitespace-nowrap">Quota (ngày)</Label>
                 <Input
                   type="number"
                   min={0}
+                  max={365}
+                  className="w-full"
                   value={form.defaultQuotaDays}
                   onChange={(e) => setForm((f) => ({ ...f, defaultQuotaDays: Number(e.target.value) }))}
                 />
               </div>
             </div>
-            <div className="space-y-1">
-              <Label>Tên loại phép <span className="text-destructive">*</span></Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="vd: Nghỉ phép năm"
-              />
-            </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label>Mô tả</Label>
               <Input
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Mô tả ngắn..."
+                placeholder="Mô tả ngắn (tuỳ chọn)"
               />
             </div>
-            <div className="flex gap-6">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={form.isPaid}
-                  onCheckedChange={(v) => setForm((f) => ({ ...f, isPaid: v }))}
-                />
-                <Label>Có lương</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={form.requiresApproval}
-                  onCheckedChange={(v) => setForm((f) => ({ ...f, requiresApproval: v }))}
-                />
-                <Label>Cần duyệt</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={form.isActive}
-                  onCheckedChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
-                />
-                <Label>Hoạt động</Label>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--shell)]/40 p-4 space-y-3">
+              <p className="text-xs font-medium text-[var(--text-sub)]">Cấu hình</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <label className="flex items-center justify-between sm:flex-col sm:items-start sm:gap-2 gap-3 cursor-pointer">
+                  <span className="text-sm text-[var(--text-main)]">Có lương</span>
+                  <Switch
+                    checked={form.isPaid}
+                    onCheckedChange={(v) => setForm((f) => ({ ...f, isPaid: v }))}
+                  />
+                </label>
+                <label className="flex items-center justify-between sm:flex-col sm:items-start sm:gap-2 gap-3 cursor-pointer">
+                  <span className="text-sm text-[var(--text-main)]">Cần duyệt</span>
+                  <Switch
+                    checked={form.requiresApproval}
+                    onCheckedChange={(v) => setForm((f) => ({ ...f, requiresApproval: v }))}
+                  />
+                </label>
+                <label className="flex items-center justify-between sm:flex-col sm:items-start sm:gap-2 gap-3 cursor-pointer">
+                  <span className="text-sm text-[var(--text-main)]">Hoạt động</span>
+                  <Switch
+                    checked={form.isActive}
+                    onCheckedChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
+                  />
+                </label>
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               {t("dashboard:leaveTypeMgmt.actions.cancel")}
             </Button>
@@ -468,7 +329,6 @@ export default function LeaveTypeManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
       <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

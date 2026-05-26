@@ -17,7 +17,6 @@ import {
   getAttendanceStatusBadgeClass,
   type AttendanceStatus,
 } from "@/utils/attendanceStatus";
-
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -589,9 +588,9 @@ const HistoryPage: React.FC = () => {
       {/* Filters */}
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6 mt-4">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-4 flex-wrap">
             {/* Date Range */}
-            <div className="flex gap-2 flex-1">
+            <div className="flex gap-2 flex-1 min-w-[200px]">
               <div className="flex-1">
                 <Input
                   type="date"

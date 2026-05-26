@@ -2,7 +2,8 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Home, Camera, History, FileText, Clock, CalendarDays, Calendar,
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
-  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot, Wallet, Settings, ShieldCheck, ScanFace, Monitor, Activity
+  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot, Wallet, Settings, ShieldCheck, ScanFace, Monitor, Activity,
+  ToggleRight, CreditCard
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { Permission, type PermissionType, UserRole, ROLE_PERMISSIONS, type UserRoleType, hasMinimumLevel } from '@/utils/roles';
@@ -15,6 +16,43 @@ export interface MenuItem {
   permission?: PermissionType;
   minimumRole?: UserRoleType;
   section: 'admin' | 'employee' | 'system';
+}
+
+/** Thứ tự sidebar cho SUPER_ADMIN (số nhỏ = lên trên trong từng section). */
+const SUPER_ADMIN_MENU_ORDER: Record<string, number> = {
+  home: 0,
+  'company-management': 10,
+  'ticket-management': 20,
+  'feature-toggles': 30,
+  'employee-management': 40,
+  departments: 50,
+  branches: 60,
+  'approve-requests': 70,
+  'admin-attendance': 80,
+  shifts: 90,
+  'leave-types': 100,
+  'performance-review': 110,
+  'attendance-analytics': 120,
+  'admin-reports': 130,
+  payroll: 140,
+  'payroll-reports': 141,
+  'salary-matrix': 142,
+  'ai-billing': 25,
+  'system-health': 200,
+  'active-sessions': 210,
+  'audit-logs': 220,
+  'face-recognition-logs': 230,
+  'system-config': 240,
+  'role-management': 250,
+  profile: 310,
+  chatbot: 320,
+};
+
+function sortMenuForRole(items: MenuItem[], userRole: UserRoleType): MenuItem[] {
+  if (userRole !== UserRole.SUPER_ADMIN) return items;
+  return [...items].sort(
+    (a, b) => (SUPER_ADMIN_MENU_ORDER[a.id] ?? 999) - (SUPER_ADMIN_MENU_ORDER[b.id] ?? 999)
+  );
 }
 
 export const MENU_ITEMS: MenuItem[] = [
@@ -88,8 +126,32 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/employee/chatbot',
     section: 'employee',
   },
-  // Admin Dashboard (home) - moved to admin section for admin roles in getMenuByPermissionsWithTranslations
-  // Quản lý nhân viên
+  // ── Admin / Super Admin ─────────────────────────────────────────────────────
+  // (Thứ tự hiển thị SUPER_ADMIN: xem SUPER_ADMIN_MENU_ORDER)
+  {
+    id: 'company-management',
+    label: 'Quản lý công ty',
+    icon: Building2,
+    path: '/admin/company-management',
+    minimumRole: UserRole.SUPER_ADMIN,
+    section: 'admin',
+  },
+  {
+    id: 'ticket-management',
+    label: 'Quản lý thanh toán',
+    icon: CreditCard,
+    path: '/admin/ticket-management',
+    minimumRole: UserRole.SUPER_ADMIN,
+    section: 'admin',
+  },
+  {
+    id: 'feature-toggles',
+    label: 'Quản lý chức năng',
+    icon: ToggleRight,
+    path: '/admin/feature-toggles',
+    minimumRole: UserRole.SUPER_ADMIN,
+    section: 'admin',
+  },
   {
     id: 'employee-management',
     label: 'Quản lý nhân viên',
@@ -98,7 +160,78 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.USERS_VIEW,
     section: 'admin',
   },
-  // Bảng lương
+  {
+    id: 'departments',
+    label: 'Quản lý phòng ban',
+    icon: Briefcase,
+    path: '/admin/departments',
+    permission: Permission.DEPARTMENTS_VIEW,
+    section: 'admin',
+  },
+  {
+    id: 'branches',
+    label: 'Quản lý chi nhánh',
+    icon: Building2,
+    path: '/admin/branches',
+    permission: Permission.BRANCHES_VIEW,
+    section: 'admin',
+  },
+  {
+    id: 'approve-requests',
+    label: 'Phê duyệt yêu cầu',
+    icon: CheckCircle2,
+    path: '/admin/approve-requests',
+    permission: Permission.REQUESTS_APPROVE_DEPARTMENT,
+    section: 'admin',
+  },
+  {
+    id: 'admin-attendance',
+    label: 'Quản lý chấm công',
+    icon: Clock,
+    path: '/admin/admin-attendance',
+    permission: Permission.ATTENDANCE_VIEW_ALL,
+    section: 'admin',
+  },
+  {
+    id: 'shifts',
+    label: 'Quản lý ca làm việc',
+    icon: Clock,
+    path: '/admin/shifts',
+    permission: Permission.ATTENDANCE_VIEW_DEPARTMENT,
+    section: 'admin',
+  },
+  {
+    id: 'leave-types',
+    label: 'Quản lý loại phép',
+    icon: CalendarDays,
+    path: '/admin/leave-types',
+    permission: Permission.USERS_VIEW,
+    section: 'admin',
+  },
+  {
+    id: 'performance-review',
+    label: 'Đánh giá hiệu suất',
+    icon: Award,
+    path: '/admin/performance-review',
+    permission: Permission.USERS_VIEW,
+    section: 'admin',
+  },
+  {
+    id: 'attendance-analytics',
+    label: 'Phân tích chấm công',
+    icon: BarChart3,
+    path: '/admin/attendance-analytics',
+    permission: Permission.ANALYTICS_VIEW_DEPARTMENT,
+    section: 'admin',
+  },
+  {
+    id: 'admin-reports',
+    label: 'Báo cáo & Thống kê',
+    icon: FileBarChart,
+    path: '/admin/admin-reports',
+    permission: Permission.VIEW_REPORTS,
+    section: 'admin',
+  },
   {
     id: 'payroll',
     label: 'Bảng lương',
@@ -125,75 +258,22 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.PAYROLL_MANAGE,
     section: 'admin',
   },
-  // Phê duyệt yêu cầu - có thể ở manager, hr, hoặc admin
+  // ── Hệ thống & giám sát ────────────────────────────────────────────────────
   {
-    id: 'approve-requests',
-    label: 'Phê duyệt yêu cầu',
-    icon: CheckCircle2,
-    path: '/admin/approve-requests', // Base path, sẽ được replace theo role
-    permission: Permission.REQUESTS_APPROVE_DEPARTMENT,
-    section: 'admin',
-  },
-  // Đánh giá hiệu suất - có thể ở manager, hr, hoặc admin
-  {
-    id: 'performance-review',
-    label: 'Đánh giá hiệu suất',
-    icon: Award,
-    path: '/admin/performance-review', // Base path, sẽ được replace theo role
-    permission: Permission.USERS_VIEW,
-    section: 'admin',
-  },
-  // Chấm công - chỉ HR và Admin
-  {
-    id: 'admin-attendance',
-    label: 'Quản lý chấm công',
-    icon: Clock,
-    path: '/admin/admin-attendance', // Base path, sẽ được replace theo role
-    permission: Permission.ATTENDANCE_VIEW_ALL,
-    section: 'admin',
-  },
-  // Ca làm việc - có thể ở manager, hr, hoặc admin
-  {
-    id: 'shifts',
-    label: 'Quản lý ca làm việc',
-    icon: Clock,
-    path: '/admin/shifts', // Base path, sẽ được replace theo role
-    permission: Permission.ATTENDANCE_VIEW_DEPARTMENT,
-    section: 'admin',
-  },
-  // Báo cáo và thống kê - chỉ HR và Admin
-  {
-    id: 'admin-reports',
-    label: 'Báo cáo & Thống kê',
-    icon: FileBarChart,
-    path: '/admin/admin-reports', // Base path, sẽ được replace theo role
-    permission: Permission.VIEW_REPORTS,
-    section: 'admin',
-  },
-  // Phân tích chấm công - có thể ở manager, hr, hoặc admin
-  {
-    id: 'attendance-analytics',
-    label: 'Phân tích chấm công',
-    icon: BarChart3,
-    path: '/admin/attendance-analytics', // Base path, sẽ được replace theo role
-    permission: Permission.ANALYTICS_VIEW_DEPARTMENT,
-    section: 'admin',
+    id: 'system-health',
+    label: 'Trạng thái hệ thống',
+    icon: Activity,
+    path: '/admin/system-health',
+    minimumRole: UserRole.ADMIN,
+    section: 'system',
   },
   {
-    id: 'departments',
-    label: 'Quản lý phòng ban',
-    icon: Briefcase,
-    path: '/admin/departments',
-    permission: Permission.DEPARTMENTS_VIEW,
-    section: 'admin',
-  },
-  {
-    id: 'branches',
-    label: 'Quản lý chi nhánh',
-    icon: Building2,
-    path: '/admin/branches',
-    permission: Permission.BRANCHES_VIEW,
-    section: 'admin',
+    id: 'active-sessions',
+    label: 'Phiên đăng nhập',
+    icon: Monitor,
+    path: '/admin/active-sessions',
+    minimumRole: UserRole.ADMIN,
+    section: 'system',
   },
   {
     id: 'audit-logs',
@@ -202,14 +282,6 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/admin/audit-logs',
     permission: Permission.AUDIT_LOGS_VIEW,
     section: 'system',
-  },
-  {
-    id: 'leave-types',
-    label: 'Quản lý loại phép',
-    icon: CalendarDays,
-    path: '/admin/leave-types',
-    permission: Permission.USERS_VIEW,
-    section: 'admin',
   },
   {
     id: 'system-config',
@@ -236,23 +308,22 @@ export const MENU_ITEMS: MenuItem[] = [
     section: 'system',
   },
   {
-    id: 'active-sessions',
-    label: 'Phiên đăng nhập',
-    icon: Monitor,
-    path: '/admin/active-sessions',
+    id: 'ai-billing',
+    label: 'Quản lý chi phí AI',
+    icon: Bot,
+    path: '/admin/ai-billing',
     minimumRole: UserRole.ADMIN,
-    section: 'system',
+    section: 'admin',
   },
-  {
-    id: 'system-health',
-    label: 'Trạng thái hệ thống',
-    icon: Activity,
-    path: '/admin/system-health',
-    minimumRole: UserRole.ADMIN,
-    section: 'system',
-  },
-  // trial-analytics removed
 ];
+
+export const PAYROLL_MENU_IDS = new Set(['payroll', 'payroll-reports', 'salary-matrix']);
+export const PLATFORM_MENU_IDS = new Set([
+  'company-management',
+  'ticket-management',
+  'feature-toggles',
+  'ai-billing',
+]);
 
 // Helper function to check if user has permission (including higher level permissions)
 function hasPermission(userPermissions: PermissionType[], requiredPermission: PermissionType): boolean {
@@ -313,18 +384,19 @@ export function getMenuByPermissionsWithTranslations(
   const adminRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.SUPERVISOR];
   const isAdminRole = adminRoles.includes(userRole);
   
-  return menu.map(item => {
+  const mapped = menu.map(item => {
     const menuItem = {
       ...item,
       label: t(`menu:${item.id}`) || item.label,
     };
-    
-    // Change section of "home" item to 'admin' for admin roles
+
     if (item.id === 'home' && isAdminRole) {
       menuItem.section = 'admin';
     }
-    
+
     return menuItem;
   });
+
+  return sortMenuForRole(mapped, userRole);
 }
 

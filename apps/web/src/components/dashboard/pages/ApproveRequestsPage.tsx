@@ -31,6 +31,7 @@ import { toast } from 'sonner'
 import { getAllRequests, approveRequest, rejectRequest, bulkApproveRequests, bulkRejectRequests } from '@/services/requestService'
 import { getPendingEarlyCheckouts, approveEarlyCheckout } from '@/services/attendanceService'
 import { useAuth } from '@/context/AuthContext'
+import { SuperAdminCompanyFilterSlot } from '@/components/dashboard/SuperAdminCompanyFilterSlot'
 import type { ErrorWithMessage } from '@/types'
 
 type RequestStatus = 'pending' | 'approved' | 'rejected'
@@ -557,7 +558,7 @@ const ApproveRequestsPage: React.FC = () => {
       <Card className="bg-[var(--surface)] border-[var(--border)]">
         <CardContent className="p-6 mt-4">
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
                 <Input
@@ -568,6 +569,7 @@ const ApproveRequestsPage: React.FC = () => {
                 />
               </div>
             </div>
+            <SuperAdminCompanyFilterSlot />
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-full md:w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
                 <SelectValue placeholder={t('dashboard:approveRequests.filters.requestType')} />

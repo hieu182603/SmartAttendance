@@ -27,11 +27,16 @@
   "chatbot": "AI Assistant",
   "my-payslip": "Salary",
   "payroll-group": "Payroll",
+  "platform-group": "SaaS platform",
   "leave-types": "Leave Type Management",
   "system-config": "System Config",
   "role-management": "Role permission defaults",
   "face-recognition-logs": "Face recognition logs",
   "active-sessions": "Active sessions",
-  "system-health": "System health"
+  "system-health": "System health",
+  "feature-toggles": "Feature toggles",
+  "ticket-management": "Payment management",
+  "company-management": "Company management",
+  "ai-billing": "AI Billing Management"
 }
 

@@ -68,14 +68,21 @@ const SelectTrigger = React.forwardRef<HTMLButtonElement, SelectTriggerProps>(
         ref={ref}
         type="button"
         className={cn(
-          'flex h-10 w-full items-center justify-between rounded-xl border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50',
+          'flex h-10 w-full items-center gap-2 rounded-xl border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50',
           className
         )}
         onClick={() => context?.setIsOpen(!context?.isOpen)}
         {...props}
       >
-        {children || <span className="text-[var(--text-sub)]">Chọn...</span>}
-        <ChevronDown className={`h-4 w-4 text-[var(--text-sub)] transition-transform ${context?.isOpen ? 'rotate-180' : ''}`} />
+        <span className="flex min-w-0 flex-1 items-center overflow-hidden text-left">
+          {children || <span className="text-[var(--text-sub)]">Chọn...</span>}
+        </span>
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 shrink-0 text-[var(--text-sub)] transition-transform',
+            context?.isOpen && 'rotate-180',
+          )}
+        />
       </button>
     )
   }
@@ -89,7 +96,11 @@ interface SelectValueProps extends React.HTMLAttributes<HTMLSpanElement> {
 const SelectValue = ({ placeholder, ...props }: SelectValueProps) => {
   const context = React.useContext(SelectContext)
   const displayText = context?.selectedValue ? context.items?.[context.selectedValue] : placeholder
-  return <span {...props}>{displayText || placeholder}</span>
+  return (
+    <span className="block min-w-[1.25rem] truncate tabular-nums" {...props}>
+      {displayText ?? placeholder}
+    </span>
+  )
 }
 SelectValue.displayName = 'SelectValue'
 
