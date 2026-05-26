@@ -26,10 +26,18 @@ const processQueue = (err: unknown, token: string | null) => {
   _failQueue = []
 }
 
+const PROTECTED_ROUTE_PREFIXES = ['/employee', '/manager', '/hr', '/admin'] as const
+
+const isProtectedPath = (pathname = window.location.pathname) =>
+  PROTECTED_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+
 const forceLogout = () => {
   _memToken = ''
   localStorage.removeItem('sa_user_role')
-  if (window.location.pathname !== '/login') {
+  // Only redirect from dashboard routes — public/404 pages should stay put
+  if (isProtectedPath() && window.location.pathname !== '/login') {
     setTimeout(() => { window.location.href = '/login' }, 0)
   }
 }

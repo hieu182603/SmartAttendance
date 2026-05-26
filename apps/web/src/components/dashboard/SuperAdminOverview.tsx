@@ -402,7 +402,17 @@ export const SuperAdminOverview: React.FC = () => {
               ) : (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
-                    <Pie data={planPieData} cx="50%" cy="45%" outerRadius={90} dataKey="value" label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                    <Pie
+                      data={planPieData}
+                      cx="50%"
+                      cy="45%"
+                      outerRadius={90}
+                      dataKey="value"
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`
+                      }
+                    >
                       {planPieData.map((entry) => (
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
