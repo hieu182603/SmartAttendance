@@ -1,5 +1,6 @@
 import { PerformanceReviewModel } from "./performance.model.js";
 import mongoose from "mongoose";
+import { resolveTenantCompanyId } from "../../utils/tenantCompany.util.js";
 
 /**
  * Lấy danh sách đánh giá (có filter)
@@ -55,7 +56,43 @@ export const getReviews = async (req, res) => {
         });
       }
     }
-    // HR_MANAGER, ADMIN, SUPER_ADMIN thấy tất cả
+    // HR_MANAGER, ADMIN, SUPER_ADMIN — SUPER_ADMIN có thể lọc theo ?companyId=
+    if (userRole === "ADMIN" || userRole === "SUPER_ADMIN") {
+      const companyId = resolveTenantCompanyId(req);
+      if (companyId) {
+        const companyUsers = await UserModel.find({ companyId, isActive: true }).select("_id");
+        const companyUserIds = companyUsers.map((u) => u._id);
+        if (companyUserIds.length === 0) {
+          return res.json({
+            reviews: [],
+            pagination: {
+              total: 0,
+              page: parseInt(page),
+              limit: parseInt(limit),
+              totalPages: 0,
+            },
+          });
+        }
+        if (filter.employeeId?.$in) {
+          const allowed = new Set(companyUserIds.map((id) => id.toString()));
+          const intersected = filter.employeeId.$in.filter((id) => allowed.has(id.toString()));
+          if (intersected.length === 0) {
+            return res.json({
+              reviews: [],
+              pagination: {
+                total: 0,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: 0,
+              },
+            });
+          }
+          filter.employeeId = { $in: intersected };
+        } else {
+          filter.employeeId = { $in: companyUserIds };
+        }
+      }
+    }
 
     const skip = (page - 1) * limit;
 

@@ -3,10 +3,15 @@
 // AFTER all other imports resolve. Isolating it in env.js ensures .env
 // is loaded before any module reads process.env.
 import "./config/env.js";
+import { initSentry } from "./config/sentry.js";
+
+initSentry();
 
 import app from "./app.js";
 import { connectDatabase } from "./config/database.js";
+import { logRedisStartupStatus } from "./config/redis.js";
 import { startCronJobs } from "./jobs/attendance.job.js";
+import { startAiInvoiceCron } from "./jobs/ai-invoice.job.js";
 
 // Server start
 const PORT = process.env.PORT || 4000;
@@ -36,6 +41,14 @@ async function start() {
     await connectDatabase();
     console.log("✅ Database connected successfully");
 
+    console.log("🔄 Kiểm tra Redis...");
+    const redisStatus = await logRedisStartupStatus();
+    if (redisStatus.enabled && !redisStatus.connected) {
+      console.warn(
+        "⚠️ Redis không phản hồi — phiên refresh dùng JWT-only tạm thời (xem [redis] ở trên)",
+      );
+    }
+
     const server = app.listen(PORT, HOST, () => {
       // For logging, show localhost when HOST is 0.0.0.0 (bind address)
       const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
@@ -57,6 +70,7 @@ async function start() {
       // Khởi động cron jobs
       try {
         startCronJobs();
+        startAiInvoiceCron();
       } catch (cronError) {
         console.error("⚠️ Failed to start cron jobs:", cronError);
         // Don't exit - cron jobs are not critical for server startup

@@ -51,7 +51,10 @@ export function verifyPayOSSignature(data, receivedSignature, checksumKey) {
     .createHmac("sha256", checksumKey)
     .update(queryString)
     .digest("hex");
-  return computed === receivedSignature;
+  if (typeof receivedSignature !== "string" || computed.length !== receivedSignature.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(Buffer.from(computed, "utf8"), Buffer.from(receivedSignature, "utf8"));
 }
 
 /**

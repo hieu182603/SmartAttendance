@@ -453,6 +453,7 @@ export async function generatePayrollRecord(userId, month) {
 
   const recordData = {
     userId,
+    companyId: user.companyId,
     month,
     periodStart,
     periodEnd,

@@ -80,9 +80,20 @@ export class LogService {
       userId = "",
       startDate = "",
       endDate = "",
+      companyId = null,
     } = options;
 
     const query = {};
+
+    // Company filter: lọc logs theo người dùng thuộc công ty được chọn
+    if (companyId && !userId) {
+      const companyUsers = await UserModel.find({ companyId }).select('_id');
+      const companyUserIds = companyUsers.map(u => u._id);
+      if (companyUserIds.length === 0) {
+        return { logs: [], pagination: { total: 0, page: 1, limit: parseInt(limit) || 20, totalPages: 0 } };
+      }
+      query.userId = { $in: companyUserIds };
+    }
 
     // Search filter - search in action, entityType, details, và userName
     if (search) {
@@ -122,9 +133,18 @@ export class LogService {
       query.status = status;
     }
 
-    // Category filter (entityType)
+    // Category filter (entityType); face_recognition gồm cả log attendance face_scan_*
     if (category && category !== "all") {
-      query.entityType = category;
+      if (category === "face_recognition") {
+        query.$or = [
+          { entityType: "face_recognition" },
+          { action: { $regex: /^face_scan_/ } },
+          { action: "face_spoof_detected" },
+          { action: "face_fallback_otp_success" },
+        ];
+      } else {
+        query.entityType = category;
+      }
     }
 
     // User filter
@@ -358,9 +378,18 @@ export class LogService {
    * Lấy thống kê audit logs
    */
   static async getLogStats(options = {}) {
-    const { startDate = "", endDate = "" } = options;
+    const { startDate = "", endDate = "", companyId = null } = options;
 
     const query = {};
+
+    if (companyId) {
+      const companyUsers = await UserModel.find({ companyId }).select('_id');
+      const companyUserIds = companyUsers.map(u => u._id);
+      if (companyUserIds.length === 0) {
+        return { total: 0, success: 0, failed: 0, warning: 0 };
+      }
+      query.userId = { $in: companyUserIds };
+    }
 
     if (startDate || endDate) {
       query.createdAt = {};

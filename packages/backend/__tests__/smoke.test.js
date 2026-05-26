@@ -38,7 +38,6 @@ describe("Backend smoke", () => {
       email: "ok@example.com",
       password: "SmartAttendance@2026!",
       name: "Nguyen Van A",
-      companyName: "Test Company",
     });
     expect(result.success).toBe(true);
   });

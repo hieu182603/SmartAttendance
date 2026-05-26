@@ -125,6 +125,45 @@ export const cacheAside = async (key, ttlSeconds, loader) => {
 /** True when Redis was expected but connection errors occurred. */
 export const isRedisDegraded = () => _redisConfigured && _degraded;
 
+/** Refresh-token binding only when Redis is configured and reachable. */
+export const isRedisBindingActive = () => _redisConfigured && !_degraded;
+
+/**
+ * Log Redis status at startup (ping when configured).
+ * @returns {Promise<{ enabled: boolean, connected: boolean, degraded: boolean }>}
+ */
+export const logRedisStartupStatus = async () => {
+  if (!_redisConfigured) {
+    console.log("[redis] Trạng thái: TẮT");
+    console.log(
+      "[redis] Lý do: thiếu REDIS_URL/REDIS_HOST hoặc REDIS_ENABLED=false",
+    );
+    console.log(
+      "[redis] Refresh token: chỉ JWT (không lưu/bind Redis) — reload trang vẫn refresh được nếu cookie còn",
+    );
+    return { enabled: false, connected: false, degraded: false };
+  }
+
+  const target = _connection.mode === "url" ? "REDIS_URL" : `REDIS_HOST=${_connection.options.host}`;
+  const client = getClient();
+  try {
+    await client.ping();
+    console.log(`[redis] Trạng thái: BẬT — kết nối OK (${target})`);
+    console.log(
+      "[redis] Refresh token: bind + rotation qua Redis — reload cần Redis hoạt động",
+    );
+    return { enabled: true, connected: true, degraded: false };
+  } catch (err) {
+    _degraded = true;
+    console.warn(`[redis] Trạng thái: CẤU HÌNH nhưng KHÔNG kết nối (${target})`);
+    console.warn(`[redis] Lỗi: ${err.message}`);
+    console.warn(
+      "[redis] Chế độ degraded: bỏ bind refresh — tránh logout khi reload (giống Redis tắt)",
+    );
+    return { enabled: true, connected: false, degraded: true };
+  }
+};
+
 export const redisSAdd = async (key, ...members) => {
   if (!_redisConfigured || _degraded) return;
   const client = getClient();

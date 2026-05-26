@@ -6,13 +6,15 @@ import { ROLES, ROLE_HIERARCHY, hasMinimumRole, canManageRole } from "../config/
  * This prevents multiple DB queries for the same request
  */
 const getUserRole = async (req) => {
-    // Role should always be in JWT token (from generateTokenFromUser)
-    // But handle legacy tokens that might not have role
+    // Prefer role loaded from DB in authMiddleware (userContext / req.user.role)
+    if (req.user?.userContext?.role) {
+        return req.user.userContext.role;
+    }
     if (req.user?.role) {
         return req.user.role;
     }
 
-    // If role not in token, fetch from DB once and cache in req.user
+    // Legacy tokens: fetch from DB once and cache in req.user
     // This prevents race condition and multiple queries for the same request
     if (!req.user?.userId) {
         return null;

@@ -42,6 +42,8 @@ authRouter.post("/refresh", refreshRateLimiter, AuthController.refresh);
 
 // Đăng xuất (thu hồi refresh token)
 authRouter.post("/logout", authMiddleware, AuthController.logout);
+// Xóa refresh cookie khi không gửi được Bearer (sau khi client đã xóa access token)
+authRouter.post("/logout/clear", AuthController.clearSessionCookie);
 
 // Admin: xem tất cả sessions đang online
 authRouter.get(

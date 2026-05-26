@@ -9,12 +9,15 @@ import { SalaryMatrixModel } from "./salary-matrix.model.js";
 import { SalaryHistoryModel } from "./salary-history.model.js";
 import { UserModel } from "../users/user.model.js";
 import { logActivity } from "../../utils/logger.util.js";
+import { resolveTenantCompanyId } from "../../utils/tenantCompany.util.js";
 
 export const getSalaryMatrix = async (req, res) => {
   try {
     const { departmentCode, position, isActive, page = 1, limit = 100 } = req.query;
 
     const query = {};
+    const companyId = resolveTenantCompanyId(req);
+    if (companyId) query.companyId = companyId;
     if (departmentCode) {
       query.departmentCode = departmentCode.toUpperCase();
     }

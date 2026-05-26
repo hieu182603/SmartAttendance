@@ -1121,14 +1121,14 @@ export class FaceService {
     user.faceData.lastVerifiedAt = now;
     await user.save();
 
-    // Log activity
-    await logActivityWithoutRequest({
+    const { logFaceRecognitionEvent } = await import("./face-audit.util.js");
+    await logFaceRecognitionEvent({
       userId: user._id,
-      action: `face_scan_${action}`,
-      entityType: "attendance",
+      action: "face_scan_success",
       entityId: attendance._id,
       details: {
         description: `Attendance ${action} via face scan`,
+        attendanceAction: action,
         confidence: similarity,
         deviceId: deviceId || null,
         timestamp: now,

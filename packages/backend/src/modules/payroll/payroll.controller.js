@@ -24,7 +24,8 @@ export const getPayrollReports = async (req, res) => {
   try {
     const { month, limit = 6 } = req.query;
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 6, 1), 24);
-    const companyId = req.user?.companyId;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+    const companyId = isSuperAdmin ? (req.query.companyId || null) : req.user?.companyId;
 
     const reportsQuery = {};
     if (companyId) reportsQuery.companyId = companyId;
@@ -83,7 +84,8 @@ export const getPayrollRecords = async (req, res) => {
   try {
     const { PayrollRecordModel } = await import("./payroll.model.js");
     const { month, status, department, page = 1, limit = 100 } = req.query;
-    const companyId = req.user?.companyId;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+    const companyId = isSuperAdmin ? (req.query.companyId || null) : req.user?.companyId;
 
     // Build query
     const query = {};

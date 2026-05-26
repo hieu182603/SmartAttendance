@@ -1,5 +1,6 @@
 import { BranchService } from "./branch.service.js";
 import { createBranchSchema, updateBranchSchema } from "@smartattendance/shared";
+import { resolveTenantCompanyId } from "../../utils/tenantCompany.util.js";
 
 export class BranchController {
   /**
@@ -32,7 +33,7 @@ export class BranchController {
    */
   static async getStats(req, res) {
     try {
-      const companyId = req.user.companyId;
+      const companyId = resolveTenantCompanyId(req);
       const stats = await BranchService.getAllBranchesStats(companyId);
       res.json(stats);
     } catch (error) {
@@ -47,7 +48,7 @@ export class BranchController {
    */
   static async getBranchesList(req, res) {
     try {
-      const companyId = req.user.companyId;
+      const companyId = resolveTenantCompanyId(req);
       const branches = await BranchService.getBranchesList(companyId);
       res.json({ branches });
     } catch (error) {

@@ -1,5 +1,6 @@
 import { DepartmentService } from "./department.service.js";
 import { createDepartmentSchema, updateDepartmentSchema } from "@smartattendance/shared";
+import { resolveTenantCompanyId } from "../../utils/tenantCompany.util.js";
 
 export class DepartmentController {
   /**
@@ -9,7 +10,7 @@ export class DepartmentController {
   static async getAllDepartments(req, res) {
     try {
       const { page, limit, search, branchId, status } = req.query;
-      const companyId = req.user.companyId;
+      const companyId = resolveTenantCompanyId(req);
 
       const result = await DepartmentService.getAllDepartments({
         page,
@@ -33,7 +34,7 @@ export class DepartmentController {
    */
   static async getStats(req, res) {
     try {
-      const companyId = req.user.companyId;
+      const companyId = resolveTenantCompanyId(req);
       const stats = await DepartmentService.getAllDepartmentsStats(companyId);
       res.json(stats);
     } catch (error) {

@@ -2,6 +2,8 @@ import { UserModel } from "../users/user.model.js";
 import { AttendanceModel } from "../attendance/attendance.model.js";
 import { RequestModel } from "../requests/request.model.js";
 import { NotificationModel } from "../notifications/notification.model.js";
+import { OrderModel } from "../billing/order.model.js";
+import { CompanyModel } from "../company/company.model.js";
 
 export class DashboardService {
   /**
@@ -255,10 +257,90 @@ export class DashboardService {
           absentToday,
         },
         attendanceData,
-        growthPercentage: parseFloat(growthPercentage.toFixed(1)),
+        growthPercentage: Number.parseFloat(growthPercentage.toFixed(1)),
       };
     } catch (error) {
       console.error("[DashboardService] getDashboardStats error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Lấy thống kê tổng hợp dành riêng cho SUPER_ADMIN:
+   * billing (doanh thu, đơn hàng), companies (theo plan), attendance tổng thể.
+   */
+  static async getSuperAdminStats() {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [
+        totalRevenueResult,
+        pendingCount,
+        monthCount,
+        monthlyStats,
+        planStats,
+        companyPlanStats,
+        activeCompanyCount,
+        attendanceStats,
+      ] = await Promise.all([
+        OrderModel.aggregate([
+          { $match: { status: "paid" } },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ]),
+        OrderModel.countDocuments({ status: "pending" }),
+        OrderModel.countDocuments({ status: "paid", paidAt: { $gte: startOfMonth } }),
+        OrderModel.aggregate([
+          { $match: { status: "paid" } },
+          {
+            $group: {
+              _id: { year: { $year: "$paidAt" }, month: { $month: "$paidAt" } },
+              revenue: { $sum: "$amount" },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { "_id.year": -1, "_id.month": -1 } },
+          { $limit: 12 },
+        ]),
+        OrderModel.aggregate([
+          { $match: { status: "paid" } },
+          { $group: { _id: "$plan", revenue: { $sum: "$amount" }, count: { $sum: 1 } } },
+        ]),
+        CompanyModel.aggregate([
+          { $group: { _id: "$plan", count: { $sum: 1 } } },
+        ]),
+        CompanyModel.countDocuments({ isActive: true }),
+        DashboardService.getDashboardStats(null),
+      ]);
+
+      const totalRevenue = totalRevenueResult[0]?.total ?? 0;
+      const totalCompanies = await CompanyModel.countDocuments();
+
+      // Chuyển mảng aggregate thành object { trial: N, starter: N, ... }
+      const byPlan = { trial: 0, starter: 0, standard: 0, premium: 0 };
+      for (const row of companyPlanStats) {
+        if (row._id && row._id in byPlan) {
+          byPlan[row._id] = row.count;
+        }
+      }
+
+      return {
+        billing: {
+          totalRevenue,
+          pendingCount,
+          monthCount,
+          monthlyStats,
+          planStats,
+        },
+        companies: {
+          total: totalCompanies,
+          active: activeCompanyCount,
+          byPlan,
+        },
+        attendance: attendanceStats,
+      };
+    } catch (error) {
+      console.error("[DashboardService] getSuperAdminStats error:", error);
       throw error;
     }
   }

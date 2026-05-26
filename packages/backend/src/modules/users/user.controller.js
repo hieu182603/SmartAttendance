@@ -288,7 +288,11 @@ export class UserController {
    */
   static async getAllUsers(req, res) {
     try {
-      const companyId = req.user.companyId;
+      // SUPER_ADMIN có thể lọc theo công ty cụ thể qua ?companyId=
+      const isSuperAdmin = req.user.role === 'SUPER_ADMIN';
+      const companyId = isSuperAdmin
+        ? (req.query.companyId || null)
+        : req.user.companyId;
       const result = await UserService.getAllUsers(req.query, companyId);
       return res.status(200).json(result);
     } catch (error) {

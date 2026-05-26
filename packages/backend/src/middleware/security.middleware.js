@@ -5,6 +5,11 @@ const limitExceededResponse = {
   code: "RATE_LIMIT_EXCEEDED",
 };
 
+const loginLimitExceededResponse = {
+  message: "Đăng nhập thất bại quá nhiều lần. Vui lòng thử lại sau 15 phút.",
+  code: "RATE_LIMIT_EXCEEDED",
+};
+
 const noopLimiter = (_req, _res, next) => next();
 
 const buildLimiter = ({ windowMs, max }) => {
@@ -31,21 +36,38 @@ export const globalRateLimiter = buildLimiter({
 // Auth limiter: stricter to reduce brute-force and OTP abuse.
 export const authRateLimiter = buildLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
+  max: 40,
 });
 
-// Login limiter: count only failed login attempts to avoid blocking
-// legitimate users after successful sign-ins.
-export const loginRateLimiter = process.env.NODE_ENV === "test" ? noopLimiter : rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  handler: (_req, res) => {
-    res.status(429).json(limitExceededResponse);
-  },
-});
+// Login limiter: chỉ đếm lần đăng nhập thất bại (401/403/5xx), không đếm 400 validation.
+const loginRateLimitMax =
+  process.env.NODE_ENV === "development"
+    ? 100
+    : Number(process.env.LOGIN_RATE_LIMIT_MAX || 30);
+
+export const loginRateLimiter =
+  process.env.NODE_ENV === "test"
+    ? noopLimiter
+    : rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: loginRateLimitMax,
+        standardHeaders: true,
+        legacyHeaders: false,
+        skipSuccessfulRequests: true,
+        skip: (_req, res) => res.statusCode === 400,
+        // Primary key is email; IP is only a fallback for unauthenticated/bodyless requests.
+        validate: { keyGeneratorIpFallback: false },
+        keyGenerator: (req) => {
+          const email =
+            typeof req.body?.email === "string"
+              ? req.body.email.trim().toLowerCase()
+              : "";
+          return email ? `login:${email}` : `login:ip:${req.ip}`;
+        },
+        handler: (_req, res) => {
+          res.status(429).json(loginLimitExceededResponse);
+        },
+      });
 
 
 // Attendance limiter: protect frequent scan/check-in flood attempts.
@@ -63,13 +85,13 @@ export const trialRegisterRateLimiter = buildLimiter({
 // OTP limiter: prevent brute-force and resend flooding.
 export const otpRateLimiter = buildLimiter({
   windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 20,
+  max: 40,
 });
 
 // Refresh token limiter: prevent token farming / refresh flooding.
 export const refreshRateLimiter = buildLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30,
+  max: 60,
 });
 
 // Per-user check-in limiter. Keyed by userId; IP is only a fallback.

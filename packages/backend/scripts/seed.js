@@ -17,6 +17,8 @@ import { EmployeeScheduleModel } from '../src/modules/schedule/schedule.model.js
 import { SystemConfigModel } from '../src/modules/config/config.model.js';
 import { EmployeeShiftAssignmentModel } from '../src/modules/shifts/employeeShiftAssignment.model.js';
 import { RequestTypeModel } from '../src/modules/requests/request-type.model.js';
+import { LeaveTypeModel } from '../src/modules/leave/leave-type.model.js';
+import { DEFAULT_LEAVE_TYPES } from '../src/modules/leave/leave-type.defaults.js';
 import { NotificationModel } from '../src/modules/notifications/notification.model.js';
 import { hashPassword } from '../src/utils/bcrypt.util.js';
 
@@ -53,6 +55,7 @@ async function seed() {
         await SystemConfigModel.deleteMany({});
         await EmployeeShiftAssignmentModel.deleteMany({});
         await RequestTypeModel.deleteMany({});
+        await LeaveTypeModel.deleteMany({});
         await NotificationModel.deleteMany({});
 
         // Xóa collection UserShift nếu tồn tại
@@ -117,6 +120,13 @@ async function seed() {
         ];
         const createdRequestTypes = await RequestTypeModel.insertMany(requestTypes);
         console.log(`✅ Created ${createdRequestTypes.length} request types\n`);
+
+        // ========== 1.6. TẠO LEAVE TYPES (Loại phép — HR quản lý) ==========
+        console.log('🏖️  Creating leave types...');
+        const createdLeaveTypes = await LeaveTypeModel.insertMany(
+            DEFAULT_LEAVE_TYPES.map((t) => ({ ...t, companyId }))
+        );
+        console.log(`✅ Created ${createdLeaveTypes.length} leave types\n`);
 
         // ========== 2. TẠO LOCATIONS (Địa điểm) ==========
         console.log('📍 Skipping locations creation (locations module not found)...');

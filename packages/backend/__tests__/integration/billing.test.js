@@ -25,6 +25,8 @@ jest.unstable_mockModule("../../src/config/redis.js", () => ({
   redisSMembers: jest.fn().mockResolvedValue([]),
   isRedisEnabled: jest.fn().mockReturnValue(false),
   isRedisDegraded: jest.fn().mockReturnValue(false),
+  isRedisBindingActive: jest.fn().mockReturnValue(false),
+  logRedisStartupStatus: jest.fn().mockResolvedValue(undefined),
   cacheAside: jest.fn().mockImplementation((_k, _t, f) => f()),
 }));
 
@@ -33,6 +35,8 @@ jest.unstable_mockModule("../../src/utils/email.util.js", () => ({
   sendOTPEmail: jest.fn().mockResolvedValue({ success: true }),
   sendResetPasswordEmail: jest.fn().mockResolvedValue({ success: true }),
   sendPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendAiServiceInvoiceEmail: jest.fn().mockResolvedValue({ success: true }),
+  sendAiPaymentConfirmationEmail: jest.fn().mockResolvedValue({ success: true }),
 }));
 
 // ── AI service mock ───────────────────────────────────────────────────────────
@@ -103,6 +107,18 @@ beforeEach(async () => {
   await clearAllCollections();
 });
 
+const upgradeBody = (overrides = {}) => ({
+  plan: "standard",
+  billingCycle: "monthly",
+  companyName: "Cong ty Test",
+  employeeCount: 50,
+  customerName: "Nguyen Van A",
+  customerEmail: "billing@test.com",
+  customerPhone: "0901234567",
+  billingMonths: 1,
+  ...overrides,
+});
+
 // ── POST /api/billing/upgrade ─────────────────────────────────────────────────
 
 describe("POST /api/billing/upgrade", () => {
@@ -114,7 +130,7 @@ describe("POST /api/billing/upgrade", () => {
     const res = await request(app)
       .post("/api/billing/upgrade")
       .set("Authorization", `Bearer ${token}`)
-      .send({ plan: "standard", billingCycle: "monthly" });
+      .send(upgradeBody());
 
     expect(res.status).toBe(403);
   });
@@ -127,7 +143,7 @@ describe("POST /api/billing/upgrade", () => {
     const res = await request(app)
       .post("/api/billing/upgrade")
       .set("Authorization", `Bearer ${token}`)
-      .send({ plan: "standard", billingCycle: "monthly" });
+      .send(upgradeBody());
 
     expect(res.status).toBe(201);
     expect(res.body.data.checkoutUrl).toBeDefined();
@@ -152,7 +168,7 @@ describe("POST /api/billing/upgrade", () => {
     const res = await request(app)
       .post("/api/billing/upgrade")
       .set("Authorization", `Bearer ${token}`)
-      .send({ plan: "starter", billingCycle: "monthly" });
+      .send(upgradeBody({ plan: "starter" }));
 
     // Must NOT be 403 from trial-expiry middleware block
     expect(res.status).not.toBe(403);
@@ -169,7 +185,7 @@ describe("POST /api/billing/upgrade", () => {
     const res = await request(app)
       .post("/api/billing/upgrade")
       .set("Authorization", `Bearer ${token}`)
-      .send({ plan: "enterprise", billingCycle: "monthly" }); // "enterprise" not valid
+      .send(upgradeBody({ plan: "enterprise" })); // "enterprise" not valid
 
     expect(res.status).toBe(400);
     expect(res.body.message).toBeDefined();

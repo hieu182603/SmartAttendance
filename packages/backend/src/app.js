@@ -1,11 +1,14 @@
 // Exportable Express app — no DB connection, no server.listen, no cron.
 // Import this in tests via Supertest; import index.js to actually run the server.
+import * as Sentry from "@sentry/node";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import slowDown from "express-slow-down";
 import swaggerUi from "swagger-ui-express";
+import pinoHttp from "pino-http";
+import logger from "./config/logger.js";
 
 import { swaggerSpec } from "./config/swagger.js";
 import { authRouter } from "./modules/auth/auth.router.js";
@@ -25,7 +28,10 @@ import { faceRouter } from "./modules/face/face.router.js";
 import { configRouter } from "./modules/config/config.router.js";
 import { logRouter } from "./modules/logs/log.router.js";
 import { billingRouter } from "./modules/billing/billing.router.js";
+import { aiBillingRouter } from "./modules/ai-billing/ai-billing.router.js";
 import { scheduleRouter } from "./modules/schedule/schedule.router.js";
+import { featureToggleRouter } from "./modules/feature-toggle/featureToggle.router.js";
+import { companyRouter } from "./modules/company/company.router.js";
 import {
   globalRateLimiter,
   attendanceRateLimiter,
@@ -34,10 +40,17 @@ import mongoose from "mongoose";
 import { isRedisEnabled, isRedisDegraded } from "./config/redis.js";
 import { aiServiceClient } from "./utils/aiServiceClient.js";
 import { getClientIpAddress } from "./utils/client-ip.util.js";
+import { isAllowedOrigin } from "./config/allowed-origins.js";
 
 const app = express();
 
 app.set("trust proxy", 1);
+
+// HTTP request logging — skip health checks to reduce noise
+app.use(pinoHttp({
+  logger,
+  autoLogging: { ignore: (req) => req.url === "/api/health" },
+}));
 
 const BLOCKED_IPS = new Set(
   (process.env.BLOCKED_IPS || "").split(",").map((s) => s.trim()).filter(Boolean)
@@ -59,7 +72,7 @@ const speedLimiter = slowDown({
   maxDelayMs: 5000,
 });
 
-app.use("/api/auth", speedLimiter);
+// Không slow-down /api/auth — login đã có loginRateLimiter; tránh làm chậm refresh/login hợp lệ.
 app.use("/api/attendance", speedLimiter);
 app.use("/api/face", speedLimiter);
 
@@ -130,18 +143,11 @@ app.use((req, res, next) => {
 
 // CORS must run before rate limiters so that 429/blocked responses
 // still carry Access-Control-Allow-Origin headers the browser can read.
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  ...(process.env.NODE_ENV === "production"
-    ? []
-    : ["http://localhost:5173", "http://localhost:8081"]),
-].filter(Boolean);
-
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (isAllowedOrigin(origin)) return callback(null, true);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -194,22 +200,26 @@ app.get("/api/health", async (_req, res) => {
   });
 });
 
-app.use(
-  "/api/docs",
-  // Swagger UI requires 'unsafe-inline' for its inline scripts — scope it here only
-  (_req, res, next) => {
-    res.setHeader(
-      "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; object-src 'none';"
-    );
-    next();
-  },
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, {
-    customCss: ".swagger-ui .topbar { display: none }",
-    customSiteTitle: "SmartAttendance API Documentation",
-  })
-);
+const swaggerEnabled =
+  process.env.SWAGGER_ENABLED === "true" || process.env.NODE_ENV !== "production";
+
+if (swaggerEnabled) {
+  app.use(
+    "/api/docs",
+    (_req, res, next) => {
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; object-src 'none';"
+      );
+      next();
+    },
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec, {
+      customCss: ".swagger-ui .topbar { display: none }",
+      customSiteTitle: "SmartAttendance API Documentation",
+    })
+  );
+}
 
 app.use("/api/attendance", attendanceRateLimiter);
 app.use("/api/auth", authRouter);
@@ -234,15 +244,22 @@ app.use(
 app.use("/api/logs", logRouter);
 app.use("/api/config", configRouter);
 app.use("/api/billing", billingRouter);
+app.use("/api/ai-billing", aiBillingRouter);
 app.use("/api/schedules", scheduleRouter);
+app.use("/api/feature-toggles", featureToggleRouter);
+app.use("/api/companies", companyRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
+// Sentry must capture errors before the generic handler responds
+Sentry.setupExpressErrorHandler(app);
+
 app.use((err, _req, res, _next) => {
   if (res.headersSent) return _next(err);
   const status = err.status || err.statusCode || 500;
+  if (status >= 500) logger.error({ err }, err.message || "Internal server error");
   res.status(status).json({ message: err.message || "Internal server error" });
 });
 
