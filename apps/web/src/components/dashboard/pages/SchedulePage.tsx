@@ -36,6 +36,7 @@ interface AttendanceRecord {
   location: string;
   status: "ontime" | "late" | "absent" | "overtime" | "weekend" | "on_leave";
   notes: string;
+  earlyCheckoutReason?: string | null;
 }
 
 interface EmployeeSchedule {
