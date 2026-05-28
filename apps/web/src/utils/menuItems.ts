@@ -124,6 +124,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Trợ lý AI',
     icon: Bot,
     path: '/employee/chatbot',
+    minimumRole: UserRole.EMPLOYEE,
     section: 'employee',
   },
   // ── Admin / Super Admin ─────────────────────────────────────────────────────

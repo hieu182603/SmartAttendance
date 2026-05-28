@@ -9,6 +9,7 @@ import {
   Conversation
 } from '../services/chatbotService';
 import { useAuth } from './AuthContext';
+import { UserRole } from '@/utils/roles';
 import { toast } from 'sonner';
 
 interface ChatbotContextType {
@@ -118,29 +119,31 @@ export const ChatbotProvider: React.FC<ChatbotProviderProps> = ({ children }) =>
     }
   };
 
-  // Check chatbot health when user is authenticated
+  const isTrialUser = user?.role === UserRole.TRIAL;
+
+  // Check chatbot health when user is authenticated (skip for trial)
   useEffect(() => {
-    if (user) {
+    if (user && !isTrialUser) {
       checkChatbotHealth().catch(() => {
         // Error already handled in checkChatbotHealth
       });
     }
-  }, [user]);
+  }, [user, isTrialUser]);
 
-  // Load conversations when user is authenticated
+  // Load conversations when user is authenticated (skip for trial)
   useEffect(() => {
-    if (user) {
+    if (user && !isTrialUser) {
       loadConversations().catch(() => {
         // Error already handled in loadConversations
       });
-    } else {
+    } else if (!user) {
       // Clear conversations when user logs out
       setConversations([]);
       setCurrentConversation(null);
       setMessages([]);
       localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
     }
-  }, [user]);
+  }, [user, isTrialUser]);
 
   const loadConversations = async () => {
     if (!user?.id) return;

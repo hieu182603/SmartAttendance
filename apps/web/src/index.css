@@ -15,6 +15,7 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
+  --early: #a855f7;
 }
 
 .dark {
@@ -30,6 +31,7 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
+  --early: #a855f7;
 }
 
 .light {
@@ -45,6 +47,7 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
+  --early: #a855f7;
 }
 
 html,

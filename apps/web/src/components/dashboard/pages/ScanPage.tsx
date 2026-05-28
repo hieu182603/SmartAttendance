@@ -17,13 +17,18 @@ import {
   Eye,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 import { faceService, type FaceStatus } from "@/services/faceService";
 import { useScanFaceDetection, type ScanDetectionStatus } from "@/hooks/useScanFaceDetection";
 import { useVoiceFeedback } from "@/hooks/useVoiceFeedback";
+import {
+  getTodayDateKey,
+  loadTrialScanSession,
+  saveTrialScanSession,
+  type TrialScanSession,
+} from "@/utils/trialScanSession";
 
 // ============================================================================
 // CONSTANTS
@@ -191,29 +196,7 @@ const ScanPage: React.FC = () => {
   const { t } = useTranslation(["dashboard", "common"]);
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isTrial = user?.role === 'TRIAL';
-
-  if (isTrial) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center bg-background animate-in fade-in zoom-in duration-500">
-        <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
-          <ShieldAlert className="w-12 h-12 text-yellow-600" />
-        </div>
-        <h2 className="text-3xl font-bold mb-4 tracking-tight">Tính năng AI hạn chế</h2>
-        <p className="text-muted-foreground max-w-lg text-lg leading-relaxed mb-8">
-          Tính năng <strong>Chấm công bằng khuôn mặt</strong> hiện không hỗ trợ cho tài khoản dùng thử.
-          Vui lòng nâng cấp tài khoản để bắt đầu sử dụng hệ thống chấm công thông minh SmartAttendance.
-        </p>
-        <Button
-          onClick={() => navigate(-1)}
-          size="lg"
-          className="px-8 shadow-md hover:shadow-lg transition-all"
-        >
-          Quay lại
-        </Button>
-      </div>
-    );
-  }
+  const isTrial = user?.role === "TRIAL";
 
   // ==========================================================================
   // STATE
@@ -495,10 +478,12 @@ const ScanPage: React.FC = () => {
         accuracy: position.coords.accuracy || 0,
       };
 
-      const nearest = findNearestOffice(location.latitude, location.longitude);
-      if (nearest) {
-        location.distance = nearest.distance;
-        location.nearestOffice = nearest.office.name;
+      if (!isTrial) {
+        const nearest = findNearestOffice(location.latitude, location.longitude);
+        if (nearest) {
+          location.distance = nearest.distance;
+          location.nearestOffice = nearest.office.name;
+        }
       }
 
       setLocationData(location);
@@ -550,11 +535,148 @@ const ScanPage: React.FC = () => {
     } finally {
       setState((prev) => ({ ...prev, locationLoading: false }));
     }
-  }, [findNearestOffice, t]);
+  }, [findNearestOffice, t, isTrial]);
 
   // ==========================================================================
   // ATTENDANCE FUNCTIONS
   // ==========================================================================
+  const handleTrialCheckIn = useCallback(async () => {
+    if (!locationData) return;
+
+    setState((prev) => ({ ...prev, isProcessing: true }));
+
+    try {
+      const existing = loadTrialScanSession();
+      if (existing?.checkInTime) {
+        toast.info("Bạn đã thử check-in trong phiên hôm nay rồi.");
+        setState((prev) => ({ ...prev, hasCheckedIn: true }));
+        setActiveAction("idle");
+        return;
+      }
+
+      const photoData = capturePhoto();
+      if (!photoData) {
+        throw new Error(t("dashboard:scan.errors.captureFailed"));
+      }
+
+      const now = new Date();
+      const session: TrialScanSession = {
+        date: getTodayDateKey(),
+        checkInTime: now.toISOString(),
+        checkOutTime: null,
+        checkInPhoto: photoData,
+        location: {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          accuracy: locationData.accuracy,
+        },
+      };
+      saveTrialScanSession(session);
+
+      setState((prev) => ({
+        ...prev,
+        hasCheckedIn: true,
+        checkInTime: now,
+        canCheckOut: false,
+      }));
+      setActiveAction("idle");
+      setAutoCaptureTriggered(false);
+
+      toast.success(
+        "Thử check-in thành công! Ảnh chỉ lưu tạm trên trình duyệt, không gửi lên server."
+      );
+      voiceFeedback.speakMessage(
+        "Chấm công thử nghiệm thành công! Chúc bạn một ngày làm việc thật năng suất!"
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : t("dashboard:scan.errors.checkInError");
+      toast.error(message);
+      voiceFeedback.speakMessage("Chấm công thất bại. Vui lòng thử lại.");
+    } finally {
+      setState((prev) => ({ ...prev, isProcessing: false }));
+    }
+  }, [locationData, capturePhoto, t, voiceFeedback]);
+
+  const handleTrialCheckOut = useCallback(
+    async (reason?: EarlyCheckoutReason) => {
+      if (!locationData) return;
+
+      setState((prev) => ({ ...prev, isProcessing: true }));
+
+      try {
+        const session = loadTrialScanSession();
+        if (!session?.checkInTime) {
+          toast.warning("Bạn chưa thử check-in. Vui lòng check-in trước.");
+          setActiveAction("idle");
+          return;
+        }
+        if (session.checkOutTime) {
+          toast.info("Bạn đã thử check-out trong phiên hôm nay rồi.");
+          setState((prev) => ({ ...prev, hasCheckedOut: true }));
+          setActiveAction("idle");
+          return;
+        }
+
+        const checkInTimeDate = new Date(session.checkInTime);
+        const minutesWorked =
+          (Date.now() - checkInTimeDate.getTime()) / (1000 * 60);
+        if (minutesWorked < MIN_WORK_MINUTES && !reason) {
+          setShowEarlyCheckoutModal(true);
+          voiceFeedback.speakMessage(
+            "Bạn chưa làm đủ thời gian tối thiểu để check-out."
+          );
+          return;
+        }
+
+        const photoData = capturePhoto() || lastCheckoutPhotoRef.current;
+        if (!photoData) {
+          throw new Error(t("dashboard:scan.errors.captureFailed"));
+        }
+        lastCheckoutPhotoRef.current = photoData;
+
+        const updated: TrialScanSession = {
+          ...session,
+          checkOutTime: new Date().toISOString(),
+          checkOutPhoto: photoData,
+          location: {
+            latitude: locationData.latitude,
+            longitude: locationData.longitude,
+            accuracy: locationData.accuracy,
+          },
+        };
+        saveTrialScanSession(updated);
+
+        setState((prev) => ({ ...prev, hasCheckedOut: true }));
+        setShowEarlyCheckoutModal(false);
+        setEarlyCheckoutReason(null);
+        setEarlyCheckoutError(null);
+        lastCheckoutPhotoRef.current = null;
+        setActiveAction("idle");
+        setAutoCaptureTriggered(false);
+
+        toast.success(
+          "Thử check-out thành công! Ảnh chỉ lưu tạm trên trình duyệt."
+        );
+        voiceFeedback.speakMessage(
+          "Check-out thử nghiệm thành công! Tạm biệt, hẹn gặp lại bạn ngày mai!"
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : t("dashboard:scan.errors.checkOutError");
+        toast.error(message);
+        voiceFeedback.speakMessage("Check-out thất bại. Vui lòng thử lại.");
+      } finally {
+        setState((prev) => ({ ...prev, isProcessing: false }));
+      }
+    },
+    [locationData, capturePhoto, t, voiceFeedback]
+  );
+
   const createFormData = useCallback(
     (
       photoData: string,
@@ -581,6 +703,10 @@ const ScanPage: React.FC = () => {
 
   const handleCheckIn = useCallback(async () => {
     if (!locationData) return;
+    if (isTrial) {
+      await handleTrialCheckIn();
+      return;
+    }
 
     setState((prev) => ({ ...prev, isProcessing: true }));
 
@@ -696,10 +822,14 @@ const ScanPage: React.FC = () => {
     } finally {
       setState((prev) => ({ ...prev, isProcessing: false }));
     }
-  }, [locationData, capturePhoto, createFormData, t, voiceFeedback]);
+  }, [locationData, capturePhoto, createFormData, t, voiceFeedback, isTrial, handleTrialCheckIn]);
 
   const handleCheckOut = useCallback(async (reason?: EarlyCheckoutReason) => {
     if (!locationData) return;
+    if (isTrial) {
+      await handleTrialCheckOut(reason);
+      return;
+    }
 
     setState((prev) => ({ ...prev, isProcessing: true }));
 
@@ -827,9 +957,10 @@ const ScanPage: React.FC = () => {
     } finally {
       setState((prev) => ({ ...prev, isProcessing: false }));
     }
-  }, [locationData, capturePhoto, createFormData, t, voiceFeedback]);
+  }, [locationData, capturePhoto, createFormData, t, voiceFeedback, isTrial, handleTrialCheckOut]);
 
   const handleOtpFallbackSubmit = useCallback(async () => {
+    if (isTrial) return;
     if (otpFallbackValue.length !== 6) return;
     setOtpFallbackLoading(true);
     try {
@@ -890,6 +1021,29 @@ const ScanPage: React.FC = () => {
     };
 
     const checkTodayAttendance = async () => {
+      if (isTrial) {
+        const session = loadTrialScanSession();
+        if (session?.checkInTime) {
+          const parsedCheckIn = new Date(session.checkInTime);
+          setState((prev) => ({
+            ...prev,
+            hasCheckedIn: true,
+            hasCheckedOut: !!session.checkOutTime,
+            checkInTime: parsedCheckIn,
+            canCheckOut: false,
+          }));
+          if (session.location) {
+            setLocationData({
+              latitude: session.location.latitude,
+              longitude: session.location.longitude,
+              accuracy: session.location.accuracy,
+            });
+            setPermissions((prev) => ({ ...prev, location: true }));
+          }
+        }
+        return;
+      }
+
       try {
         const response = await api.get<
           Array<{
@@ -935,22 +1089,26 @@ const ScanPage: React.FC = () => {
       }
     };
 
-    loadOffices();
+    if (!isTrial) {
+      loadOffices();
+    }
     checkTodayAttendance();
 
-    // Check face registration status
-    const checkFaceStatus = async () => {
-      try {
-        const status = await faceService.getFaceStatus();
-        setFaceStatus(status);
-        setShowFaceRegistrationPrompt(!status.isRegistered);
-      } catch (error) {
-        console.error("Failed to check face status:", error);
-        // Silent fail - don't block user
-      }
-    };
-    checkFaceStatus();
-  }, []);
+    if (!isTrial) {
+      const checkFaceStatus = async () => {
+        try {
+          const status = await faceService.getFaceStatus();
+          setFaceStatus(status);
+          setShowFaceRegistrationPrompt(!status.isRegistered);
+        } catch (error) {
+          console.error("Failed to check face status:", error);
+        }
+      };
+      checkFaceStatus();
+    } else {
+      setShowFaceRegistrationPrompt(false);
+    }
+  }, [isTrial, t]);
 
   useEffect(() => {
     if (faceStatus?.isRegistered) {
@@ -959,11 +1117,15 @@ const ScanPage: React.FC = () => {
   }, [faceStatus?.isRegistered]);
 
   useEffect(() => {
+    if (isTrial) {
+      getLocation();
+      return;
+    }
     if (offices.length > 0) {
       getLocation();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offices.length]); // Chỉ gọi lại khi offices được load, không phụ thuộc vào getLocation để tránh vòng lặp
+  }, [isTrial, offices.length]);
 
   useEffect(() => {
     let lastCheckDate = new Date().toDateString();
@@ -1073,9 +1235,59 @@ const ScanPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [faceDetection.detectionStatus, faceStatus?.isRegistered]);
 
+  // Trial demo: auto-capture with camera + GPS only (no face model)
+  useEffect(() => {
+    if (
+      !isTrial ||
+      activeAction === "idle" ||
+      !autoCaptureEnabled ||
+      autoCaptureTriggered ||
+      isProcessing ||
+      !locationData ||
+      !permissions.camera ||
+      !permissions.location
+    ) {
+      return;
+    }
+
+    if (autoCaptureTimeoutRef.current) {
+      clearTimeout(autoCaptureTimeoutRef.current);
+    }
+
+    autoCaptureTimeoutRef.current = setTimeout(() => {
+      if (!isProcessing) {
+        setAutoCaptureTriggered(true);
+        if (activeAction === "checkin") {
+          voiceFeedback.speakMessage("Đang thử chấm công vào");
+          handleCheckIn();
+        } else if (activeAction === "checkout") {
+          voiceFeedback.speakMessage("Đang thử chấm công ra");
+          handleCheckOut();
+        }
+      }
+    }, AUTO_CAPTURE_DELAY_MS);
+
+    return () => {
+      if (autoCaptureTimeoutRef.current) {
+        clearTimeout(autoCaptureTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isTrial,
+    activeAction,
+    autoCaptureEnabled,
+    autoCaptureTriggered,
+    isProcessing,
+    locationData,
+    permissions.camera,
+    permissions.location,
+  ]);
+
   // Auto-capture: only activates AFTER user presses Check In or Check Out
   useEffect(() => {
     if (
+      isTrial ||
       activeAction === 'idle' ||
       !autoCaptureEnabled ||
       autoCaptureTriggered ||
@@ -1341,8 +1553,22 @@ const ScanPage: React.FC = () => {
   // ==========================================================================
   return (
     <div className="h-full min-h-0 w-full bg-[var(--background)] text-[var(--text-main)] flex flex-col overflow-hidden">
+      {isTrial && (
+        <div className="mx-4 lg:mx-5 mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 flex items-start gap-3">
+          <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-sm text-[var(--text-main)] leading-relaxed">
+              <span className="font-semibold">Chế độ dùng thử chấm công:</span>{" "}
+              <span className="text-[var(--text-sub)]">
+                Thử camera và GPS thật — ảnh chỉ lưu tạm trong phiên, không tải lên hệ thống.
+              </span>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Face Registration Prompt (banner) */}
-      {showFaceRegistrationPrompt && !faceStatus?.isRegistered && (
+      {showFaceRegistrationPrompt && !faceStatus?.isRegistered && !isTrial && (
         <div className="mx-4 lg:mx-5 mt-3 rounded-xl border border-[var(--warning)]/50 bg-[var(--warning)]/10 p-3 flex items-center gap-3">
           <User className="h-5 w-5 text-[var(--warning)] flex-shrink-0" />
           <div className="flex-1 min-w-0">
@@ -1391,7 +1617,7 @@ const ScanPage: React.FC = () => {
             />
 
             {/* Face detection overlay canvas */}
-            {isCameraReady && faceStatus?.isRegistered && (
+            {isCameraReady && faceStatus?.isRegistered && !isTrial && (
               <canvas
                 ref={canvasOverlayRef}
                 className="absolute inset-0 h-full w-full pointer-events-none z-[3]"
@@ -1608,39 +1834,63 @@ const ScanPage: React.FC = () => {
               )
             ) : (
               <div className="flex flex-col gap-2.5">
-                {/* Office + radar */}
-                <div className="flex items-center gap-2.5 p-2.5 bg-[var(--shell)] border border-[var(--border)] rounded-lg">
-                  <div className="w-10 h-10 relative flex-shrink-0">
-                    <svg viewBox="0 0 44 44" className="w-full h-full">
-                      <circle cx="22" cy="22" r="20" fill="none" stroke="var(--border)" strokeWidth="1" />
-                      <circle cx="22" cy="22" r="14" fill="none" stroke="var(--border)" strokeWidth="1" />
-                      <circle cx="22" cy="22" r="8" fill="none" stroke="var(--border)" strokeWidth="1" />
-                      <circle cx="22" cy="22" r="2" fill="var(--success)" />
-                      <g className="radar-sweep">
-                        <defs>
-                          <linearGradient id="sweep" x1="22" y1="22" x2="42" y2="22" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity="0.9" />
-                            <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                        <path d="M22 22 L42 22 A20 20 0 0 0 32 5 Z" fill="url(#sweep)" />
-                      </g>
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-sub)] font-semibold">
-                      Văn phòng
+                {/* Office geofence (paid roles) vs GPS demo (trial) */}
+                {isTrial ? (
+                  <div className="flex items-center gap-2.5 p-2.5 bg-[var(--shell)] border border-amber-500/30 rounded-lg">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0">
+                      <MapPin className="h-5 w-5 text-amber-500" strokeWidth={2} />
                     </div>
-                    <div className="text-[13px] text-[var(--text-main)] font-semibold truncate mt-0.5">
-                      {locationData.nearestOffice || "—"}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-sub)] font-semibold">
+                        GPS thử nghiệm
+                      </div>
+                      <div className="text-[13px] text-[var(--text-main)] font-semibold mt-0.5">
+                        Không đối chiếu văn phòng
+                      </div>
+                      <p className="text-[10px] text-[var(--text-sub)] mt-0.5">
+                        Chỉ xác nhận đã bật định vị thiết bị
+                      </p>
                     </div>
+                    {locationData.accuracy > 0 && (
+                      <span className="mono font-bold text-[11px] px-2 py-1 rounded-full border bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400">
+                        ±{Math.round(locationData.accuracy)} m
+                      </span>
+                    )}
                   </div>
-                  {distanceValue !== undefined && (
-                    <span className={`mono font-bold text-[11px] px-2 py-1 rounded-full border ${distanceClass}`}>
-                      {Math.round(distanceValue)} m
-                    </span>
-                  )}
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2.5 p-2.5 bg-[var(--shell)] border border-[var(--border)] rounded-lg">
+                    <div className="w-10 h-10 relative flex-shrink-0">
+                      <svg viewBox="0 0 44 44" className="w-full h-full">
+                        <circle cx="22" cy="22" r="20" fill="none" stroke="var(--border)" strokeWidth="1" />
+                        <circle cx="22" cy="22" r="14" fill="none" stroke="var(--border)" strokeWidth="1" />
+                        <circle cx="22" cy="22" r="8" fill="none" stroke="var(--border)" strokeWidth="1" />
+                        <circle cx="22" cy="22" r="2" fill="var(--success)" />
+                        <g className="radar-sweep">
+                          <defs>
+                            <linearGradient id="sweep" x1="22" y1="22" x2="42" y2="22" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stopColor="var(--accent-cyan)" stopOpacity="0.9" />
+                              <stop offset="100%" stopColor="var(--accent-cyan)" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          <path d="M22 22 L42 22 A20 20 0 0 0 32 5 Z" fill="url(#sweep)" />
+                        </g>
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--text-sub)] font-semibold">
+                        Văn phòng
+                      </div>
+                      <div className="text-[13px] text-[var(--text-main)] font-semibold truncate mt-0.5">
+                        {locationData.nearestOffice || "—"}
+                      </div>
+                    </div>
+                    {distanceValue !== undefined && (
+                      <span className={`mono font-bold text-[11px] px-2 py-1 rounded-full border ${distanceClass}`}>
+                        {Math.round(distanceValue)} m
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Coords link */}
                 {locationData.latitude != null && locationData.longitude != null && (
@@ -1849,7 +2099,9 @@ const ScanPage: React.FC = () => {
                 <div className="flex flex-col items-start">
                   <span className="leading-none">Bắt đầu check-in</span>
                   <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
-                    Nhấn để quét khuôn mặt vào ca
+                    {isTrial
+                      ? "Nhấn để chụp ảnh và thử check-in (GPS)"
+                      : "Nhấn để quét khuôn mặt vào ca"}
                   </span>
                 </div>
               </button>
@@ -1883,7 +2135,9 @@ const ScanPage: React.FC = () => {
                 <div className="flex flex-col items-start">
                   <span className="leading-none">Check-out</span>
                   <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
-                    Nhấn để kết thúc ca làm
+                    {isTrial
+                      ? "Nhấn để chụp ảnh và thử check-out (GPS)"
+                      : "Nhấn để kết thúc ca làm"}
                   </span>
                 </div>
               </button>
@@ -1968,6 +2222,13 @@ const ScanPage: React.FC = () => {
               </button>
             </CardHeader>
             <CardContent className="space-y-4">
+              {isTrial && !earlyCheckoutError?.response?.data?.data && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800 dark:border-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
+                  <p className="font-medium">
+                    Bạn chưa làm đủ {MIN_WORK_MINUTES} phút (chế độ thử). Chọn lý do để tiếp tục check-out.
+                  </p>
+                </div>
+              )}
               {earlyCheckoutError?.response?.data?.data && (
                 <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800 dark:border-orange-800 dark:bg-orange-900/20 dark:text-orange-400">
                   <div className="flex items-start gap-2">

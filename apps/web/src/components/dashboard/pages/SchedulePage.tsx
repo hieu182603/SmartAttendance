@@ -574,7 +574,7 @@ const SchedulePage: React.FC = () => {
 
   const getWeekDayStatus = (
     date: Date
-  ): "completed" | "today" | "scheduled" | "off" | "missed" | "none" => {
+  ): "completed" | "today" | "scheduled" | "off" | "missed" | "none" | "late" | "early_leave" => {
     const dateStr = date.toISOString().split("T")[0];
     const dayShifts = schedule.filter((s) => s.date === dateStr);
 
@@ -596,18 +596,28 @@ const SchedulePage: React.FC = () => {
     // Check if today
     if (dateStr === todayStr) {
       // Check if has attendance record with checkIn
-      const hasAttended = dayShifts.some(
+      const todayAttendedShift = dayShifts.find(
         (s) =>
           s.attendanceRecord &&
           s.attendanceRecord.checkIn &&
           s.attendanceRecord.checkIn !== "—" &&
           s.attendanceRecord.checkIn !== ""
       );
-      return hasAttended ? "completed" : "today";
+      if (todayAttendedShift && todayAttendedShift.attendanceRecord) {
+        const record = todayAttendedShift.attendanceRecord;
+        if (record.status === "late") {
+          return "late";
+        }
+        if (record.earlyCheckoutReason) {
+          return "early_leave";
+        }
+        return "completed";
+      }
+      return "today";
     }
 
-    // Check if has attendance (completed)
-    const hasAttended = dayShifts.some((s) => {
+    // Check if has attendance (completed / late / early_leave)
+    const attendedShift = dayShifts.find((s) => {
       if (!s.attendanceRecord) return false;
       const checkIn = s.attendanceRecord.checkIn;
       if (!checkIn) return false;
@@ -619,17 +629,27 @@ const SchedulePage: React.FC = () => {
         checkInStr !== "undefined"
       );
     });
-    if (hasAttended) return "completed";
+
+    if (attendedShift && attendedShift.attendanceRecord) {
+      const record = attendedShift.attendanceRecord;
+      if (record.status === "late") {
+        return "late";
+      }
+      if (record.earlyCheckoutReason) {
+        return "early_leave";
+      }
+      return "completed";
+    }
 
     // Check if no attendance and in the past (vắng)
     const isPast = date < today;
-    if (isPast && !hasAttended) return "missed";
+    if (isPast && !attendedShift) return "missed";
 
     return "scheduled";
   };
 
   const getWeekDayColor = (
-    status: "completed" | "today" | "scheduled" | "off" | "missed" | "none"
+    status: "completed" | "today" | "scheduled" | "off" | "missed" | "none" | "late" | "early_leave"
   ): string => {
     switch (status) {
       case "completed":
@@ -642,6 +662,10 @@ const SchedulePage: React.FC = () => {
         return "bg-[var(--error)] text-white";
       case "off":
         return "bg-[var(--text-sub)] text-white";
+      case "late":
+        return "bg-[var(--warning)] text-white";
+      case "early_leave":
+        return "bg-[var(--early)] text-white";
       default:
         return "bg-[var(--shell)] text-[var(--text-main)] border border-[var(--border)]";
     }
@@ -1076,6 +1100,18 @@ const SchedulePage: React.FC = () => {
                   <div className="w-3 h-3 rounded-full bg-[var(--primary)]" />
                   <span className="text-[var(--text-sub)]">
                     {t("dashboard:schedule.legend.upcoming")}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-[var(--warning)]" />
+                  <span className="text-[var(--text-sub)]">
+                    {t("dashboard:schedule.legend.late")}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 rounded-full bg-[var(--early)]" />
+                  <span className="text-[var(--text-sub)]">
+                    {t("dashboard:schedule.legend.early")}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">

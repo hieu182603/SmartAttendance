@@ -631,8 +631,72 @@ export class UserService {
   }
 
   /**
+   * Chuẩn hóa row dữ liệu từ Excel/CSV dựa trên fuzzy matching tiêu đề cột.
+   * Giúp import thành công ngay cả khi các cột bị xáo trộn vị trí hoặc đổi tên tiếng Việt/Anh.
+   */
+  static normalizeRow(row) {
+    const normalized = {
+      name: "",
+      email: "",
+      password: "",
+      role: "",
+      department: "",
+      branch: "",
+      position: "",
+      phone: "",
+      taxId: ""
+    };
+
+    const HEADER_MAPPINGS = {
+      name: ["name", "họ tên", "ho ten", "họ và tên", "ho va ten", "full name", "fullname", "tên", "ten", "nhân viên", "nhan vien"],
+      email: ["email", "thư điện tử", "thu dien tu", "mail", "địa chỉ email", "dia chi email"],
+      password: ["password", "mật khẩu", "mat khau", "pass", "pwd"],
+      role: ["role", "vai trò", "vai tro", "chức vụ hệ thống", "chuc vu he thong", "phân quyền", "phan quyen"],
+      department: ["department", "phòng ban", "phong ban", "phòng", "phong", "bộ phận", "bo phan"],
+      branch: ["branch", "chi nhánh", "chi nhanh", "văn phòng", "van phong", "cơ sở", "co so"],
+      position: ["position", "chức vụ", "chuc vu", "vị trí", "vi tri", "vị trí làm việc", "vi tri lam viec", "chức danh", "chuc danh"],
+      phone: ["phone", "số điện thoại", "so dien thoai", "sđt", "sdt", "điện thoại", "dien thoai", "mobile", "tel"],
+      taxId: ["taxid", "mã số thuế", "ma so thue", "mst", "tax id", "tax_id"]
+    };
+
+    const removeAccents = (str) => {
+      if (!str || typeof str !== 'string') return '';
+      return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "D")
+        .toLowerCase()
+        .trim();
+    };
+
+    for (const [key, value] of Object.entries(row)) {
+      const cleanKey = removeAccents(key);
+      
+      let matchedField = null;
+      for (const [field, synonyms] of Object.entries(HEADER_MAPPINGS)) {
+        const matchFound = synonyms.some(syn => {
+          const cleanSyn = removeAccents(syn);
+          return cleanKey === cleanSyn || cleanKey.includes(cleanSyn) || cleanSyn.includes(cleanKey);
+        });
+        
+        if (matchFound) {
+          matchedField = field;
+          break;
+        }
+      }
+
+      if (matchedField) {
+        normalized[matchedField] = value !== undefined && value !== null ? String(value).trim() : "";
+      }
+    }
+
+    return normalized;
+  }
+
+  /**
    * Bulk import users từ array rows (parsed từ CSV/Excel)
-   * Mỗi row: { name, email, password, role, department?, branch?, position?, phone? }
+   * Mỗi row được chuẩn hóa thông qua normalizeRow
    * department/branch có thể là tên (string) — sẽ tự lookup ID
    */
   static async bulkImportUsers(rows, adminRole, companyId = null) {
@@ -652,14 +716,15 @@ export class UserService {
     const results = { created: [], failed: [] };
 
     for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
+      const rawRow = rows[i];
+      const row = UserService.normalizeRow(rawRow);
       const rowNum = i + 2; // 1-indexed + header row
 
       try {
         const { name, email, password, role, department, branch, position, phone, taxId } = row;
 
         if (!name || !email || !password || !role) {
-          results.failed.push({ row: rowNum, email: email || '', reason: 'Thiếu name, email, password hoặc role' });
+          results.failed.push({ row: rowNum, email: email || '', reason: 'Thiếu name, email, password hoặc role (đã được fuzzy-matched)' });
           continue;
         }
 
