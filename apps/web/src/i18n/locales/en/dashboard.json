@@ -441,7 +441,9 @@
       "today": "Today",
       "upcoming": "Upcoming",
       "missed": "Missed",
-      "off": "Off"
+      "off": "Off",
+      "late": "Late",
+      "early": "Early Leave"
     },
     "weekStats": {
       "onTime": "On time",

@@ -180,7 +180,9 @@ export default function App() {
                 >
                   <Route index element={<UpgradePage />} />
                 </Route>
-                <Route path="chatbot" element={<ChatbotPage />} />
+                <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} />}>
+                  <Route path="chatbot" element={<ChatbotPage />} />
+                </Route>
                 <Route path="my-payslip" element={<MyPayslipPage />} />
                 {/* Catch-all: redirect invalid employee routes to 404 */}
                 <Route
@@ -214,7 +216,9 @@ export default function App() {
                     path="company-calendar"
                     element={<CompanyCalendarPage />}
                   />
+                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} />}>
                   <Route path="chatbot" element={<ChatbotPage />} />
+                </Route>
                   <Route path="my-payslip" element={<MyPayslipPage />} />
                   {/* Manager specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
@@ -319,7 +323,9 @@ export default function App() {
                     path="company-calendar"
                     element={<CompanyCalendarPage />}
                   />
+                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} />}>
                   <Route path="chatbot" element={<ChatbotPage />} />
+                </Route>
                   <Route path="my-payslip" element={<MyPayslipPage />} />
                   {/* HR specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
@@ -431,7 +437,9 @@ export default function App() {
                     path="company-calendar"
                     element={<CompanyCalendarPage />}
                   />
+                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} />}>
                   <Route path="chatbot" element={<ChatbotPage />} />
+                </Route>
                   <Route path="my-payslip" element={<MyPayslipPage />} />
                   <Route path="scan" element={<ScanPage />} />
                   <Route path="schedule" element={<SchedulePage />} />

@@ -595,6 +595,37 @@ export const canCheckInEarly = (currentTime, shiftInfo) => {
   return { canCheckIn: true, earliestTime: null, message: null };
 };
 
+/**
+ * Kiểm tra ca làm việc đã kết thúc chưa (không cho phép check-in sau khi ca hết)
+ * @param {Date} currentTime - Thời gian hiện tại
+ * @param {Object} shiftInfo - Thông tin shift
+ * @returns {Object} { expired, endTime, message }
+ */
+export const isShiftAlreadyEnded = (currentTime, shiftInfo) => {
+  if (shiftInfo?.isFlexible) {
+    return { expired: false, endTime: null, message: null };
+  }
+
+  const CUTOFF_MINUTES = SHIFT_CONFIG.LATE_CHECKIN_CUTOFF_MINUTES;
+  const endTime = shiftInfo?.endTime || SHIFT_CONFIG.DEFAULT_END_TIME;
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+
+  const { hour: currentHour, minute: currentMinute } = getTimeInGMT7(currentTime);
+  const currentTimeInMinutes = currentHour * 60 + currentMinute;
+  const shiftEndInMinutes = endHour * 60 + endMinute;
+
+  // Ca được coi là đã hết nếu giờ hiện tại vượt quá endTime + cutoff
+  if (currentTimeInMinutes > shiftEndInMinutes + CUTOFF_MINUTES) {
+    return {
+      expired: true,
+      endTime,
+      message: `Ca làm việc (${shiftInfo.shiftName}) đã kết thúc lúc ${endTime}. Không thể chấm công vào ca này nữa.`,
+    };
+  }
+
+  return { expired: false, endTime: null, message: null };
+};
+
 // ============================================================================
 // PHOTO UTILITIES
 // ============================================================================
@@ -1021,6 +1052,17 @@ export const processCheckIn = async (
           data: null,
           error: earlyCheck.message,
           code: "TOO_EARLY",
+        };
+      }
+
+      // Chặn check-in sau khi ca đã kết thúc
+      const shiftEndCheck = isShiftAlreadyEnded(now, shiftInfo);
+      if (shiftEndCheck.expired) {
+        return {
+          success: false,
+          data: null,
+          error: shiftEndCheck.message,
+          code: "SHIFT_ALREADY_ENDED",
         };
       }
     }

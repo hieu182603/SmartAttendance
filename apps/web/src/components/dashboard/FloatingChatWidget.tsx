@@ -4,6 +4,7 @@ import { Bot, X, Send, Loader2, Sparkles, RotateCcw, Cpu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useChatbot } from '@/context/ChatbotContext';
 import { useAuth } from '@/context/AuthContext';
+import { UserRole } from '@/utils/roles';
 import { ChatMessage } from './ChatMessage';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -149,6 +150,10 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = () => {
   const suggestions = user?.role
     ? ROLE_SUGGESTIONS[user.role] || ROLE_SUGGESTIONS.employee
     : ROLE_SUGGESTIONS.employee;
+
+  if (user?.role === UserRole.TRIAL) {
+    return null;
+  }
 
   return (
     <>

@@ -25,6 +25,13 @@ export const SHIFT_CONFIG = {
     10
   ),
 
+  // Cutoff after shift end: max minutes past shift end time that check-in is still allowed.
+  // Set to 0 (default) to completely block check-in once the shift has ended.
+  LATE_CHECKIN_CUTOFF_MINUTES: parseInt(
+    process.env.LATE_CHECKIN_CUTOFF_MINUTES || "0",
+    10
+  ),
+
   // Late tolerance (minutes after shift start)
   LATE_TOLERANCE_MINUTES: parseInt(
     process.env.LATE_TOLERANCE_MINUTES || "30",
