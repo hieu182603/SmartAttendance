@@ -602,17 +602,12 @@ export const EmployeeHome: React.FC = () => {
       {/* Today's Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ">
         {infoCards.map((item) => {
-          const summaryValue = summary[item.key];
           const value =
             item.key === "workingDays"
-              ? formatWorkingDays(summaryValue, t)
+              ? formatWorkingDays(summary.workingDays, t)
               : item.key === "shift"
-                ? formatShiftValue(
-                    summaryValue as string | ShiftSummaryValue | null
-                  )
-                : (summaryValue as { name?: string })?.name ||
-                  (summaryValue as string) ||
-                  "—";
+                ? formatShiftValue(summary.shift)
+                : summary.location ?? "—";
 
           return (
             <motion.div
