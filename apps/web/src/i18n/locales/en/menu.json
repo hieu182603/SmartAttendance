@@ -9,6 +9,8 @@
   "profile": "Profile",
   "notifications": "Notifications",
   "approve-requests": "Approve Requests",
+  "approve-requests-dept": "Approvals (department)",
+  "approve-requests-company": "Approvals (company)",
   "team-management": "Team Management",
   "attendance-analytics": "Attendance Analytics",
   "reports": "Reports",
@@ -24,10 +26,15 @@
   "audit-logs": "Audit Logs",
   "camera-checkin": "Camera Check-in",
   "admin-reports": "Reports & Statistics",
+  "admin-reports-dept": "Department reports",
+  "admin-reports-company": "Company reports",
   "chatbot": "AI Assistant",
   "my-payslip": "Salary",
   "payroll-group": "Payroll",
   "platform-group": "SaaS platform",
+  "hr-operations-group": "Human resources",
+  "org-group": "Organization",
+  "dept-management-group": "Department management",
   "leave-types": "Leave Type Management",
   "system-config": "System Config",
   "role-management": "Role permission defaults",
@@ -37,6 +44,7 @@
   "feature-toggles": "Feature toggles",
   "ticket-management": "Payment management",
   "company-management": "Company management",
-  "ai-billing": "AI Billing Management"
+  "ai-billing": "AI Billing Management",
+  "company-regulations": "AI Knowledge Base"
 }
 

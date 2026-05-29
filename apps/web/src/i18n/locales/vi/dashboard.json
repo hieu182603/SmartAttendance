@@ -296,7 +296,8 @@
       "days": "ngày",
       "hours": "giờ",
       "minutes": "phút",
-      "seconds": "giây"
+      "seconds": "giây",
+      "overtimeTag": "OT"
     },
     "quickActions": {
       "title": "Thao tác nhanh",
@@ -2219,7 +2220,7 @@
     "empty": "Chưa có phiếu lương tháng {{month}}/{{year}}",
     "period": "Kỳ lương",
     "netSalary": "Thực lĩnh",
-    "gross": "Gross",
+    "gross": "Lương gộp",
     "attendance": "Chấm công",
     "workDays": "Ngày công",
     "overtime": "Tăng ca",
@@ -2232,9 +2233,11 @@
     "bonus": "Thưởng",
     "deductions": "Khấu trừ",
     "totalGross": "Tổng lương (gross)",
+    "actualBaseSalary": "Lương thực tế theo công",
+    "periodApplied": "Kỳ lương áp dụng",
     "insurance": "BHXH/BHYT/BHTN (10.5%)",
     "tax": "Thuế TNCN",
-    "totalNet": "Thực lĩnh (net)",
+    "totalNet": "Thực lĩnh",
     "toasts": {
       "loadError": "Không thể tải phiếu lương",
       "exportPdfLoading": "Đang xuất PDF...",
@@ -2243,6 +2246,18 @@
       "exportExcelLoading": "Đang xuất Excel...",
       "exportExcelSuccess": "Tải Excel thành công",
       "exportExcelError": "Không thể tải Excel"
+    },
+    "history": "Lịch sử lương",
+    "showSalary": "Hiện số tiền",
+    "hideSalary": "Ẩn số tiền",
+    "tableMonth": "Tháng",
+    "tableStatus": "Trạng thái",
+    "actions": "Thao tác",
+    "viewDetail": "Xem chi tiết",
+    "summary": {
+      "totalEarned": "Tổng thực nhận",
+      "average": "Trung bình tháng",
+      "latest": "Kỳ gần nhất"
     }
   },
   "activeSessionsPage": {
@@ -2327,6 +2342,66 @@
       "invalidQuota": "Số ngày phải từ 0 đến 365",
       "adjustSuccess": "Cập nhật thành công: {{type}} — còn {{remaining}} ngày",
       "adjustError": "Cập nhật thất bại"
+    }
+  },
+  "regulations": {
+    "pageTitle": "AI Knowledge Base",
+    "pageSubtitle": "Quản lý tài liệu quy định công ty để AI Chatbot học và trả lời đúng theo văn hoá doanh nghiệp của bạn",
+    "refreshBtn": "Tải lại",
+    "stats": {
+      "total": "{{count}} tài liệu",
+      "active": "{{count}} đang hoạt động",
+      "failed": "{{count}} thất bại"
+    },
+    "upload": {
+      "panelTitle": "Tải lên tài liệu mới",
+      "infoBanner": "Sau khi tải lên, AI Chatbot sẽ <strong>chỉ trả lời theo quy định của công ty bạn</strong>, không bị ảnh hưởng bởi dữ liệu của công ty khác.",
+      "dropzone": "Kéo thả file vào đây hoặc bấm để chọn",
+      "dropzoneSub": "Hỗ trợ PDF, DOCX, TXT · Tối đa 10 MB",
+      "titleLabel": "Tiêu đề tài liệu",
+      "titlePlaceholder": "VD: Quy định giờ giấc và chuyên cần",
+      "doctypeLabel": "Loại tài liệu",
+      "descLabel": "Mô tả ngắn (tuỳ chọn)",
+      "descPlaceholder": "Mô tả nội dung chính của tài liệu...",
+      "submitBtn": "Cho AI học tài liệu này",
+      "submittingBtn": "Đang học tài liệu...",
+      "required": "*",
+      "errors": {
+        "unsupportedType": "Chỉ chấp nhận file PDF, DOCX hoặc TXT.",
+        "fileTooLarge": "File không được vượt quá 10 MB.",
+        "noFile": "Vui lòng chọn file.",
+        "noTitle": "Tiêu đề không được để trống.",
+        "uploadFailed": "Lỗi khi tải lên. Vui lòng thử lại."
+      }
+    },
+    "list": {
+      "panelTitle": "Tài liệu đã tải lên ({{count}})",
+      "loading": "Đang tải danh sách...",
+      "loadError": "Không tải được danh sách tài liệu. Vui lòng thử lại.",
+      "empty": "Chưa có tài liệu nào",
+      "emptyHint": "Tải lên tài liệu quy định để AI Chatbot bắt đầu học",
+      "chunks": "{{count}} đoạn văn bản đã được vector hóa",
+      "uploadedAt": "Tải lên: {{date}}"
+    },
+    "status": {
+      "processing": "Đang học...",
+      "active": "Đã học xong",
+      "failed": "Học thất bại",
+      "deleted": "Đã xóa"
+    },
+    "docType": {
+      "company_regulation": "Quy định công ty",
+      "hr_policy": "Chính sách nhân sự",
+      "work_procedure": "Quy trình làm việc",
+      "code_of_conduct": "Bộ quy tắc ứng xử",
+      "other": "Khác"
+    },
+    "deleteDialog": {
+      "title": "Xóa tài liệu",
+      "body": "Bạn có chắc muốn xóa tài liệu <strong>\"{{title}}\"</strong>? AI Chatbot sẽ không còn biết nội dung tài liệu này nữa. Hành động này không thể hoàn tác.",
+      "cancelBtn": "Huỷ",
+      "confirmBtn": "Xác nhận xóa",
+      "deletingBtn": "Đang xóa..."
     }
   }
 }

@@ -9,6 +9,8 @@
   "profile": "Hồ sơ",
   "notifications": "Thông báo",
   "approve-requests": "Phê duyệt yêu cầu",
+  "approve-requests-dept": "Phê duyệt (phòng)",
+  "approve-requests-company": "Phê duyệt (công ty)",
   "team-management": "Quản lý nhóm",
   "attendance-analytics": "Phân tích chấm công",
   "admin-attendance": "Quản lý chấm công",
@@ -23,10 +25,15 @@
   "audit-logs": "Nhật ký hệ thống",
   "camera-checkin": "Chấm công bằng camera",
   "admin-reports": "Báo cáo & Thống kê",
+  "admin-reports-dept": "Báo cáo phòng",
+  "admin-reports-company": "Báo cáo công ty",
   "chatbot": "Trợ lý AI",
   "my-payslip": "Lương",
   "payroll-group": "Lương",
   "platform-group": "Nền tảng SaaS",
+  "hr-operations-group": "Nhân sự",
+  "org-group": "Tổ chức",
+  "dept-management-group": "Quản lý phòng",
   "leave-types": "Quản lý loại phép",
   "system-config": "Cấu hình hệ thống",
   "role-management": "Cấu hình quyền theo role",
@@ -36,6 +43,6 @@
   "feature-toggles": "Quản lý chức năng",
   "ticket-management": "Quản lý thanh toán",
   "company-management": "Quản lý công ty",
-  "ai-billing": "Quản lý chi phí AI"
+  "ai-billing": "Quản lý chi phí AI",
+  "company-regulations": "Cơ sở tri thức AI"
 }
-

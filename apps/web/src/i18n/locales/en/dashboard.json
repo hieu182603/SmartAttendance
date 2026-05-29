@@ -178,7 +178,8 @@
       "days": "days",
       "hours": "hours",
       "minutes": "minutes",
-      "seconds": "seconds"
+      "seconds": "seconds",
+      "overtimeTag": "OT"
     },
     "quickActions": {
       "title": "Quick Actions",
@@ -2224,6 +2225,8 @@
     "bonus": "Bonus",
     "deductions": "Deductions",
     "totalGross": "Total gross salary",
+    "actualBaseSalary": "Actual base salary by attendance",
+    "periodApplied": "Applied payroll period",
     "insurance": "Insurance (10.5%)",
     "tax": "Personal income tax",
     "totalNet": "Net take-home",
@@ -2235,6 +2238,18 @@
       "exportExcelLoading": "Exporting Excel...",
       "exportExcelSuccess": "Excel downloaded successfully",
       "exportExcelError": "Failed to download Excel"
+    },
+    "history": "Salary History",
+    "showSalary": "Show amount",
+    "hideSalary": "Hide amount",
+    "tableMonth": "Month",
+    "tableStatus": "Status",
+    "actions": "Actions",
+    "viewDetail": "View detail",
+    "summary": {
+      "totalEarned": "Total Earned",
+      "average": "Monthly Average",
+      "latest": "Latest Period"
     }
   },
   "activeSessionsPage": {
@@ -2319,6 +2334,66 @@
       "invalidQuota": "Days must be between 0 and 365",
       "adjustSuccess": "Updated: {{type}} — remaining {{remaining}} days",
       "adjustError": "Update failed"
+    }
+  },
+  "regulations": {
+    "pageTitle": "AI Knowledge Base",
+    "pageSubtitle": "Manage company regulations so the AI Chatbot learns and answers according to your company’s culture",
+    "refreshBtn": "Refresh",
+    "stats": {
+      "total": "{{count}} document(s)",
+      "active": "{{count}} active",
+      "failed": "{{count}} failed"
+    },
+    "upload": {
+      "panelTitle": "Upload new document",
+      "infoBanner": "Once uploaded, the AI Chatbot will <strong>only answer based on your company's regulations</strong>, and will never be influenced by another company's data.",
+      "dropzone": "Drag & drop a file here or click to browse",
+      "dropzoneSub": "PDF, DOCX, TXT supported · Max 10 MB",
+      "titleLabel": "Document title",
+      "titlePlaceholder": "E.g. Working hours and attendance policy",
+      "doctypeLabel": "Document type",
+      "descLabel": "Short description (optional)",
+      "descPlaceholder": "Describe the main content of this document...",
+      "submitBtn": "Let AI learn this document",
+      "submittingBtn": "AI is learning...",
+      "required": "*",
+      "errors": {
+        "unsupportedType": "Only PDF, DOCX or TXT files are accepted.",
+        "fileTooLarge": "File must not exceed 10 MB.",
+        "noFile": "Please select a file.",
+        "noTitle": "Document title is required.",
+        "uploadFailed": "Upload failed. Please try again."
+      }
+    },
+    "list": {
+      "panelTitle": "Uploaded documents ({{count}})",
+      "loading": "Loading documents...",
+      "loadError": "Failed to load documents. Please try again.",
+      "empty": "No documents yet",
+      "emptyHint": "Upload a regulation document to start training the AI Chatbot",
+      "chunks": "{{count}} text chunks vectorized",
+      "uploadedAt": "Uploaded: {{date}}"
+    },
+    "status": {
+      "processing": "Learning...",
+      "active": "Ready",
+      "failed": "Failed",
+      "deleted": "Deleted"
+    },
+    "docType": {
+      "company_regulation": "Company Regulation",
+      "hr_policy": "HR Policy",
+      "work_procedure": "Work Procedure",
+      "code_of_conduct": "Code of Conduct",
+      "other": "Other"
+    },
+    "deleteDialog": {
+      "title": "Delete document",
+      "body": "Are you sure you want to delete <strong>\"{{title}}\"</strong>? The AI Chatbot will no longer know the content of this document. This action cannot be undone.",
+      "cancelBtn": "Cancel",
+      "confirmBtn": "Confirm delete",
+      "deletingBtn": "Deleting..."
     }
   }
 }

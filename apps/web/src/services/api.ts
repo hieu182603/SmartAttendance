@@ -54,12 +54,20 @@ export interface ValidationError extends Error {
     response?: AxiosResponse
 }
 
+// The AI service mounts routes under /api/rag/*. Normalize the configured RAG
+// URL so it ends with exactly one `/api` segment — this tolerates both
+// `http://host:8001` and `http://host:8001/api` (the value documented in
+// env.example) without producing a duplicated `/api/api` prefix.
+const ragBaseURL = (() => {
+    const trimmed = ragServiceUrl.replace(/\/+$/, '')
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`
+})()
+
 // Helper function to determine base URL based on endpoint
 const getBaseURL = (url: string) => {
-    // If URL starts with /rag/, use RAG service URL with /api prefix
-    // The AI service mounts routes at /api/rag/*, so we prepend /api to match
+    // If URL starts with /rag/, route to the AI service (normalized to /api)
     if (url.startsWith('/rag/')) {
-        return `${ragServiceUrl}/api`;
+        return ragBaseURL;
     }
     // Otherwise use backend API URL
     return backendBaseURL;
