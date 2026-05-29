@@ -81,6 +81,7 @@ export interface PayrollRecord {
   unpaidLeaveDays?: number;
   unauthorizedAbsenceDays?: number;
   baseSalary: number;
+  actualBaseSalary?: number;
   overtimePay: number;
   bonus: number;
   deductions: number;
@@ -301,6 +302,13 @@ export const generatePayroll = async (payload: GeneratePayrollPayload): Promise<
 export const getMyPayslip = async (month?: string): Promise<PayrollRecord> => {
   const { data } = await api.get("/payroll/my-payslip", {
     params: month ? { month } : undefined,
+  });
+  return data.data;
+};
+
+export const getMyPayslips = async (): Promise<PayrollRecord[]> => {
+  const { data } = await api.get("/payroll/my-payslip", {
+    params: { month: "all" },
   });
   return data.data;
 };

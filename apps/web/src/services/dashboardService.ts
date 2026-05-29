@@ -2,7 +2,14 @@ import api from '@/services/api'
 import type { AxiosRequestConfig } from 'axios'
 
 interface DashboardSummary {
-  shift: string | null
+  shift:
+    | string
+    | {
+        label?: string | null
+        timeRange?: string | null
+        isOvertime?: boolean
+      }
+    | null
   location: string | null
   workingDays: string | number | { used: number; total: number } | null
 }
