@@ -107,6 +107,9 @@ const TicketManagementPage = lazy(() =>
 const CompanyManagementPage = lazy(() =>
   import("@/components/dashboard/pages/CompanyManagementPage")
 );
+const RegulationsPage = lazy(() =>
+  import("@/components/dashboard/pages/RegulationsPage")
+);
 
 // Layout & Common Components - Lazy Load
 const DashboardLayout = lazy(
@@ -172,7 +175,7 @@ export default function App() {
                   element={
                     <ProtectedRoute
                       allowedRoles={[
-                        UserRole.TRIAL, UserRole.EMPLOYEE, UserRole.SUPERVISOR,
+                        UserRole.TRIAL, UserRole.EMPLOYEE,
                         UserRole.MANAGER, UserRole.HR_MANAGER, UserRole.ADMIN,
                       ]}
                     />
@@ -191,9 +194,9 @@ export default function App() {
                 />
               </Route>
 
-              {/* Manager Routes - SUPERVISOR and above */}
+              {/* Manager Routes */}
               <Route
-                element={<ProtectedRoute minimumRole={UserRole.SUPERVISOR} />}
+                element={<ProtectedRoute minimumRole={UserRole.MANAGER} />}
               >
                 <Route path="/manager" element={<DashboardLayout />}>
                   {/* Common employee routes */}
@@ -259,14 +262,6 @@ export default function App() {
                     }
                   >
                     <Route index element={<ShiftsPage />} />
-                  </Route>
-                  <Route
-                    path="payroll-reports"
-                    element={
-                      <ProtectedRoute permission={Permission.VIEW_REPORTS} />
-                    }
-                  >
-                    <Route index element={<PayrollReportsPage />} />
                   </Route>
                   <Route
                     path="admin-reports"
@@ -425,6 +420,9 @@ export default function App() {
                     path="*"
                     element={<Navigate to="/not-found" replace />}
                   />
+                  <Route path="regulations">
+                    <Route index element={<RegulationsPage />} />
+                  </Route>
                 </Route>
               </Route>
 
@@ -638,6 +636,9 @@ export default function App() {
                     path="*"
                     element={<Navigate to="/not-found" replace />}
                   />
+                  <Route path="regulations">
+                    <Route index element={<RegulationsPage />} />
+                  </Route>
                 </Route>
               </Route>
             </Route>

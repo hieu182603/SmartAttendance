@@ -245,7 +245,7 @@ export const createRequest = async (req, res) => {
       if (doc.userId?.department) {
         const departmentManagers = await UserModel.find({
           department: doc.userId.department._id || doc.userId.department,
-          role: { $in: ['MANAGER', 'HR_MANAGER', 'SUPERVISOR', 'ADMIN', 'SUPER_ADMIN'] },
+          role: { $in: ['MANAGER', 'HR_MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
           isActive: true
         }).select('_id');
 
@@ -345,13 +345,12 @@ export const getAllRequests = async (req, res) => {
       userQuery.department = department
     }
 
-    // For SUPERVISOR, restrict to their department and only EMPLOYEE/SUPERVISOR roles
-    if (userRole === 'SUPERVISOR') {
+    // For MANAGER, restrict to their department and employee requests only
+    if (userRole === 'MANAGER') {
       if (currentUser && currentUser.department) {
         userQuery.department = currentUser.department
-        userQuery.role = { $in: ['EMPLOYEE', 'SUPERVISOR'] }
+        userQuery.role = { $in: ['EMPLOYEE'] }
       } else {
-        // If supervisor has no department, return empty
         return res.json({
           requests: [],
           pagination: {
@@ -460,13 +459,13 @@ export const approveRequest = async (req, res) => {
       return res.status(400).json({ message: 'Yêu cầu đã được xử lý' })
     }
 
-    // For SUPERVISOR, check if the request is from someone in their department and appropriate role
-    if (approverRole === 'SUPERVISOR') {
+    // For MANAGER, check department and employee role
+    if (approverRole === 'MANAGER') {
       if (!approver.department || !request.userId.department ||
         approver.department.toString() !== request.userId.department.toString()) {
         return res.status(403).json({ message: 'Bạn chỉ có thể phê duyệt yêu cầu từ nhân viên trong phòng ban của mình' })
       }
-      if (!['EMPLOYEE', 'SUPERVISOR'].includes(request.userId.role)) {
+      if (request.userId.role !== 'EMPLOYEE') {
         return res.status(403).json({ message: 'Bạn không có quyền phê duyệt yêu cầu từ vai trò này' })
       }
     }
@@ -526,12 +525,12 @@ export const rejectRequest = async (req, res) => {
       return res.status(400).json({ message: 'Yêu cầu đã được xử lý' })
     }
 
-    if (approverRole === 'SUPERVISOR') {
+    if (approverRole === 'MANAGER') {
       if (!approver.department || !request.userId.department ||
         approver.department.toString() !== request.userId.department.toString()) {
         return res.status(403).json({ message: 'Bạn chỉ có thể từ chối yêu cầu từ nhân viên trong phòng ban của mình' })
       }
-      if (!['EMPLOYEE', 'SUPERVISOR'].includes(request.userId.role)) {
+      if (request.userId.role !== 'EMPLOYEE') {
         return res.status(403).json({ message: 'Bạn không có quyền từ chối yêu cầu từ vai trò này' })
       }
     }

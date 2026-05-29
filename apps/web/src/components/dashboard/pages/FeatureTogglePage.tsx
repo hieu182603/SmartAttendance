@@ -13,7 +13,6 @@ import { featureToggleService, type FeatureToggle } from '@/services/featureTogg
 const ROLE_OPTIONS = [
   { value: 'EMPLOYEE', label: 'Employee' },
   { value: 'TRIAL', label: 'Trial' },
-  { value: 'SUPERVISOR', label: 'Supervisor' },
   { value: 'MANAGER', label: 'Manager' },
   { value: 'HR_MANAGER', label: 'HR Manager' },
   { value: 'ADMIN', label: 'Admin' },

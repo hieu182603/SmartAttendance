@@ -384,26 +384,26 @@ async function seed() {
             isActive: true,
         });
 
-        // SUPERVISOR cho từng phòng ban
-        const supervisorData = [
-            { name: 'Supervisor Phát triển', email: 'supervisor.dev@smartattendance.com', deptCode: 'DEV', phone: '0902000001' },
-            { name: 'Supervisor Thiết kế', email: 'supervisor.design@smartattendance.com', deptCode: 'DESIGN', phone: '0902000002' },
-            { name: 'Supervisor Marketing', email: 'supervisor.mkt@smartattendance.com', deptCode: 'MKT', phone: '0902000003' },
-            { name: 'Supervisor Kinh doanh', email: 'supervisor.sales@smartattendance.com', deptCode: 'SALES', phone: '0902000004' },
-            { name: 'Supervisor Tài chính', email: 'supervisor.finance@smartattendance.com', deptCode: 'FINANCE', phone: '0902000005' },
-            { name: 'Supervisor Vận hành', email: 'supervisor.ops@smartattendance.com', deptCode: 'OPS', phone: '0902000006' },
-            { name: 'Supervisor QA', email: 'supervisor.qa@smartattendance.com', deptCode: 'QA', phone: '0902000007' },
+        // Trưởng phòng (MANAGER) cho từng phòng ban
+        const deptManagerData = [
+            { name: 'Manager Phát triển', email: 'supervisor.dev@smartattendance.com', deptCode: 'DEV', phone: '0902000001' },
+            { name: 'Manager Thiết kế', email: 'supervisor.design@smartattendance.com', deptCode: 'DESIGN', phone: '0902000002' },
+            { name: 'Manager Marketing', email: 'supervisor.mkt@smartattendance.com', deptCode: 'MKT', phone: '0902000003' },
+            { name: 'Manager Kinh doanh', email: 'supervisor.sales@smartattendance.com', deptCode: 'SALES', phone: '0902000004' },
+            { name: 'Manager Tài chính', email: 'supervisor.finance@smartattendance.com', deptCode: 'FINANCE', phone: '0902000005' },
+            { name: 'Manager Vận hành', email: 'supervisor.ops@smartattendance.com', deptCode: 'OPS', phone: '0902000006' },
+            { name: 'Manager QA', email: 'supervisor.qa@smartattendance.com', deptCode: 'QA', phone: '0902000007' },
         ];
 
-        supervisorData.forEach((supervisor, index) => {
-            const department = departments.find(d => d.code === supervisor.deptCode);
+        deptManagerData.forEach((deptManager) => {
+            const department = departments.find(d => d.code === deptManager.deptCode);
             if (department) {
                 users.push({
-                    email: supervisor.email,
+                    email: deptManager.email,
                     password: hashedPassword,
-                    name: supervisor.name,
-                    role: 'SUPERVISOR',
-                    phone: supervisor.phone,
+                    name: deptManager.name,
+                    role: 'MANAGER',
+                    phone: deptManager.phone,
                     department: department._id,
                     branch: department.branchId,
                     isVerified: true,
@@ -412,7 +412,7 @@ async function seed() {
             }
         });
 
-        // Tạo 180 employees (tổng 191 users: 4 admins/managers + 7 supervisors + 180 employees)
+        // Tạo 180 employees (tổng users: admins/managers + dept managers + employees)
         // Map để track số lần xuất hiện của mỗi lastName (để thêm số thứ tự nếu trùng)
         const lastNameCountMap = new Map();
         // Set để track các tên đầy đủ đã tạo (để hạn chế trùng tên)
@@ -487,25 +487,25 @@ async function seed() {
         await BranchModel.findByIdAndUpdate(branches[0]._id, { managerId: adminUser._id }); // HQ
         await BranchModel.findByIdAndUpdate(branches[1]._id, { managerId: managerUser._id }); // HCM
 
-        // Gán trưởng phòng và supervisor
-        const devSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.dev@smartattendance.com');
-        const designSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.design@smartattendance.com');
-        const mktSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.mkt@smartattendance.com');
-        const salesSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.sales@smartattendance.com');
-        const financeSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.finance@smartattendance.com');
-        const opsSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.ops@smartattendance.com');
-        const qaSupervisor = createdUsers.find((u) => u.role === 'SUPERVISOR' && u.email === 'supervisor.qa@smartattendance.com');
+        // Gán trưởng phòng (dept managers)
+        const devManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.dev@smartattendance.com');
+        const designManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.design@smartattendance.com');
+        const mktManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.mkt@smartattendance.com');
+        const salesManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.sales@smartattendance.com');
+        const financeManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.finance@smartattendance.com');
+        const opsManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.ops@smartattendance.com');
+        const qaManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.qa@smartattendance.com');
 
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DEV')._id, { managerId: devSupervisor?._id || adminUser._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DESIGN')._id, { managerId: designSupervisor?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'MKT')._id, { managerId: mktSupervisor?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'SALES')._id, { managerId: salesSupervisor?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'FINANCE')._id, { managerId: financeSupervisor?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'OPS')._id, { managerId: opsSupervisor?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'QA')._id, { managerId: qaSupervisor?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DEV')._id, { managerId: devManager?._id || adminUser._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DESIGN')._id, { managerId: designManager?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'MKT')._id, { managerId: mktManager?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'SALES')._id, { managerId: salesManager?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'FINANCE')._id, { managerId: financeManager?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'OPS')._id, { managerId: opsManager?._id });
+        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'QA')._id, { managerId: qaManager?._id });
         await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'HR')._id, { managerId: hrUser._id });
         await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'PRODUCT')._id, { managerId: managerUser._id });
-        console.log('✅ Assigned managers and supervisors to departments\n');
+        console.log('✅ Assigned department managers\n');
 
         // ========== 3.5. GÁN DEFAULT SHIFT VÀ TẠO EMPLOYEE SHIFT ASSIGNMENTS ==========
         console.log('📋 Assigning default shifts and creating shift assignments...');
@@ -513,7 +513,7 @@ async function seed() {
 
         // Gán defaultShiftId cho tất cả employees và supervisors
         await UserModel.updateMany(
-            { role: { $in: ['EMPLOYEE', 'SUPERVISOR'] }, isActive: true },
+            { role: { $in: ['EMPLOYEE'] }, isActive: true },
             { defaultShiftId: defaultShift._id }
         );
         console.log(`✅ Assigned default shift "${defaultShift.name}" to all employees\n`);

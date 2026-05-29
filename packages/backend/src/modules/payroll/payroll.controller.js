@@ -359,7 +359,7 @@ export const generatePayroll = async (req, res) => {
       const { UserModel } = await import("../users/user.model.js");
       const deptQuery = {
         department: departmentId,
-        role: { $in: ["EMPLOYEE", "MANAGER", "SUPERVISOR"] },
+        role: { $in: ["EMPLOYEE", "MANAGER"] },
         isActive: true,
         isTrial: { $ne: true },
       };
@@ -411,6 +411,15 @@ export const getMyPayslip = async (req, res) => {
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     let { month } = req.query;
+    if (month === "all") {
+      const records = await PayrollRecordModel.find({ userId })
+        .populate("userId", "name email employeeId department position")
+        .populate("approvedBy", "name email")
+        .sort({ month: -1 })
+        .lean();
+      return res.json({ data: records });
+    }
+
     if (month && !/^\d{4}-\d{2}$/.test(month)) {
       return res.status(400).json({ message: "month phải có format YYYY-MM" });
     }

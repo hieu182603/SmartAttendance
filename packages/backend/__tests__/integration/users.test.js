@@ -131,14 +131,14 @@ describe("TC-USR-002: HR updates employee role", () => {
     const res = await request(app)
       .put(`/api/users/${users.employee._id}`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ role: "SUPERVISOR" });
+      .send({ role: "MANAGER" });
 
     expect(res.status).not.toBe(401);
     expect(res.status).not.toBe(403);
 
     if (res.status === 200) {
       const updated = await UserModel.findById(users.employee._id);
-      expect(updated.role).toBe("SUPERVISOR");
+      expect(updated.role).toBe("MANAGER");
     }
   });
 });

@@ -440,7 +440,7 @@ export const getAttendanceAnalytics = async (req, res) => {
     const isSuperAdmin = requesterRole === 'SUPER_ADMIN';
     const userQuery = isSuperAdmin ? {} : { companyId };
 
-    if (['SUPERVISOR', 'MANAGER'].includes(requesterRole)) {
+    if (['MANAGER'].includes(requesterRole)) {
       const requester = await UserModel.findById(requesterId).select('department');
       if (requester?.department) {
         userQuery.department = requester.department;
@@ -1321,11 +1321,11 @@ export const getPendingEarlyCheckouts = async (req, res) => {
 
     // Build user query based on role
     let userQuery = {};
-    if (userRole === "SUPERVISOR") {
+    if (userRole === "MANAGER") {
       const user = await UserModel.findById(userId).select("department");
       if (user?.department) {
         userQuery.department = user.department;
-        userQuery.role = { $in: ["EMPLOYEE", "SUPERVISOR"] };
+        userQuery.role = { $in: ["EMPLOYEE"] };
       } else {
         return res.json({
           records: [],
@@ -1468,9 +1468,9 @@ export const getDepartmentAttendance = async (req, res) => {
     // Base query for department
     let userQuery = { department: user.department, isActive: true };
 
-    // For SUPERVISOR, limit to only EMPLOYEE and SUPERVISOR roles
-    if (userRole === 'SUPERVISOR') {
-      userQuery.role = { $in: ['EMPLOYEE', 'SUPERVISOR'] };
+    // For MANAGER, limit to employees in their department
+    if (userRole === 'MANAGER') {
+      userQuery.role = { $in: ['EMPLOYEE'] };
     }
 
     if (search) {

@@ -3,7 +3,7 @@ import {
   Home, Camera, History, FileText, Clock, CalendarDays, Calendar,
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
   DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot, Wallet, Settings, ShieldCheck, ScanFace, Monitor, Activity,
-  ToggleRight, CreditCard
+  ToggleRight, CreditCard, BookOpen
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { Permission, type PermissionType, UserRole, ROLE_PERMISSIONS, type UserRoleType, hasMinimumLevel } from '@/utils/roles';
@@ -15,8 +15,19 @@ export interface MenuItem {
   path: string;
   permission?: PermissionType;
   minimumRole?: UserRoleType;
+  /** Roles that should NOT see this item even if they meet `minimumRole`. */
+  excludeRoles?: UserRoleType[];
   section: 'admin' | 'employee' | 'system';
 }
+
+/** Roles that must not see company HR/day-to-day operations (ADMIN = IT/org; SUPER_ADMIN = platform). */
+const EXCLUDE_COMPANY_OPERATIONS: UserRoleType[] = [
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+];
+
+/** SUPER_ADMIN: platform + monitoring only — not tenant HR/org admin screens. */
+const EXCLUDE_SUPER_ADMIN: UserRoleType[] = [UserRole.SUPER_ADMIN];
 
 /** Thứ tự sidebar cho SUPER_ADMIN (số nhỏ = lên trên trong từng section). */
 const SUPER_ADMIN_MENU_ORDER: Record<string, number> = {
@@ -24,26 +35,11 @@ const SUPER_ADMIN_MENU_ORDER: Record<string, number> = {
   'company-management': 10,
   'ticket-management': 20,
   'feature-toggles': 30,
-  'employee-management': 40,
-  departments: 50,
-  branches: 60,
-  'approve-requests': 70,
-  'admin-attendance': 80,
-  shifts: 90,
-  'leave-types': 100,
-  'performance-review': 110,
-  'attendance-analytics': 120,
-  'admin-reports': 130,
-  payroll: 140,
-  'payroll-reports': 141,
-  'salary-matrix': 142,
-  'ai-billing': 25,
+  'ai-billing': 40,
   'system-health': 200,
   'active-sessions': 210,
   'audit-logs': 220,
-  'face-recognition-logs': 230,
-  'system-config': 240,
-  'role-management': 250,
+  'system-config': 230,
   profile: 310,
   chatbot: 320,
 };
@@ -159,6 +155,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: Users,
     path: '/admin/employee-management',
     permission: Permission.USERS_VIEW,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   {
@@ -167,6 +164,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: Briefcase,
     path: '/admin/departments',
     permission: Permission.DEPARTMENTS_VIEW,
+    excludeRoles: EXCLUDE_SUPER_ADMIN,
     section: 'admin',
   },
   {
@@ -175,6 +173,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: Building2,
     path: '/admin/branches',
     permission: Permission.BRANCHES_VIEW,
+    excludeRoles: EXCLUDE_SUPER_ADMIN,
     section: 'admin',
   },
   {
@@ -183,6 +182,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: CheckCircle2,
     path: '/admin/approve-requests',
     permission: Permission.REQUESTS_APPROVE_DEPARTMENT,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   {
@@ -191,6 +191,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: Clock,
     path: '/admin/admin-attendance',
     permission: Permission.ATTENDANCE_VIEW_ALL,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   {
@@ -199,6 +200,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: Clock,
     path: '/admin/shifts',
     permission: Permission.ATTENDANCE_VIEW_DEPARTMENT,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   {
@@ -206,7 +208,8 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Quản lý loại phép',
     icon: CalendarDays,
     path: '/admin/leave-types',
-    permission: Permission.USERS_VIEW,
+    minimumRole: UserRole.HR_MANAGER,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   {
@@ -214,7 +217,8 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Đánh giá hiệu suất',
     icon: Award,
     path: '/admin/performance-review',
-    permission: Permission.USERS_VIEW,
+    minimumRole: UserRole.HR_MANAGER,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   {
@@ -223,6 +227,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: BarChart3,
     path: '/admin/attendance-analytics',
     permission: Permission.ANALYTICS_VIEW_DEPARTMENT,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   {
@@ -231,6 +236,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: FileBarChart,
     path: '/admin/admin-reports',
     permission: Permission.VIEW_REPORTS,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   {
@@ -239,24 +245,25 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: DollarSign,
     path: '/admin/payroll',
     permission: Permission.PAYROLL_VIEW,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
-  // Báo cáo lương
   {
     id: 'payroll-reports',
     label: 'Báo cáo lương',
     icon: TrendingUp,
     path: '/admin/payroll-reports',
     permission: Permission.PAYROLL_VIEW,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
-  // Quản lý thang lương
   {
     id: 'salary-matrix',
     label: 'Thang lương',
     icon: Table2,
     path: '/admin/salary-matrix',
     permission: Permission.PAYROLL_MANAGE,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
   // ── Hệ thống & giám sát ────────────────────────────────────────────────────
@@ -289,7 +296,8 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Cấu hình hệ thống',
     icon: Settings,
     path: '/admin/system-config',
-    permission: Permission.AUDIT_LOGS_VIEW,
+    permission: Permission.SYSTEM_SETTINGS_VIEW,
+    excludeRoles: EXCLUDE_SUPER_ADMIN,
     section: 'system',
   },
   {
@@ -298,6 +306,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: ShieldCheck,
     path: '/admin/role-management',
     minimumRole: UserRole.ADMIN,
+    excludeRoles: EXCLUDE_SUPER_ADMIN,
     section: 'system',
   },
   {
@@ -306,6 +315,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: ScanFace,
     path: '/admin/face-recognition-logs',
     minimumRole: UserRole.ADMIN,
+    excludeRoles: EXCLUDE_SUPER_ADMIN,
     section: 'system',
   },
   {
@@ -316,6 +326,15 @@ export const MENU_ITEMS: MenuItem[] = [
     minimumRole: UserRole.ADMIN,
     section: 'admin',
   },
+  {
+    id: 'company-regulations',
+    label: 'AI Knowledge Base',
+    icon: BookOpen,
+    path: '/admin/regulations',
+    minimumRole: UserRole.HR_MANAGER,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
+    section: 'admin',
+  },
 ];
 
 export const PAYROLL_MENU_IDS = new Set(['payroll', 'payroll-reports', 'salary-matrix']);
@@ -323,8 +342,57 @@ export const PLATFORM_MENU_IDS = new Set([
   'company-management',
   'ticket-management',
   'feature-toggles',
-  'ai-billing',
 ]);
+/** HR day-to-day operations (collapsed group in sidebar). */
+export const HR_OPERATIONS_MENU_IDS = new Set([
+  'employee-management',
+  'approve-requests',
+  'admin-attendance',
+  'shifts',
+  'leave-types',
+  'performance-review',
+  'attendance-analytics',
+  'admin-reports',
+  'company-regulations',
+]);
+/** Company org structure — ADMIN only. */
+export const ORG_MENU_IDS = new Set(['departments', 'branches']);
+/** Department manager scope. */
+export const DEPT_MANAGER_MENU_IDS = new Set([
+  'approve-requests',
+  'shifts',
+  'attendance-analytics',
+  'admin-reports',
+]);
+
+/** Sidebar employee shortcuts when role uses a compact personal section. */
+export const HR_PERSONAL_MENU_IDS = new Set([
+  'home',
+  'requests',
+  'leave-balance',
+  'my-payslip',
+  'company-calendar',
+  'profile',
+  'chatbot',
+]);
+
+export const ADMIN_PERSONAL_MENU_IDS = new Set([
+  'company-calendar',
+  'profile',
+  'chatbot',
+]);
+
+/** Role-specific menu label keys (see menu.json). */
+const MENU_LABEL_KEY_BY_ROLE: Partial<Record<UserRoleType, Partial<Record<string, string>>>> = {
+  [UserRole.MANAGER]: {
+    'approve-requests': 'approve-requests-dept',
+    'admin-reports': 'admin-reports-dept',
+  },
+  [UserRole.HR_MANAGER]: {
+    'approve-requests': 'approve-requests-company',
+    'admin-reports': 'admin-reports-company',
+  },
+};
 
 // Helper function to check if user has permission (including higher level permissions)
 function hasPermission(userPermissions: PermissionType[], requiredPermission: PermissionType): boolean {
@@ -356,6 +424,7 @@ export function getMenuByPermissions(
 
   return MENU_ITEMS
     .filter(item => {
+      if (item.excludeRoles?.includes(userRole)) return false;
       if (item.minimumRole && !hasMinimumLevel(userRole, item.minimumRole)) return false;
       if (!item.permission) return true;
       return hasPermission(userPermissions, item.permission);
@@ -382,13 +451,14 @@ export function getMenuByPermissionsWithTranslations(
   const menu = getMenuByPermissions(userRole, basePath, overridePermissions);
   
   // Move "Trang chủ" (home) from employee section to admin section for admin roles
-  const adminRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER, UserRole.SUPERVISOR];
+  const adminRoles: UserRoleType[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.MANAGER];
   const isAdminRole = adminRoles.includes(userRole);
   
   const mapped = menu.map(item => {
+    const labelKey = MENU_LABEL_KEY_BY_ROLE[userRole]?.[item.id] ?? item.id;
     const menuItem = {
       ...item,
-      label: t(`menu:${item.id}`) || item.label,
+      label: t(`menu:${labelKey}`) || item.label,
     };
 
     if (item.id === 'home' && isAdminRole) {

@@ -618,13 +618,16 @@ export const TrialHome: React.FC = () => {
       {/* Today's Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {infoCards.map((item) => {
-          const summaryValue = summary[item.key];
           const value =
             item.key === "workingDays"
-              ? formatWorkingDays(summaryValue, t)
-              : (summaryValue as { name?: string })?.name ||
-                (summaryValue as string) ||
-                "—";
+              ? formatWorkingDays(summary.workingDays, t)
+              : item.key === "shift"
+                ? typeof summary.shift === "string"
+                  ? summary.shift
+                  : summary.shift?.timeRange ||
+                    summary.shift?.label ||
+                    "—"
+                : summary.location ?? "—";
 
           return (
             <motion.div

@@ -216,8 +216,7 @@ export default function AppNavigator({ userRole, isLoading }: AppNavigatorProps)
             userRole === UserRole.Admin ? 'AdminTabs' :
               userRole === UserRole.SuperAdmin ? 'AdminTabs' :
                 userRole === UserRole.HRManager ? 'AdminTabs' :
-                  userRole === UserRole.Supervisor ? 'ManagerTabs' :
-                    userRole === UserRole.Trial ? 'EmployeeTabs' :
+                  userRole === UserRole.Trial ? 'EmployeeTabs' :
                       'Login';
 
       navigationRef.current.reset({
@@ -241,7 +240,6 @@ export default function AppNavigator({ userRole, isLoading }: AppNavigatorProps)
       case UserRole.Trial:
         return 'EmployeeTabs';
       case UserRole.Manager:
-      case UserRole.Supervisor:
         return 'ManagerTabs';
       case UserRole.Admin:
       case UserRole.SuperAdmin:

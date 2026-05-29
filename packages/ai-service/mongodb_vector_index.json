@@ -31,6 +31,10 @@
     {
       "type": "filter",
       "path": "metadata.content_hash"
+    },
+    {
+      "type": "filter",
+      "path": "metadata.company_id"
     }
   ]
 }

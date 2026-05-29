@@ -44,7 +44,6 @@ attendanceRouter.get(
     ROLES.ADMIN,
     ROLES.HR_MANAGER,
     ROLES.MANAGER,
-    ROLES.SUPERVISOR,
     ROLES.SUPER_ADMIN,
   ]),
   requireAnyPermission([PERMISSIONS.ANALYTICS_VIEW_DEPARTMENT, PERMISSIONS.ANALYTICS_VIEW_ALL]),
@@ -56,7 +55,6 @@ attendanceRouter.get(
     ROLES.ADMIN,
     ROLES.HR_MANAGER,
     ROLES.MANAGER,
-    ROLES.SUPERVISOR,
     ROLES.SUPER_ADMIN,
   ]),
   requirePermission(PERMISSIONS.VIEW_REPORTS),
@@ -72,7 +70,7 @@ attendanceRouter.get(
 // to prevent Express from matching them incorrectly
 attendanceRouter.get(
   "/department",
-  requireRole([ROLES.MANAGER, ROLES.SUPERVISOR]),
+  requireRole([ROLES.MANAGER]),
   requirePermission(PERMISSIONS.ATTENDANCE_VIEW_DEPARTMENT),
   getDepartmentAttendance
 );
@@ -82,7 +80,6 @@ attendanceRouter.get(
     ROLES.ADMIN,
     ROLES.HR_MANAGER,
     ROLES.MANAGER,
-    ROLES.SUPERVISOR,
     ROLES.SUPER_ADMIN,
   ]),
   requirePermission(PERMISSIONS.ATTENDANCE_APPROVE),
@@ -94,7 +91,6 @@ attendanceRouter.patch(
     ROLES.ADMIN,
     ROLES.HR_MANAGER,
     ROLES.MANAGER,
-    ROLES.SUPERVISOR,
     ROLES.SUPER_ADMIN,
   ]),
   requirePermission(PERMISSIONS.ATTENDANCE_APPROVE),

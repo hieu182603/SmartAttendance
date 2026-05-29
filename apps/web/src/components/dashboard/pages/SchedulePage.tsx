@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
@@ -12,6 +12,8 @@ import {
   StickyNote,
   Target,
   Star,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,10 +96,13 @@ const SchedulePage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const monthInputRef = useRef<HTMLInputElement>(null);
 
-  const defaultShiftName = t("dashboard:schedule.defaults.shiftName");
   const defaultLocation = t("dashboard:schedule.defaults.location");
-  const defaultTeam = t("dashboard:schedule.defaults.team");
 
   // Update time every minute
   useEffect(() => {
@@ -122,8 +127,16 @@ const SchedulePage: React.FC = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        const monthStart = new Date(
+          selectedMonth.getFullYear(),
+          selectedMonth.getMonth(),
+          1
+        );
+        const monthEnd = new Date(
+          selectedMonth.getFullYear(),
+          selectedMonth.getMonth() + 1,
+          0
+        );
         monthEnd.setHours(0, 0, 0, 0);
 
         const currentDayOfWeek = today.getDay();
@@ -144,8 +157,8 @@ const SchedulePage: React.FC = () => {
         const startDateStr = rangeStart.toISOString().split("T")[0];
         const endDateStr = rangeEnd.toISOString().split("T")[0];
 
-        // Fetch schedule, attendance, and available shifts in parallel
-        const [scheduleData, attendanceData, availableShifts] =
+        // Fetch schedule and attendance in parallel
+        const [scheduleData, attendanceData] =
           await Promise.all([
             shiftService
               .getMySchedule(startDateStr, endDateStr)
@@ -155,7 +168,6 @@ const SchedulePage: React.FC = () => {
               toast.error("Không thể tải lịch sử điểm danh cho lịch làm việc");
               return { records: [], pagination: null };
             }),
-            shiftService.getAllShifts().catch(() => []),
           ]);
 
         // Store attendance records
@@ -234,22 +246,6 @@ const SchedulePage: React.FC = () => {
           }
         });
 
-        // Fallback: Nếu có schedule từ assignments nhưng thiếu một số ngày,
-        // có thể dùng default shift để lấp khoảng trống.
-        // Không dùng fallback nếu hoàn toàn không có schedule nào (tài khoản mới),
-        // để tránh hiển thị lịch "ảo" cho user mới đăng ký.
-        let fallbackShift = null;
-        if (
-          availableShifts &&
-          availableShifts.length > 0 &&
-          scheduleMap.size > 0
-        ) {
-          fallbackShift =
-            availableShifts.find(
-              (s: any) => s.name === defaultShiftName
-            ) || availableShifts[0];
-        }
-
         // Generate schedule for all days in range (hiển thị đủ 7 ngày)
         const finalSchedule: EmployeeSchedule[] = [];
         const cursor = new Date(rangeStart);
@@ -263,19 +259,6 @@ const SchedulePage: React.FC = () => {
 
           // Nếu có schedule được gán, sử dụng nó
           let scheduleToUse = assignedSchedule;
-
-          // Fallback: Chỉ dùng default shift khi đã có ít nhất 1 schedule thật
-          // (scheduleMap.size > 0) để lấp các ngày trống.
-          if (!scheduleToUse && fallbackShift && scheduleMap.size > 0) {
-            scheduleToUse = {
-              shiftId: fallbackShift._id,
-              shiftName: fallbackShift.name,
-              startTime: fallbackShift.startTime,
-              endTime: fallbackShift.endTime,
-              breakDuration: fallbackShift.breakDuration || 60,
-              description: fallbackShift.description || "",
-            };
-          }
 
           if (scheduleToUse) {
             const shiftId =
@@ -343,7 +326,7 @@ const SchedulePage: React.FC = () => {
                   attendance?.location ||
                   defaultLocation,
                 team:
-                  scheduleToUse.team || defaultTeam,
+                  scheduleToUse.team || "",
                 notes: scheduleToUse.notes || description,
                 attendanceRecord: attendance,
               });
@@ -396,7 +379,7 @@ const SchedulePage: React.FC = () => {
               location:
                 attendance.location ||
                 defaultLocation,
-              team: defaultTeam,
+              team: "",
               notes: attendance.notes || "",
               attendanceRecord: attendance,
             });
@@ -416,7 +399,7 @@ const SchedulePage: React.FC = () => {
     };
 
     fetchData();
-  }, [userId, authLoading, defaultShiftName, defaultLocation, defaultTeam]);
+  }, [userId, authLoading, defaultLocation, selectedMonth]);
 
   const [liveTime, setLiveTime] = useState(new Date());
 
@@ -427,7 +410,7 @@ const SchedulePage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  if (loading) {
+  if (loading && schedule.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
@@ -439,11 +422,21 @@ const SchedulePage: React.FC = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split("T")[0];
+  const selectedMonthStart = new Date(
+    selectedMonth.getFullYear(),
+    selectedMonth.getMonth(),
+    1
+  );
+  const selectedMonthEnd = new Date(
+    selectedMonth.getFullYear(),
+    selectedMonth.getMonth() + 1,
+    0
+  );
 
   const todayShifts = schedule.filter((s) => s.date === todayStr);
 
-  const currentMonthKey = `${today.getFullYear()}-${String(
-    today.getMonth() + 1
+  const currentMonthKey = `${selectedMonthStart.getFullYear()}-${String(
+    selectedMonthStart.getMonth() + 1
   ).padStart(2, "0")}`;
   const monthShifts = schedule.filter((s) =>
     s.date.startsWith(currentMonthKey)
@@ -536,24 +529,24 @@ const SchedulePage: React.FC = () => {
       ? (stats.totalHours / stats.thisMonth).toFixed(1)
       : "0.0";
 
-  const currentMonthLabel = today.toLocaleDateString("vi-VN", {
+  const currentMonthLabel = selectedMonthStart.toLocaleDateString("vi-VN", {
     month: "long",
     year: "numeric",
   });
 
   // Build month calendar grid (Mon-first) for compact month view
-  const monthStartDisplay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const monthEndDisplay = new Date(
-    today.getFullYear(),
-    today.getMonth() + 1,
-    0
-  );
+  const monthStartDisplay = selectedMonthStart;
+  const monthEndDisplay = selectedMonthEnd;
   const daysInMonth = monthEndDisplay.getDate();
   const leadingEmpty = (monthStartDisplay.getDay() + 6) % 7; // convert Sunday=0 to Monday=0
   const monthDaysRaw: Array<{ date: Date | null }> = [
     ...Array.from({ length: leadingEmpty }, () => ({ date: null })),
     ...Array.from({ length: daysInMonth }, (_, i) => ({
-      date: new Date(today.getFullYear(), today.getMonth(), i + 1),
+      date: new Date(
+        selectedMonthStart.getFullYear(),
+        selectedMonthStart.getMonth(),
+        i + 1
+      ),
     })),
   ];
   const totalCells = Math.ceil(monthDaysRaw.length / 7) * 7;
@@ -765,6 +758,42 @@ const SchedulePage: React.FC = () => {
     },
   ];
 
+  const selectedMonthInputValue = `${selectedMonthStart.getFullYear()}-${String(
+    selectedMonthStart.getMonth() + 1
+  ).padStart(2, "0")}`;
+
+  const openMonthPicker = () => {
+    const input = monthInputRef.current;
+    if (!input) return;
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  };
+
+  const handleMonthChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value;
+    if (!nextValue) return;
+    const [yearStr, monthStr] = nextValue.split("-");
+    const year = Number.parseInt(yearStr, 10);
+    const month = Number.parseInt(monthStr, 10);
+    if (Number.isNaN(year) || Number.isNaN(month)) return;
+    setSelectedMonth(new Date(year, month - 1, 1));
+  };
+
+  const handlePrevMonth = () => {
+    setSelectedMonth(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
+    );
+  };
+
+  const handleNextMonth = () => {
+    setSelectedMonth(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -842,7 +871,7 @@ const SchedulePage: React.FC = () => {
         >
           {/* Today's Shift Card */}
           <Card className="bg-gradient-to-br from-[var(--primary)]/[0.15] to-[var(--accent-cyan)]/[0.15] dark:from-[var(--primary)]/[0.08] dark:to-[var(--accent-cyan)]/[0.08] border-[var(--border)] h-full">
-            <CardHeader>
+            <CardHeader className="!pb-[15px]">
               <CardTitle className="text-[var(--text-main)] flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Target className="h-5 w-5 text-[var(--accent-cyan)]" />
@@ -961,6 +990,14 @@ const SchedulePage: React.FC = () => {
                                         "dashboard:schedule.notCheckedIn"
                                       )}`}
                                 </Badge>
+                                {(shift.attendanceRecord?.status === "overtime" ||
+                                  (shift.shift.name ?? "")
+                                    .toLowerCase()
+                                    .includes("ot")) && (
+                                  <Badge className="bg-[var(--warning)]/15 text-[var(--warning)] border border-[var(--warning)]/30">
+                                    ⚡ OT
+                                  </Badge>
+                                )}
                                 {shift.status === "off" &&
                                   shift.notes?.includes("Nghỉ") && (
                                     <span
@@ -989,10 +1026,12 @@ const SchedulePage: React.FC = () => {
                           {/* Với user mới (ca tạo từ chấm công), chỉ hiển thị giờ + trụ sở */}
                           {shift.shift.name !== "Ca theo chấm công" && (
                             <>
-                              <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
-                                <Users className="h-4 w-4 text-[var(--primary)]" />
-                                <span>{shift.team}</span>
-                              </div>
+                              {shift.team && (
+                                <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
+                                  <Users className="h-4 w-4 text-[var(--primary)]" />
+                                  <span>{shift.team}</span>
+                                </div>
+                              )}
                               {sanitizeNotes(shift.notes) && (
                                 <div className="flex items-center space-x-2 text-sm text-[var(--text-sub)]">
                                   <StickyNote className="h-4 w-4 text-[var(--warning)]" />
@@ -1028,15 +1067,70 @@ const SchedulePage: React.FC = () => {
         >
           {/* Month Overview */}
           <Card className="bg-[var(--surface)] border-[var(--border)] h-full flex flex-col">
-            <CardHeader>
-              <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
-                <CalendarIcon className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <span>
-                  {t("dashboard:schedule.monthLabel", {
-                    month: currentMonthLabel,
-                  })}
-                </span>
+            <CardHeader className="!pb-[15px]">
+              <CardTitle className="text-[var(--text-main)] flex items-center justify-between gap-3">
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={openMonthPicker}
+                    className="inline-flex items-center justify-center rounded-md p-1.5 text-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-colors"
+                    title={t("dashboard:schedule.monthLabel", {
+                      month: currentMonthLabel,
+                    })}
+                    aria-label={t("dashboard:schedule.monthLabel", {
+                      month: currentMonthLabel,
+                    })}
+                  >
+                    <CalendarIcon className="h-5 w-5" />
+                  </button>
+                  <span>
+                    {t("dashboard:schedule.monthLabel", {
+                      month: currentMonthLabel,
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handlePrevMonth}
+                    className="inline-flex items-center justify-center rounded-md p-1.5 text-[var(--text-sub)] hover:bg-[var(--shell)] hover:text-[var(--text-main)] transition-colors"
+                    aria-label={t("dashboard:schedule.previousMonth", {
+                      defaultValue: "Tháng trước",
+                    })}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openMonthPicker}
+                    className="rounded-md border border-[var(--border)] bg-[var(--shell)] px-2 py-1 text-xs text-[var(--text-main)] hover:border-[var(--accent-cyan)]/60 transition-colors"
+                    title={t("dashboard:schedule.monthLabel", {
+                      month: currentMonthLabel,
+                    })}
+                  >
+                    {selectedMonthInputValue}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    className="inline-flex items-center justify-center rounded-md p-1.5 text-[var(--text-sub)] hover:bg-[var(--shell)] hover:text-[var(--text-main)] transition-colors"
+                    aria-label={t("dashboard:schedule.nextMonth", {
+                      defaultValue: "Tháng sau",
+                    })}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </CardTitle>
+              <input
+                ref={monthInputRef}
+                type="month"
+                value={selectedMonthInputValue}
+                onChange={handleMonthChange}
+                className="sr-only"
+                aria-hidden="true"
+                tabIndex={-1}
+              />
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
               <div className="grid grid-cols-7 gap-2 mb-2 text-center text-xs text-[var(--text-sub)]">

@@ -64,7 +64,6 @@ const ROLES: RoleConfig[] = [
   { value: UserRole.ADMIN, label: ROLE_NAMES[UserRole.ADMIN], color: 'primary', icon: Shield },
   { value: UserRole.HR_MANAGER, label: ROLE_NAMES[UserRole.HR_MANAGER], color: 'warning', icon: ShieldCheck },
   { value: UserRole.MANAGER, label: ROLE_NAMES[UserRole.MANAGER], color: 'accent-cyan', icon: ShieldCheck },
-  { value: UserRole.SUPERVISOR, label: ROLE_NAMES[UserRole.SUPERVISOR], color: 'success', icon: UserCheck },
   { value: UserRole.EMPLOYEE, label: ROLE_NAMES[UserRole.EMPLOYEE], color: 'text-sub', icon: Shield },
   { value: UserRole.TRIAL, label: ROLE_NAMES[UserRole.TRIAL], color: 'warning', icon: Sparkles },
 ]
@@ -274,8 +273,8 @@ const EmployeeManagementPage: React.FC = () => {
         params.shift = shiftFilter
       }
 
-      // For SUPERVISOR, only show users in their department
-      if (currentUser?.role === 'SUPERVISOR' && currentUser?.department) {
+      // For MANAGER, only show users in their department
+      if (currentUser?.role === 'MANAGER' && currentUser?.department) {
         const dept = currentUser.department
         params.department = typeof dept === 'object' ? dept._id : dept
       }

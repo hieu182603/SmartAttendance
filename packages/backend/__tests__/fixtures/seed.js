@@ -74,7 +74,6 @@ export async function seedAllUsers(UserModel) {
     "ADMIN",
     "HR_MANAGER",
     "MANAGER",
-    "SUPERVISOR",
     "EMPLOYEE",
   ];
   const users = {};

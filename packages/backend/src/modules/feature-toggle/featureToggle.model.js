@@ -14,7 +14,7 @@ const featureToggleSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     enabled: { type: Boolean, default: true },
-    disabledForRoles: [{ type: String, enum: ["EMPLOYEE", "TRIAL", "SUPERVISOR", "MANAGER", "HR_MANAGER", "ADMIN"] }],
+    disabledForRoles: [{ type: String, enum: ["EMPLOYEE", "TRIAL", "MANAGER", "HR_MANAGER", "ADMIN"] }],
     companyOverrides: [companyOverrideSchema],
     category: { type: String, enum: ["core", "advanced", "ai"], default: "core" },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

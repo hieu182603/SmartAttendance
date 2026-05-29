@@ -49,6 +49,13 @@ interface InfoCard {
   delay: number;
 }
 
+interface ShiftSummaryValue {
+  label?: string | null;
+  timeRange?: string | null;
+  isOvertime?: boolean;
+  name?: string;
+}
+
 const formatWorkingDays = (
   value: string | number | { used: number; total: number } | null,
   t: (key: string) => string
@@ -113,6 +120,22 @@ export const EmployeeHome: React.FC = () => {
     if (hour < 17) return t("dashboard:employeeHome.greeting.afternoon");
     if (hour < 21) return t("dashboard:employeeHome.greeting.evening");
     return t("dashboard:employeeHome.greeting.night");
+  };
+
+  const formatShiftValue = (
+    shift: string | ShiftSummaryValue | null | undefined
+  ): string => {
+    if (!shift) return "—";
+    if (typeof shift === "string") return shift;
+
+    const baseValue = shift.timeRange || shift.label || shift.name || "—";
+    if (!shift.isOvertime) return baseValue;
+
+    if (baseValue === "—") {
+      return t("dashboard:employeeHome.info.overtimeTag");
+    }
+
+    return `${baseValue} + ${t("dashboard:employeeHome.info.overtimeTag")}`;
   };
 
   const infoCards: InfoCard[] = [
@@ -339,12 +362,9 @@ export const EmployeeHome: React.FC = () => {
 
             <p className="opacity-90 mt-2">
               Ca:{" "}
-              {(summary.shift as { timeRange?: string; label?: string })
-                ?.timeRange ||
-                (summary.shift as { timeRange?: string; label?: string })
-                  ?.label ||
-                (summary.shift as string) ||
-                "08:00 - 17:00"}
+              {formatShiftValue(summary.shift) !== "—"
+                ? formatShiftValue(summary.shift)
+                : "08:00 - 17:00"}
             </p>
           </motion.div>
         </div>
@@ -582,13 +602,12 @@ export const EmployeeHome: React.FC = () => {
       {/* Today's Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ">
         {infoCards.map((item) => {
-          const summaryValue = summary[item.key];
           const value =
             item.key === "workingDays"
-              ? formatWorkingDays(summaryValue, t)
-              : (summaryValue as { name?: string })?.name ||
-                (summaryValue as string) ||
-                "—";
+              ? formatWorkingDays(summary.workingDays, t)
+              : item.key === "shift"
+                ? formatShiftValue(summary.shift)
+                : summary.location ?? "—";
 
           return (
             <motion.div

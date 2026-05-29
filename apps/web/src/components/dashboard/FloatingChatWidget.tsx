@@ -16,12 +16,6 @@ const ROLE_SUGGESTIONS: Record<string, string[]> = {
     'Xem thông tin cá nhân của tôi',
     'Xem danh sách đơn từ của tôi',
   ],
-  supervisor: [
-    'Nhân viên phòng ban đã chấm công chưa?',
-    'Có đơn nào đang chờ duyệt không?',
-    'Thống kê chấm công phòng ban',
-    'Danh sách nhân viên phòng ban',
-  ],
   manager: [
     'Thống kê nhân viên phòng ban',
     'Các đơn đang chờ phê duyệt',

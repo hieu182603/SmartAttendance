@@ -25,7 +25,6 @@ const ROLE_BADGE: Record<string, 'default' | 'warning' | 'error' | 'success' | '
   ADMIN: 'warning',
   HR_MANAGER: 'warning',
   MANAGER: 'default',
-  SUPERVISOR: 'default',
   EMPLOYEE: 'outline',
 };
 
@@ -34,7 +33,6 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Quản trị viên',
   HR_MANAGER: 'Quản lý HR',
   MANAGER: 'Quản lý',
-  SUPERVISOR: 'Giám sát',
   EMPLOYEE: 'Nhân viên',
 };
 

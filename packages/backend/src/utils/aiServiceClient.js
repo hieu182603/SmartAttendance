@@ -339,6 +339,77 @@ class AIServiceClient {
   }
 
   /**
+   * Ingest a company regulation document into the AI vector store.
+   * The AI service will stamp company_id (from JWT) onto every chunk.
+   *
+   * @param {string} authToken - Bearer JWT of the calling admin user
+   * @param {object} payload - { regulation_id, title, content, doc_type, chunk_size, chunk_overlap }
+   */
+  async ingestRegulation(authToken, payload) {
+    if (!this.canMakeRequest()) {
+      throw new Error("AI Service is currently unavailable (circuit breaker open)");
+    }
+
+    const client = this.createClient();
+    const requestFn = () =>
+      client.post("/api/rag/regulations/ingest", payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authToken,
+        },
+        timeout: 120000, // Text extraction + vector embed can take a while for large files
+      });
+
+    try {
+      const resp = await this.retryRequest(requestFn, 2, 2000);
+      return resp;
+    } catch (error) {
+      if (error.code === "ECONNABORTED") {
+        throw new Error("AI Service request timeout");
+      }
+      if (error.code === "ECONNREFUSED") {
+        throw new Error("AI Service connection refused");
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all vector chunks associated with a specific regulation.
+   * The AI service validates company ownership via JWT, so only chunks
+   * belonging to the same tenant are deleted.
+   *
+   * @param {string} authToken - Bearer JWT of the calling admin user
+   * @param {string} regulationId - MongoDB _id of the regulation record
+   */
+  async deleteRegulationVectors(authToken, regulationId) {
+    if (!this.canMakeRequest()) {
+      throw new Error("AI Service is currently unavailable (circuit breaker open)");
+    }
+
+    const client = this.createClient();
+    const requestFn = () =>
+      client.delete(`/api/rag/regulations/${regulationId}`, {
+        headers: {
+          Authorization: authToken,
+        },
+        timeout: this.timeout,
+      });
+
+    try {
+      return await this.retryRequest(requestFn, 2, 1000);
+    } catch (error) {
+      if (error.code === "ECONNABORTED") {
+        throw new Error("AI Service request timeout");
+      }
+      if (error.code === "ECONNREFUSED") {
+        throw new Error("AI Service connection refused");
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Health check
    */
   async healthCheck() {

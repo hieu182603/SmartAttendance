@@ -13,6 +13,7 @@ import {
   Wallet,
   ChevronDown,
   Building2,
+  Briefcase,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
@@ -32,6 +33,11 @@ import {
   getMenuByPermissionsWithTranslations,
   PAYROLL_MENU_IDS,
   PLATFORM_MENU_IDS,
+  HR_OPERATIONS_MENU_IDS,
+  ORG_MENU_IDS,
+  DEPT_MANAGER_MENU_IDS,
+  HR_PERSONAL_MENU_IDS,
+  ADMIN_PERSONAL_MENU_IDS,
   type MenuItem,
 } from "@/utils/menuItems";
 import { usePermissionsOverride } from "@/context/PermissionsContext";
@@ -103,17 +109,28 @@ const DashboardLayout: React.FC = () => {
   const filteredMenu = useMemo(() => {
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
       const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
-      const employeeSidebarIds =
+      const personalIds =
         userRole === UserRole.SUPER_ADMIN
           ? ['profile', 'chatbot']
-          : ['company-calendar', 'profile', 'chatbot'];
+          : [...ADMIN_PERSONAL_MENU_IDS];
       const employeeItems = menu.filter(
-        item => item.section === 'employee' && employeeSidebarIds.includes(item.id),
+        item => item.section === 'employee' && personalIds.includes(item.id),
       );
       return [...adminItems, ...employeeItems];
     }
-    if (userRole === UserRole.HR_MANAGER || userRole === UserRole.MANAGER || userRole === UserRole.SUPERVISOR) {
-      return menu;
+    if (userRole === UserRole.HR_MANAGER) {
+      const adminItems = menu.filter(item => item.section === 'admin');
+      const employeeItems = menu.filter(
+        item => item.section === 'employee' && HR_PERSONAL_MENU_IDS.has(item.id),
+      );
+      return [...adminItems, ...employeeItems];
+    }
+    if (userRole === UserRole.MANAGER) {
+      const deptAdminItems = menu.filter(
+        item => item.section === 'admin' && DEPT_MANAGER_MENU_IDS.has(item.id),
+      );
+      const employeeItems = menu.filter(item => item.section === 'employee');
+      return [...deptAdminItems, ...employeeItems];
     }
     return menu.filter(item => item.section === 'employee');
   }, [menu, userRole]);
@@ -245,21 +262,58 @@ const DashboardLayout: React.FC = () => {
                       )}
                       {(() => {
                         const isSuperAdmin = userRole === UserRole.SUPER_ADMIN;
-                        const payrollItems = sections.admin.filter((item) => PAYROLL_MENU_IDS.has(item.id));
+                        const isHrManager = userRole === UserRole.HR_MANAGER;
+                        const isDeptManager = userRole === UserRole.MANAGER;
+
+                        const payrollItems = sections.admin.filter((item) =>
+                          PAYROLL_MENU_IDS.has(item.id),
+                        );
                         const platformItems = isSuperAdmin
                           ? sections.admin.filter((item) => PLATFORM_MENU_IDS.has(item.id))
                           : [];
+                        const hrOpsItems = isHrManager
+                          ? sections.admin.filter((item) => HR_OPERATIONS_MENU_IDS.has(item.id))
+                          : [];
+                        const orgItems =
+                          userRole === UserRole.ADMIN
+                            ? sections.admin.filter((item) => ORG_MENU_IDS.has(item.id))
+                            : [];
+                        const deptMgrItems = isDeptManager
+                          ? sections.admin.filter((item) => DEPT_MANAGER_MENU_IDS.has(item.id))
+                          : [];
+
+                        const groupedIds = new Set([
+                          ...payrollItems.map((i) => i.id),
+                          ...platformItems.map((i) => i.id),
+                          ...hrOpsItems.map((i) => i.id),
+                          ...orgItems.map((i) => i.id),
+                          ...deptMgrItems.map((i) => i.id),
+                        ]);
+
                         const otherAdminItems = sections.admin.filter(
-                          (item) =>
-                            !PAYROLL_MENU_IDS.has(item.id) &&
-                            !(isSuperAdmin && PLATFORM_MENU_IDS.has(item.id))
+                          (item) => !groupedIds.has(item.id),
                         );
                         const homeItem = otherAdminItems.find((item) => item.id === "home");
                         const mainAdminItems = otherAdminItems.filter((item) => item.id !== "home");
-                        const isPayrollGroupActive = payrollItems.some((item) => currentPage === item.id);
+                        const isPayrollGroupActive = payrollItems.some(
+                          (item) => currentPage === item.id,
+                        );
                         const isPayrollGroupOpen = isPayrollGroupActive || openMenuGroups.payroll;
-                        const isPlatformGroupActive = platformItems.some((item) => currentPage === item.id);
-                        const isPlatformGroupOpen = isPlatformGroupActive || openMenuGroups.platform;
+                        const isPlatformGroupActive = platformItems.some(
+                          (item) => currentPage === item.id,
+                        );
+                        const isPlatformGroupOpen =
+                          isPlatformGroupActive || openMenuGroups.platform;
+                        const isHrOpsGroupActive = hrOpsItems.some(
+                          (item) => currentPage === item.id,
+                        );
+                        const isHrOpsGroupOpen = isHrOpsGroupActive || openMenuGroups.hrOps;
+                        const isOrgGroupActive = orgItems.some((item) => currentPage === item.id);
+                        const isOrgGroupOpen = isOrgGroupActive || openMenuGroups.org;
+                        const isDeptGroupActive = deptMgrItems.some(
+                          (item) => currentPage === item.id,
+                        );
+                        const isDeptGroupOpen = isDeptGroupActive || openMenuGroups.deptMgmt;
 
                         const renderNavItem = (item: MenuItem) => {
                           const Icon = item.icon;
@@ -339,6 +393,111 @@ const DashboardLayout: React.FC = () => {
                                 {!isSidebarCollapsed && isPlatformGroupOpen && (
                                   <div className="mt-1 ml-4 space-y-1 border-l border-[var(--border)] pl-3">
                                     {platformItems.map(renderSubNavItem)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {orgItems.length > 0 && (
+                              <div className={`${isSidebarCollapsed ? "mt-1" : "mt-2"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenMenuGroups((prev) => ({ ...prev, org: !isOrgGroupOpen }))
+                                  }
+                                  title={isSidebarCollapsed ? tMenu("org-group") : undefined}
+                                  className={`
+                                w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
+                                transition-all duration-200
+                                ${isOrgGroupActive
+                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                                }
+                              `}
+                                >
+                                  <Building2 className="h-5 w-5" />
+                                  {!isSidebarCollapsed && (
+                                    <>
+                                      <span className="text-sm flex-1 text-left">{tMenu("org-group")}</span>
+                                      <ChevronDown
+                                        className={`h-4 w-4 transition-transform duration-200 ${isOrgGroupOpen ? "rotate-180" : ""}`}
+                                      />
+                                    </>
+                                  )}
+                                </button>
+                                {!isSidebarCollapsed && isOrgGroupOpen && (
+                                  <div className="mt-1 ml-4 space-y-1 border-l border-[var(--border)] pl-3">
+                                    {orgItems.map(renderSubNavItem)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {hrOpsItems.length > 0 && (
+                              <div className={`${isSidebarCollapsed ? "mt-1" : "mt-2"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenMenuGroups((prev) => ({ ...prev, hrOps: !isHrOpsGroupOpen }))
+                                  }
+                                  title={isSidebarCollapsed ? tMenu("hr-operations-group") : undefined}
+                                  className={`
+                                w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
+                                transition-all duration-200
+                                ${isHrOpsGroupActive
+                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                                }
+                              `}
+                                >
+                                  <Briefcase className="h-5 w-5" />
+                                  {!isSidebarCollapsed && (
+                                    <>
+                                      <span className="text-sm flex-1 text-left">{tMenu("hr-operations-group")}</span>
+                                      <ChevronDown
+                                        className={`h-4 w-4 transition-transform duration-200 ${isHrOpsGroupOpen ? "rotate-180" : ""}`}
+                                      />
+                                    </>
+                                  )}
+                                </button>
+                                {!isSidebarCollapsed && isHrOpsGroupOpen && (
+                                  <div className="mt-1 ml-4 space-y-1 border-l border-[var(--border)] pl-3">
+                                    {hrOpsItems.map(renderSubNavItem)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {deptMgrItems.length > 0 && (
+                              <div className={`${isSidebarCollapsed ? "mt-1" : "mt-2"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenMenuGroups((prev) => ({ ...prev, deptMgmt: !isDeptGroupOpen }))
+                                  }
+                                  title={isSidebarCollapsed ? tMenu("dept-management-group") : undefined}
+                                  className={`
+                                w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
+                                transition-all duration-200
+                                ${isDeptGroupActive
+                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
+                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
+                                }
+                              `}
+                                >
+                                  <Briefcase className="h-5 w-5" />
+                                  {!isSidebarCollapsed && (
+                                    <>
+                                      <span className="text-sm flex-1 text-left">{tMenu("dept-management-group")}</span>
+                                      <ChevronDown
+                                        className={`h-4 w-4 transition-transform duration-200 ${isDeptGroupOpen ? "rotate-180" : ""}`}
+                                      />
+                                    </>
+                                  )}
+                                </button>
+                                {!isSidebarCollapsed && isDeptGroupOpen && (
+                                  <div className="mt-1 ml-4 space-y-1 border-l border-[var(--border)] pl-3">
+                                    {deptMgrItems.map(renderSubNavItem)}
                                   </div>
                                 )}
                               </div>

@@ -42,6 +42,15 @@ class DataIngestionRequest(BaseModel):
     chunk_size: int = Field(1000, description="Text chunk size")
     chunk_overlap: int = Field(200, description="Overlap between chunks")
 
+class RegulationIngestRequest(BaseModel):
+    """Request body for ingesting a company regulation document into the vector store."""
+    regulation_id: str = Field(..., description="MongoDB _id of the regulation record (from backend metadata DB)")
+    title: str = Field(..., description="Human-readable title of the regulation document")
+    content: str = Field(..., description="Plain-text content extracted from the uploaded file")
+    doc_type: str = Field("company_regulation", description="Document category tag")
+    chunk_size: int = Field(1000, description="Text chunk size")
+    chunk_overlap: int = Field(200, description="Overlap between chunks")
+
 class ConversationListResponse(BaseModel):
     conversations: List[Dict[str, Any]]
 
@@ -75,7 +84,7 @@ async def chat_with_rag(
 
         # Check if user has permission for RAG operations
         # Roles are normalized to lowercase in auth.py
-        allowed_roles = ["employee", "supervisor", "manager", "hr_manager", "admin", "super_admin"]
+        allowed_roles = ["employee", "manager", "hr_manager", "admin", "super_admin"]
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=403,
@@ -152,6 +161,137 @@ async def ingest_documents(
     except Exception as e:
         logger.error(f"Error ingesting documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to ingest documents: {str(e)}")
+
+# ---------------------------------------------------------------------------
+# Regulation-specific endpoints (multitenant company knowledge base)
+# ---------------------------------------------------------------------------
+
+@router.post("/regulations/ingest", response_model=Dict[str, Any])
+async def ingest_regulation(
+    request: RegulationIngestRequest,
+    current_user: UserPrincipal = Depends(get_current_user),
+    rag_service: RAGService = Depends(get_rag_service)
+):
+    """
+    Ingest a single company regulation document into the vector store.
+
+    - **regulation_id**: The MongoDB _id of the regulation record stored in the backend DB.
+    - **title**: Human-readable title.
+    - **content**: Plain text extracted from the uploaded file.
+
+    The `company_id` is **always taken from the JWT token** and cannot be supplied
+    by the client, preventing cross-tenant data injection.
+
+    Requires admin or hr_manager role.
+    """
+    try:
+        privileged_roles = ["admin", "hr_manager", "super_admin"]
+        if current_user.role not in privileged_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Role '{current_user.role}' not authorized for regulation ingestion"
+            )
+
+        company_id = current_user.company_id
+        if not company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot determine company from token. Please re-login."
+            )
+
+        logger.info(
+            f"Ingesting regulation '{request.title}' "
+            f"(id={request.regulation_id}) for company_id={company_id}"
+        )
+
+        # Build a document with regulation-specific metadata
+        document = {
+            "content": request.content,
+            "source": request.title,
+            "doc_type": request.doc_type,
+            "metadata": {
+                "regulation_id": request.regulation_id,
+                "title": request.title,
+                "doc_type": request.doc_type,
+                "access_level": "public",
+                # company_id will also be stamped by DocumentManager.ingest()
+            },
+        }
+
+        result = await rag_service.ingest_documents(
+            documents=[document],
+            collection_name=RAG_COLLECTION_NAME,
+            chunk_size=request.chunk_size,
+            chunk_overlap=request.chunk_overlap,
+            company_id=company_id,
+        )
+
+        return {
+            "status": "success",
+            "regulation_id": request.regulation_id,
+            "company_id": company_id,
+            "chunks_ingested": result.get("total_chunks", 0),
+            "message": f"Regulation '{request.title}' ingested successfully with {result.get('total_chunks', 0)} chunks."
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error ingesting regulation: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to ingest regulation: {str(e)}")
+
+
+@router.delete("/regulations/{regulation_id}", response_model=Dict[str, Any])
+async def delete_regulation_vectors(
+    regulation_id: str,
+    current_user: UserPrincipal = Depends(get_current_user),
+    rag_service: RAGService = Depends(get_rag_service)
+):
+    """
+    Delete all vector chunks associated with a regulation document.
+
+    The tenant guard (`company_id` from JWT) ensures a company can only
+    delete its own regulation chunks, never another tenant's data.
+
+    Requires admin or hr_manager role.
+    """
+    try:
+        privileged_roles = ["admin", "hr_manager", "super_admin"]
+        if current_user.role not in privileged_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Role '{current_user.role}' not authorized for regulation deletion"
+            )
+
+        company_id = current_user.company_id
+        if not company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot determine company from token. Please re-login."
+            )
+
+        deleted_count = await rag_service.delete_regulation(
+            regulation_id=regulation_id,
+            company_id=company_id,
+        )
+
+        logger.info(
+            f"Deleted {deleted_count} vector chunks for regulation_id={regulation_id}, "
+            f"company_id={company_id}"
+        )
+
+        return {
+            "status": "success",
+            "regulation_id": regulation_id,
+            "deleted_chunks": deleted_count,
+            "message": f"Deleted {deleted_count} vector chunks for regulation '{regulation_id}'."
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting regulation vectors: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete regulation vectors: {str(e)}")
 
 @router.get("/conversations", response_model=ConversationListResponse)
 async def get_user_conversations(
@@ -257,7 +397,8 @@ async def search_documents(
             collection_name=collection_name,
             limit=limit,
             user_role=current_user.role,
-            department_id=current_user.department_id
+            department_id=current_user.department_id,
+            company_id=current_user.company_id,
         )
 
         return {"results": results}

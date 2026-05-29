@@ -55,8 +55,8 @@ export class DashboardController {
 
       let departmentFilter = null;
 
-      // For SUPERVISOR, get stats only for their department
-      if (userRole === 'SUPERVISOR') {
+      // For MANAGER, get stats only for their department
+      if (userRole === 'MANAGER') {
         const UserModel = (await import("../users/user.model.js")).UserModel;
         const user = await UserModel.findById(userId).select('department');
         if (user && user.department) {

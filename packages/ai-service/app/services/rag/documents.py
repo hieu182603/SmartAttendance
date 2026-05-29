@@ -44,7 +44,8 @@ class DocumentManager:
         documents: List[Dict[str, Any]],
         collection_name: str = None,
         chunk_size: int = None,
-        chunk_overlap: int = None
+        chunk_overlap: int = None,
+        company_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Ingest documents into vector database
@@ -54,6 +55,7 @@ class DocumentManager:
             collection_name: Target collection name (optional override)
             chunk_size: Size of document chunks (optional override)
             chunk_overlap: Overlap between chunks (optional override)
+            company_id: Tenant identifier stamped on every chunk for isolation
             
         Returns:
             Dict with ingestion results
@@ -88,18 +90,39 @@ class DocumentManager:
                     "ingested_at": datetime.now(timezone.utc),
                     "source": doc_data.get("source", "unknown"),
                     "doc_type": doc_data.get("doc_type", "text"),
-                    "collection_name": target_collection
+                    "collection_name": target_collection,
                 })
+                # Stamp company_id for multitenant isolation
+                if company_id:
+                    metadata["company_id"] = company_id
 
                 # Split text into chunks
                 chunks = text_splitter.split_text(content)
+
+                # Per-document identifier so two *different* regulations sharing
+                # an identical paragraph don't end up dedup-ing each other's
+                # chunks. Falls back to the source name when no regulation_id
+                # is present (legacy / non-regulation ingest paths).
+                doc_identity = (
+                    metadata.get("regulation_id")
+                    or doc_data.get("source")
+                    or "anon"
+                )
 
                 for i, chunk in enumerate(chunks):
                     # content_hash makes ingestion idempotent: re-running the same
                     # document yields the same hash per chunk, so we can delete the
                     # previous version before inserting (upsert-like semantics).
+                    #   - company_id     → isolate tenants with identical text
+                    #   - doc_identity   → isolate documents within the same tenant
+                    #     (otherwise re-ingesting doc B would purge doc A's chunks
+                    #      if they happened to share a paragraph).
+                    hash_input = (
+                        f"{company_id or ''}::{doc_identity}::"
+                        f"{target_collection}::{chunk}"
+                    )
                     content_hash = hashlib.sha256(
-                        f"{target_collection}::{chunk}".encode("utf-8")
+                        hash_input.encode("utf-8")
                     ).hexdigest()
 
                     chunk_metadata = metadata.copy()
@@ -135,7 +158,10 @@ class DocumentManager:
             # Add to vector store
             if langchain_docs:
                 await self.vector_store.aadd_documents(langchain_docs)
-                logger.info(f"Successfully ingested {len(langchain_docs)} chunks from {len(documents)} documents")
+                logger.info(
+                    f"Successfully ingested {len(langchain_docs)} chunks from "
+                    f"{len(documents)} documents (company_id={company_id})"
+                )
             
             return {
                 "total_documents": len(documents),
@@ -156,10 +182,16 @@ class DocumentManager:
         collection_name: str = None,
         limit: int = 5,
         user_role: str = "employee",
-        department_id: Optional[str] = None
+        department_id: Optional[str] = None,
+        company_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Search documents using vector similarity with access controls
+        Search documents using vector similarity with access controls.
+
+        When company_id is provided, a MongoDB Atlas pre-filter is applied so that
+        only chunks belonging to that tenant are considered during the ANN search.
+        This gives strict multitenant isolation at the database level — Company B
+        chunks are never ranked, returned, or counted against Company A's quota.
         
         Args:
             query: Search query
@@ -167,6 +199,7 @@ class DocumentManager:
             limit: Maximum number of results
             user_role: User role for access control
             department_id: User's department ID
+            company_id: Tenant identifier for mandatory isolation (multitenant SaaS)
             
         Returns:
             List of search results
@@ -174,17 +207,37 @@ class DocumentManager:
         try:
             # Use provided collection name or fall back to instance default
             target_collection = collection_name or self.collection_name
+
+            # --- Multitenant Pre-filter (database-level isolation) ---
+            # Applied BEFORE vector similarity — only chunks of this tenant are
+            # candidates for ANN search.  Post-filtering alone is insufficient
+            # because it could inadvertently expose neighbour chunks to the LLM
+            # context if limit * 2 crosses a tenant boundary.
+            pre_filter: Optional[Dict[str, Any]] = None
+            if company_id:
+                pre_filter = {"metadata.company_id": {"$eq": company_id}}
+                logger.debug(f"Applying tenant pre-filter: company_id={company_id}")
+            else:
+                # Defense in depth: never search across tenants silently.
+                # Legacy callers must pass company_id explicitly — otherwise we
+                # would risk leaking Company A's chunks into Company B's chatbot.
+                logger.warning(
+                    "search() called without company_id — refusing cross-tenant "
+                    "vector search and returning empty results"
+                )
+                return []
             
-            # Apply access controls based on user role
-            filter_criteria = self._get_access_filter(user_role, department_id)
-            
-            # Perform similarity search
+            # Perform similarity search with optional pre-filter
+            search_kwargs: Dict[str, Any] = {"k": limit * 2}
+            if pre_filter:
+                search_kwargs["pre_filter"] = pre_filter
+
             docs = await self.vector_store.asimilarity_search_with_score(
                 query=query,
-                k=limit * 2  # Get more results for filtering
+                **search_kwargs,
             )
             
-            # Apply post-filtering (including collection name filter)
+            # Apply post-filtering (role access control + collection name filter)
             filtered_results = []
             for doc, score in docs:
                 # Filter by collection_name if specified
@@ -311,23 +364,49 @@ class DocumentManager:
         filter_query: Dict[str, Any]
     ) -> int:
         """
-        Delete documents from vector store
-        
+        Delete documents from vector store.
+
+        Re-raises on failure so the caller can distinguish "nothing matched"
+        (returns 0) from "the database call itself failed". Silently swallowing
+        errors here caused regulation-delete to report success even when the
+        Atlas collection was unreachable — orphan chunks would stay forever.
+
         Args:
             filter_query: Filter to match documents
-            
+
         Returns:
-            Number of deleted documents
+            Number of deleted documents (0 when nothing matched the filter)
         """
         try:
-            # This requires direct MongoDB access
             collection = self.vector_store.collection
-            result = await collection.delete_many(filter_query)
+            result = collection.delete_many(filter_query)
             return result.deleted_count
-        
+
         except Exception as e:
             logger.error(f"Error deleting documents: {str(e)}")
-            return 0
+            raise
+
+    async def delete_by_regulation_id(
+        self,
+        regulation_id: str,
+        company_id: str,
+    ) -> int:
+        """
+        Delete all vector chunks belonging to a specific regulation document.
+        The company_id guard ensures a tenant cannot delete another tenant's data.
+
+        Args:
+            regulation_id: The regulation._id from the backend metadata DB
+            company_id: Tenant ID (mandatory safety guard)
+
+        Returns:
+            Number of deleted chunks
+        """
+        filter_query = {
+            "metadata.regulation_id": regulation_id,
+            "metadata.company_id": company_id,
+        }
+        return await self.delete_documents(filter_query)
     
     async def get_document_count(self, filter_query: Dict[str, Any] = None) -> int:
         """
@@ -340,11 +419,14 @@ class DocumentManager:
             Document count
         """
         try:
+            # NOTE: LangChain's MongoDBAtlasVectorSearch exposes a *sync* pymongo
+            # Collection on `.collection`, so count_documents() returns an int
+            # directly — do NOT await it (TypeError on non-awaitable otherwise).
             collection = self.vector_store.collection
             if filter_query:
-                return await collection.count_documents(filter_query)
-            return await collection.count_documents({})
-        
+                return collection.count_documents(filter_query)
+            return collection.count_documents({})
+
         except Exception as e:
             logger.error(f"Error counting documents: {str(e)}")
             return 0

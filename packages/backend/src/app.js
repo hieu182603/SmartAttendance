@@ -32,6 +32,7 @@ import { aiBillingRouter } from "./modules/ai-billing/ai-billing.router.js";
 import { scheduleRouter } from "./modules/schedule/schedule.router.js";
 import { featureToggleRouter } from "./modules/feature-toggle/featureToggle.router.js";
 import { companyRouter } from "./modules/company/company.router.js";
+import { regulationRouter } from "./modules/company/regulation.router.js";
 import {
   globalRateLimiter,
   attendanceRateLimiter,
@@ -247,6 +248,10 @@ app.use("/api/billing", billingRouter);
 app.use("/api/ai-billing", aiBillingRouter);
 app.use("/api/schedules", scheduleRouter);
 app.use("/api/feature-toggles", featureToggleRouter);
+// IMPORTANT: mount the more specific prefix first so that
+// `/api/companies/regulations/*` is not swallowed by `companyRouter`
+// (which restricts to SUPER_ADMIN only and would 403 admins/HR managers).
+app.use("/api/companies/regulations", regulationRouter);
 app.use("/api/companies", companyRouter);
 
 app.use((_req, res) => {

@@ -4,6 +4,8 @@ import { RequestModel } from "../requests/request.model.js";
 import { NotificationModel } from "../notifications/notification.model.js";
 import { OrderModel } from "../billing/order.model.js";
 import { CompanyModel } from "../company/company.model.js";
+import { EmployeeScheduleModel } from "../schedule/schedule.model.js";
+import { shiftAssignmentService } from "../shifts/shiftAssignment.service.js";
 
 export class DashboardService {
   /**
@@ -25,6 +27,36 @@ export class DashboardService {
         },
       }).populate("locationId");
 
+      // Ưu tiên lấy ca từ schedule ngày hiện tại; fallback qua assignment/default shift.
+      const todaySchedule = await EmployeeScheduleModel.findOne({
+        userId,
+        date: {
+          $gte: today,
+          $lt: tomorrow,
+        },
+      })
+        .select("shiftName startTime endTime status")
+        .lean();
+
+      const assignedShift = await shiftAssignmentService.getUserShift(userId, today);
+
+      const shiftName =
+        todaySchedule?.shiftName ||
+        assignedShift?.name ||
+        null;
+
+      const startTime =
+        todaySchedule?.startTime ||
+        assignedShift?.startTime ||
+        null;
+
+      const endTime =
+        todaySchedule?.endTime ||
+        assignedShift?.endTime ||
+        null;
+
+      const isOvertime = todayAttendance?.status === "overtime";
+
       // Tính số ngày làm việc trong tháng
       const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
       const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -45,11 +77,12 @@ export class DashboardService {
       };
 
       return {
-        shift: todayAttendance?.checkIn
-          ? new Date(todayAttendance.checkIn).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+        shift: shiftName || startTime || endTime
+          ? {
+              label: shiftName,
+              timeRange: startTime && endTime ? `${startTime} - ${endTime}` : null,
+              isOvertime,
+            }
           : null,
         location: todayAttendance?.locationId?.name || null,
         workingDays,
@@ -73,11 +106,11 @@ export class DashboardService {
 
       let pendingRequestsQuery = { status: "pending" };
 
-      // For SUPERVISOR, get pending requests from their department employees that they can approve
-      if (user.role === 'SUPERVISOR' && user.department) {
+      // For MANAGER, get pending requests from their department employees
+      if (user.role === 'MANAGER' && user.department) {
         const departmentUsers = await UserModel.find({
           department: user.department,
-          role: { $in: ['EMPLOYEE', 'SUPERVISOR'] },
+          role: { $in: ['EMPLOYEE'] },
           isActive: true
         }).select('_id');
         const departmentUserIds = departmentUsers.map(u => u._id);

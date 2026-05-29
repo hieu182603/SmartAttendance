@@ -6,9 +6,9 @@ from typing import Dict, Any, Tuple
 class PermissionChecker:
     """Check user permissions for database access"""
     
-    # Role hierarchy: super_admin > admin > hr_manager > manager > supervisor > employee
+    # Role hierarchy: super_admin > admin > hr_manager > manager > employee
     HIGH_ROLES = ['super_admin', 'admin', 'hr_manager']
-    MID_ROLES = ['manager', 'supervisor']
+    MID_ROLES = ['manager']
     
     @staticmethod
     def check(
@@ -114,7 +114,7 @@ class PermissionChecker:
             "admin": "Có quyền truy cập TẤT CẢ dữ liệu",
             "hr_manager": "Có quyền truy cập TẤT CẢ dữ liệu",
             "manager": f"Có quyền truy cập dữ liệu phòng ban của mình (department: {department_id})",
-            "supervisor": f"Có quyền truy cập dữ liệu phòng ban của mình (department: {department_id})",
+            "manager": f"Có quyền truy cập dữ liệu phòng ban của mình (department: {department_id})",
             "employee": f"Chỉ có quyền truy cập dữ liệu CÁ NHÂN của chính mình (userId: {user_id})"
         }
         
@@ -148,15 +148,15 @@ class PermissionChecker:
           is enforced by PermissionChecker.check() which adds userId filters.
         """
         restrictions = {
-            'users': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor'],
-            'departments': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
-            'branches': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
-            'attendance': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
-            'requests': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
-            'shifts': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
+            'users': ['super_admin', 'admin', 'hr_manager', 'manager'],
+            'departments': ['super_admin', 'admin', 'hr_manager', 'manager', 'employee'],
+            'branches': ['super_admin', 'admin', 'hr_manager', 'manager', 'employee'],
+            'attendance': ['super_admin', 'admin', 'hr_manager', 'manager', 'employee'],
+            'requests': ['super_admin', 'admin', 'hr_manager', 'manager', 'employee'],
+            'shifts': ['super_admin', 'admin', 'hr_manager', 'manager', 'employee'],
             'payroll': ['super_admin', 'admin', 'hr_manager'],
-            'employeeschedules': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
-            'employeeshiftassignments': ['super_admin', 'admin', 'hr_manager', 'manager', 'supervisor', 'employee'],
+            'employeeschedules': ['super_admin', 'admin', 'hr_manager', 'manager', 'employee'],
+            'employeeshiftassignments': ['super_admin', 'admin', 'hr_manager', 'manager', 'employee'],
         }
         return restrictions.get(collection, [])
 
