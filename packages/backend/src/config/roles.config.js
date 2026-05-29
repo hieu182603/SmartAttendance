@@ -9,19 +9,17 @@ export const ROLES = {
     ADMIN: "ADMIN",
     HR_MANAGER: "HR_MANAGER",
     MANAGER: "MANAGER",
-    SUPERVISOR: "SUPERVISOR",
     EMPLOYEE: "EMPLOYEE",
     TRIAL: "TRIAL"
 };
 
 /**
  * Role hierarchy - higher number = more permissions
- * This must match the frontend role hierarchy in frontend/src/utils/roles.ts
+ * This must match the frontend role hierarchy in apps/web/src/utils/roles.ts
  */
 export const ROLE_HIERARCHY = {
-    [ROLES.TRIAL]: 0,        // Trial users have minimal permissions
+    [ROLES.TRIAL]: 0,
     [ROLES.EMPLOYEE]: 1,
-    [ROLES.SUPERVISOR]: 1.5, // Supervisor: manages team within their department
     [ROLES.MANAGER]: 2,
     [ROLES.HR_MANAGER]: 3,
     [ROLES.ADMIN]: 4,
@@ -56,4 +54,3 @@ export const canManageRole = (managerRole, targetRole) => {
     const targetLevel = ROLE_HIERARCHY[targetRole] || 0;
     return managerLevel > targetLevel;
 };
-

@@ -327,8 +327,8 @@ describe("TC-ATT-006: Admin creates manual attendance", () => {
 // TC-ATT-007: Admin approve attendance record
 // ─────────────────────────────────────────────────────────────────────────────
 describe("TC-ATT-007: Admin approves attendance", () => {
-  test("supervisor can PATCH /:id/approve", async () => {
-    const token = await tokenFor(users.supervisor);
+  test("manager can PATCH /:id/approve", async () => {
+    const token = await tokenFor(users.manager);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -376,8 +376,8 @@ describe("TC-ATT-007: Admin approves attendance", () => {
 // TC-ATT-008: Pending early checkouts list
 // ─────────────────────────────────────────────────────────────────────────────
 describe("TC-ATT-008: Pending early checkouts", () => {
-  test("supervisor can GET /api/attendance/pending-early-checkouts", async () => {
-    const token = await tokenFor(users.supervisor);
+  test("manager can GET /api/attendance/pending-early-checkouts", async () => {
+    const token = await tokenFor(users.manager);
     const res = await request(app)
       .get("/api/attendance/pending-early-checkouts")
       .set("Authorization", `Bearer ${token}`);

@@ -20,7 +20,7 @@ export const getReviews = async (req, res) => {
     const currentUser = await UserModel.findById(userId).select("department");
     
     // SUPERVISOR và MANAGER chỉ thấy reviews trong department của họ
-    if (userRole === "SUPERVISOR" || userRole === "MANAGER") {
+    if (userRole === "MANAGER") {
       if (currentUser && currentUser.department) {
         // Lấy danh sách employees trong cùng department
         const departmentEmployees = await UserModel.find({
@@ -170,7 +170,7 @@ export const getStats = async (req, res) => {
     const currentUser = await UserModel.findById(userId).select("department");
     
     // SUPERVISOR và MANAGER chỉ thấy stats trong department của họ
-    if (userRole === "SUPERVISOR" || userRole === "MANAGER") {
+    if (userRole === "MANAGER") {
       if (currentUser && currentUser.department) {
         // Lấy danh sách employees trong cùng department
         const departmentEmployees = await UserModel.find({

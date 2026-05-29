@@ -185,13 +185,6 @@ const ApproveRequestsPage: React.FC = () => {
       if (debouncedSearchQuery) params.search = debouncedSearchQuery
       // Không filter theo status để lấy tất cả
 
-      // For SUPERVISOR, only show requests from their department
-      // Note: User type may not include department, but API will handle filtering
-      if (user?.role === 'SUPERVISOR') {
-        // Backend will automatically filter by supervisor's department
-        // No need to pass department param here
-      }
-
       // Fetch regular requests
       const [requestsResult, earlyCheckoutsResult] = await Promise.all([
         filterType === 'all' || filterType !== 'early_checkout'

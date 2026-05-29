@@ -216,7 +216,6 @@ export const DashboardOverview: React.FC = () => {
           { label: "Phê duyệt nghỉ phép", desc: "Xử lý đơn nghỉ phép", gradient: "from-violet-500 to-purple-600", icon: FileText, path: `${basePath}/leave-approval`, badge: "Nghỉ phép" },
         ];
       case UserRole.MANAGER:
-      case UserRole.SUPERVISOR:
         return [
           { label: "Phê duyệt yêu cầu", desc: "Đơn nghỉ phép, WFH", gradient: "from-emerald-500 to-teal-600", icon: FileText, path: `${basePath}/approve-requests`, badge: "Yêu cầu" },
           { label: "Phân tích chuyên cần", desc: "Thống kê phòng ban", gradient: "from-violet-500 to-purple-600", icon: BarChart3, path: `${basePath}/attendance-analytics`, badge: "Phân tích" },

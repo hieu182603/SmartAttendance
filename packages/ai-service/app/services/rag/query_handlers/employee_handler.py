@@ -118,8 +118,8 @@ class EmployeeQueryHandler(BaseQueryHandler):
             "hr_manager": "HR_MANAGER",
             "nhân viên": "EMPLOYEE",
             "employee": "EMPLOYEE",
-            "supervisor": "SUPERVISOR",
-            "quản lý phòng": "SUPERVISOR",
+            "supervisor": "MANAGER",
+            "quản lý phòng": "MANAGER",
             "admin": "ADMIN",
             "quản trị": "ADMIN"
         }
@@ -131,7 +131,6 @@ class EmployeeQueryHandler(BaseQueryHandler):
         
         role_names = {
             "EMPLOYEE": "Nhân viên",
-            "SUPERVISOR": "Supervisor",
             "MANAGER": "Quản lý",
             "HR_MANAGER": "HR Manager",
             "ADMIN": "Admin",
@@ -176,7 +175,7 @@ class EmployeeQueryHandler(BaseQueryHandler):
 
         # 3) Truy vấn thông tin nhân viên theo tên (Comment 2: detail_by_name)
         if query_type == "detail_by_name":
-            allowed_roles = ["hr_manager", "manager", "admin", "super_admin", "supervisor"]
+            allowed_roles = ["hr_manager", "manager", "admin", "super_admin"]
             if role_lower not in allowed_roles:
                 return "Xin lỗi, bạn không có quyền xem thông tin nhân viên khác. 🔒"
             employee_name = (filters or {}).get('employee_name', '')
@@ -195,7 +194,7 @@ class EmployeeQueryHandler(BaseQueryHandler):
             return await self._handle_self_info(user_id)
 
         # 5) Các truy vấn nhân sự khác: chỉ HR/Manager/Admin/Supervisor được phép
-        allowed_roles = ["hr_manager", "manager", "admin", "super_admin", "supervisor"]
+        allowed_roles = ["hr_manager", "manager", "admin", "super_admin"]
 
         if role_lower not in allowed_roles:
             return (
@@ -284,7 +283,6 @@ class EmployeeQueryHandler(BaseQueryHandler):
 
         role_names = {
             "EMPLOYEE": "Nhân viên",
-            "SUPERVISOR": "Supervisor",
             "MANAGER": "Quản lý",
             "HR_MANAGER": "HR Manager",
             "ADMIN": "Admin",
@@ -408,7 +406,6 @@ class EmployeeQueryHandler(BaseQueryHandler):
 
         role_names = {
             "EMPLOYEE": "Nhân viên",
-            "SUPERVISOR": "Supervisor",
             "MANAGER": "Quản lý",
             "HR_MANAGER": "HR Manager",
             "ADMIN": "Admin",
@@ -452,7 +449,6 @@ class EmployeeQueryHandler(BaseQueryHandler):
             
             role_names = {
                 "EMPLOYEE": "Nhân viên",
-                "SUPERVISOR": "Supervisor",
                 "MANAGER": "Quản lý",
                 "HR_MANAGER": "HR Manager",
                 "ADMIN": "Admin",

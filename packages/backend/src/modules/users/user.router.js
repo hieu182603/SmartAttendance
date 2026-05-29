@@ -70,15 +70,8 @@ userRouter.get(
 // Route /my-team cho Manager lấy danh sách nhân viên trong team
 userRouter.get(
     "/my-team",
-    requireRole([ROLES.MANAGER, ROLES.SUPERVISOR]),
+    requireRole([ROLES.MANAGER]),
     UserController.getMyTeamMembers
-);
-
-// Route /my-department cho Supervisor lấy danh sách nhân viên trong department
-userRouter.get(
-    "/my-department",
-    requireRole([ROLES.SUPERVISOR]),
-    UserController.getMyDepartmentMembers
 );
 
 // Bulk import nhân viên — PHẢI đặt TRƯỚC route /:id

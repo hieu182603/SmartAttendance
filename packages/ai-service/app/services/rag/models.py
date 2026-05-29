@@ -84,7 +84,7 @@ COLLECTION_SCHEMAS = {
             "email": "Email",
             "phone": "Số điện thoại",
             "position": "Chức danh/vị trí",
-            "role": "Vai trò (EMPLOYEE, SUPERVISOR, MANAGER, HR_MANAGER, ADMIN, SUPER_ADMIN)",
+            "role": "Vai trò (EMPLOYEE, MANAGER, HR_MANAGER, ADMIN, SUPER_ADMIN)",
             "department": "ID phòng ban (ObjectId)",
             "branch": "ID chi nhánh (ObjectId)",
             "isActive": "Trạng thái hoạt động (true/false)",

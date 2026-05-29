@@ -550,7 +550,7 @@ export async function generatePayrollRecord(userId, month) {
  */
 export async function generatePayrollForMonth(month, companyId = null) {
   const employeeQuery = {
-    role: { $in: ["EMPLOYEE", "MANAGER", "SUPERVISOR", "HR_MANAGER"] },
+    role: { $in: ["EMPLOYEE", "MANAGER", "HR_MANAGER"] },
     isActive: true,
     isTrial: { $ne: true },
   };

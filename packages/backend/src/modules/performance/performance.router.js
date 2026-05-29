@@ -54,7 +54,7 @@ performanceRouter.get("/reviews/:id", getReviewById);
  *     summary: Tạo đánh giá mới (SUPERVISOR trở lên)
  *     tags: [Performance]
  */
-performanceRouter.post("/reviews", requireRole([ROLES.SUPERVISOR, ROLES.MANAGER, ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]), createReview);
+performanceRouter.post("/reviews", requireRole([ROLES.MANAGER, ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]), createReview);
 
 /**
  * @swagger
@@ -63,7 +63,7 @@ performanceRouter.post("/reviews", requireRole([ROLES.SUPERVISOR, ROLES.MANAGER,
  *     summary: Cập nhật đánh giá (SUPERVISOR trở lên)
  *     tags: [Performance]
  */
-performanceRouter.put("/reviews/:id", requireRole([ROLES.SUPERVISOR, ROLES.MANAGER, ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]), updateReview);
+performanceRouter.put("/reviews/:id", requireRole([ROLES.MANAGER, ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]), updateReview);
 
 /**
  * @swagger
@@ -72,7 +72,7 @@ performanceRouter.put("/reviews/:id", requireRole([ROLES.SUPERVISOR, ROLES.MANAG
  *     summary: Xóa đánh giá (SUPERVISOR trở lên)
  *     tags: [Performance]
  */
-performanceRouter.delete("/reviews/:id", requireRole([ROLES.SUPERVISOR, ROLES.MANAGER, ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]), deleteReview);
+performanceRouter.delete("/reviews/:id", requireRole([ROLES.MANAGER, ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]), deleteReview);
 
 /**
  * @swagger
