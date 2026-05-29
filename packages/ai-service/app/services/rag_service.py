@@ -166,13 +166,6 @@ THÔNG TIN VAI TRÒ: Người dùng là **Nhân viên** (Employee).
 - Khi họ hỏi thông tin ngoài phạm vi, nhẹ nhàng giải thích và gợi ý liên hệ quản lý.
 - Gợi ý hành động phù hợp: chấm công, xem lịch làm, tạo đơn nghỉ phép, xem ngày phép còn lại.
 """,
-    "supervisor": """
-THÔNG TIN VAI TRÒ: Người dùng là **Supervisor** (Giám sát viên).
-- Xưng hô: "anh/chị" hoặc "bạn" – tôn trọng, chuyên nghiệp.
-- Phạm vi dữ liệu: Thông tin cá nhân + nhân viên trong phòng ban.
-- Có thể xem chấm công, đơn từ của nhân viên trong phòng ban.
-- Gợi ý: duyệt đơn, xem báo cáo chấm công phòng ban, kiểm tra nhân viên đi muộn.
-""",
     "manager": """
 THÔNG TIN VAI TRÒ: Người dùng là **Manager** (Quản lý).
 - Xưng hô: "anh/chị" – tôn trọng, chuyên nghiệp.
@@ -217,6 +210,8 @@ FOLLOW_UP_SUGGESTIONS = {
 def _get_role_prompt(role: str) -> str:
     """Get role-specific prompt addition"""
     role_lower = role.lower() if role else "employee"
+    if role_lower == "supervisor":
+        role_lower = "manager"
     return ROLE_PROMPTS.get(role_lower, ROLE_PROMPTS["employee"])
 
 def _get_follow_up_suggestion(intent_type: str) -> str:
@@ -957,8 +952,12 @@ TRẢ LỜI:"""
                 conversation_history=conversation_history,
                 company_id=company_id,
             )
-        elif use_vector_search and intent_type == 'general':
-            # Use vector search for general questions
+        elif use_vector_search:
+            # Use vector search for general questions AND for policy/regulation
+            # questions (e.g. "quy định chấm công", "chính sách nghỉ phép").
+            # These may be classified as a domain intent, but the user wants the
+            # answer from ingested company-regulation documents, not raw DB rows,
+            # so they must hit the vector store rather than a domain handler.
             response_text, sources = await self._handle_general_question_with_rag(
                 message, role, department_id,
                 conversation_history=conversation_history,
@@ -1078,7 +1077,8 @@ TRẢ LỜI:"""
                 query=message,
                 limit=3,
                 user_role=role,
-                department_id=department_id
+                department_id=department_id,
+                company_id=company_id,
             )
             # Filter out low-relevance results
             retrieved_docs = [
@@ -1235,7 +1235,8 @@ HƯỚNG DẪN TRẢ LỜI:
                 query=message,
                 limit=5,
                 user_role=role,
-                department_id=department_id
+                department_id=department_id,
+                company_id=company_id,
             )
 
             # Filter out low-relevance results
@@ -1571,7 +1572,8 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
         documents: List[Dict[str, Any]],
         collection_name: str = RAG_COLLECTION_NAME,
         chunk_size: int = 1000,
-        chunk_overlap: int = 200
+        chunk_overlap: int = 200,
+        company_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Ingest documents into vector database
         
@@ -1580,22 +1582,49 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
             collection_name: Target collection name
             chunk_size: Size of text chunks
             chunk_overlap: Overlap between chunks
+            company_id: Tenant ID — stamped on every chunk for multitenant isolation
         """
         self._ensure_initialized()
         return await self._document_manager.ingest(
             documents=documents,
             collection_name=collection_name,
             chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
+            chunk_overlap=chunk_overlap,
+            company_id=company_id,
         )
     
+    async def delete_regulation(
+        self,
+        regulation_id: str,
+        company_id: str,
+    ) -> int:
+        """Delete every vector chunk belonging to a regulation document.
+
+        Public wrapper around ``DocumentManager.delete_by_regulation_id`` so
+        routers don't need to reach into the private ``_document_manager``
+        attribute. The ``company_id`` guard prevents cross-tenant deletion.
+
+        Args:
+            regulation_id: MongoDB _id of the regulation record
+            company_id: Tenant ID (mandatory safety guard)
+
+        Returns:
+            Number of vector chunks deleted (0 when nothing matched).
+        """
+        self._ensure_initialized()
+        return await self._document_manager.delete_by_regulation_id(
+            regulation_id=regulation_id,
+            company_id=company_id,
+        )
+
     async def search_documents(
         self,
         query: str,
         collection_name: str = RAG_COLLECTION_NAME,
         limit: int = 5,
         user_role: str = "employee",
-        department_id: Optional[str] = None
+        department_id: Optional[str] = None,
+        company_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Search documents using vector similarity with access controls
         
@@ -1605,6 +1634,7 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
             limit: Maximum number of results
             user_role: User role for access control
             department_id: User department ID
+            company_id: Tenant ID — used as pre-filter for multitenant isolation
         """
         self._ensure_initialized()
         return await self._document_manager.search(
@@ -1612,7 +1642,8 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
             collection_name=collection_name,
             limit=limit,
             user_role=user_role,
-            department_id=department_id
+            department_id=department_id,
+            company_id=company_id,
         )
     
     async def update_conversation_metadata(self, conversation_id: str):
