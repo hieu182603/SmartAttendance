@@ -114,7 +114,6 @@ const ChatbotPage: React.FC = () => {
   const [searchQuery,     setSearchQuery]     = useState('')
   const [showSlash,       setShowSlash]       = useState(false)
   const [composerFocused, setComposerFocused] = useState(false)
-  const [voiceActive,     setVoiceActive]     = useState(false)
 
   const textareaRef    = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -204,13 +203,6 @@ const ChatbotPage: React.FC = () => {
   }
 
   return (
-    <>
-    <style>{`
-      @keyframes cb-voice-pulse {
-        0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}
-        50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}
-      }
-    `}</style>
     <div style={gridStyle}>
       {sidebarOpen && (
         <button
@@ -659,12 +651,12 @@ const ChatbotPage: React.FC = () => {
         </div>
 
         {/* ── Composer ─────────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 px-8 pb-[40px] pt-4 relative z-20 overflow-hidden"
-          style={{ background: 'var(--surface)', height: '85px' }}>
-          <div className="max-w-[860px] mx-auto w-full">
+        <div className="shrink-0 px-8 pb-10 pt-4 relative z-20 overflow-visible"
+          style={{ background: 'var(--surface)' }}>
+          <div className="max-w-[860px] mx-auto w-full overflow-visible">
             {/* Composer box */}
             <div
-              className="relative rounded-[20px] transition-all duration-300"
+              className="relative rounded-[20px] transition-all duration-300 overflow-visible"
               onFocus={() => setComposerFocused(true)}
               onBlur={() => setComposerFocused(false)}
               style={{
@@ -685,7 +677,7 @@ const ChatbotPage: React.FC = () => {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 4 }}
-                    className="absolute left-4 right-4 rounded-2xl overflow-hidden z-30"
+                    className="absolute left-4 right-4 rounded-2xl z-50 max-h-[min(280px,50vh)] overflow-y-auto"
                     style={{
                       bottom: 'calc(100% + 10px)',
                       background: 'var(--surface)',
@@ -729,47 +721,13 @@ const ChatbotPage: React.FC = () => {
                 style={{
                   minHeight: '58px',
                   maxHeight: '200px',
-                  padding: '18px 124px 18px 24px',
+                  padding: '18px 56px 18px 24px',
                   overflowY: 'auto',
                 }}
               />
 
-              {/* Action buttons: attach · voice · send */}
+              {/* Send */}
               <div className="absolute right-3 bottom-3 flex gap-2 items-center">
-                {/* Attach */}
-                <button
-                  type="button"
-                  title={t('dashboard:chatbotPage.actions.attach')}
-                  className="w-10 h-10 rounded-xl grid place-items-center text-[var(--text-sub)] transition-all duration-200"
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#22d3ee' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-sub)' }}
-                >
-                  <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" width="18" height="18">
-                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                  </svg>
-                </button>
-                {/* Voice */}
-                <button
-                  type="button"
-                  title={t('dashboard:chatbotPage.actions.voiceInput')}
-                  onClick={() => setVoiceActive(v => !v)}
-                  className="w-10 h-10 rounded-xl grid place-items-center transition-all duration-200"
-                  style={{
-                    color: voiceActive ? '#ef4444' : 'var(--text-sub)',
-                    background: voiceActive ? 'rgba(239,68,68,0.15)' : 'transparent',
-                    animation: voiceActive ? 'cb-voice-pulse 1.4s ease-in-out infinite' : 'none',
-                  }}
-                  onMouseEnter={e => { if (!voiceActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#22d3ee' } }}
-                  onMouseLeave={e => { if (!voiceActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-sub)' } }}
-                >
-                  <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" width="18" height="18">
-                    <rect x="9" y="2" width="6" height="12" rx="3"/>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                    <line x1="12" y1="19" x2="12" y2="23"/>
-                    <line x1="8" y1="23" x2="16" y2="23"/>
-                  </svg>
-                </button>
-                {/* Send */}
                 <button
                   onClick={() => void doSend()}
                   disabled={!inputValue.trim() || isLoading}
@@ -803,7 +761,6 @@ const ChatbotPage: React.FC = () => {
         </div>
       </section>
     </div>
-    </>
   )
 }
 
