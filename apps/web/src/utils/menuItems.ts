@@ -20,9 +20,8 @@ export interface MenuItem {
   section: 'admin' | 'employee' | 'system';
 }
 
-/** Roles that must not see company HR/day-to-day operations (ADMIN = IT/org; SUPER_ADMIN = platform). */
+/** SUPER_ADMIN là platform admin — không quản lý HR/ops của từng công ty. */
 const EXCLUDE_COMPANY_OPERATIONS: UserRoleType[] = [
-  UserRole.ADMIN,
   UserRole.SUPER_ADMIN,
 ];
 
@@ -217,7 +216,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Đánh giá hiệu suất',
     icon: Award,
     path: '/admin/performance-review',
-    minimumRole: UserRole.HR_MANAGER,
+    minimumRole: UserRole.MANAGER,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
   },
@@ -363,11 +362,14 @@ export const DEPT_MANAGER_MENU_IDS = new Set([
   'shifts',
   'attendance-analytics',
   'admin-reports',
+  'performance-review',
 ]);
 
 /** Sidebar employee shortcuts when role uses a compact personal section. */
 export const HR_PERSONAL_MENU_IDS = new Set([
   'home',
+  'scan',
+  'history',
   'requests',
   'leave-balance',
   'my-payslip',
@@ -376,6 +378,7 @@ export const HR_PERSONAL_MENU_IDS = new Set([
   'chatbot',
 ]);
 
+/** Giám đốc (ADMIN): chỉ lịch công ty, hồ sơ, trợ lý AI — không menu nhân viên. */
 export const ADMIN_PERSONAL_MENU_IDS = new Set([
   'company-calendar',
   'profile',

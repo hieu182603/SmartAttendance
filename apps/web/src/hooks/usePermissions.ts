@@ -15,7 +15,11 @@ export function usePermissions() {
   const { user } = useAuth();
   const { getEffectivePermissions } = usePermissionsOverride();
   const role = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
-  const effectivePerms = getEffectivePermissions(role);
+  const serverPerms = user?.permissions as PermissionType[] | undefined;
+  const effectivePerms =
+    serverPerms && serverPerms.length > 0
+      ? serverPerms
+      : getEffectivePermissions(role);
 
   return {
     hasPermission: (permission: PermissionType) =>
