@@ -357,6 +357,10 @@ class IntentDetector:
         r"hôm nay.*tôi.*có.*đi làm",
         r"tôi.*đến.*công ty.*chưa",
         r"tôi.*có mặt.*chưa",
+        r"nay.*tôi.*(có phải|cần|phải).*chấm công",
+        r"hôm nay.*tôi.*(có phải|cần|phải).*chấm công",
+        r"tôi.*(có phải|cần|phải).*chấm công.*(hôm nay|nay|không)",
+        r"mình.*(có phải|cần|phải).*chấm công",
         # Comment 6: Add personal attendance time patterns
         r"tôi.*điểm danh.*lúc mấy",
         r"tôi.*điểm danh.*mấy giờ",
