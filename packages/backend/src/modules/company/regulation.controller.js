@@ -18,7 +18,7 @@ const storage = multer.memoryStorage();
 
 export const uploadMiddleware = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
   fileFilter: (_req, file, cb) => {
     if (ACCEPTED_MIME_TYPES.includes(file.mimetype)) {
       cb(null, true);
@@ -46,18 +46,24 @@ async function extractText(buffer, mimeType, originalName) {
     }
 
     if (mimeType === "application/pdf") {
-      let pdfParse;
-      try {
-        pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
-      } catch (err) {
-        // Fail fast — never push binary garbage into the vector store.
+      // pdf-parse v2 (Node.js): PDFNodeStream requires a file:// URL, so we
+      // write the buffer to a temp file, extract text, then delete it.
+      const { PDFParse } = await import("pdf-parse").catch((err) => {
         logger.error(`pdf-parse not installed: ${err.message}`);
-        throw new Error(
-          "Server chưa cài đặt thư viện đọc PDF (`pdf-parse`). Vui lòng liên hệ quản trị viên."
-        );
+        throw new Error("Server chưa cài đặt thư viện đọc PDF (`pdf-parse`). Vui lòng liên hệ quản trị viên.");
+      });
+      const { writeFile, unlink } = await import("fs/promises");
+      const { tmpdir } = await import("os");
+      const { join } = await import("path");
+      const tmpPath = join(tmpdir(), `reg_upload_${Date.now()}_${Math.random().toString(36).slice(2)}.pdf`);
+      await writeFile(tmpPath, buffer);
+      try {
+        const parser = new PDFParse({ url: `file://${tmpPath}` });
+        const result = await parser.getText();
+        return result.text;
+      } finally {
+        await unlink(tmpPath).catch(() => {});
       }
-      const data = await pdfParse(buffer);
-      return data.text;
     }
 
     if (
@@ -137,6 +143,18 @@ export class RegulationController {
       if (!content || content.trim().length < 10) {
         throw new Error("Nội dung file trống hoặc quá ngắn.");
       }
+
+      // Phát hiện PDF scan (chỉ có page markers, không có chữ thật).
+      // pdf-parse v2 chèn "-- N of M --" giữa các trang; nếu xoá hết những
+      // marker này mà còn lại quá ít chữ thì file là ảnh chụp, không thể
+      // tự đọc nội dung — phải OCR trước khi tải lên.
+      const stripped = content.replace(/--\s*\d+\s+of\s+\d+\s*--/g, "").replace(/\s+/g, " ").trim();
+      if (stripped.length < 30) {
+        throw new Error(
+          "File PDF có vẻ là bản scan (ảnh chụp tài liệu) nên hệ thống không đọc được chữ. " +
+          "Vui lòng dùng PDF gốc có text, hoặc OCR file trước khi tải lên."
+        );
+      }
     } catch (err) {
       await RegulationModel.findByIdAndUpdate(regulation._id, {
         status: "failed",
@@ -198,8 +216,16 @@ export class RegulationController {
         status: "failed",
         errorMessage: err.message,
       });
+
+      // Hiển thị message dễ hiểu khi token thiếu companyId (phiên cũ).
+      const looksLikeStaleToken =
+        /determine company from token|missing.*company|please re-?login/i.test(err.message);
+      const userMessage = looksLikeStaleToken
+        ? "Phiên đăng nhập đã hết hạn hoặc thiếu thông tin công ty. Vui lòng đăng xuất rồi đăng nhập lại, sau đó tải lên lại."
+        : `Lưu metadata thành công nhưng AI gặp lỗi khi học tài liệu: ${err.message}`;
+
       return res.status(502).json({
-        message: "Lưu metadata thành công nhưng AI gặp lỗi khi học tài liệu. Vui lòng thử lại sau.",
+        message: userMessage,
         data: {
           id: regulation._id,
           status: "failed",
