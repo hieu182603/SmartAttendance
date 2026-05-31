@@ -1,5 +1,14 @@
 import { UserService } from "./user.service.js";
 import { UserModel } from "./user.model.js";
+import { TenantAccessError } from "../../utils/tenantCompany.util.js";
+
+function tenantRequester(req) {
+  return {
+    role: req.user?.role,
+    companyId: req.user?.companyId ?? null,
+    userId: req.user?.userId,
+  };
+}
 import {
   updateUserSchema,
   changePasswordSchema,
@@ -329,9 +338,12 @@ export class UserController {
   static async getUserByIdForAdmin(req, res) {
     try {
       const { id } = req.params;
-      const user = await UserService.getUserByIdForAdmin(id);
+      const user = await UserService.getUserByIdForAdmin(id, tenantRequester(req));
       return res.status(200).json(user);
     } catch (error) {
+      if (error instanceof TenantAccessError) {
+        return res.status(403).json({ message: error.message });
+      }
       if (error.message === "User not found") {
         return res.status(404).json({ message: "Không tìm thấy user" });
       }
@@ -415,7 +427,8 @@ export class UserController {
       const updatedUser = await UserService.updateUserByAdmin(
         id,
         parse.data,
-        userRole
+        userRole,
+        tenantRequester(req)
       );
 
       // Log successful action
@@ -450,6 +463,9 @@ export class UserController {
         errorMessage: error.message,
       });
 
+      if (error instanceof TenantAccessError) {
+        return res.status(403).json({ message: error.message });
+      }
       if (error.message === "User not found") {
         return res.status(404).json({ message: "Không tìm thấy user" });
       }
@@ -479,7 +495,12 @@ export class UserController {
         return res.status(400).json({ message: "Không thể tự vô hiệu hoá tài khoản của chính mình" });
       }
       const userRole = req.user?.role;
-      const updated = await UserService.updateUserByAdmin(id, { isActive: false }, userRole);
+      const updated = await UserService.updateUserByAdmin(
+        id,
+        { isActive: false },
+        userRole,
+        tenantRequester(req)
+      );
 
       await logActivity(req, {
         action: "deactivate_user",
@@ -491,6 +512,9 @@ export class UserController {
 
       return res.status(200).json({ message: "Đã vô hiệu hoá user", user: updated });
     } catch (error) {
+      if (error instanceof TenantAccessError) {
+        return res.status(403).json({ message: error.message });
+      }
       if (error.message === "User not found") {
         return res.status(404).json({ message: "Không tìm thấy user" });
       }
@@ -506,7 +530,12 @@ export class UserController {
     try {
       const { id } = req.params;
       const userRole = req.user?.role;
-      const updated = await UserService.updateUserByAdmin(id, { isActive: true }, userRole);
+      const updated = await UserService.updateUserByAdmin(
+        id,
+        { isActive: true },
+        userRole,
+        tenantRequester(req)
+      );
 
       await logActivity(req, {
         action: "activate_user",
@@ -518,6 +547,9 @@ export class UserController {
 
       return res.status(200).json({ message: "Đã kích hoạt lại user", user: updated });
     } catch (error) {
+      if (error instanceof TenantAccessError) {
+        return res.status(403).json({ message: error.message });
+      }
       if (error.message === "User not found") {
         return res.status(404).json({ message: "Không tìm thấy user" });
       }

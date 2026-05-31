@@ -7,6 +7,8 @@ import { jest, describe, test, expect, beforeAll, afterAll, beforeEach } from "@
 process.env.JWT_SECRET = "test_jwt_secret_64chars_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 process.env.REFRESH_TOKEN_SECRET = "test_refresh_secret_64chars_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 process.env.NODE_ENV = "test";
+process.env.BANK_ACCOUNT_ENCRYPTION_KEY =
+  "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 const redisStore = new Map();
@@ -157,6 +159,47 @@ describe("TC-USR-003: Employee updates own profile", () => {
 
     expect(res.status).not.toBe(401);
     expect(res.status).not.toBe(403);
+  });
+
+  test("encrypts bank account at rest and returns full number to owner", async () => {
+    const token = await tokenFor(users.employee);
+    const bankAccount = "0123456789012";
+
+    const updateRes = await request(app)
+      .put("/api/users/me")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ bankAccount, bankName: "VCB" });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.user.bankAccount).toBe(bankAccount);
+
+    const stored = await UserModel.findById(users.employee._id).select("bankAccount").lean();
+    expect(stored.bankAccount).toMatch(/^enc:v1:/);
+    expect(stored.bankAccount).not.toBe(bankAccount);
+
+    const meRes = await request(app)
+      .get("/api/users/me")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.bankAccount).toBe(bankAccount);
+  });
+
+  test("admin user list returns masked bank account", async () => {
+    await UserModel.findByIdAndUpdate(users.employee._id, {
+      $set: { bankAccount: "0123456789012" },
+    });
+
+    const token = await tokenFor(users.hr_manager);
+    const res = await request(app)
+      .get("/api/users")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    const employee = (res.body.users || res.body).find(
+      (user) => user._id === users.employee._id.toString()
+    );
+    expect(employee?.bankAccount).toMatch(/^\*+9012$/);
   });
 });
 

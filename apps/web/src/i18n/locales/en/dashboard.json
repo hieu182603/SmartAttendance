@@ -84,7 +84,12 @@
         "department": "Department",
         "position": "Position",
         "bankAccount": "Bank Account",
-        "bankName": "Bank Name"
+        "bankName": "Bank Name",
+        "bankNamePlaceholder": "Select a bank",
+        "bankNameEmpty": "Could not load bank list",
+        "taxId": "Tax ID",
+        "healthInsuranceId": "Health insurance ID",
+        "healthInsuranceIdPlaceholder": "e.g. DN1234567890123"
       }
     },
     "security": {
@@ -800,6 +805,7 @@
       "monthlyTrend": "Monthly Trend"
     },
     "selectMonth": "Select month",
+    "noData": "No payroll reports yet. Generate payroll for at least one month first.",
     "noDepartmentsMatch": "No matching departments found",
     "summarySection": {
       "title": "Summary for {{month}}",
@@ -2349,7 +2355,7 @@
       "panelTitle": "Upload new document",
       "infoBanner": "Once uploaded, the AI Chatbot will <strong>only answer based on your company's regulations</strong>, and will never be influenced by another company's data.",
       "dropzone": "Drag & drop a file here or click to browse",
-      "dropzoneSub": "PDF, DOCX, TXT supported · Max 10 MB",
+      "dropzoneSub": "PDF, DOCX, TXT supported · Max 20 MB",
       "titleLabel": "Document title",
       "titlePlaceholder": "E.g. Working hours and attendance policy",
       "doctypeLabel": "Document type",
@@ -2360,7 +2366,7 @@
       "required": "*",
       "errors": {
         "unsupportedType": "Only PDF, DOCX or TXT files are accepted.",
-        "fileTooLarge": "File must not exceed 10 MB.",
+        "fileTooLarge": "File must not exceed 20 MB.",
         "noFile": "Please select a file.",
         "noTitle": "Document title is required.",
         "uploadFailed": "Upload failed. Please try again."

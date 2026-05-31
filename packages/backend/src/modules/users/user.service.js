@@ -6,6 +6,13 @@ import { canManageRole } from "../../config/roles.config.js";
 import { SystemConfigModel } from "../config/config.model.js";
 import { ROLE_PERMISSIONS, PERMISSIONS } from "../../config/permissions.config.js";
 import { invalidatePermissionCache } from "../../middleware/permission.middleware.js";
+import { canAccessUserTenant, TenantAccessError } from "../../utils/tenantCompany.util.js";
+import {
+  applyBankAccountToUser,
+  BANK_ACCOUNT_MODES,
+  canRevealBankAccountForRequester,
+  prepareBankAccountForStorage,
+} from "../../utils/userResponse.util.js";
 
 const ROLE_PERMISSION_CONFIG_KEY = "SECURITY_ROLE_PERMISSIONS";
 
@@ -85,6 +92,7 @@ export class UserService {
       "bankAccount",
       "bankName",
       "taxId",
+      "healthInsuranceId",
     ];
 
     const updateFields = {};
@@ -93,6 +101,11 @@ export class UserService {
         // Chuyển đổi birthday từ string sang Date nếu có
         if (field === "birthday" && updateData[field]) {
           updateFields[field] = new Date(updateData[field]);
+        } else if (field === "bankAccount") {
+          const prepared = prepareBankAccountForStorage(updateData[field]);
+          if (prepared !== undefined) {
+            updateFields[field] = prepared;
+          }
         } else {
           updateFields[field] = updateData[field];
         }
@@ -121,7 +134,7 @@ export class UserService {
       throw new Error("User not found");
     }
 
-    return user;
+    return applyBankAccountToUser(user, BANK_ACCOUNT_MODES.REVEAL);
   }
 
   /**
@@ -137,7 +150,7 @@ export class UserService {
       throw new Error("User not found");
     }
 
-    return user;
+    return applyBankAccountToUser(user, BANK_ACCOUNT_MODES.REVEAL);
   }
 
   /**
@@ -283,7 +296,7 @@ export class UserService {
       ]);
 
       return {
-        users,
+        users: users.map((user) => applyBankAccountToUser(user, BANK_ACCOUNT_MODES.MASKED)),
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -305,7 +318,7 @@ export class UserService {
 
       // Trả về format phù hợp với frontend (frontend expect result.users || result)
       return {
-        users,
+        users: users.map((user) => applyBankAccountToUser(user, BANK_ACCOUNT_MODES.MASKED)),
         pagination: {
           total,
           totalPages: 1
@@ -314,7 +327,7 @@ export class UserService {
     }
   }
 
-  static async getUserByIdForAdmin(userId) {
+  static async getUserByIdForAdmin(userId, requester = null) {
     const user = await UserModel.findById(userId)
       .select("-password -otp -otpExpires")
       .populate("branch", "name address")
@@ -325,10 +338,18 @@ export class UserService {
       throw new Error("User not found");
     }
 
-    return user;
+    if (requester && !canAccessUserTenant(requester, user)) {
+      throw new TenantAccessError();
+    }
+
+    const bankAccountMode = canRevealBankAccountForRequester(requester)
+      ? BANK_ACCOUNT_MODES.REVEAL
+      : BANK_ACCOUNT_MODES.MASKED;
+
+    return applyBankAccountToUser(user, bankAccountMode);
   }
 
-  static async updateUserByAdmin(userId, updateData, currentUserRole = null) {
+  static async updateUserByAdmin(userId, updateData, currentUserRole = null, requester = null) {
     const allowedFields = [
       "name",
       "email",
@@ -471,7 +492,16 @@ export class UserService {
       }
     }
 
-    const currentUser = await UserModel.findById(userId).select("defaultShiftId").lean();
+    const currentUser = await UserModel.findById(userId)
+      .select("defaultShiftId companyId")
+      .lean();
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+    if (requester && !canAccessUserTenant(requester, currentUser)) {
+      throw new TenantAccessError();
+    }
+
     const oldDefaultShiftId = currentUser?.defaultShiftId?.toString();
     const newDefaultShiftId = updateFields.defaultShiftId?.toString();
 

@@ -34,6 +34,7 @@ import type { User as UserType } from "@/types";
 import type { ErrorWithMessage } from "@/types";
 import banksLocal from '@/data/banks.json'
 import { useMemo } from 'react'
+import { maskBankAccount } from '@/utils/maskBankAccount'
 
 interface ProfileProps {
   role?: string;
@@ -53,6 +54,7 @@ interface ProfileData {
   bankAccount: string;
   bankName: string;
   taxId?: string;
+  healthInsuranceId?: string;
 }
 
 interface PasswordData {
@@ -92,6 +94,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
     bankAccount: "",
     bankName: "",
     taxId: "",
+    healthInsuranceId: "",
   });
   const [banks, setBanks] = useState<{ shortname?: string; name: string }[]>(banksLocal || []);
 
@@ -106,8 +109,13 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
       const cached = localStorage.getItem(cacheKey)
       if (cached) {
         const parsed = JSON.parse(cached)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            setBanks(parsed)
+        const valid = Array.isArray(parsed) && parsed.some(
+          (b: { shortname?: string; name?: string }) => b?.shortname || b?.name,
+        )
+        if (valid) {
+          setBanks(parsed)
+        } else {
+          localStorage.removeItem(cacheKey)
         }
       }
     } catch (e) {
@@ -213,7 +221,8 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
         employeeId: currentUser._id ? currentUser._id.slice(-6).toUpperCase() : "",
         bankAccount: currentUser.bankAccount || "",
         bankName: currentUser.bankName || "",
-        taxId: (currentUser as any).taxId || (currentUser as any).tax_number || "",
+        taxId: currentUser.taxId || "",
+        healthInsuranceId: currentUser.healthInsuranceId || "",
         })
       })()
     }
@@ -301,6 +310,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
         bankAccount: profile.bankAccount,
         bankName: profile.bankName,
         taxId: profile.taxId,
+        healthInsuranceId: profile.healthInsuranceId,
       };
 
       const response = await updateUserProfile(updateData);
@@ -735,7 +745,11 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                         {t('dashboard:profile.personalInfo.fields.bankAccount')}
                       </Label>
                       <Input
-                        value={profile.bankAccount}
+                        value={
+                          isEditing
+                            ? profile.bankAccount
+                            : maskBankAccount(profile.bankAccount)
+                        }
                         onChange={(e) =>
                           setProfile({
                             ...profile,
@@ -743,6 +757,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                           })
                         }
                         disabled={!isEditing}
+                        autoComplete="off"
                         className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
                       />
                     </div>
@@ -756,14 +771,20 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                       {isEditing ? (
                         <Select className="w-full" value={profile.bankName} onValueChange={(v) => setProfile({ ...profile, bankName: v })} disabled={!isEditing}>
                           <SelectTrigger className="w-full bg-[var(--input-bg)] border-[var(--border)] h-9 text-[var(--text-main)]">
-                            <SelectValue placeholder={t('dashboard:profile.personalInfo.fields.bankName')} />
+                            <SelectValue placeholder={t('dashboard:profile.personalInfo.fields.bankNamePlaceholder', 'Chọn ngân hàng')} />
                           </SelectTrigger>
-                          <SelectContent className="max-h-44 overflow-auto">
-                            {banksOptions.map((b) => (
-                              <SelectItem key={b.shortname || b.name} value={b.shortname || b.name}>
-                                {b.shortname ? `${b.shortname} - ${b.name}` : b.name}
-                              </SelectItem>
-                            ))}
+                          <SelectContent className="max-h-44 overflow-auto bg-[var(--surface)] border-[var(--border)]">
+                            {banksOptions.length === 0 ? (
+                              <p className="px-3 py-2 text-sm text-[var(--text-sub)]">
+                                {t('dashboard:profile.personalInfo.fields.bankNameEmpty', 'Không tải được danh sách ngân hàng')}
+                              </p>
+                            ) : (
+                              banksOptions.map((b) => (
+                                <SelectItem key={b.shortname || b.name} value={b.shortname || b.name}>
+                                  {b.shortname ? `${b.shortname} - ${b.name}` : b.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       ) : (
@@ -785,6 +806,19 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                         value={profile.taxId}
                         onChange={(e) => setProfile({ ...profile, taxId: e.target.value })}
                         disabled={!isEditing}
+                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[var(--text-main)]">
+                        🏥 {t('dashboard:profile.personalInfo.fields.healthInsuranceId', 'Mã bảo hiểm y tế')}
+                      </Label>
+                      <Input
+                        value={profile.healthInsuranceId}
+                        onChange={(e) => setProfile({ ...profile, healthInsuranceId: e.target.value })}
+                        disabled={!isEditing}
+                        placeholder={t('dashboard:profile.personalInfo.fields.healthInsuranceIdPlaceholder', 'VD: DN1234567890123')}
                         className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
                       />
                     </div>

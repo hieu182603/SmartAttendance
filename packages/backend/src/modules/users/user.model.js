@@ -48,6 +48,7 @@ const userSchema = new mongoose.Schema(
     bankAccount: { type: String },
     bankName: { type: String },
     taxId: { type: String },
+    healthInsuranceId: { type: String },
     position: { type: String },
     // Normalized position key for case-insensitive matching
     positionKey: { type: String, trim: true, lowercase: true, index: true },
