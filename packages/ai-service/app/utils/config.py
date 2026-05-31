@@ -57,7 +57,7 @@ AI_USD_TO_VND = float(os.getenv("AI_USD_TO_VND", "25500"))
 
 def calc_cost_usd(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     """Calculate estimated cost in USD based on model and token counts."""
-    if "embedding" in model or model == "text-embedding-004":
+    if "embedding" in model or model in ("text-embedding-004", "gemini-embedding-001", "gemini-embedding-2"):
         total = prompt_tokens + completion_tokens
         return (total / 1_000_000) * AI_PRICE_EMBEDDING_PER_1M
     # Default: gemini-2.5-flash or similar

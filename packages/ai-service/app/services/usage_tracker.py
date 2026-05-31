@@ -139,7 +139,7 @@ async def embed_query_with_usage(
         company_id=company_id,
         user_id=user_id,
         operation=operation,
-        model="text-embedding-004",
+        model="gemini-embedding-001",
         prompt_tokens=estimated_tokens,
         completion_tokens=0,
         estimated=True,
