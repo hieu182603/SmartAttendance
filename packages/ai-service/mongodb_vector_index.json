@@ -10,6 +10,30 @@
     },
     {
       "type": "filter",
+      "path": "company_id"
+    },
+    {
+      "type": "filter",
+      "path": "regulation_id"
+    },
+    {
+      "type": "filter",
+      "path": "doc_type"
+    },
+    {
+      "type": "filter",
+      "path": "source"
+    },
+    {
+      "type": "filter",
+      "path": "content_hash"
+    },
+    {
+      "type": "filter",
+      "path": "collection_name"
+    },
+    {
+      "type": "filter",
       "path": "metadata.doc_type"
     },
     {

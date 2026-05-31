@@ -158,6 +158,7 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.ATTENDANCE_VIEW_OWN,
         Permission.ATTENDANCE_VIEW_ALL,
         Permission.ATTENDANCE_MANUAL_CHECKIN,
+        Permission.ATTENDANCE_APPROVE,
         Permission.REQUESTS_CREATE,
         Permission.REQUESTS_VIEW_OWN,
         Permission.REQUESTS_APPROVE_ALL,
@@ -167,15 +168,16 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.USERS_CREATE,
         Permission.USERS_UPDATE,
         Permission.PAYROLL_VIEW,
-        Permission.PAYROLL_MANAGE, // HR_MANAGER có quyền quản lý thang lương
+        Permission.PAYROLL_MANAGE,
+        Permission.PAYROLL_EXPORT,
     ],
 
     [UserRole.ADMIN]: [
-        // Basic permissions (ADMIN vẫn là nhân viên nên cần các quyền cơ bản)
+        // Quyền cá nhân (admin cũng là nhân viên)
         Permission.ATTENDANCE_VIEW_OWN,
         Permission.REQUESTS_CREATE,
         Permission.REQUESTS_VIEW_OWN,
-        // Admin permissions
+        // HR + company operations
         Permission.ATTENDANCE_VIEW_ALL,
         Permission.ATTENDANCE_MANUAL_CHECKIN,
         Permission.ATTENDANCE_APPROVE,
@@ -187,6 +189,10 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.USERS_UPDATE,
         Permission.USERS_DELETE,
         Permission.USERS_MANAGE_ROLE,
+        Permission.SCHEDULE_VIEW_DEPARTMENT,
+        Permission.SCHEDULE_MANAGE_DEPARTMENT,
+        Permission.PERFORMANCE_VIEW_DEPARTMENT,
+        Permission.PERFORMANCE_MANAGE_DEPARTMENT,
         Permission.PAYROLL_VIEW,
         Permission.PAYROLL_MANAGE,
         Permission.PAYROLL_EXPORT,
@@ -194,6 +200,7 @@ export const ROLE_PERMISSIONS: Record<UserRoleType, PermissionType[]> = {
         Permission.DEPARTMENTS_MANAGE,
         Permission.BRANCHES_VIEW,
         Permission.BRANCHES_MANAGE,
+        // System settings
         Permission.SYSTEM_SETTINGS_VIEW,
         Permission.SYSTEM_SETTINGS_UPDATE,
         Permission.AUDIT_LOGS_VIEW,

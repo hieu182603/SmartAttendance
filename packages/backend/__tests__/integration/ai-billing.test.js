@@ -177,6 +177,40 @@ describe("Tenant isolation", () => {
   });
 });
 
+// ── TC-AI-BILLING-003b: SUPER_ADMIN platform usage ───────────────────────────
+
+describe("GET /api/ai-billing/admin/companies", () => {
+  test("TC-AI-003b: SUPER_ADMIN gets company usage list (no 500)", async () => {
+    const { company } = await seedCompanyAndAdmin("ADMIN");
+    const sa = await createUser(UserModel, "SUPER_ADMIN", {});
+    const saToken = await tokenFor(sa);
+
+    await AiUsageEventModel.create({
+      companyId: company._id,
+      userId: "user_123",
+      service: "rag",
+      operation: "chat",
+      model: "gemini-2.5-flash",
+      promptTokens: 100,
+      completionTokens: 50,
+      totalTokens: 150,
+      estimatedCostVnd: 1000,
+      estimated: false,
+      createdAt: new Date("2026-05-10"),
+    });
+
+    const res = await request(app)
+      .get("/api/ai-billing/admin/companies")
+      .query({ month: 5, year: 2026 })
+      .set("Authorization", `Bearer ${saToken}`)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
 // ── TC-AI-BILLING-004: SUPER_ADMIN generate invoices ─────────────────────────
 
 describe("POST /api/ai-billing/admin/invoices/generate", () => {

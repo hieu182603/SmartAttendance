@@ -25,6 +25,24 @@ if os.path.exists(os.path.join(os.path.dirname(__file__), '..', '..', '.env')):
 
 # LangChain imports
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+
+
+class TruncatedEmbeddings(GoogleGenerativeAIEmbeddings):
+    """gemini-embedding-001 trả 3072 dim nhưng Atlas Vector Search index hiện tại
+    được khai báo 768 dim. Model này là Matryoshka — 768 prefix vẫn là embedding
+    hoàn chỉnh và hợp lệ, nên ta truncate xuống 768 dim ở cả ingest và query để
+    tương thích với index có sẵn (tránh phải tạo lại index 3072 dim trên Atlas).
+    """
+
+    target_dim: int = 768
+
+    def embed_query(self, text, **kwargs):
+        v = super().embed_query(text, **kwargs)
+        return v[: self.target_dim]
+
+    def embed_documents(self, texts, **kwargs):
+        vectors = super().embed_documents(texts, **kwargs)
+        return [v[: self.target_dim] for v in vectors]
 from langchain_mongodb import MongoDBAtlasVectorSearch
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
@@ -305,9 +323,11 @@ class RAGService:
             # Set API key explicitly in environment for this process
             os.environ["GOOGLE_API_KEY"] = str(api_key)
             
-            # Initialize embeddings (Google text-embedding-004)
-            self.embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/text-embedding-004"
+            # Initialize embeddings (gemini-embedding-001 — text-embedding-004 deprecated)
+            # Truncate to 768 dim to match the existing Atlas vector_index_rag.
+            self.embeddings = TruncatedEmbeddings(
+                model="models/gemini-embedding-001",
+                target_dim=768,
             )
             logger.info("Initialized Google Generative AI embeddings")
             
@@ -565,9 +585,16 @@ TRẢ LỜI:"""
         if intent_type == 'general':
             return True
         
-        # Use vector search for policy/guide related queries
-        policy_keywords = ['chính sách', 'quy định', 'hướng dẫn', 'quy trình', 
-                          'policy', 'guide', 'procedure', 'rule', 'regulation']
+        # Use vector search for policy/guide/regulation/document related queries.
+        # Keep this list broad — these phrasings all point at company knowledge
+        # base content rather than structured tables (shifts, employees, ...).
+        policy_keywords = [
+            'chính sách', 'quy định', 'quy chế', 'quy trình', 'nội quy',
+            'chế độ', 'điều lệ', 'văn bản', 'tài liệu', 'cẩm nang',
+            'hướng dẫn', 'sổ tay', 'điều khoản', 'thỏa thuận',
+            'policy', 'guide', 'procedure', 'rule', 'regulation',
+            'handbook', 'manual', 'document',
+        ]
         message_lower = message.lower()
         if any(keyword in message_lower for keyword in policy_keywords):
             return True
@@ -998,13 +1025,38 @@ TRẢ LỜI:"""
                 )
                 sources = self._create_db_query_sources(intent_type, query_type)
                 
-                # Smart fallback: if handler returned error/empty, try dynamic query
-                if response_text and (
-                    response_text.startswith("Xin lỗi, tôi chưa hiểu") or
-                    response_text == "Không có dữ liệu phù hợp." or
-                    response_text.startswith("Chức năng đang được phát triển")
-                ):
-                    logger.info(f"Domain handler returned fallback response, trying dynamic query for: '{message}'")
+                # Smart fallback: domain handler không trả dữ liệu — thử RAG
+                # (tài liệu công ty) trước, sau đó mới đến dynamic query.
+                empty_response_markers = [
+                    "Xin lỗi, tôi chưa hiểu",
+                    "Không có dữ liệu phù hợp.",
+                    "Không tìm thấy",  # ví dụ "Không tìm thấy ca làm việc nào."
+                    "Chức năng đang được phát triển",
+                ]
+                is_empty_response = response_text and any(
+                    response_text.startswith(marker) for marker in empty_response_markers
+                )
+
+                if is_empty_response:
+                    logger.info(
+                        f"Domain handler '{intent_type}' empty — falling back to RAG vector search for: '{message}'"
+                    )
+                    try:
+                        rag_response, rag_sources = await self._handle_general_question_with_rag(
+                            message, role, department_id,
+                            conversation_history=conversation_history,
+                            company_id=company_id, user_id=user_id,
+                        )
+                        # RAG only "wins" if it actually found something
+                        if rag_response and rag_sources:
+                            response_text = rag_response
+                            sources = rag_sources
+                            is_empty_response = False
+                    except Exception as e:
+                        logger.warning(f"RAG fallback failed: {str(e)}")
+
+                if is_empty_response:
+                    logger.info(f"RAG fallback empty — trying dynamic DB query for: '{message}'")
                     dynamic_response = await self._handle_dynamic_query(
                         message, role, user_id, department_id, company_id=company_id
                     )

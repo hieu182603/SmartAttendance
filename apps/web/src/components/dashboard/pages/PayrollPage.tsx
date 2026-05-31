@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   DollarSign,
@@ -46,13 +46,13 @@ import {
   SelectValue,
 } from "../../ui/select";
 import { SuperAdminCompanyFilterSlot } from "@/components/dashboard/SuperAdminCompanyFilterSlot";
+import { useSuperAdminFilter } from "@/context/SuperAdminContext";
 import {
   getPayrollRecords,
   getDepartments,
   getPayrollById,
   approvePayroll,
   markAsPaid,
-  downloadPayrollBulkExcel,
   type PayrollRecord,
 } from "../../../services/payrollService";
 import { PayrollPreviewDialog } from "./PayrollPreviewDialog";
@@ -63,6 +63,7 @@ import { Permission, UserRole } from "@/utils/roles";
 export default function PayrollPage() {
   const { t } = useTranslation("dashboard");
   const { hasPermission, hasMinimumRole } = usePermissions();
+  const { selectedCompanyId } = useSuperAdminFilter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -95,7 +96,19 @@ export default function PayrollPage() {
   const canManagePayroll = hasPermission(Permission.PAYROLL_MANAGE);
   const canMarkPayrollAsPaid = hasMinimumRole(UserRole.ADMIN);
 
+  const resolveRecordUserId = (record: PayrollRecord): string => {
+    const uid = record.userId as PayrollRecord["userId"] | string;
+    if (typeof uid === "string") return uid;
+    if (uid?._id) return String(uid._id);
+    return "";
+  };
+
   const handleOpenPreview = (record: PayrollRecord) => {
+    const userId = resolveRecordUserId(record);
+    if (!userId || !record.month) {
+      toast.error("Không xác định được nhân viên để xem trước bảng lương");
+      return;
+    }
     setSelectedRecord(record);
     setIsPreviewDialogOpen(true);
   };
@@ -107,13 +120,14 @@ export default function PayrollPage() {
         setDepartments(depts);
       } catch (error) {
         console.error("Error fetching departments:", error);
+        setDepartments([]);
       }
     };
 
     fetchDepartments();
-  }, []);
+  }, [selectedCompanyId]);
 
-  const fetchPayrollData = async () => {
+  const fetchPayrollData = useCallback(async () => {
     try {
       setLoading(true);
       const params: {
@@ -162,11 +176,18 @@ export default function PayrollPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    selectedMonth,
+    currentPage,
+    itemsPerPage,
+    filterStatus,
+    filterDepartment,
+    t,
+  ]);
 
   useEffect(() => {
     fetchPayrollData();
-  }, [selectedMonth, currentPage, itemsPerPage, filterStatus, filterDepartment]);
+  }, [fetchPayrollData, selectedCompanyId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -520,16 +541,6 @@ export default function PayrollPage() {
                 {t("payroll.export")}
               </Button>
             </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                onClick={() => downloadPayrollBulkExcel(selectedMonth)}
-                variant="outline"
-                className="border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)]/10 shadow-lg"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Xuất Excel (Server)
-              </Button>
-            </motion.div>
           </div>
         </div>
       </motion.div>
@@ -739,14 +750,8 @@ export default function PayrollPage() {
                     <TableHead className="text-[var(--text-sub)] text-center">
                       {t("payroll.table.workDays")}
                     </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-center">
-                      {t("payroll.table.overtimeHours")}
-                    </TableHead>
                     <TableHead className="text-[var(--text-sub)] text-right">
                       {t("payroll.table.baseSalary")}
-                    </TableHead>
-                    <TableHead className="text-[var(--text-sub)] text-right">
-                      {t("payroll.table.overtimePay")}
                     </TableHead>
                     <TableHead className="text-[var(--text-sub)] text-right">
                       {t("payroll.table.bonus")}
@@ -768,7 +773,7 @@ export default function PayrollPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-12">
+                      <TableCell colSpan={9} className="text-center py-12">
                         <div className="flex flex-col items-center gap-4">
                           <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin" />
                           <p className="text-[var(--text-sub)]">
@@ -792,14 +797,8 @@ export default function PayrollPage() {
                         <TableCell className="text-center text-[var(--text-main)]">
                           {record.workDays}/{record.totalDays}
                         </TableCell>
-                        <TableCell className="text-center text-[var(--text-main)]">
-                          {record.overtimeHours}
-                        </TableCell>
                         <TableCell className="text-right text-[var(--text-main)]">
                           {formatCurrency(record.baseSalary)}
-                        </TableCell>
-                        <TableCell className="text-right text-[var(--success)]">
-                          +{formatCurrency(record.overtimePay)}
                         </TableCell>
                         <TableCell className="text-right text-[var(--success)]">
                           +{formatCurrency(record.bonus)}
@@ -870,7 +869,7 @@ export default function PayrollPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-12">
+                      <TableCell colSpan={9} className="text-center py-12">
                         <div className="flex flex-col items-center gap-4">
                           <Users className="h-12 w-12 text-[var(--text-sub)] opacity-50" />
                           <p className="text-[var(--text-sub)]">
@@ -954,16 +953,8 @@ export default function PayrollPage() {
                           <span className="text-[var(--text-main)] font-medium">{record.workDays}/{record.totalDays}</span>
                         </div>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-[var(--text-sub)]">{t("payroll.table.overtimeHours")}</span>
-                          <span className="text-[var(--text-main)] font-medium">{record.overtimeHours}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
                           <span className="text-[var(--text-sub)]">{t("payroll.table.baseSalary")}</span>
                           <span className="text-[var(--text-main)] font-medium">{formatCurrency(record.baseSalary)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-[var(--text-sub)]">{t("payroll.table.overtimePay")}</span>
-                          <span className="text-[var(--success)] font-medium">+{formatCurrency(record.overtimePay)}</span>
                         </div>
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-[var(--text-sub)]">{t("payroll.table.bonus")}</span>
@@ -1337,12 +1328,16 @@ export default function PayrollPage() {
       </Dialog>
 
       {/* Preview Payroll Dialog */}
-      {selectedRecord && (
+      {selectedRecord && resolveRecordUserId(selectedRecord) && (
         <PayrollPreviewDialog
           open={isPreviewDialogOpen}
           onOpenChange={setIsPreviewDialogOpen}
-          userId={selectedRecord.userId._id}
-          userName={selectedRecord.userId?.name || "N/A"}
+          userId={resolveRecordUserId(selectedRecord)}
+          userName={
+            typeof selectedRecord.userId === "object"
+              ? selectedRecord.userId?.name || "N/A"
+              : "N/A"
+          }
           month={selectedRecord.month}
         />
       )}

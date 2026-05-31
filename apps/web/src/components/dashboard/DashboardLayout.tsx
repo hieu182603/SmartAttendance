@@ -263,6 +263,7 @@ const DashboardLayout: React.FC = () => {
                       {(() => {
                         const isSuperAdmin = userRole === UserRole.SUPER_ADMIN;
                         const isHrManager = userRole === UserRole.HR_MANAGER;
+                        const isAdmin = userRole === UserRole.ADMIN;
                         const isDeptManager = userRole === UserRole.MANAGER;
 
                         const payrollItems = sections.admin.filter((item) =>
@@ -271,11 +272,11 @@ const DashboardLayout: React.FC = () => {
                         const platformItems = isSuperAdmin
                           ? sections.admin.filter((item) => PLATFORM_MENU_IDS.has(item.id))
                           : [];
-                        const hrOpsItems = isHrManager
+                        // ADMIN = company admin → has same HR ops view as HR_MANAGER
+                        const hrOpsItems = (isHrManager || isAdmin)
                           ? sections.admin.filter((item) => HR_OPERATIONS_MENU_IDS.has(item.id))
                           : [];
-                        const orgItems =
-                          userRole === UserRole.ADMIN
+                        const orgItems = isAdmin
                             ? sections.admin.filter((item) => ORG_MENU_IDS.has(item.id))
                             : [];
                         const deptMgrItems = isDeptManager
@@ -299,21 +300,12 @@ const DashboardLayout: React.FC = () => {
                           (item) => currentPage === item.id,
                         );
                         const isPayrollGroupOpen = isPayrollGroupActive || openMenuGroups.payroll;
-                        const isPlatformGroupActive = platformItems.some(
-                          (item) => currentPage === item.id,
-                        );
-                        const isPlatformGroupOpen =
-                          isPlatformGroupActive || openMenuGroups.platform;
                         const isHrOpsGroupActive = hrOpsItems.some(
                           (item) => currentPage === item.id,
                         );
                         const isHrOpsGroupOpen = isHrOpsGroupActive || openMenuGroups.hrOps;
                         const isOrgGroupActive = orgItems.some((item) => currentPage === item.id);
                         const isOrgGroupOpen = isOrgGroupActive || openMenuGroups.org;
-                        const isDeptGroupActive = deptMgrItems.some(
-                          (item) => currentPage === item.id,
-                        );
-                        const isDeptGroupOpen = isDeptGroupActive || openMenuGroups.deptMgmt;
 
                         const renderNavItem = (item: MenuItem) => {
                           const Icon = item.icon;
@@ -363,40 +355,7 @@ const DashboardLayout: React.FC = () => {
                           <>
                             {homeItem && renderNavItem(homeItem)}
 
-                            {platformItems.length > 0 && (
-                              <div className={`${isSidebarCollapsed ? "mt-1" : "mt-2"}`}>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setOpenMenuGroups((prev) => ({ ...prev, platform: !isPlatformGroupOpen }))
-                                  }
-                                  title={isSidebarCollapsed ? tMenu("platform-group") : undefined}
-                                  className={`
-                                w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
-                                transition-all duration-200
-                                ${isPlatformGroupActive
-                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
-                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
-                                }
-                              `}
-                                >
-                                  <Building2 className="h-5 w-5" />
-                                  {!isSidebarCollapsed && (
-                                    <>
-                                      <span className="text-sm flex-1 text-left">{tMenu("platform-group")}</span>
-                                      <ChevronDown
-                                        className={`h-4 w-4 transition-transform duration-200 ${isPlatformGroupOpen ? "rotate-180" : ""}`}
-                                      />
-                                    </>
-                                  )}
-                                </button>
-                                {!isSidebarCollapsed && isPlatformGroupOpen && (
-                                  <div className="mt-1 ml-4 space-y-1 border-l border-[var(--border)] pl-3">
-                                    {platformItems.map(renderSubNavItem)}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                            {platformItems.map(renderNavItem)}
 
                             {orgItems.length > 0 && (
                               <div className={`${isSidebarCollapsed ? "mt-1" : "mt-2"}`}>
@@ -468,40 +427,7 @@ const DashboardLayout: React.FC = () => {
                               </div>
                             )}
 
-                            {deptMgrItems.length > 0 && (
-                              <div className={`${isSidebarCollapsed ? "mt-1" : "mt-2"}`}>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setOpenMenuGroups((prev) => ({ ...prev, deptMgmt: !isDeptGroupOpen }))
-                                  }
-                                  title={isSidebarCollapsed ? tMenu("dept-management-group") : undefined}
-                                  className={`
-                                w-full flex items-center ${isSidebarCollapsed ? "justify-center px-2" : "space-x-3 px-4"} py-3 rounded-xl
-                                transition-all duration-200
-                                ${isDeptGroupActive
-                                  ? "bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white shadow-lg"
-                                  : "text-[var(--text-main)] hover:bg-[var(--shell)]"
-                                }
-                              `}
-                                >
-                                  <Briefcase className="h-5 w-5" />
-                                  {!isSidebarCollapsed && (
-                                    <>
-                                      <span className="text-sm flex-1 text-left">{tMenu("dept-management-group")}</span>
-                                      <ChevronDown
-                                        className={`h-4 w-4 transition-transform duration-200 ${isDeptGroupOpen ? "rotate-180" : ""}`}
-                                      />
-                                    </>
-                                  )}
-                                </button>
-                                {!isSidebarCollapsed && isDeptGroupOpen && (
-                                  <div className="mt-1 ml-4 space-y-1 border-l border-[var(--border)] pl-3">
-                                    {deptMgrItems.map(renderSubNavItem)}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                            {deptMgrItems.map(renderNavItem)}
 
                             {mainAdminItems.map(renderNavItem)}
 

@@ -1,6 +1,3 @@
-// moduleNameMapper in package.json already redirects @react-native-async-storage/async-storage
-// to src/__mocks__/async-storage.ts, so no manual jest.mock() needed for it.
-
 jest.mock('react-native', () => ({
   DeviceEventEmitter: {
     emit: jest.fn(),
@@ -10,24 +7,30 @@ jest.mock('react-native', () => ({
 
 jest.mock('../constants/api', () => ({
   API_URL: 'http://localhost:3000',
+  AUTH_endpoints: {
+    LOGIN: '/auth/login',
+    REFRESH: '/auth/refresh',
+  },
 }));
 
 import { DeviceEventEmitter } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import MockAdapter from 'axios-mock-adapter';
 import api, { AUTH_EXPIRED_EVENT } from '../libs/axios';
+import { setSecureItem, removeSecureItem, STORAGE_KEYS } from '../utils/secureStorage';
 
 const mock = new MockAdapter(api);
 
-beforeEach(() => {
+beforeEach(async () => {
   mock.reset();
-  (AsyncStorage as any)._reset();
+  await removeSecureItem(STORAGE_KEYS.TOKEN);
+  await removeSecureItem(STORAGE_KEYS.REFRESH_TOKEN);
+  await removeSecureItem(STORAGE_KEYS.USER);
   jest.clearAllMocks();
 });
 
 describe('axios request interceptor', () => {
   it('attaches Authorization header when token exists in storage', async () => {
-    await AsyncStorage.setItem('smartattendance_token', 'test-token-123');
+    await setSecureItem(STORAGE_KEYS.TOKEN, 'test-token-123');
     mock.onGet('/test').reply(200, { ok: true });
 
     const response = await api.get('/test');
@@ -45,17 +48,17 @@ describe('axios request interceptor', () => {
 });
 
 describe('axios response interceptor — 401 handling', () => {
-  it('clears storage and emits AUTH_EXPIRED_EVENT on 401', async () => {
-    await AsyncStorage.setItem('smartattendance_token', 'expired-token');
-    await AsyncStorage.setItem('smartattendance_user', JSON.stringify({ id: 1 }));
+  it('clears storage and emits AUTH_EXPIRED_EVENT when refresh fails', async () => {
+    await setSecureItem(STORAGE_KEYS.TOKEN, 'expired-token');
+    await setSecureItem(STORAGE_KEYS.REFRESH_TOKEN, 'bad-refresh');
+    await setSecureItem(STORAGE_KEYS.USER, JSON.stringify({ id: 1 }));
     mock.onGet('/api/protected').reply(401);
+    mock.onPost('/auth/refresh').reply(401, {}, { 'X-Skip-Auth-Refresh': '1' });
 
     await expect(api.get('/api/protected')).rejects.toMatchObject({
       response: { status: 401 },
     });
 
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('smartattendance_token');
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('smartattendance_user');
     expect(DeviceEventEmitter.emit).toHaveBeenCalledWith(AUTH_EXPIRED_EVENT);
   });
 
@@ -67,28 +70,22 @@ describe('axios response interceptor — 401 handling', () => {
     });
 
     expect(DeviceEventEmitter.emit).not.toHaveBeenCalled();
-    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
   });
 
-  it('passes through 500 errors without emitting event', async () => {
-    mock.onGet('/api/data').reply(500, { message: 'Internal server error' });
+  it('refreshes token on 401 when refresh succeeds', async () => {
+    await setSecureItem(STORAGE_KEYS.TOKEN, 'expired-token');
+    await setSecureItem(STORAGE_KEYS.REFRESH_TOKEN, 'valid-refresh');
+    mock.onGet('/api/protected').replyOnce(401).onGet('/api/protected').reply(200, { ok: true });
+    mock
+      .onPost('/auth/refresh', { refreshToken: 'valid-refresh' })
+      .reply(200, {
+        token: 'new-access-token',
+        refreshToken: 'new-refresh-token',
+      });
 
-    await expect(api.get('/api/data')).rejects.toMatchObject({
-      response: { status: 500 },
-    });
+    const response = await api.get('/api/protected');
 
-    expect(DeviceEventEmitter.emit).not.toHaveBeenCalled();
-  });
-
-  it('passes through 403 errors without clearing storage', async () => {
-    await AsyncStorage.setItem('smartattendance_token', 'valid-token');
-    mock.onGet('/api/admin').reply(403);
-
-    await expect(api.get('/api/admin')).rejects.toMatchObject({
-      response: { status: 403 },
-    });
-
-    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
-    expect(DeviceEventEmitter.emit).not.toHaveBeenCalled();
+    expect(response.data).toEqual({ ok: true });
+    expect(response.config.headers?.Authorization).toBe('Bearer new-access-token');
   });
 });

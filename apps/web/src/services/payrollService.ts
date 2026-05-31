@@ -310,7 +310,8 @@ export const getMyPayslips = async (): Promise<PayrollRecord[]> => {
   const { data } = await api.get("/payroll/my-payslip", {
     params: { month: "all" },
   });
-  return data.data;
+  const rows = data?.data;
+  return Array.isArray(rows) ? rows : [];
 };
 
 const downloadPayslip = async (path: string, filename: string, month?: string) => {

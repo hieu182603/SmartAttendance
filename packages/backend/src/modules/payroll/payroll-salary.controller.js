@@ -97,6 +97,7 @@ export const createSalaryMatrix = async (req, res) => {
     }
 
     const data = parse.data;
+    const companyId = resolveTenantCompanyId(req);
     data.departmentCode = data.departmentCode.toUpperCase();
     // Normalize position for consistent matching
     const normalizedPosition = data.position.trim().toLowerCase();
@@ -153,6 +154,7 @@ export const createSalaryMatrix = async (req, res) => {
 
     const record = await SalaryMatrixModel.create({
       ...data,
+      ...(companyId ? { companyId } : {}),
       createdBy: userId,
       updatedBy: userId,
     });

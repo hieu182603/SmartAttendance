@@ -1,7 +1,8 @@
 """Attendance query handler"""
 import logging
+import os
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 from app.services.rag.query_handlers.base import (
@@ -12,6 +13,17 @@ from app.services.rag.query_handlers.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+VN_DAY_NAMES = [
+    "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật",
+]
+
+LEAVE_TYPES = ["leave", "sick", "unpaid", "compensatory", "maternity"]
+
+OBLIGATION_QUESTION_RE = re.compile(
+    r"(có phải|cần|phải|bắt buộc).*(chấm công|điểm danh|check.?in)",
+    re.IGNORECASE,
+)
 
 
 class AttendanceQueryHandler(BaseQueryHandler):
@@ -25,23 +37,140 @@ class AttendanceQueryHandler(BaseQueryHandler):
     def error_message(self) -> str:
         return "bạn không có quyền truy cập thông tin chấm công"
     
-    async def _handle_status_today(self, query: Dict[str, Any], user_id: str | None = None) -> str:
+    async def _resolve_today_work_context(
+        self, user_id: str,
+    ) -> Tuple[bool, str, Dict[str, Any]]:
         """
-        Trả lời \"Hôm nay tôi đã chấm công chưa?\" cho người dùng hiện tại.
+        Determine whether the user is expected to clock in today.
+
+        Mirrors backend attendance.service.js rules:
+        - Approved leave → no clock-in
+        - Weekend without assigned shift → no clock-in (unless ENABLE_WEEKEND_CHECKIN)
+        - Schedule status = off → no clock-in
+        - Otherwise → working day, clock-in expected
+        """
+        now_local = datetime.now(VN_TZ)
+        day_name = VN_DAY_NAMES[now_local.weekday()]
+        is_weekend = now_local.weekday() >= 5
+        today_start, today_end = get_today_range(tz_offset_hours=7)
+        user_oid = self._convert_user_id(user_id)
+        context: Dict[str, Any] = {"day_name": day_name, "is_weekend": is_weekend}
+
+        # Approved leave covering today
+        requests_col = getattr(self.collections, "requests_collection", None)
+        if requests_col is not None:
+            try:
+                leave = await requests_col.find_one({
+                    "userId": user_oid,
+                    "status": "approved",
+                    "type": {"$in": LEAVE_TYPES},
+                    "startDate": {"$lte": today_end},
+                    "endDate": {"$gte": today_start},
+                })
+                if leave:
+                    context["leave_type"] = leave.get("type", "leave")
+                    return False, "on_leave", context
+            except Exception as e:
+                logger.warning(f"Leave check failed for status_today: {e}")
+
+        # Employee schedule for today
+        schedule_col = getattr(self.collections, "employeeschedules_collection", None)
+        schedule = None
+        if schedule_col is not None:
+            try:
+                schedule = await schedule_col.find_one({
+                    "userId": user_oid,
+                    "date": {"$gte": today_start, "$lt": today_end},
+                })
+            except Exception as e:
+                logger.warning(f"Schedule check failed for status_today: {e}")
+
+        if schedule:
+            context["schedule_status"] = schedule.get("status")
+            context["shift_name"] = schedule.get("shiftName") or schedule.get("shiftId")
+            context["start_time"] = schedule.get("startTime")
+            context["end_time"] = schedule.get("endTime")
+            if schedule.get("status") == "off":
+                return False, "scheduled_off", context
+
+        # Weekend without a working shift
+        if is_weekend:
+            has_weekend_shift = schedule is not None and schedule.get("status") != "off"
+            weekend_enabled = os.getenv("ENABLE_WEEKEND_CHECKIN", "false").lower() == "true"
+            if not has_weekend_shift and not weekend_enabled:
+                return False, "weekend_no_shift", context
+            context["has_weekend_shift"] = has_weekend_shift
+
+        return True, "working_day", context
+
+    def _format_no_clock_in_response(self, reason: str, context: Dict[str, Any]) -> str:
+        """Response when the user does not need to clock in today."""
+        day_name = context.get("day_name", "hôm nay")
+
+        if reason == "on_leave":
+            leave_labels = {
+                "leave": "nghỉ phép",
+                "sick": "nghỉ ốm",
+                "unpaid": "nghỉ không lương",
+                "compensatory": "nghỉ bù",
+                "maternity": "nghỉ thai sản",
+            }
+            leave_label = leave_labels.get(context.get("leave_type", ""), "nghỉ phép")
+            return (
+                f"📅 Hôm nay (**{day_name}**) bạn **đang trong thời gian {leave_label} "
+                f"đã được duyệt**.\n\n"
+                f"**Bạn không cần chấm công** trong ngày này."
+            )
+
+        if reason == "scheduled_off":
+            return (
+                f"📅 Hôm nay (**{day_name}**) lịch làm việc của bạn ghi nhận **ngày nghỉ**.\n\n"
+                f"**Bạn không cần chấm công.**"
+            )
+
+        if reason == "weekend_no_shift":
+            return (
+                f"📅 Hôm nay là **{day_name}** — ngày nghỉ cuối tuần theo quy định công ty.\n\n"
+                f"**Bạn không cần chấm công** trừ khi được phân ca làm việc cuối tuần."
+            )
+
+        return (
+            f"📅 Hôm nay (**{day_name}**) **bạn không cần chấm công**."
+        )
+
+    async def _handle_status_today(
+        self,
+        query: Dict[str, Any],
+        user_id: str | None = None,
+        message: str = "",
+    ) -> str:
+        """
+        Trả lời câu hỏi cá nhân về chấm công hôm nay:
+        - \"Hôm nay tôi đã chấm công chưa?\"
+        - \"Nay tôi có phải chấm công không?\"
         """
         collection = await self._get_collection()
         if collection is None:
             return f"Xin lỗi, {self.error_message}"
-        
-        # Force override userId for personal queries (Comment 2: don't use setdefault)
-        if user_id:
-            query["userId"] = self._convert_user_id(user_id)
-        
-        # Use Vietnam timezone (UTC+7) for "today" calculation (Comment 1)
+
+        if not user_id:
+            return "Xin lỗi, tôi không xác định được tài khoản của bạn. Vui lòng đăng nhập lại."
+
+        asks_obligation = bool(message and OBLIGATION_QUESTION_RE.search(message))
+
+        needs_clock_in, reason, work_ctx = await self._resolve_today_work_context(user_id)
+        day_name = work_ctx.get("day_name", "hôm nay")
+
+        if not needs_clock_in:
+            return self._format_no_clock_in_response(reason, work_ctx)
+
+        # Force override userId for personal queries
+        query = dict(query)
+        query["userId"] = self._convert_user_id(user_id)
+
         today_start, today_end = get_today_range(tz_offset_hours=7)
         query["date"] = {"$gte": today_start, "$lt": today_end}
-        
-        # Use aggregation pipeline with $lookup to branches for location name (Comment 4)
+
         pipeline = [
             {"$match": query},
             {"$lookup": {
@@ -54,15 +183,32 @@ class AttendanceQueryHandler(BaseQueryHandler):
             {"$sort": {"checkIn": 1}},
             {"$limit": 3}
         ]
-        
+
         records = await collection.aggregate(pipeline).to_list(length=None)
-        
+
         if not records:
+            if asks_obligation:
+                lead = (
+                    f"**Có**, hôm nay (**{day_name}**) là ngày làm việc và "
+                    f"**bạn cần chấm công**.\n\n"
+                )
+            else:
+                lead = (
+                    f"⚠️ Hôm nay (**{day_name}**) hệ thống **chưa ghi nhận bản ghi chấm công** "
+                    f"nào của bạn.\n\n"
+                )
+            shift_hint = ""
+            if work_ctx.get("shift_name") and work_ctx.get("start_time"):
+                shift_hint = (
+                    f"- Ca hôm nay: **{work_ctx['shift_name']}** "
+                    f"({work_ctx['start_time']}–{work_ctx.get('end_time', '?')})\n"
+                )
             return (
-                "⚠️ Hôm nay hệ thống **chưa ghi nhận bản ghi chấm công** nào của bạn.\n\n"
-                "💡 **Gợi ý:**\n"
-                "- Bạn có thể mở mục **Chấm công** trên menu để thực hiện chấm công ngay.\n"
-                "- Nếu bạn đã chấm công nhưng không thấy, hãy liên hệ quản lý trực tiếp."
+                f"{lead}"
+                f"{shift_hint}"
+                f"💡 **Gợi ý:**\n"
+                f"- Bạn có thể mở mục **Chấm công** trên menu để thực hiện chấm công ngay.\n"
+                f"- Nếu bạn đã chấm công nhưng không thấy, hãy liên hệ quản lý trực tiếp."
             )
         
         # Lấy bản ghi check-in đầu tiên trong ngày
@@ -91,7 +237,13 @@ class AttendanceQueryHandler(BaseQueryHandler):
         }
         status_display = status_map.get(status, status)
         
-        response = f"✅ Hôm nay bạn **{status_display}** lúc **{check_in_str}**.\n"
+        if asks_obligation:
+            response = (
+                f"**Không cần nữa** — hôm nay (**{day_name}**) bạn **{status_display}** "
+                f"lúc **{check_in_str}**.\n"
+            )
+        else:
+            response = f"✅ Hôm nay bạn **{status_display}** lúc **{check_in_str}**.\n"
         if location:
             response += f"- Địa điểm: **{location}**\n"
         

@@ -22,4 +22,5 @@ export const AUTH_endpoints = {
   LOGIN: "/auth/login",
   REGISTER: "/auth/register",
   ME: "/auth/me",
+  REFRESH: "/auth/refresh",
 };

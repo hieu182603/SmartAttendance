@@ -8,6 +8,8 @@ export interface User {
   name: string
   email: string
   role: string
+  /** Effective permissions from backend (auth/me) — used for route guards */
+  permissions?: string[]
   companyName?: string
   isVerified?: boolean
   isActive?: boolean
@@ -24,6 +26,7 @@ export interface User {
   bankAccount?: string
   bankName?: string
   taxId?: string
+  healthInsuranceId?: string
   leaveBalance?: {
     annual?: {
       used: number

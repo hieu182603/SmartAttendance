@@ -14,6 +14,11 @@ import {
     redisSMembers,
     isRedisBindingActive,
 } from "../../config/redis.js";
+import { getEffectivePermissionsByRole } from "../../middleware/permission.middleware.js";
+import {
+  applyBankAccountToUser,
+  BANK_ACCOUNT_MODES,
+} from "../../utils/userResponse.util.js";
 
 const REFRESH_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
 const refreshKey = (userId) => `refresh:${userId}`;
@@ -283,10 +288,11 @@ export class AuthService {
             .populate("branch", "name address")
             .populate("companyId", "name");
         if (!user) throw new Error("User not found");
-        const plain = user.toObject();
+        const plain = applyBankAccountToUser(user, BANK_ACCOUNT_MODES.REVEAL);
         if (plain.companyId && typeof plain.companyId === "object") {
             plain.companyName = plain.companyId.name;
         }
+        plain.permissions = await getEffectivePermissionsByRole(plain.role);
         return plain;
     }
 

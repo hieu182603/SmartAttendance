@@ -265,7 +265,7 @@ class BaseQueryHandler(ABC):
             elif query_type == 'today':
                 return await self._handle_today(query)
             elif query_type == 'status_today':
-                return await self._handle_status_today(query, user_id)
+                return await self._handle_status_today(query, user_id, message=message)
             elif query_type == 'with_employees':
                 return await self._handle_with_employees(query)
             elif query_type == 'by_city':
@@ -403,7 +403,12 @@ class BaseQueryHandler(ABC):
         query["date"] = {"$gte": today_start, "$lt": today_end}
         return await self._handle_count(query)
     
-    async def _handle_status_today(self, query: Dict[str, Any], user_id: str | None = None) -> str:
+    async def _handle_status_today(
+        self,
+        query: Dict[str, Any],
+        user_id: str | None = None,
+        message: str = "",
+    ) -> str:
         """
         Handle personal \"status today\" query.
         Mặc định fallback về _handle_today; các handler cụ thể có thể override.

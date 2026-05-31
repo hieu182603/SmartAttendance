@@ -212,7 +212,7 @@ function UploadForm({ onSuccess }: UploadFormProps) {
       setError(t("dashboard:regulations.upload.errors.unsupportedType"));
       return;
     }
-    if (f.size > 10 * 1024 * 1024) {
+    if (f.size > 20 * 1024 * 1024) {
       setError(t("dashboard:regulations.upload.errors.fileTooLarge"));
       return;
     }

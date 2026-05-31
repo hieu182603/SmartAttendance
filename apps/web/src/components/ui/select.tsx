@@ -95,7 +95,9 @@ interface SelectValueProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const SelectValue = ({ placeholder, ...props }: SelectValueProps) => {
   const context = React.useContext(SelectContext)
-  const displayText = context?.selectedValue ? context.items?.[context.selectedValue] : placeholder
+  const displayText = context?.selectedValue
+    ? (context.items?.[context.selectedValue] ?? context.selectedValue)
+    : placeholder
   return (
     <span className="block min-w-[1.25rem] truncate tabular-nums" {...props}>
       {displayText ?? placeholder}
@@ -111,17 +113,20 @@ interface SelectContentProps extends React.HTMLAttributes<HTMLDivElement> {
 const SelectContent = React.forwardRef<HTMLDivElement, SelectContentProps>(
   ({ className, children, side = 'bottom', ...props }, ref) => {
     const context = React.useContext(SelectContext)
+    const isOpen = Boolean(context?.isOpen)
 
-    if (!context?.isOpen) return null
-
+    // Keep items mounted so SelectItem can register labels for SelectValue
+    // and the list is ready the moment the menu opens.
     return (
       <div
         ref={ref}
         className={cn(
-          'absolute z-50 max-h-60 w-full overflow-auto rounded-xl border bg-white dark:bg-gray-800 p-1 shadow-lg',
+          'absolute z-50 max-h-60 w-full overflow-auto rounded-xl border bg-[var(--surface)] p-1 shadow-lg',
           side === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+          !isOpen && 'pointer-events-none invisible opacity-0 h-0 overflow-hidden',
           className
         )}
+        aria-hidden={!isOpen}
         {...props}
       >
         {children}

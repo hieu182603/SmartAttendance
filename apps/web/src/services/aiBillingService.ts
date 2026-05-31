@@ -48,6 +48,9 @@ export interface CompanyUsageSummary {
 export const aiBillingService = {
   getUsage: async (params?: { month?: number; year?: number }): Promise<AiUsageData> => {
     const { data } = await api.get("/ai-billing/usage", { params });
+    if (!data?.data) {
+      throw new Error(data?.message ?? "Invalid usage response");
+    }
     return data.data as AiUsageData;
   },
 
@@ -88,7 +91,8 @@ export const aiBillingService = {
     year?: number;
   }): Promise<CompanyUsageSummary[]> => {
     const { data } = await api.get("/ai-billing/admin/companies", { params });
-    return data.data as CompanyUsageSummary[];
+    const rows = data?.data;
+    return Array.isArray(rows) ? rows : [];
   },
 
   generateInvoices: async (body: {

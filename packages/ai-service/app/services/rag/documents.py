@@ -10,6 +10,29 @@ from app.utils.config import CHATBOT_MAX_CONVERSATIONS, CHATBOT_MAX_MESSAGES
 logger = logging.getLogger(__name__)
 
 
+def _tenant_pre_filter(company_id: str) -> Dict[str, Any]:
+    """Atlas pre-filter for multitenant vector search.
+
+    LangChain MongoDBAtlasVectorSearch flattens Document.metadata onto the
+    root document (``company_id``, ``source``, …) — not under a ``metadata``
+    sub-document. Support both shapes for mixed/legacy collections.
+    """
+    return {
+        "$or": [
+            {"company_id": {"$eq": company_id}},
+            {"metadata.company_id": {"$eq": company_id}},
+        ]
+    }
+
+
+def _chunk_company_id(metadata: Dict[str, Any]) -> Optional[str]:
+    """Read tenant id from LangChain metadata (flat or nested legacy docs)."""
+    value = metadata.get("company_id")
+    if value is None and isinstance(metadata.get("metadata"), dict):
+        value = metadata["metadata"].get("company_id")
+    return str(value) if value is not None else None
+
+
 class DocumentManager:
     """Manage document ingestion and vector search"""
     
@@ -144,7 +167,12 @@ class DocumentManager:
             if chunk_hashes:
                 try:
                     deleted = self.vector_store.collection.delete_many(
-                        {"metadata.content_hash": {"$in": chunk_hashes}}
+                        {
+                            "$or": [
+                                {"content_hash": {"$in": chunk_hashes}},
+                                {"metadata.content_hash": {"$in": chunk_hashes}},
+                            ]
+                        }
                     )
                     if deleted.deleted_count:
                         logger.info(
@@ -208,38 +236,74 @@ class DocumentManager:
             # Use provided collection name or fall back to instance default
             target_collection = collection_name or self.collection_name
 
-            # --- Multitenant Pre-filter (database-level isolation) ---
-            # Applied BEFORE vector similarity — only chunks of this tenant are
-            # candidates for ANN search.  Post-filtering alone is insufficient
-            # because it could inadvertently expose neighbour chunks to the LLM
-            # context if limit * 2 crosses a tenant boundary.
-            pre_filter: Optional[Dict[str, Any]] = None
-            if company_id:
-                pre_filter = {"metadata.company_id": {"$eq": company_id}}
-                logger.debug(f"Applying tenant pre-filter: company_id={company_id}")
-            else:
+            # --- Multitenant isolation strategy ---
+            # We try Atlas pre-filter first (database-level filtering, fastest),
+            # but Atlas only allows filtering on fields explicitly indexed as
+            # ``filter`` paths in the Vector Search index. If the index is out
+            # of sync with the chunk schema (e.g. legacy ``metadata.company_id``
+            # vs flattened root ``company_id``), the aggregation throws
+            # "Path '<x>' needs to be indexed as filter".
+            #
+            # To stay robust against index drift, we ALWAYS enforce the tenant
+            # guard in post-filter below — pre-filter is just an optimization.
+            # When pre-filter fails for any reason, we fall back to a wider ANN
+            # search and trust the post-filter for correctness.
+            if not company_id:
                 # Defense in depth: never search across tenants silently.
-                # Legacy callers must pass company_id explicitly — otherwise we
-                # would risk leaking Company A's chunks into Company B's chatbot.
                 logger.warning(
                     "search() called without company_id — refusing cross-tenant "
                     "vector search and returning empty results"
                 )
                 return []
-            
-            # Perform similarity search with optional pre-filter
-            search_kwargs: Dict[str, Any] = {"k": limit * 2}
-            if pre_filter:
-                search_kwargs["pre_filter"] = pre_filter
 
-            docs = await self.vector_store.asimilarity_search_with_score(
-                query=query,
-                **search_kwargs,
-            )
+            pre_filter = _tenant_pre_filter(company_id)
+            logger.debug(f"Applying tenant pre-filter: company_id={company_id}")
+
+            async def _vector_search(use_pre_filter: bool, k: int):
+                kwargs: Dict[str, Any] = {"k": k}
+                if use_pre_filter:
+                    kwargs["pre_filter"] = pre_filter
+                return await self.vector_store.asimilarity_search_with_score(
+                    query=query, **kwargs,
+                )
+
+            try:
+                docs = await _vector_search(use_pre_filter=True, k=limit * 2)
+            except Exception as pre_err:
+                # Common case: Atlas Vector Search index is missing one of the
+                # filter paths used in pre_filter ("Path '<x>' needs to be
+                # indexed as filter"). Fall back to unfiltered ANN + tenant
+                # post-filter so the chatbot stays usable while ops update
+                # the index.
+                logger.warning(
+                    "Pre-filter rejected by Atlas (%s) — falling back to ANN "
+                    "with tenant post-filter only.",
+                    pre_err,
+                )
+                docs = await _vector_search(use_pre_filter=False, k=limit * 10)
+
+            # If pre-filter accepted but matched nothing (e.g. legacy chunks
+            # with metadata.company_id but a new index that only sees root
+            # company_id, or vice versa), widen the search and rely on
+            # post-filter for tenant isolation.
+            if not docs:
+                logger.warning(
+                    "Tenant pre-filter returned 0 results — retrying without "
+                    "pre_filter and enforcing tenant guard via post-filter."
+                )
+                docs = await _vector_search(use_pre_filter=False, k=limit * 10)
             
             # Apply post-filtering (role access control + collection name filter)
             filtered_results = []
             for doc, score in docs:
+                # Tenant guard (post-filter): Atlas index may still use legacy
+                # metadata.* paths, so enforce isolation even when pre_filter
+                # returns broader candidates.
+                if company_id:
+                    chunk_company = _chunk_company_id(doc.metadata)
+                    if chunk_company != str(company_id):
+                        continue
+
                 # Filter by collection_name if specified
                 doc_collection = doc.metadata.get("collection_name", self.collection_name)
                 if target_collection and doc_collection != target_collection:
@@ -403,8 +467,20 @@ class DocumentManager:
             Number of deleted chunks
         """
         filter_query = {
-            "metadata.regulation_id": regulation_id,
-            "metadata.company_id": company_id,
+            "$and": [
+                {
+                    "$or": [
+                        {"regulation_id": regulation_id},
+                        {"metadata.regulation_id": regulation_id},
+                    ]
+                },
+                {
+                    "$or": [
+                        {"company_id": company_id},
+                        {"metadata.company_id": company_id},
+                    ]
+                },
+            ]
         }
         return await self.delete_documents(filter_query)
     

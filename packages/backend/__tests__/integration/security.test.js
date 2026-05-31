@@ -246,3 +246,41 @@ describe("TC-SEC-008: No sensitive data in responses", () => {
     expect(res.body.password).toBeUndefined();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-SEC-009: Cross-tenant IDOR — admin công ty A không xem user công ty B
+// ─────────────────────────────────────────────────────────────────────────────
+describe("TC-SEC-009: Cross-tenant user IDOR", () => {
+  test("ADMIN cannot GET /api/users/:id from another company", async () => {
+    const { CompanyModel } = await import("../../src/modules/company/company.model.js");
+
+    const companyA = await CompanyModel.create({ name: "Company A", slug: "co-a-test" });
+    const companyB = await CompanyModel.create({ name: "Company B", slug: "co-b-test" });
+
+    const adminA = await UserModel.create({
+      email: "admin-a-tenant@test.com",
+      password: await (await import("bcryptjs")).hash("SmartAttendance@2026!", 10),
+      name: "Admin A",
+      role: "ADMIN",
+      isVerified: true,
+      isActive: true,
+      companyId: companyA._id,
+    });
+    const userB = await UserModel.create({
+      email: "employee-b-tenant@test.com",
+      password: await (await import("bcryptjs")).hash("SmartAttendance@2026!", 10),
+      name: "Employee B",
+      role: "EMPLOYEE",
+      isVerified: true,
+      isActive: true,
+      companyId: companyB._id,
+    });
+
+    const token = await tokenFor(adminA);
+    const res = await request(app)
+      .get(`/api/users/${userB._id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+  });
+});

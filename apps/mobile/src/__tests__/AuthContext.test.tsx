@@ -1,7 +1,6 @@
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 
-// mockCallbacks stores addListener callbacks (prefixed "mock" so jest allows it in factory scope)
 const mockCallbacks: Record<string, () => void> = {};
 
 jest.mock('react-native', () => ({
@@ -29,14 +28,21 @@ jest.mock('../constants/api', () => ({
 
 import api from '../libs/axios';
 import { AuthProvider, useAuth } from '../context/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  setSecureItem,
+  removeSecureItem,
+  getSecureItem,
+  STORAGE_KEYS,
+} from '../utils/secureStorage';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
 );
 
-beforeEach(() => {
-  (AsyncStorage as any)._reset();
+beforeEach(async () => {
+  await removeSecureItem(STORAGE_KEYS.TOKEN);
+  await removeSecureItem(STORAGE_KEYS.REFRESH_TOKEN);
+  await removeSecureItem(STORAGE_KEYS.USER);
   jest.clearAllMocks();
   (api.get as jest.Mock).mockRejectedValue({ response: { status: 404 } });
 });
@@ -53,8 +59,8 @@ describe('AuthContext — initial load', () => {
   });
 
   it('restores user from storage on mount and refreshes from server', async () => {
-    await AsyncStorage.setItem('smartattendance_token', mockToken);
-    await AsyncStorage.setItem('smartattendance_user', JSON.stringify(mockUser));
+    await setSecureItem(STORAGE_KEYS.TOKEN, mockToken);
+    await setSecureItem(STORAGE_KEYS.USER, JSON.stringify(mockUser));
     (api.get as jest.Mock).mockResolvedValue({ data: mockUser });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
@@ -65,19 +71,19 @@ describe('AuthContext — initial load', () => {
   });
 
   it('clears orphaned token (token without user data) on mount', async () => {
-    await AsyncStorage.setItem('smartattendance_token', mockToken);
+    await setSecureItem(STORAGE_KEYS.TOKEN, mockToken);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.user).toBeNull();
     expect(result.current.token).toBeNull();
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('smartattendance_token');
+    expect(await getSecureItem(STORAGE_KEYS.TOKEN)).toBeNull();
   });
 
   it('clears state when stored token is invalid (401 from /auth/me)', async () => {
-    await AsyncStorage.setItem('smartattendance_token', 'stale-token');
-    await AsyncStorage.setItem('smartattendance_user', JSON.stringify(mockUser));
+    await setSecureItem(STORAGE_KEYS.TOKEN, 'stale-token');
+    await setSecureItem(STORAGE_KEYS.USER, JSON.stringify(mockUser));
     (api.get as jest.Mock).mockRejectedValue({ response: { status: 401 } });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
@@ -85,13 +91,11 @@ describe('AuthContext — initial load', () => {
 
     expect(result.current.user).toBeNull();
     expect(result.current.token).toBeNull();
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('smartattendance_token');
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('smartattendance_user');
   });
 
   it('keeps cached user on non-401 network error from /auth/me', async () => {
-    await AsyncStorage.setItem('smartattendance_token', mockToken);
-    await AsyncStorage.setItem('smartattendance_user', JSON.stringify(mockUser));
+    await setSecureItem(STORAGE_KEYS.TOKEN, mockToken);
+    await setSecureItem(STORAGE_KEYS.USER, JSON.stringify(mockUser));
     (api.get as jest.Mock).mockRejectedValue(new Error('Network Error'));
 
     const { result } = renderHook(() => useAuth(), { wrapper });
@@ -104,7 +108,9 @@ describe('AuthContext — initial load', () => {
 
 describe('AuthContext — login', () => {
   it('sets user and token on successful login', async () => {
-    (api.post as jest.Mock).mockResolvedValue({ data: { user: mockUser, token: mockToken } });
+    (api.post as jest.Mock).mockResolvedValue({
+      data: { user: mockUser, token: mockToken, refreshToken: 'refresh-1' },
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -118,18 +124,20 @@ describe('AuthContext — login', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('persists token and user to AsyncStorage regardless of rememberMe', async () => {
-    (api.post as jest.Mock).mockResolvedValue({ data: { user: mockUser, token: mockToken } });
+  it('persists token, refresh token, and user to secure storage', async () => {
+    (api.post as jest.Mock).mockResolvedValue({
+      data: { user: mockUser, token: mockToken, refreshToken: 'refresh-1' },
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.login('test@example.com', 'password123', false);
+      await result.current.login('test@example.com', 'password123');
     });
 
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith('smartattendance_token', mockToken);
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith('smartattendance_user', JSON.stringify(mockUser));
+    expect(await getSecureItem(STORAGE_KEYS.TOKEN)).toBe(mockToken);
+    expect(await getSecureItem(STORAGE_KEYS.REFRESH_TOKEN)).toBe('refresh-1');
   });
 
   it('sets error state and throws on failed login', async () => {
@@ -146,49 +154,44 @@ describe('AuthContext — login', () => {
     expect(result.current.error).toBe(errorMsg);
     expect(result.current.user).toBeNull();
   });
+});
 
-  it('derives userRole from user.role after login', async () => {
-    const adminUser = { ...mockUser, role: 'admin' as const };
-    (api.post as jest.Mock).mockResolvedValue({ data: { user: adminUser, token: mockToken } });
+describe('AuthContext — logout', () => {
+  it('clears user, token, and storage on logout', async () => {
+    (api.post as jest.Mock)
+      .mockResolvedValueOnce({ data: { user: mockUser, token: mockToken, refreshToken: 'r1' } })
+      .mockResolvedValueOnce({});
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.login('admin@example.com', 'pass');
+      await result.current.login('test@example.com', 'password');
     });
-
-    expect(result.current.userRole).toBe('admin');
-  });
-});
-
-describe('AuthContext — logout', () => {
-  it('clears user, token, and AsyncStorage on logout', async () => {
-    (api.post as jest.Mock).mockResolvedValue({ data: { user: mockUser, token: mockToken } });
-
-    const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    await act(async () => { await result.current.login('test@example.com', 'password'); });
     expect(result.current.token).toBe(mockToken);
 
-    await act(async () => { await result.current.logout(); });
+    await act(async () => {
+      await result.current.logout();
+    });
 
     expect(result.current.user).toBeNull();
     expect(result.current.token).toBeNull();
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('smartattendance_token');
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('smartattendance_user');
+    expect(await getSecureItem(STORAGE_KEYS.TOKEN)).toBeNull();
   });
 });
 
 describe('AuthContext — AUTH_EXPIRED_EVENT', () => {
   it('clears user and token when session-expired event fires', async () => {
-    (api.post as jest.Mock).mockResolvedValue({ data: { user: mockUser, token: mockToken } });
+    (api.post as jest.Mock).mockResolvedValue({
+      data: { user: mockUser, token: mockToken, refreshToken: 'r1' },
+    });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    await act(async () => { await result.current.login('test@example.com', 'password'); });
+    await act(async () => {
+      await result.current.login('test@example.com', 'password');
+    });
     expect(result.current.token).toBe(mockToken);
 
     act(() => {

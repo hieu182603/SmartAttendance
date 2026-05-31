@@ -132,7 +132,12 @@
         "department": "Phòng ban",
         "position": "Chức vụ",
         "bankAccount": "Số tài khoản",
-        "bankName": "Ngân hàng"
+        "bankName": "Ngân hàng",
+        "bankNamePlaceholder": "Chọn ngân hàng",
+        "bankNameEmpty": "Không tải được danh sách ngân hàng",
+        "taxId": "Mã số thuế",
+        "healthInsuranceId": "Mã bảo hiểm y tế",
+        "healthInsuranceIdPlaceholder": "VD: DN1234567890123"
       }
     },
     "security": {
@@ -1252,6 +1257,7 @@
       "monthlyTrend": "Xu hướng theo tháng"
     },
     "selectMonth": "Chọn tháng",
+    "noData": "Chưa có báo cáo lương. Hãy tạo bảng lương cho ít nhất một tháng trước.",
     "noDepartmentsMatch": "Không tìm thấy phòng ban phù hợp",
     "summarySection": {
       "title": "Tổng kết {{month}}",
@@ -2357,7 +2363,7 @@
       "panelTitle": "Tải lên tài liệu mới",
       "infoBanner": "Sau khi tải lên, AI Chatbot sẽ <strong>chỉ trả lời theo quy định của công ty bạn</strong>, không bị ảnh hưởng bởi dữ liệu của công ty khác.",
       "dropzone": "Kéo thả file vào đây hoặc bấm để chọn",
-      "dropzoneSub": "Hỗ trợ PDF, DOCX, TXT · Tối đa 10 MB",
+      "dropzoneSub": "Hỗ trợ PDF, DOCX, TXT · Tối đa 20 MB",
       "titleLabel": "Tiêu đề tài liệu",
       "titlePlaceholder": "VD: Quy định giờ giấc và chuyên cần",
       "doctypeLabel": "Loại tài liệu",
@@ -2368,7 +2374,7 @@
       "required": "*",
       "errors": {
         "unsupportedType": "Chỉ chấp nhận file PDF, DOCX hoặc TXT.",
-        "fileTooLarge": "File không được vượt quá 10 MB.",
+        "fileTooLarge": "File không được vượt quá 20 MB.",
         "noFile": "Vui lòng chọn file.",
         "noTitle": "Tiêu đề không được để trống.",
         "uploadFailed": "Lỗi khi tải lên. Vui lòng thử lại."

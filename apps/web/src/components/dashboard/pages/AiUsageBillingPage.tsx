@@ -165,8 +165,11 @@ export default function AiUsageBillingPage() {
     try {
       const comp = await aiBillingService.getAdminCompaniesUsage({ month, year });
       setCompanies(comp);
-    } catch {
-      toast.error("Không thể tải dữ liệu nền tảng");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Không thể tải dữ liệu nền tảng";
+      toast.error(msg);
     } finally {
       setLoadingPlatform(false);
     }
@@ -303,7 +306,7 @@ export default function AiUsageBillingPage() {
             <EmptyBlock
               icon={<Inbox size={28} />}
               title="Chưa có dữ liệu"
-              description="Chưa ghi nhận token chatbot trong kỳ này. Dữ liệu xuất hiện sau khi công ty sử dụng chatbot AI."
+              description={`Chưa ghi nhận token chatbot trong kỳ ${periodBadge(month, year)}. Thử chọn tháng khác hoặc chạy lại seed demo; dữ liệu xuất hiện khi nhân viên dùng chatbot AI.`}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -545,7 +548,11 @@ export default function AiUsageBillingPage() {
             {platformPanel}
           </TabsContent>
           <TabsContent value="company" className="mt-4 focus-visible:outline-none">
-            {companyPanel}
+            <EmptyBlock
+              icon={<Building2 size={28} />}
+              title="Xem theo từng công ty"
+              description="Super Admin không gắn một công ty cụ thể. Dùng tab Nền tảng để xem token và phát hành hóa đơn theo công ty."
+            />
           </TabsContent>
         </Tabs>
       ) : (

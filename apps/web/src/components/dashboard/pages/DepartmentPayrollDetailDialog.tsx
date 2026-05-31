@@ -7,6 +7,11 @@ import { Loader2, DollarSign, Users, AlertCircle } from 'lucide-react';
 import { getPayrollRecords } from '@/services/payrollService';
 import { toast } from 'sonner';
 
+const formatPercent = (value: number): string => {
+  const rounded = Math.round((value || 0) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+};
+
 interface DepartmentPayrollDetailDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -163,7 +168,7 @@ export function DepartmentPayrollDetailDialog({
             <Card className="bg-[var(--shell)] border-[var(--border)]">
               <CardContent className="p-4 text-center flex flex-col items-center justify-center">
                 <Badge className="bg-[var(--primary)]/20 text-[var(--primary)] text-sm mb-2">
-                  {stats.percentage}%
+                  {formatPercent(stats.percentage)}%
                 </Badge>
                 <p className="text-xs text-[var(--text-sub)]">Tỷ lệ</p>
               </CardContent>

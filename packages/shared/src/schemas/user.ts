@@ -11,6 +11,7 @@ export const updateUserSchema = z.object({
   bankAccount: z.string().optional(),
   bankName: z.string().optional(),
   taxId: z.string().optional(),
+  healthInsuranceId: z.string().optional(),
 });
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 

@@ -1,4 +1,11 @@
+import mongoose from "mongoose";
 import { AiUsageEventModel } from "./aiUsageEvent.model.js";
+
+function toObjectId(id) {
+  if (!id) return null;
+  if (id instanceof mongoose.Types.ObjectId) return id;
+  return new mongoose.Types.ObjectId(String(id));
+}
 import { AiInvoiceModel, generateInvoiceCode } from "./aiInvoice.model.js";
 import { CompanyModel } from "../company/company.model.js";
 import { UserModel } from "../users/user.model.js";
@@ -22,9 +29,10 @@ export async function getUsageForCompany(companyId, { month, year } = {}) {
   const { month: m, year: y } = { ...currentPeriod(), month, year };
   const { start, end } = periodBounds(m, y);
 
+  const companyOid = toObjectId(companyId);
   const [totals, daily] = await Promise.all([
     AiUsageEventModel.aggregate([
-      { $match: { companyId: companyId instanceof Object ? companyId : new Object(companyId), createdAt: { $gte: start, $lte: end } } },
+      { $match: { companyId: companyOid, createdAt: { $gte: start, $lte: end } } },
       {
         $group: {
           _id: null,
@@ -36,7 +44,7 @@ export async function getUsageForCompany(companyId, { month, year } = {}) {
       },
     ]),
     AiUsageEventModel.aggregate([
-      { $match: { companyId: companyId instanceof Object ? companyId : new Object(companyId), createdAt: { $gte: start, $lte: end } } },
+      { $match: { companyId: companyOid, createdAt: { $gte: start, $lte: end } } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "Asia/Ho_Chi_Minh" } },
@@ -153,7 +161,7 @@ export async function getAllCompaniesUsage({ month, year } = {}) {
         as: "company",
       },
     },
-    { $unwind: { path: "$company", preserveNullAndEmpty: true } },
+    { $unwind: { path: "$company", preserveNullAndEmptyArrays: true } },
     {
       $project: {
         companyId: "$_id",
