@@ -20,6 +20,13 @@ import { RequestTypeModel } from '../src/modules/requests/request-type.model.js'
 import { LeaveTypeModel } from '../src/modules/leave/leave-type.model.js';
 import { DEFAULT_LEAVE_TYPES } from '../src/modules/leave/leave-type.defaults.js';
 import { NotificationModel } from '../src/modules/notifications/notification.model.js';
+import { FeatureToggleModel, DEFAULT_FEATURES } from '../src/modules/feature-toggle/featureToggle.model.js';
+import { SalaryMatrixModel } from '../src/modules/payroll/salary-matrix.model.js';
+import { SalaryHistoryModel } from '../src/modules/payroll/salary-history.model.js';
+import { OrderModel } from '../src/modules/billing/order.model.js';
+import { AiUsageEventModel } from '../src/modules/ai-billing/aiUsageEvent.model.js';
+import { AiInvoiceModel, generateInvoiceCode } from '../src/modules/ai-billing/aiInvoice.model.js';
+import { PLAN_CONFIG } from '@smartattendance/shared';
 import { hashPassword } from '../src/utils/bcrypt.util.js';
 
 dotenv.config();
@@ -57,6 +64,12 @@ async function seed() {
         await RequestTypeModel.deleteMany({});
         await LeaveTypeModel.deleteMany({});
         await NotificationModel.deleteMany({});
+        await FeatureToggleModel.deleteMany({});
+        await SalaryMatrixModel.deleteMany({});
+        await SalaryHistoryModel.deleteMany({});
+        await OrderModel.deleteMany({});
+        await AiUsageEventModel.deleteMany({});
+        await AiInvoiceModel.deleteMany({});
 
         // Xóa collection UserShift nếu tồn tại
         try {
@@ -117,6 +130,9 @@ async function seed() {
             { companyId, value: 'late', label: 'Đi muộn', description: 'Yêu cầu đi muộn', sortOrder: 7, isActive: true, isSystem: true },
             { companyId, value: 'correction', label: 'Sửa công', description: 'Yêu cầu sửa chấm công', sortOrder: 8, isActive: true, isSystem: true },
             { companyId, value: 'other', label: 'Yêu cầu khác', description: 'Các yêu cầu khác', sortOrder: 9, isActive: true, isSystem: true },
+            { companyId, value: 'off_site', label: 'Remote work', description: 'Làm việc ngoài trụ sở', sortOrder: 10, isActive: true, isSystem: true },
+
+
         ];
         const createdRequestTypes = await RequestTypeModel.insertMany(requestTypes);
         console.log(`✅ Created ${createdRequestTypes.length} request types\n`);
@@ -384,15 +400,16 @@ async function seed() {
             isActive: true,
         });
 
-        // Trưởng phòng (MANAGER) cho từng phòng ban
+        // Trưởng phòng (MANAGER) cho từng phòng ban — email manager.<dept>@...
         const deptManagerData = [
-            { name: 'Manager Phát triển', email: 'supervisor.dev@smartattendance.com', deptCode: 'DEV', phone: '0902000001' },
-            { name: 'Manager Thiết kế', email: 'supervisor.design@smartattendance.com', deptCode: 'DESIGN', phone: '0902000002' },
-            { name: 'Manager Marketing', email: 'supervisor.mkt@smartattendance.com', deptCode: 'MKT', phone: '0902000003' },
-            { name: 'Manager Kinh doanh', email: 'supervisor.sales@smartattendance.com', deptCode: 'SALES', phone: '0902000004' },
-            { name: 'Manager Tài chính', email: 'supervisor.finance@smartattendance.com', deptCode: 'FINANCE', phone: '0902000005' },
-            { name: 'Manager Vận hành', email: 'supervisor.ops@smartattendance.com', deptCode: 'OPS', phone: '0902000006' },
-            { name: 'Manager QA', email: 'supervisor.qa@smartattendance.com', deptCode: 'QA', phone: '0902000007' },
+            { name: 'Manager Phát triển', email: 'manager.dev@smartattendance.com', deptCode: 'DEV', phone: '0902000001' },
+            { name: 'Manager Thiết kế', email: 'manager.design@smartattendance.com', deptCode: 'DESIGN', phone: '0902000002' },
+            { name: 'Manager Marketing', email: 'manager.mkt@smartattendance.com', deptCode: 'MKT', phone: '0902000003' },
+            { name: 'Manager Kinh doanh', email: 'manager.sales@smartattendance.com', deptCode: 'SALES', phone: '0902000004' },
+            { name: 'Manager Tài chính', email: 'manager.finance@smartattendance.com', deptCode: 'FINANCE', phone: '0902000005' },
+            { name: 'Manager Vận hành', email: 'manager.ops@smartattendance.com', deptCode: 'OPS', phone: '0902000006' },
+            { name: 'Manager QA', email: 'manager.qa@smartattendance.com', deptCode: 'QA', phone: '0902000007' },
+            { name: 'Manager Hỗ trợ', email: 'manager.support@smartattendance.com', deptCode: 'SUPPORT', phone: '0902000008' },
         ];
 
         deptManagerData.forEach((deptManager) => {
@@ -484,34 +501,36 @@ async function seed() {
         const employeeUsers = createdUsers.filter((u) => u.role === 'EMPLOYEE');
 
         // Gán giám đốc chi nhánh
+        const deptManagersByCode = Object.fromEntries(
+            deptManagerData.map((dm) => {
+                const user = createdUsers.find((u) => u.email === dm.email);
+                return [dm.deptCode, user];
+            }).filter(([, user]) => user)
+        );
+
         await BranchModel.findByIdAndUpdate(branches[0]._id, { managerId: adminUser._id }); // HQ
         await BranchModel.findByIdAndUpdate(branches[1]._id, { managerId: managerUser._id }); // HCM
+        await BranchModel.findByIdAndUpdate(branches[2]._id, { managerId: deptManagersByCode.OPS?._id || managerUser._id }); // Đà Nẵng
+        await BranchModel.findByIdAndUpdate(branches[3]._id, { managerId: deptManagersByCode.SALES?._id || managerUser._id }); // Cần Thơ
+        await BranchModel.findByIdAndUpdate(branches[4]._id, { managerId: deptManagersByCode.FINANCE?._id || adminUser._id }); // Hải Phòng
 
         // Gán trưởng phòng (dept managers)
-        const devManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.dev@smartattendance.com');
-        const designManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.design@smartattendance.com');
-        const mktManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.mkt@smartattendance.com');
-        const salesManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.sales@smartattendance.com');
-        const financeManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.finance@smartattendance.com');
-        const opsManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.ops@smartattendance.com');
-        const qaManager = createdUsers.find((u) => u.role === 'MANAGER' && u.email === 'supervisor.qa@smartattendance.com');
-
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DEV')._id, { managerId: devManager?._id || adminUser._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'DESIGN')._id, { managerId: designManager?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'MKT')._id, { managerId: mktManager?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'SALES')._id, { managerId: salesManager?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'FINANCE')._id, { managerId: financeManager?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'OPS')._id, { managerId: opsManager?._id });
-        await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'QA')._id, { managerId: qaManager?._id });
+        for (const dm of deptManagerData) {
+            const dept = departments.find((d) => d.code === dm.deptCode);
+            const mgr = createdUsers.find((u) => u.email === dm.email);
+            if (dept && mgr) {
+                await DepartmentModel.findByIdAndUpdate(dept._id, { managerId: mgr._id });
+            }
+        }
         await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'HR')._id, { managerId: hrUser._id });
         await DepartmentModel.findByIdAndUpdate(departments.find(d => d.code === 'PRODUCT')._id, { managerId: managerUser._id });
-        console.log('✅ Assigned department managers\n');
+        console.log('✅ Assigned branch & department managers\n');
 
         // ========== 3.5. GÁN DEFAULT SHIFT VÀ TẠO EMPLOYEE SHIFT ASSIGNMENTS ==========
         console.log('📋 Assigning default shifts and creating shift assignments...');
         const defaultShift = shifts[0]; // Full time shift
 
-        // Gán defaultShiftId cho tất cả employees và supervisors
+        // Gán defaultShiftId cho tất cả employees
         await UserModel.updateMany(
             { role: { $in: ['EMPLOYEE'] }, isActive: true },
             { defaultShiftId: defaultShift._id }
@@ -586,11 +605,15 @@ async function seed() {
                     status = 'late';
                 }
 
+                const msWorked = checkOut - checkIn;
+                const workHours = Math.max(0, Math.round((msWorked / 3600000) * 100) / 100);
+
                 attendances.push({
                     userId: employee._id,
                     date: new Date(date),
                     checkIn,
                     checkOut,
+                    workHours,
                     status,
                     // Không gắn location vì seed hiện không tạo locations thực tế
                     locationId: undefined,
@@ -603,7 +626,14 @@ async function seed() {
 
         // ========== 5. TẠO REQUESTS (Yêu cầu) - 25 requests ==========
         console.log('📝 Creating requests...');
-        const requestTypeValues = ['leave', 'overtime', 'remote', 'other'];
+        const mainRequestTypes = ['leave', 'overtime', 'remote', 'other'];
+        const extraRequestTypes = ['sick', 'compensatory', 'correction'];
+        const pickRequestType = () => {
+            if (Math.random() < 0.3) {
+                return extraRequestTypes[randomInt(0, extraRequestTypes.length - 1)];
+            }
+            return mainRequestTypes[randomInt(0, mainRequestTypes.length - 1)];
+        };
         const requestStatuses = ['pending', 'approved', 'rejected'];
         const reasons = [
             'Nghỉ phép năm',
@@ -621,7 +651,7 @@ async function seed() {
         const requests = [];
         for (let i = 0; i < 150; i++) {
             const employee = employeeUsers[randomInt(0, employeeUsers.length - 1)];
-            const type = requestTypeValues[randomInt(0, requestTypeValues.length - 1)];
+            const type = pickRequestType();
             const status = requestStatuses[randomInt(0, requestStatuses.length - 1)];
 
             const startDate = new Date(seedBaseDate);
@@ -1002,6 +1032,7 @@ async function seed() {
                 const status = statuses[randomInt(0, 2)];
 
                 const payrollRecord = {
+                    companyId,
                     userId: employee._id,
                     month: monthStr,
                     periodStart: periodStart,
@@ -1039,6 +1070,79 @@ async function seed() {
 
         const createdPayrollRecords = await PayrollRecordModel.insertMany(payrollRecords);
         console.log(`✅ Created ${createdPayrollRecords.length} payroll records\n`);
+
+        // Phiếu lương cố định cho tài khoản demo (employee1, HR, manager) — trang "Phiếu lương của tôi"
+        const demoPayslipMonths = ['2026-01', '2026-02', '2026-03'];
+        const demoPayslipAccounts = [
+            {
+                user: createdUsers.find((u) => u.email === 'employee1@smartattendance.com'),
+                department: 'Phòng Phát triển',
+                position: 'Developer',
+            },
+            {
+                user: createdUsers.find((u) => u.email === 'hr@smartattendance.com'),
+                department: 'Phòng Nhân sự',
+                position: 'HR Specialist',
+            },
+            {
+                user: createdUsers.find((u) => u.email === 'manager@smartattendance.com'),
+                department: 'Phòng Sản phẩm',
+                position: 'Product Manager',
+            },
+        ];
+        let demoPayslipUpserts = 0;
+        for (const { user, department, position } of demoPayslipAccounts) {
+            if (!user) continue;
+            for (const monthStr of demoPayslipMonths) {
+                const [year, monthNum] = monthStr.split('-').map(Number);
+                const periodStart = new Date(year, monthNum - 1, 1);
+                const periodEnd = new Date(year, monthNum, 0);
+                const baseSalary = 18000000;
+                const overtimePay = 1500000;
+                const bonus = 1000000;
+                const deductions = 500000;
+                const grossSalary = baseSalary + overtimePay + bonus - deductions;
+                const netSalary = Math.max(0, Math.round(grossSalary * 0.9));
+                const result = await PayrollRecordModel.updateOne(
+                    { companyId, userId: user._id, month: monthStr },
+                    {
+                        $setOnInsert: {
+                            companyId,
+                            userId: user._id,
+                            month: monthStr,
+                            periodStart,
+                            periodEnd,
+                            workDays: 20,
+                            totalDays: 22,
+                            overtimeHours: 8,
+                            leaveDays: 2,
+                            lateDays: 0,
+                            baseSalary,
+                            actualBaseSalary: baseSalary,
+                            salarySource: 'SALARY_MATRIX',
+                            overtimePay,
+                            bonus,
+                            deductions,
+                            grossSalary,
+                            netSalary,
+                            totalSalary: netSalary,
+                            department,
+                            position,
+                            employeeId: user.employeeId || `EMP${String(createdUsers.indexOf(user) + 1).padStart(3, '0')}`,
+                            status: 'paid',
+                            approvedBy: adminUser._id,
+                            approvedAt: periodEnd,
+                            paidAt: periodEnd,
+                        },
+                    },
+                    { upsert: true }
+                );
+                if (result.upsertedCount > 0) demoPayslipUpserts++;
+            }
+        }
+        if (demoPayslipUpserts > 0) {
+            console.log(`✅ Ensured ${demoPayslipUpserts} demo payslips (employee1, HR, manager)\n`);
+        }
 
         // ========== 9. TẠO PERFORMANCE REVIEWS (Đánh giá hiệu suất) ==========
         console.log('⭐ Creating performance reviews...');
@@ -1313,6 +1417,332 @@ async function seed() {
         const createdSystemConfigs = await SystemConfigModel.insertMany(systemConfigs);
         console.log(`✅ Created ${createdSystemConfigs.length} system configs\n`);
 
+        // ========== 13. TẠO FEATURE TOGGLES ==========
+        console.log('🎚️  Creating feature toggles...');
+        const featureToggleDocs = DEFAULT_FEATURES.map((f) => ({ ...f }));
+        const faceRecognitionToggle = featureToggleDocs.find((f) => f.featureKey === 'face_recognition');
+        if (faceRecognitionToggle) {
+            faceRecognitionToggle.companyOverrides = [{ companyId, enabled: false }];
+            faceRecognitionToggle.updatedBy = adminUser._id;
+        }
+        const createdFeatureToggles = await FeatureToggleModel.insertMany(featureToggleDocs);
+        console.log(`✅ Created ${createdFeatureToggles.length} feature toggles\n`);
+
+        // ========== 14. TẠO SALARY MATRIX ==========
+        console.log('📊 Creating salary matrix...');
+        const salaryMatrixBands = {
+            DEV: [
+                { position: 'Senior Developer', baseSalary: 28000000 },
+                { position: 'Frontend Developer', baseSalary: 22000000 },
+                { position: 'Backend Developer', baseSalary: 24000000 },
+            ],
+            DESIGN: [
+                { position: 'Designer', baseSalary: 20000000 },
+                { position: 'Senior Designer', baseSalary: 24000000 },
+            ],
+            MKT: [
+                { position: 'Marketing Manager', baseSalary: 22000000 },
+                { position: 'Marketing Specialist', baseSalary: 16000000 },
+            ],
+            SALES: [
+                { position: 'Sales Manager', baseSalary: 24000000 },
+                { position: 'Sales Executive', baseSalary: 17000000 },
+            ],
+            HR: [
+                { position: 'HR Specialist', baseSalary: 16000000 },
+                { position: 'HR Manager', baseSalary: 20000000 },
+            ],
+            FINANCE: [
+                { position: 'Accountant', baseSalary: 15000000 },
+                { position: 'Finance Manager', baseSalary: 22000000 },
+            ],
+            OPS: [
+                { position: 'Operations Specialist', baseSalary: 15000000 },
+                { position: 'Operations Manager', baseSalary: 20000000 },
+            ],
+            SUPPORT: [
+                { position: 'Support Specialist', baseSalary: 14000000 },
+            ],
+            QA: [
+                { position: 'QA Engineer', baseSalary: 18000000 },
+                { position: 'QA Lead', baseSalary: 22000000 },
+            ],
+            PRODUCT: [
+                { position: 'Product Manager', baseSalary: 25000000 },
+            ],
+        };
+        const salaryMatrixRows = [];
+        for (const [departmentCode, positionsForDept] of Object.entries(salaryMatrixBands)) {
+            for (const { position, baseSalary } of positionsForDept) {
+                salaryMatrixRows.push({
+                    companyId,
+                    departmentCode,
+                    position,
+                    positionKey: position.toLowerCase(),
+                    baseSalary,
+                    isActive: true,
+                    createdBy: hrUser._id,
+                    updatedBy: hrUser._id,
+                });
+            }
+        }
+        const createdSalaryMatrix = await SalaryMatrixModel.insertMany(salaryMatrixRows);
+        console.log(`✅ Created ${createdSalaryMatrix.length} salary matrix entries\n`);
+
+        // ========== 15. TẠO SALARY HISTORY ==========
+        console.log('📈 Creating salary history...');
+        const employee1 = createdUsers.find((u) => u.email === 'employee1@smartattendance.com');
+        const managerDev = createdUsers.find((u) => u.email === 'manager.dev@smartattendance.com');
+        const managerMkt = createdUsers.find((u) => u.email === 'manager.mkt@smartattendance.com');
+        const managerSales = createdUsers.find((u) => u.email === 'manager.sales@smartattendance.com');
+
+        const salaryHistoryRows = [];
+        if (employee1) {
+            const hireDate = new Date(seedBaseDate);
+            hireDate.setMonth(hireDate.getMonth() - 6);
+            salaryHistoryRows.push({
+                companyId,
+                userId: employee1._id,
+                oldSalary: null,
+                newSalary: 15000000,
+                effectiveDate: hireDate,
+                reason: 'Lương khởi điểm khi vào làm',
+                changedBy: hrUser._id,
+            });
+            const raiseDate = new Date(seedBaseDate);
+            raiseDate.setMonth(raiseDate.getMonth() - 2);
+            salaryHistoryRows.push({
+                companyId,
+                userId: employee1._id,
+                oldSalary: 15000000,
+                newSalary: 18000000,
+                effectiveDate: raiseDate,
+                reason: 'Tăng lương định kỳ',
+                changedBy: hrUser._id,
+            });
+        }
+        if (managerDev) {
+            const eff = new Date(seedBaseDate);
+            eff.setMonth(eff.getMonth() - 4);
+            salaryHistoryRows.push({
+                companyId,
+                userId: managerDev._id,
+                oldSalary: 25000000,
+                newSalary: 28000000,
+                effectiveDate: eff,
+                reason: 'Điều chỉnh lương quản lý',
+                changedBy: adminUser._id,
+            });
+        }
+        if (managerMkt) {
+            const eff = new Date(seedBaseDate);
+            eff.setMonth(eff.getMonth() - 3);
+            salaryHistoryRows.push({
+                companyId,
+                userId: managerMkt._id,
+                oldSalary: 20000000,
+                newSalary: 22000000,
+                effectiveDate: eff,
+                reason: 'Tăng lương theo KPI',
+                changedBy: hrUser._id,
+            });
+        }
+        if (managerSales) {
+            const eff = new Date(seedBaseDate);
+            eff.setMonth(eff.getMonth() - 5);
+            salaryHistoryRows.push({
+                companyId,
+                userId: managerSales._id,
+                oldSalary: 22000000,
+                newSalary: 24000000,
+                effectiveDate: eff,
+                reason: 'Điều chỉnh lương vùng',
+                changedBy: hrUser._id,
+            });
+        }
+        const createdSalaryHistory = await SalaryHistoryModel.insertMany(salaryHistoryRows);
+        console.log(`✅ Created ${createdSalaryHistory.length} salary history records\n`);
+
+        // ========== 16. TẠO BILLING ORDERS ==========
+        console.log('🧾 Creating billing orders...');
+        const orderSpecs = [
+            { orderCode: 100001, plan: 'premium', billingCycle: 'yearly', status: 'paid' },
+            { orderCode: 100002, plan: 'standard', billingCycle: 'monthly', status: 'paid' },
+            { orderCode: 100003, plan: 'premium', billingCycle: 'monthly', status: 'pending' },
+            { orderCode: 100004, plan: 'starter', billingCycle: 'monthly', status: 'cancelled' },
+        ];
+        const billingOrders = orderSpecs.map((spec) => {
+            const paidAt = spec.status === 'paid' ? new Date(seedBaseDate) : undefined;
+            if (paidAt) paidAt.setDate(paidAt.getDate() - randomInt(5, 60));
+            return {
+                orderCode: spec.orderCode,
+                companyId,
+                plan: spec.plan,
+                billingCycle: spec.billingCycle,
+                amount: PLAN_CONFIG[spec.plan][spec.billingCycle],
+                status: spec.status,
+                paymentMethod: spec.status === 'paid' ? 'payos' : 'payos',
+                paidAt,
+                processedBy: spec.status === 'paid' ? adminUser._id : undefined,
+                processedAt: paidAt,
+                customerName: company.name,
+                customerEmail: company.email,
+                customerPhone: company.phone,
+                companyName: company.name,
+                employeeCount: 180,
+                billingMonths: spec.billingCycle === 'yearly' ? 12 : 1,
+            };
+        });
+        const createdOrders = await OrderModel.insertMany(billingOrders);
+        console.log(`✅ Created ${createdOrders.length} billing orders\n`);
+
+        // ========== 17. TẠO AI USAGE EVENTS & INVOICES ==========
+        console.log('🤖 Creating AI usage events and invoices...');
+        const aiOperations = ['qa', 'rewrite', 'general', 'embedding', 'intent_detect'];
+        const aiModels = ['gpt-4o-mini', 'text-embedding-3-small'];
+        const aiUsageUserIds = [
+            employee1?._id,
+            adminUser._id,
+            employeeUsers[1]?._id,
+            employeeUsers[2]?._id,
+            employeeUsers[5]?._id,
+        ].filter(Boolean);
+
+        const aiUsageEvents = [];
+        // Tháng 0–4 = T01–T05/2026 (khớp kỳ mặc định trên UI)
+        for (let i = 0; i < 80; i++) {
+            const eventDate = new Date(2026, randomInt(0, 4), randomInt(1, 28));
+            eventDate.setHours(randomInt(8, 18), randomInt(0, 59), 0, 0);
+            const operation = aiOperations[randomInt(0, aiOperations.length - 1)];
+            const userRef = aiUsageUserIds[randomInt(0, aiUsageUserIds.length - 1)];
+            const promptTokens = randomInt(100, 2000);
+            const completionTokens = operation === 'embedding' ? 0 : randomInt(50, 800);
+            const totalTokens = promptTokens + completionTokens;
+            const estimatedCostVnd = randomInt(500, 15000);
+
+            aiUsageEvents.push({
+                companyId,
+                userId: userRef.toString(),
+                service: 'rag',
+                operation,
+                model: operation === 'embedding' ? aiModels[1] : aiModels[0],
+                promptTokens,
+                completionTokens,
+                totalTokens,
+                estimatedCostUsd: estimatedCostVnd / 25000,
+                estimatedCostVnd,
+                estimated: true,
+                createdAt: eventDate,
+            });
+        }
+        const createdAiUsageEvents = await AiUsageEventModel.insertMany(aiUsageEvents);
+        console.log(`✅ Created ${createdAiUsageEvents.length} AI usage events`);
+
+        const buildMonthPeriod = (year, monthIndex) => {
+            const periodStart = new Date(year, monthIndex, 1);
+            const periodEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+            return { periodStart, periodEnd };
+        };
+
+        const aggregateUsageForPeriod = (periodStart, periodEnd) => {
+            const inPeriod = createdAiUsageEvents.filter(
+                (e) => e.createdAt >= periodStart && e.createdAt <= periodEnd
+            );
+            const breakdownMap = new Map();
+            let totalTokens = 0;
+            let amountVnd = 0;
+            for (const e of inPeriod) {
+                totalTokens += e.totalTokens || 0;
+                amountVnd += e.estimatedCostVnd || 0;
+                const prev = breakdownMap.get(e.operation) || { operation: e.operation, tokens: 0, costVnd: 0 };
+                prev.tokens += e.totalTokens || 0;
+                prev.costVnd += e.estimatedCostVnd || 0;
+                breakdownMap.set(e.operation, prev);
+            }
+            return {
+                breakdown: Array.from(breakdownMap.values()),
+                totalTokens,
+                amountVnd: Math.max(amountVnd, 10000),
+            };
+        };
+
+        const jan2026 = buildMonthPeriod(2026, 0);
+        const feb2026 = buildMonthPeriod(2026, 1);
+        const mar2026 = buildMonthPeriod(2026, 2);
+        const apr2026 = buildMonthPeriod(2026, 3);
+        const may2026 = buildMonthPeriod(2026, 4);
+
+        const janAgg = aggregateUsageForPeriod(jan2026.periodStart, jan2026.periodEnd);
+        const febAgg = aggregateUsageForPeriod(feb2026.periodStart, feb2026.periodEnd);
+        const marAgg = aggregateUsageForPeriod(mar2026.periodStart, mar2026.periodEnd);
+        const aprAgg = aggregateUsageForPeriod(apr2026.periodStart, apr2026.periodEnd);
+        const mayAgg = aggregateUsageForPeriod(may2026.periodStart, may2026.periodEnd);
+
+        const aiInvoices = [
+            {
+                invoiceCode: generateInvoiceCode(),
+                companyId,
+                ...jan2026,
+                status: 'paid',
+                totalTokens: janAgg.totalTokens,
+                breakdown: janAgg.breakdown,
+                amountVnd: janAgg.amountVnd,
+                customerEmail: company.email,
+                issuedAt: new Date(2026, 1, 5),
+                dueAt: new Date(2026, 1, 15),
+                paidAt: new Date(2026, 1, 12),
+                processedBy: adminUser._id,
+            },
+            {
+                invoiceCode: generateInvoiceCode() + 1,
+                companyId,
+                ...feb2026,
+                status: 'issued',
+                totalTokens: febAgg.totalTokens,
+                breakdown: febAgg.breakdown,
+                amountVnd: febAgg.amountVnd,
+                customerEmail: company.email,
+                issuedAt: new Date(2026, 2, 5),
+                dueAt: new Date(2026, 2, 20),
+            },
+            {
+                invoiceCode: generateInvoiceCode() + 2,
+                companyId,
+                ...mar2026,
+                status: 'issued',
+                totalTokens: marAgg.totalTokens,
+                breakdown: marAgg.breakdown,
+                amountVnd: marAgg.amountVnd,
+                customerEmail: company.email,
+                issuedAt: new Date(2026, 3, 5),
+                dueAt: new Date(2026, 3, 20),
+            },
+            {
+                invoiceCode: generateInvoiceCode() + 3,
+                companyId,
+                ...apr2026,
+                status: 'issued',
+                totalTokens: aprAgg.totalTokens,
+                breakdown: aprAgg.breakdown,
+                amountVnd: aprAgg.amountVnd,
+                customerEmail: company.email,
+                issuedAt: new Date(2026, 4, 5),
+                dueAt: new Date(2026, 4, 20),
+            },
+            {
+                invoiceCode: generateInvoiceCode() + 4,
+                companyId,
+                ...may2026,
+                status: 'draft',
+                totalTokens: mayAgg.totalTokens,
+                breakdown: mayAgg.breakdown,
+                amountVnd: mayAgg.amountVnd,
+                customerEmail: company.email,
+            },
+        ];
+        const createdAiInvoices = await AiInvoiceModel.insertMany(aiInvoices);
+        console.log(`✅ Created ${createdAiInvoices.length} AI invoices\n`);
+
         // ========== TỔNG KẾT ==========
         console.log('🎉 Seed completed successfully!\n');
         console.log('📊 Summary:');
@@ -1332,7 +1762,13 @@ async function seed() {
         console.log(`   - Performance Reviews: ${createdPerformanceReviews.length}`);
         console.log(`   - Calendar Events: ${createdCalendarEvents.length}`);
         console.log(`   - Employee Schedules: ${createdEmployeeSchedules.length}`);
-        console.log(`   - System Configs: ${createdSystemConfigs.length}\n`);
+        console.log(`   - System Configs: ${createdSystemConfigs.length}`);
+        console.log(`   - Feature Toggles: ${createdFeatureToggles.length}`);
+        console.log(`   - Salary Matrix: ${createdSalaryMatrix.length}`);
+        console.log(`   - Salary History: ${createdSalaryHistory.length}`);
+        console.log(`   - Billing Orders: ${createdOrders.length}`);
+        console.log(`   - AI Usage Events: ${createdAiUsageEvents.length}`);
+        console.log(`   - AI Invoices: ${createdAiInvoices.length}\n`);
 
 
 
