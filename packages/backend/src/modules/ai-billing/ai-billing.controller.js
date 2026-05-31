@@ -29,11 +29,28 @@ function periodBounds(month, year) {
  * GET /api/ai-billing/usage?month=&year=
  * ADMIN: own company usage
  */
+function emptyUsagePayload(month, year) {
+  return {
+    period: { month, year },
+    totalTokens: 0,
+    totalCostVnd: 0,
+    totalCostUsd: 0,
+    eventCount: 0,
+    daily: [],
+  };
+}
+
 export async function getUsage(req, res) {
   try {
     const parsed = aiUsageQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return res.status(400).json({ success: false, message: parsed.error.errors[0]?.message });
+    }
+    if (!req.user.companyId) {
+      const now = new Date();
+      const m = parsed.data.month ?? now.getMonth() + 1;
+      const y = parsed.data.year ?? now.getFullYear();
+      return res.json({ success: true, data: emptyUsagePayload(m, y) });
     }
     const companyId = new mongoose.Types.ObjectId(req.user.companyId);
     const data = await getUsageForCompany(companyId, parsed.data);
@@ -49,6 +66,9 @@ export async function getUsage(req, res) {
  */
 export async function listInvoices(req, res) {
   try {
+    if (!req.user.companyId) {
+      return res.json({ success: true, items: [], total: 0, page: 1, limit: 20 });
+    }
     const companyId = new mongoose.Types.ObjectId(req.user.companyId);
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
