@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { PayrollReportModel } from "./payroll.model.js";
 import { emitPayrollUpdate } from "../../config/socket.js";
 import { generatePayrollForMonth, generatePayrollRecord, previewPayrollRecord } from "./payroll.service.js";
+import { resolveTenantCompanyId, canAccessUserTenant } from "../../utils/tenantCompany.util.js";
 
 const sanitizeNumber = (value = 0) => {
   if (Number.isFinite(value)) return value;
@@ -20,20 +21,126 @@ const buildTrendFromReports = (reports) => {
     .reverse();
 };
 
+const buildDepartmentStats = (records, totalSalary) => {
+  const departmentStats = {};
+  records.forEach((record) => {
+    const dept = record.department || "N/A";
+    if (!departmentStats[dept]) {
+      departmentStats[dept] = {
+        department: dept,
+        employees: 0,
+        totalSalary: 0,
+        avgSalary: 0,
+        percentage: 0,
+      };
+    }
+    departmentStats[dept].employees++;
+    departmentStats[dept].totalSalary += sanitizeNumber(record.totalSalary);
+  });
+
+  Object.values(departmentStats).forEach((stat) => {
+    stat.avgSalary = stat.employees > 0 ? stat.totalSalary / stat.employees : 0;
+    stat.percentage =
+      totalSalary > 0
+        ? Math.round((stat.totalSalary / totalSalary) * 1000) / 10
+        : 0;
+  });
+
+  return Object.values(departmentStats);
+};
+
+const buildReportFromRecords = (month, records, companyId) => {
+  const [year, monthNum] = month.split("-").map(Number);
+  const periodStart = new Date(Date.UTC(year, monthNum - 1, 1));
+  const periodEnd = new Date(Date.UTC(year, monthNum, 0, 23, 59, 59));
+
+  const totalEmployees = records.length;
+  const totalSalary = records.reduce(
+    (sum, r) => sum + sanitizeNumber(r.totalSalary),
+    0
+  );
+  const totalBonuses = records.reduce((sum, r) => sum + sanitizeNumber(r.bonus), 0);
+  const totalDeductions = records.reduce(
+    (sum, r) => sum + sanitizeNumber(r.deductions),
+    0
+  );
+  const netPay = totalSalary;
+  const avgSalary = totalEmployees > 0 ? totalSalary / totalEmployees : 0;
+
+  return {
+    month,
+    periodStart,
+    periodEnd,
+    companyId: companyId || null,
+    totalEmployees,
+    totalSalary,
+    totalBonuses,
+    totalDeductions,
+    netPay,
+    avgSalary,
+    departmentStats: buildDepartmentStats(records, totalSalary),
+  };
+};
+
+const resolveRequestUserId = (req) => {
+  const raw = req.user?.userId ?? req.user?.userContext?.userId;
+  if (!raw) return null;
+  const id = raw.toString();
+  return mongoose.Types.ObjectId.isValid(id)
+    ? new mongoose.Types.ObjectId(id)
+    : raw;
+};
+
+const buildPayrollRecordFilter = async (companyId) => {
+  if (!companyId) return {};
+
+  const { UserModel } = await import("../users/user.model.js");
+  const companyObjectId = new mongoose.Types.ObjectId(companyId);
+  const userIds = await UserModel.find({ companyId: companyObjectId }).distinct("_id");
+
+  return {
+    $or: [
+      { companyId: companyObjectId },
+      { companyId: null, userId: { $in: userIds } },
+      { companyId: { $exists: false }, userId: { $in: userIds } },
+    ],
+  };
+};
+
+const buildReportsFromRecords = async (companyId, limitNum) => {
+  const { PayrollRecordModel } = await import("./payroll.model.js");
+  const recordFilter = await buildPayrollRecordFilter(companyId);
+  const months = await PayrollRecordModel.distinct("month", recordFilter);
+  months.sort((a, b) => b.localeCompare(a));
+
+  const reports = [];
+  for (const month of months.slice(0, limitNum)) {
+    const monthRecords = await PayrollRecordModel.find({ ...recordFilter, month }).lean();
+    if (monthRecords.length > 0) {
+      reports.push(buildReportFromRecords(month, monthRecords, companyId));
+    }
+  }
+
+  return reports.sort((a, b) => b.periodStart - a.periodStart);
+};
+
 export const getPayrollReports = async (req, res) => {
   try {
     const { month, limit = 6 } = req.query;
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 6, 1), 24);
-    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
-    const companyId = isSuperAdmin ? (req.query.companyId || null) : req.user?.companyId;
+    const companyId = resolveTenantCompanyId(req) ?? req.user?.companyId ?? null;
 
     const reportsQuery = {};
     if (companyId) reportsQuery.companyId = companyId;
 
-    const reports = await PayrollReportModel.find(reportsQuery)
+    let reports = await PayrollReportModel.find(reportsQuery)
       .sort({ periodStart: -1 })
       .limit(limitNum)
       .lean();
+
+    if (!reports.length) {
+      reports = await buildReportsFromRecords(companyId, limitNum);
+    }
 
     if (!reports.length) {
       return res.json({
@@ -84,24 +191,24 @@ export const getPayrollRecords = async (req, res) => {
   try {
     const { PayrollRecordModel } = await import("./payroll.model.js");
     const { month, status, department, page = 1, limit = 100 } = req.query;
-    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
-    const companyId = isSuperAdmin ? (req.query.companyId || null) : req.user?.companyId;
+    const companyId = resolveTenantCompanyId(req) ?? req.user?.companyId ?? null;
 
-    // Build query
-    const query = {};
-    if (companyId) query.companyId = companyId;
-    if (month) query.month = month;
-    if (status) query.status = status;
-    // Support both departmentId (ObjectId) and department name filtering
+    const tenantFilter = await buildPayrollRecordFilter(companyId);
+    const extraFilter = {};
+    if (month) extraFilter.month = month;
+    if (status) extraFilter.status = status;
     if (department) {
-      // Try to match as departmentId first (if it's a valid ObjectId)
       if (mongoose.Types.ObjectId.isValid(department)) {
-        query.departmentId = department;
+        extraFilter.departmentId = department;
       } else {
-        // Otherwise filter by department name
-        query.department = department;
+        extraFilter.department = department;
       }
     }
+
+    const query =
+      Object.keys(tenantFilter).length > 0
+        ? { $and: [tenantFilter, extraFilter] }
+        : extraFilter;
 
     // Pagination
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
@@ -407,7 +514,7 @@ export const generatePayroll = async (req, res) => {
 export const getMyPayslip = async (req, res) => {
   try {
     const { PayrollRecordModel } = await import("./payroll.model.js");
-    const userId = req.user?.userId;
+    const userId = resolveRequestUserId(req);
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
     let { month } = req.query;
@@ -453,7 +560,7 @@ const formatVND = (n) => {
 
 const loadOwnPayslipOrFail = async (req, res) => {
   const { PayrollRecordModel } = await import("./payroll.model.js");
-  const userId = req.user?.userId;
+  const userId = resolveRequestUserId(req);
   if (!userId) {
     res.status(401).json({ message: "Unauthorized" });
     return null;
@@ -897,19 +1004,20 @@ export const exportPayrollBulkExcel = async (req, res) => {
  */
 export const getDepartments = async (req, res) => {
   try {
-    const { PayrollRecordModel } = await import("./payroll.model.js");
-    const companyId = req.user?.companyId;
-    const distinctFilter = companyId ? { companyId } : {};
+    const { DepartmentModel } = await import("../departments/department.model.js");
+    const companyId = resolveTenantCompanyId(req) ?? req.user?.companyId ?? null;
 
-    // Get unique departments
-    const departments = await PayrollRecordModel.distinct("department", distinctFilter);
-    
-    // Filter out null/empty values and sort
-    const validDepartments = departments
-      .filter((dept) => dept && dept.trim() !== "")
-      .sort();
+    const query = { status: "active" };
+    if (companyId) query.companyId = companyId;
 
-    res.json({ departments: validDepartments });
+    const departments = await DepartmentModel.find(query)
+      .select("name")
+      .sort({ name: 1 })
+      .lean();
+
+    res.json({
+      departments: departments.map((d) => d.name).filter(Boolean),
+    });
   } catch (error) {
     console.error("[payroll] get departments error", error);
     res.status(500).json({ message: "Không lấy được danh sách phòng ban" });
@@ -923,7 +1031,13 @@ export const getDepartments = async (req, res) => {
 export const getDepartmentsWithId = async (req, res) => {
   try {
     const { DepartmentModel } = await import("../departments/department.model.js");
-    const departments = await DepartmentModel.find({ isActive: true })
+    const { resolveTenantCompanyId } = await import("../../utils/tenantCompany.util.js");
+    const companyId = resolveTenantCompanyId(req) ?? req.user?.companyId;
+
+    const query = { status: "active" };
+    if (companyId) query.companyId = companyId;
+
+    const departments = await DepartmentModel.find(query)
       .select("_id name code")
       .sort({ name: 1 })
       .lean();
@@ -940,7 +1054,9 @@ export const getDepartmentsWithId = async (req, res) => {
 export const getPositions = async (req, res) => {
   try {
     const { UserModel } = await import("../users/user.model.js");
-    const companyId = req.user?.companyId;
+    const { SalaryMatrixModel } = await import("./salary-matrix.model.js");
+    const { resolveTenantCompanyId } = await import("../../utils/tenantCompany.util.js");
+    const companyId = resolveTenantCompanyId(req) ?? req.user?.companyId;
 
     // Get unique positions from active users
     const positionFilter = {
@@ -948,12 +1064,16 @@ export const getPositions = async (req, res) => {
       isActive: true,
     };
     if (companyId) positionFilter.companyId = companyId;
-    const positions = await UserModel.distinct("position", positionFilter);
-    
+    const userPositions = await UserModel.distinct("position", positionFilter);
+
+    const matrixFilter = { isActive: true };
+    if (companyId) matrixFilter.companyId = companyId;
+    const matrixPositions = await SalaryMatrixModel.distinct("position", matrixFilter);
+
     // Filter out null/empty values and sort
-    const validPositions = positions
+    const validPositions = [...new Set([...userPositions, ...matrixPositions])]
       .filter((pos) => pos && pos.trim() !== "")
-      .sort();
+      .sort((a, b) => a.localeCompare(b, "vi"));
 
     res.json({ positions: validPositions });
   } catch (error) {
@@ -983,18 +1103,18 @@ export const previewPayroll = async (req, res) => {
 
     const { userId, month } = parse.data;
 
-    // HR_MANAGER chỉ được preview nhân viên cùng phòng ban
     const requestorRole = req.user?.role;
-    if (requestorRole !== "ADMIN" && requestorRole !== "SUPER_ADMIN") {
+    if (requestorRole !== "SUPER_ADMIN") {
       const { UserModel } = await import("../users/user.model.js");
+      const requestorId = req.user?.userId ?? req.user?.userContext?.userId;
       const [requestor, target] = await Promise.all([
-        UserModel.findById(req.user?.userId).select("department").lean(),
-        UserModel.findById(userId).select("department").lean(),
+        UserModel.findById(requestorId).select("role companyId").lean(),
+        UserModel.findById(userId).select("role companyId").lean(),
       ]);
       if (!target) {
         return res.status(404).json({ message: "Không tìm thấy người dùng" });
       }
-      if (requestor?.department?.toString() !== target?.department?.toString()) {
+      if (!canAccessUserTenant(requestor, target)) {
         return res.status(403).json({ message: "Không có quyền xem bảng lương này" });
       }
     }

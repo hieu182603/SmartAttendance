@@ -130,7 +130,7 @@ payrollRouter.put(
 
 payrollRouter.delete(
   "/salary-matrix/:id",
-  requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
   requirePermission(PERMISSIONS.PAYROLL_MANAGE),
   deleteSalaryMatrix
 );
@@ -167,7 +167,7 @@ payrollRouter.put("/users/:id/dependents", updateUserDependents);
 payrollRouter.get(
   "/preview",
   requireRole([ROLES.HR_MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN]),
-  requirePermission(PERMISSIONS.PAYROLL_MANAGE),
+  requirePermission(PERMISSIONS.PAYROLL_VIEW),
   previewPayroll
 );
 

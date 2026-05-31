@@ -748,7 +748,9 @@ export async function generatePayrollReport(month, companyId = null) {
     const stat = departmentStats[dept];
     stat.avgSalary = stat.employees > 0 ? stat.totalSalary / stat.employees : 0;
     stat.percentage =
-      totalSalary > 0 ? (stat.totalSalary / totalSalary) * 100 : 0;
+      totalSalary > 0
+        ? Math.round((stat.totalSalary / totalSalary) * 1000) / 10
+        : 0;
   });
 
   const departmentStatsArray = Object.values(departmentStats);
@@ -767,12 +769,15 @@ export async function generatePayrollReport(month, companyId = null) {
     }))
     .reverse();
 
-  let report = await PayrollReportModel.findOne({ month });
+  const reportLookup = { month };
+  if (companyId) reportLookup.companyId = companyId;
+  let report = await PayrollReportModel.findOne(reportLookup);
 
   const reportData = {
     month,
     periodStart,
     periodEnd,
+    companyId: companyId || null,
     totalEmployees,
     totalSalary,
     totalBonuses,

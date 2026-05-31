@@ -44,13 +44,14 @@ import {
   updateSalaryMatrix,
   deleteSalaryMatrix,
   getPositions,
+  getDepartmentsWithId,
   type SalaryMatrix,
   type CreateSalaryMatrixPayload,
   type UpdateSalaryMatrixPayload,
 } from "../../../services/payrollService";
-import { getAllDepartments } from "../../../services/departmentService";
 import { usePermissions } from "@/hooks/usePermissions";
-import { UserRole } from "@/utils/roles";
+import { useSuperAdminFilter } from "@/context/SuperAdminContext";
+import { Permission } from "@/utils/roles";
 import { useTranslation } from "react-i18next";
 
 const formatCurrency = (amount: number) => {
@@ -61,9 +62,12 @@ const formatCurrency = (amount: number) => {
   }).format(amount || 0);
 };
 
+const POSITION_CUSTOM = "__custom__";
+
 export default function SalaryMatrixManagementPage() {
   const { t } = useTranslation();
-  const { hasMinimumRole } = usePermissions();
+  const { hasPermission } = usePermissions();
+  const { selectedCompanyId } = useSuperAdminFilter();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterActive, setFilterActive] = useState<boolean | "all">("all");
@@ -85,6 +89,7 @@ export default function SalaryMatrixManagementPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<SalaryMatrix | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
+  const [useCustomPosition, setUseCustomPosition] = useState(false);
 
   const [formData, setFormData] = useState<CreateSalaryMatrixPayload>({
     departmentCode: "",
@@ -93,29 +98,29 @@ export default function SalaryMatrixManagementPage() {
     notes: "",
     isActive: true,
   });
-  const canManageSalaryMatrix = hasMinimumRole(UserRole.ADMIN);
+  const canManageSalaryMatrix = hasPermission(Permission.PAYROLL_MANAGE);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch departments
-        const deptResponse = await getAllDepartments({ limit: 1000 });
-        const depts = deptResponse.departments?.map((d: any) => ({
-          code: d.code,
-          name: d.name,
-        })) || [];
-        setDepartments(depts);
+        const deptList = await getDepartmentsWithId();
+        setDepartments(
+          deptList.map((d) => ({
+            code: d.code,
+            name: d.name,
+          }))
+        );
 
-        // Fetch positions
         const posList = await getPositions();
         setPositions(posList);
       } catch (error) {
         console.error("Error fetching data:", error);
+        toast.error(t("dashboard:employeeManagement.errors.loadDepartmentsFailed"));
       }
     };
 
     fetchData();
-  }, []);
+  }, [selectedCompanyId, t]);
 
   const fetchSalaryMatrix = useCallback(async () => {
     try {
@@ -142,9 +147,18 @@ export default function SalaryMatrixManagementPage() {
       }
 
       const response = await getSalaryMatrix(params);
-      setSalaryMatrix(response.records || []);
+      const records = response.records || [];
+      setSalaryMatrix(records);
       if (response.pagination) {
         setPagination(response.pagination);
+      }
+      const matrixPositions = records.map((r) => r.position).filter(Boolean);
+      if (matrixPositions.length > 0) {
+        setPositions((prev) =>
+          [...new Set([...prev, ...matrixPositions])].sort((a, b) =>
+            a.localeCompare(b, "vi")
+          )
+        );
       }
     } catch (error: any) {
       console.error("Error fetching salary matrix:", error);
@@ -163,16 +177,18 @@ export default function SalaryMatrixManagementPage() {
   }, [fetchSalaryMatrix]);
 
   const handleCreate = async () => {
-    if (!formData.departmentCode || !formData.position || formData.baseSalary <= 0) {
+    const position = formData.position.trim();
+    if (!formData.departmentCode || !position || formData.baseSalary <= 0) {
       toast.error(t("dashboard:salaryMatrix.toasts.fillRequired"));
       return;
     }
 
     try {
       setLoadingAction(true);
-      await createSalaryMatrix(formData);
+      await createSalaryMatrix({ ...formData, position });
       toast.success(t("dashboard:salaryMatrix.toasts.createSuccess"));
       setIsCreateDialogOpen(false);
+      setUseCustomPosition(false);
       setFormData({
         departmentCode: "",
         position: "",
@@ -247,7 +263,7 @@ export default function SalaryMatrixManagementPage() {
       position: record.position,
       baseSalary: record.baseSalary,
       notes: record.notes || "",
-      isActive: record.isActive,
+      isActive: record.isActive !== false,
     });
     setIsEditDialogOpen(true);
   };
@@ -273,10 +289,13 @@ export default function SalaryMatrixManagementPage() {
           </p>
         </div>
         <Button
-          onClick={() => setIsCreateDialogOpen(true)}
+          onClick={() => {
+            setUseCustomPosition(false);
+            setIsCreateDialogOpen(true);
+          }}
           disabled={!canManageSalaryMatrix}
           className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
-          title={!canManageSalaryMatrix ? "Chỉ Admin/Super Admin mới có quyền thao tác thang lương" : undefined}
+          title={!canManageSalaryMatrix ? "Bạn không có quyền quản lý thang lương (PAYROLL_MANAGE)" : undefined}
         >
           <Plus className="mr-2 h-4 w-4" />
           Thêm Thang Lương
@@ -285,20 +304,16 @@ export default function SalaryMatrixManagementPage() {
 
       <Card className="border-[var(--border)] bg-[var(--shell)]">
         <CardContent>
-          <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-4 mt-5">
-            <div className="relative flex-1 min-w-0">
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_12rem_12rem] gap-4 items-center">
+            <div className="relative min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
               <Input
                 placeholder="Tìm kiếm theo chức vụ..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                className="pl-10 w-full bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
               />
             </div>
-            <div className="w-full md:w-48 shrink-0 min-w-0 [&_button]:bg-[var(--input-bg)]">
-              <SuperAdminCompanyFilterSlot layout="grid" />
-            </div>
-            <div className="w-full md:w-48 shrink-0 min-w-0">
             <Select
               value={filterDepartment}
               onValueChange={setFilterDepartment}
@@ -315,8 +330,6 @@ export default function SalaryMatrixManagementPage() {
                 ))}
               </SelectContent>
             </Select>
-            </div>
-            <div className="w-full md:w-48 shrink-0 min-w-0">
             <Select
               value={String(filterActive)}
               onValueChange={(value) =>
@@ -332,7 +345,9 @@ export default function SalaryMatrixManagementPage() {
                 <SelectItem value="false">Đã vô hiệu</SelectItem>
               </SelectContent>
             </Select>
-            </div>
+          </div>
+          <div className="mt-4 md:max-w-xs [&_button]:bg-[var(--input-bg)]">
+            <SuperAdminCompanyFilterSlot layout="grid" />
           </div>
         </CardContent>
       </Card>
@@ -358,9 +373,9 @@ export default function SalaryMatrixManagementPage() {
                     <TableHead className="text-[var(--text-main)] text-right">
                       Lương Cơ Bản
                     </TableHead>
-                    <TableHead className="text-[var(--text-main)]">Ghi Chú</TableHead>
                     <TableHead className="text-[var(--text-main)]">Trạng Thái</TableHead>
-                    <TableHead className="text-[var(--text-main)] text-right">
+                    <TableHead className="text-[var(--text-main)]">Ghi Chú</TableHead>
+                    <TableHead className="text-[var(--text-main)] text-center">
                       Thao Tác
                     </TableHead>
                   </TableRow>
@@ -386,9 +401,6 @@ export default function SalaryMatrixManagementPage() {
                       <TableCell className="text-right text-[var(--text-main)] font-semibold">
                         {formatCurrency(record.baseSalary)}
                       </TableCell>
-                      <TableCell className="text-[var(--text-sub)] max-w-xs truncate">
-                        {record.notes || "-"}
-                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={record.isActive ? "success" : "outline"}
@@ -401,27 +413,32 @@ export default function SalaryMatrixManagementPage() {
                           {record.isActive ? "Hoạt động" : "Vô hiệu"}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-[var(--text-sub)] max-w-xs truncate">
+                        {record.notes || "-"}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {canManageSalaryMatrix && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEditDialog(record)}
-                                className="h-8"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openDeleteDialog(record)}
-                                className="h-8 text-red-500 hover:text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDialog(record)}
+                              className="h-8"
+                              title="Chỉnh sửa"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canManageSalaryMatrix && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDeleteDialog(record)}
+                              className="h-8 text-red-500 hover:text-red-600"
+                              title="Vô hiệu hóa"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                       </TableCell>
@@ -474,7 +491,13 @@ export default function SalaryMatrixManagementPage() {
       </Card>
 
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) setUseCustomPosition(false);
+        }}
+      >
         <DialogContent className="border-[var(--border)] bg-[var(--background)]">
           <DialogHeader>
             <DialogTitle className="text-[var(--text-main)]">
@@ -511,29 +534,54 @@ export default function SalaryMatrixManagementPage() {
               <label className="text-sm font-medium text-[var(--text-main)]">
                 Chức Vụ *
               </label>
-              <Select
-                value={formData.position}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, position: value })
-                }
-              >
-                <SelectTrigger className="mt-1 border-[var(--border)]">
-                  <SelectValue placeholder="Chọn chức vụ" />
-                </SelectTrigger>
-                <SelectContent>
-                  {positions.length > 0 ? (
-                    positions.map((pos) => (
+              {useCustomPosition ? (
+                <div className="mt-1 space-y-2">
+                  <Input
+                    value={formData.position}
+                    onChange={(e) =>
+                      setFormData({ ...formData, position: e.target.value })
+                    }
+                    placeholder="VD: Senior Developer"
+                    className="border-[var(--border)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUseCustomPosition(false);
+                      setFormData({ ...formData, position: "" });
+                    }}
+                    className="text-xs text-[var(--primary)] hover:underline"
+                  >
+                    Chọn từ danh sách
+                  </button>
+                </div>
+              ) : (
+                <Select
+                  value={formData.position}
+                  onValueChange={(value) => {
+                    if (value === POSITION_CUSTOM) {
+                      setUseCustomPosition(true);
+                      setFormData({ ...formData, position: "" });
+                    } else {
+                      setFormData({ ...formData, position: value });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1 border-[var(--border)]">
+                    <SelectValue placeholder="Chọn chức vụ" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    {positions.map((pos) => (
                       <SelectItem key={pos} value={pos}>
                         {pos}
                       </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="">
-                      Chưa có chức vụ nào
+                    ))}
+                    <SelectItem value={POSITION_CUSTOM}>
+                      Chức vụ khác (nhập tay)
                     </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium text-[var(--text-main)]">
@@ -604,7 +652,7 @@ export default function SalaryMatrixManagementPage() {
               <Input
                 value={formData.departmentCode}
                 disabled
-                className="mt-1 border-[var(--border)] bg-gray-100"
+                className="mt-1 border-[var(--border)] bg-[var(--input-bg)] text-[var(--text-main)] opacity-90"
               />
             </div>
             <div>
@@ -614,7 +662,7 @@ export default function SalaryMatrixManagementPage() {
               <Input
                 value={formData.position}
                 disabled
-                className="mt-1 border-[var(--border)] bg-gray-100"
+                className="mt-1 border-[var(--border)] bg-[var(--input-bg)] text-[var(--text-main)] opacity-90"
               />
             </div>
             <div>
@@ -650,13 +698,13 @@ export default function SalaryMatrixManagementPage() {
                 Trạng Thái
               </label>
               <Select
-                value={String(formData.isActive)}
+                value={formData.isActive === false ? "false" : "true"}
                 onValueChange={(value) =>
                   setFormData({ ...formData, isActive: value === "true" })
                 }
               >
-                <SelectTrigger className="mt-1 border-[var(--border)]">
-                  <SelectValue />
+                <SelectTrigger className="mt-1 border-[var(--border)] bg-[var(--input-bg)] text-[var(--text-main)]">
+                  <SelectValue placeholder="Chọn trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="true">Hoạt động</SelectItem>

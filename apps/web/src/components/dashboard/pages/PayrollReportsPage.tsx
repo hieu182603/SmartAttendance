@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
@@ -37,14 +37,39 @@ import {
   type DepartmentPayroll,
   type MonthlyTrendPoint,
 } from "@/services/payrollService";
+import { useSuperAdminFilter } from "@/context/SuperAdminContext";
 
 
 
 const COLORS = ["#8B5CF6", "#06B6D4", "#F59E0B", "#10B981", "#EF4444"];
 
 const formatCompactCurrency = (amount: number): string => {
-  if (!amount) return "0";
-  return `${(amount / 1_000_000).toFixed(0)}M`;
+  if (!amount) return "0 ₫";
+
+  if (amount >= 1_000_000_000) {
+    const value = amount / 1_000_000_000;
+    const formatted = new Intl.NumberFormat("vi-VN", {
+      maximumFractionDigits: value >= 10 ? 0 : 1,
+    }).format(value);
+    return `${formatted} tỷ`;
+  }
+
+  if (amount >= 1_000_000) {
+    const value = amount / 1_000_000;
+    const formatted = new Intl.NumberFormat("vi-VN", {
+      maximumFractionDigits: value >= 100 ? 0 : 1,
+    }).format(value);
+    return `${formatted} tr`;
+  }
+
+  if (amount >= 1_000) {
+    const formatted = new Intl.NumberFormat("vi-VN", {
+      maximumFractionDigits: 0,
+    }).format(amount / 1_000);
+    return `${formatted} nghìn`;
+  }
+
+  return new Intl.NumberFormat("vi-VN").format(amount) + " ₫";
 };
 
 const formatFullCurrency = (amount: number): string => {
@@ -55,8 +80,14 @@ const formatFullCurrency = (amount: number): string => {
   }).format(amount || 0);
 };
 
+const formatPercent = (value: number): string => {
+  const rounded = Math.round((value || 0) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+};
+
 const PayrollReportsPage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common']);
+  const { selectedCompanyId } = useSuperAdminFilter();
   const [summary, setSummary] = useState<PayrollSummary[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -65,44 +96,47 @@ const PayrollReportsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedDeptDetail, setSelectedDeptDetail] = useState<{ name: string; stats: { employees: number; totalSalary: number; avgSalary: number; percentage: number } } | null>(null);
 
-  const fetchReports = useCallback(
-    async (monthFilter?: string, shouldInitializeMonth = false) => {
-      setLoading(true);
-      try {
-        const result = await getPayrollReports(
-          monthFilter ? { month: monthFilter } : {}
-        );
-        setSummary(result.summary || []);
-        setDepartmentData(result.departments || []);
-        setTrendData(result.monthlyTrend || []);
+  const fetchRequestId = useRef(0);
 
-        if (
-          shouldInitializeMonth &&
-          !selectedMonth &&
-          result.summary &&
-          result.summary.length > 0
-        ) {
-          setSelectedMonth(result.summary[0].month);
-        }
-      } catch (error) {
-        console.error("[PayrollReports] fetch error:", error);
-        toast.error(t('dashboard:payrollReports.error'));
-      } finally {
+  const fetchReports = useCallback(async (monthFilter?: string) => {
+    const requestId = ++fetchRequestId.current;
+    setLoading(true);
+    try {
+      const result = await getPayrollReports(
+        monthFilter ? { month: monthFilter } : {}
+      );
+      if (requestId !== fetchRequestId.current) return;
+
+      setSummary(result.summary || []);
+      setDepartmentData(result.departments || []);
+      setTrendData(result.monthlyTrend || []);
+
+      if (!monthFilter && result.summary?.length) {
+        setSelectedMonth(result.summary[0].month);
+      }
+    } catch (error) {
+      if (requestId !== fetchRequestId.current) return;
+      console.error("[PayrollReports] fetch error:", error);
+      toast.error(t("dashboard:payrollReports.error"));
+    } finally {
+      if (requestId === fetchRequestId.current) {
         setLoading(false);
       }
-    },
-    [selectedMonth]
-  );
-
-  useEffect(() => {
-    fetchReports(undefined, true);
-  }, [fetchReports]);
-
-  useEffect(() => {
-    if (selectedMonth) {
-      fetchReports(selectedMonth);
     }
-  }, [selectedMonth, fetchReports]);
+  }, [t]);
+
+  useEffect(() => {
+    setSelectedMonth("");
+    setSummary([]);
+    setDepartmentData([]);
+    setTrendData([]);
+    fetchReports();
+  }, [selectedCompanyId, fetchReports]);
+
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month);
+    fetchReports(month);
+  };
 
   const currentPayroll =
     summary.find((item) => item.month === selectedMonth) || summary[0];
@@ -133,7 +167,7 @@ const PayrollReportsPage: React.FC = () => {
           <SuperAdminCompanyFilterSlot />
           <Select
             value={selectedMonth}
-            onValueChange={(value) => setSelectedMonth(value)}
+            onValueChange={handleMonthChange}
             disabled={!summary.length}
           >
             <SelectTrigger className="w-[180px] bg-[var(--shell)] border-[var(--border)] text-[var(--text-main)]">
@@ -157,10 +191,16 @@ const PayrollReportsPage: React.FC = () => {
         </div>
       </div>
 
-      {!currentPayroll ? (
+      {loading && !currentPayroll ? (
         <Card className="bg-[var(--surface)] border-[var(--border)]">
           <CardContent className="py-16 text-center text-[var(--text-sub)]">
-            {t('common:noData')}
+            {t('common:messages.loading')}
+          </CardContent>
+        </Card>
+      ) : !currentPayroll ? (
+        <Card className="bg-[var(--surface)] border-[var(--border)]">
+          <CardContent className="py-16 text-center text-[var(--text-sub)]">
+            {t('dashboard:payrollReports.noData')}
           </CardContent>
         </Card>
       ) : (
@@ -307,7 +347,7 @@ const PayrollReportsPage: React.FC = () => {
                         color: "var(--text-main)",
                       }}
                       formatter={(value) =>
-                        `${value as number} ${t('dashboard:payrollReports.units.million')}`
+                        `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(value as number)} ${t("dashboard:payrollReports.units.million")}`
                       }
                     />
                     <Legend />
@@ -338,9 +378,9 @@ const PayrollReportsPage: React.FC = () => {
                       cy="50%"
                       labelLine={false}
                       label={({ payload }) =>
-                        `${payload?.department ?? ""} ${
-                          payload?.percentage ?? 0
-                        }%`
+                        `${payload?.department ?? ""} ${formatPercent(
+                          (payload?.percentage as number) ?? 0
+                        )}%`
                       }
                       outerRadius={110}
                       fill="#8884d8"
@@ -361,7 +401,7 @@ const PayrollReportsPage: React.FC = () => {
                         color: "var(--text-main)",
                       }}
                       formatter={(value, _name, payload) =>
-                        `${(payload as { payload?: { department?: string } })?.payload?.department}: ${value as number}%`
+                        `${(payload as { payload?: { department?: string } })?.payload?.department}: ${formatPercent(value as number)}%`
                       }
                     />
                   </RePieChart>
@@ -421,7 +461,7 @@ const PayrollReportsPage: React.FC = () => {
                           color: COLORS[index % COLORS.length],
                         }}
                       >
-                        {dept.percentage}%
+                        {formatPercent(dept.percentage)}%
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -523,11 +563,6 @@ const PayrollReportsPage: React.FC = () => {
         </>
       )}
 
-      {loading && (
-        <div className="text-center text-sm text-[var(--text-sub)]">
-          {t('common:loading')}
-        </div>
-      )}
 
       {/* Department Payroll Detail Dialog */}
       {selectedDeptDetail && (
