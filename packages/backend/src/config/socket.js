@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { UserModel } from "../modules/users/user.model.js";
+import { isAllowedOrigin } from "./allowed-origins.js";
 
 let io = null;
 
@@ -11,19 +12,20 @@ export function initializeSocket(server) {
     io = new Server(server, {
         cors: {
             origin: function (origin, callback) {
-                // Allow requests with no origin (mobile apps, Postman, etc.)
+                // No Origin header: native mobile clients, curl, health probes
                 if (!origin) return callback(null, true);
-                // Allow configured frontend URL
-                const allowedOrigins = [
-                    process.env.FRONTEND_URL || "http://localhost:5173",
+                if (isAllowedOrigin(origin)) return callback(null, true);
+                const extra = [
+                    process.env.FRONTEND_URL,
                     "http://localhost:5173",
-                    "http://localhost:8081", // Expo dev server
-                ];
-                if (allowedOrigins.includes(origin)) {
+                    "http://localhost:8081",
+                ]
+                    .filter(Boolean)
+                    .map((o) => o.replace(/\/$/, ""));
+                if (extra.includes(origin.replace(/\/$/, ""))) {
                     return callback(null, true);
                 }
-                // Allow all other origins (mobile apps)
-                return callback(null, true);
+                return callback(new Error("Not allowed by CORS"));
             },
             methods: ["GET", "POST"],
             credentials: true,
@@ -66,7 +68,10 @@ export function initializeSocket(server) {
         socket.join(`user:${socket.userId}`);
         // Join role-based room so emitAttendanceUpdateToAdmins works
         const role = socket.user?.role;
-        if (role && ["ADMIN", "SUPER_ADMIN", "HR", "MANAGER"].includes(role)) {
+        if (
+            role &&
+            ["ADMIN", "SUPER_ADMIN", "HR_MANAGER", "MANAGER"].includes(role)
+        ) {
             socket.join("admins");
         }
     });
