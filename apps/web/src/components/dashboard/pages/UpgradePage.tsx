@@ -6,26 +6,29 @@ import { billingService } from "@/services/billingService";
 import { useAuth } from "@/context/AuthContext";
 
 // ─── Plan config (mirrors packages/shared PLAN_CONFIG) ───────────────────────
-const PLAN_IDS = ["starter", "standard", "premium"] as const;
+const PLAN_IDS = ["starter", "standard", "premium", "addon"] as const;
 type PlanId = (typeof PLAN_IDS)[number];
 
 const PLAN_PRICES: Record<PlanId, { mo: number; yr: number }> = {
-  starter:  { mo: 1_000_000, yr: 12_000_000 },
-  standard: { mo: 2_900_000, yr: 35_000_000 },
-  premium:  { mo: 6_600_000, yr: 80_000_000 },
+  starter:  { mo: 790_000, yr: 7_900_000 },
+  standard: { mo: 1_990_000, yr: 19_900_000 },
+  premium:  { mo: 4_990_000, yr: 49_900_000 },
+  addon:    { mo: 500_000, yr: 500_000 },
 };
 
 const PLAN_ICONS: Record<PlanId, string> = {
   starter:  "🚀",
   standard: "👥",
   premium:  "🏢",
+  addon:    "🤖",
 };
 
 // Tailwind gradient / accent classes per plan
-const PLAN_ACCENT = {
+const PLAN_ACCENT: Record<PlanId, Record<string, string>> = {
   starter:  { grad: "from-blue-500 to-cyan-400",   glow: "shadow-blue-500/25",   badge: "bg-blue-500/10 text-blue-400",   check: "bg-blue-500/15 text-blue-400",   btn: "from-blue-500 to-cyan-400",   bar: "from-blue-500 to-cyan-400"   },
   standard: { grad: "from-violet-500 to-purple-500", glow: "shadow-violet-500/25", badge: "bg-violet-500/10 text-violet-400", check: "bg-violet-500/15 text-violet-400", btn: "from-violet-500 to-purple-500", bar: "from-violet-500 to-purple-500" },
   premium:  { grad: "from-amber-500 to-orange-500", glow: "shadow-amber-500/20",   badge: "bg-amber-500/10 text-amber-400",   check: "bg-amber-500/13 text-amber-400",   btn: "from-amber-500 to-orange-500", bar: "from-amber-500 to-orange-500"  },
+  addon:    { grad: "from-pink-500 to-rose-400", glow: "shadow-pink-500/25", badge: "bg-pink-500/10 text-pink-400", check: "bg-pink-500/15 text-pink-400", btn: "from-pink-500 to-rose-400", bar: "from-pink-500 to-rose-400" },
 };
 
 // ─── State types ──────────────────────────────────────────────────────────────
@@ -233,10 +236,12 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
   const months = billing === "yr" ? 12 : Number.parseInt(form.billingMonths || "1", 10) || 1;
   const totalAmount = billing === "mo" ? p.mo * months : p.yr;
 
-  const planName = t(`dashboard:upgrade.plans.${chosenPlan}.name`);
-  const planSub  = t(`dashboard:upgrade.plans.${chosenPlan}.sub`);
-  const planTarget = t(`dashboard:upgrade.plans.${chosenPlan}.target`);
-  const planFeats: string[] = t(`dashboard:upgrade.plans.${chosenPlan}.feats`, { returnObjects: true }) as string[];
+  const planName = chosenPlan === "addon" ? "Gói Nạp 1.000.000 AI Tokens" : t(`dashboard:upgrade.plans.${chosenPlan}.name`);
+  const planSub  = chosenPlan === "addon" ? "Tín dụng sử dụng Chatbot AI" : t(`dashboard:upgrade.plans.${chosenPlan}.sub`);
+  const planTarget = chosenPlan === "addon" ? "Pay as you go (Không hết hạn)" : t(`dashboard:upgrade.plans.${chosenPlan}.target`);
+  const planFeats: string[] = chosenPlan === "addon" 
+    ? ["Nhận 1.000.000 AI Tokens vào tài khoản", "Trả trước, dùng đến đâu trừ đến đó", "Sử dụng cho toàn bộ tính năng Trợ lý ảo"]
+    : (t(`dashboard:upgrade.plans.${chosenPlan}.feats`, { returnObjects: true }) as string[]);
 
   const periodLabel = billing === "mo"
     ? t("dashboard:upgrade.billingMonthly")
@@ -301,7 +306,7 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
           {/* Plan cards */}
           <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 pb-16">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {PLAN_IDS.map((id) => {
+              {PLAN_IDS.filter(id => id !== "addon").map((id) => {
                 const ac    = PLAN_ACCENT[id];
                 const pp    = PLAN_PRICES[id];
                 const price = billing === "mo" ? pp.mo : pp.yr;
@@ -402,6 +407,47 @@ const UpgradePage: React.FC<UpgradePageProps> = ({ mode = "upgrade" }) => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Chatbot Add-on Section */}
+          <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 pb-12">
+            <div className="relative overflow-hidden rounded-2xl bg-[var(--surface)] border border-pink-500/30 p-6 flex flex-col md:flex-row items-center gap-6 shadow-xl shadow-pink-500/5 transition-all duration-300 hover:shadow-pink-500/10 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+              
+              <div className="w-14 h-14 rounded-2xl bg-pink-500/10 flex items-center justify-center text-3xl flex-shrink-0 border border-pink-500/20 shadow-inner z-10">
+                🤖
+              </div>
+              
+              <div className="flex-1 text-center md:text-left z-10">
+                <div className="inline-flex items-center gap-1.5 bg-pink-500/10 text-pink-500 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md mb-2">
+                  ✦ Tiện ích mở rộng
+                </div>
+                <h3 className="font-bold text-[19px] tracking-tight mb-1 bg-gradient-to-r from-pink-500 to-rose-400 bg-clip-text text-transparent">
+                  Nạp Tokens Trợ lý AI (Pay-as-you-go)
+                </h3>
+                <p className="text-sm text-[var(--text-sub)]">
+                  Mua trước Credit để sử dụng trợ lý ảo giải đáp luật lao động. Dùng đến đâu hệ thống sẽ trừ Token đến đó, không giới hạn thời gian sử dụng.
+                </p>
+              </div>
+              
+              <div className="flex flex-col items-center md:items-end z-10 mt-2 md:mt-0">
+                <div className="flex items-baseline gap-1 mb-3">
+                  <span className="font-mono text-3xl font-bold text-[var(--text-main)]">
+                    {vnd(500_000)}
+                  </span>
+                  <span className="text-xs text-[var(--text-sub)]">
+                    ₫ / 1.000.000 Tokens
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => goCheckout("addon")}
+                  className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-pink-500 to-rose-400 shadow-lg shadow-pink-500/25 hover:brightness-110 active:brightness-95 transition-all whitespace-nowrap"
+                >
+                  Nạp ngay
+                </button>
+              </div>
             </div>
           </div>
 
