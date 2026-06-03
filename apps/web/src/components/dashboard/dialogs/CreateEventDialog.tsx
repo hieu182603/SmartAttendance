@@ -37,12 +37,15 @@ export function CreateEventDialog({
 }: CreateEventDialogProps) {
   const { t } = useTranslation(["dashboard", "common"]);
   const [loading, setLoading] = useState(false);
+  const getLocalDateString = (d: Date = new Date()) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    date: initialDate
-      ? initialDate.toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0],
+    date: initialDate ? getLocalDateString(initialDate) : getLocalDateString(),
     startTime: "09:00",
     endTime: "17:00",
     type: "meeting" as
@@ -97,7 +100,7 @@ export function CreateEventDialog({
       setFormData({
         title: "",
         description: "",
-        date: new Date().toISOString().split("T")[0],
+        date: getLocalDateString(),
         startTime: "09:00",
         endTime: "17:00",
         type: "meeting",
@@ -138,6 +141,7 @@ export function CreateEventDialog({
                 setFormData({ ...formData, title: e.target.value })
               }
               className="bg-[var(--input-bg)] border-[var(--border)]"
+              maxLength={100}
               required
             />
           </div>
@@ -216,7 +220,7 @@ export function CreateEventDialog({
               onChange={(e) =>
                 setFormData({ ...formData, date: e.target.value })
               }
-              min={new Date().toISOString().split("T")[0]}
+              min={getLocalDateString()}
               className="bg-[var(--input-bg)] border-[var(--border)]"
               required
             />

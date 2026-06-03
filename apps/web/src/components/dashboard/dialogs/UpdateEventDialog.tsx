@@ -36,10 +36,15 @@ export function UpdateEventDialog({
   event,
 }: UpdateEventDialogProps) {
   const [loading, setLoading] = useState(false);
+  const getLocalDateString = (d: Date = new Date()) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDateString(),
     startTime: "09:00",
     endTime: "17:00",
     type: "meeting" as
@@ -106,6 +111,19 @@ export function UpdateEventDialog({
       return;
     }
 
+    // Validate date is not in the past (unless it was already in the past)
+    const selectedDateObj = new Date(formData.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const originalDate = new Date(event.date);
+    originalDate.setHours(0, 0, 0, 0);
+
+    // Only block if they are changing the date to a new past date
+    if (selectedDateObj < today && selectedDateObj.getTime() !== originalDate.getTime()) {
+      toast.error("Không thể đổi sang ngày trong quá khứ");
+      return;
+    }
+
     try {
       setLoading(true);
       await eventService.updateEvent(event._id, {
@@ -151,6 +169,7 @@ export function UpdateEventDialog({
                 setFormData({ ...formData, title: e.target.value })
               }
               className="bg-[var(--input-bg)] border-[var(--border)]"
+              maxLength={100}
               required
             />
           </div>
@@ -229,6 +248,7 @@ export function UpdateEventDialog({
               onChange={(e) =>
                 setFormData({ ...formData, date: e.target.value })
               }
+              min={event && new Date(event.date) < new Date(new Date().setHours(0,0,0,0)) ? formData.date : getLocalDateString()}
               className="bg-[var(--input-bg)] border-[var(--border)]"
               required
             />

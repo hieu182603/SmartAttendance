@@ -350,10 +350,10 @@ export default function MyPayslipPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 24, scale: 0.98 }}
               transition={{ type: "spring", damping: 24, stiffness: 260 }}
-              className="relative w-full max-w-5xl h-auto max-h-[92vh] bg-[linear-gradient(180deg,#12141a_0%,#0e1117_100%)] border border-[var(--border)] rounded-2xl md:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden"
+              className="relative w-full max-w-5xl h-auto max-h-[92vh] bg-[var(--shell)] border border-[var(--border)] rounded-2xl md:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden"
             >
               {/* Header */}
-              <div className="p-6 border-b border-[var(--border)] flex items-center justify-between bg-[linear-gradient(120deg,rgba(19,23,31,.96),rgba(19,30,41,.96))] backdrop-blur-md">
+              <div className="p-6 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface)] backdrop-blur-md">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-[var(--accent-cyan)]/15 border border-[var(--accent-cyan)]/30 rounded-xl text-[var(--accent-cyan)]">
                     <Receipt className="h-5 w-5" />
@@ -380,7 +380,7 @@ export default function MyPayslipPage() {
               {/* Scrollable details content */}
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Employee / Meta Box */}
-                <div className="p-5 rounded-2xl bg-[linear-gradient(135deg,rgba(18,23,31,.9),rgba(17,36,49,.85))] border border-[var(--border)]/90 flex justify-between items-start shadow-lg shadow-black/20">
+                <div className="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] flex justify-between items-start shadow-sm">
                   <div className="space-y-1">
                     <h4 className="font-bold text-base text-[var(--text-main)] tracking-tight">
                       {(selectedPayslip.userId as any)?.name || "—"}

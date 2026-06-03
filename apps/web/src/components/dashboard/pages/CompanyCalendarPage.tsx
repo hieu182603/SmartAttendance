@@ -316,11 +316,11 @@ const CompanyCalendarPage: React.FC = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mt-3">
                   <div>
-                    <p className="text-sm text-[var(--text-sub)]">
+                    <p className="text-sm font-medium text-[var(--text-sub)]">
                       {stat.label}
                     </p>
                     <motion.p
-                      className={`text-2xl mt-1 text-[var(--${stat.color})]`}
+                      className={`text-4xl font-bold mt-2 text-[var(--${stat.color})]`}
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{
@@ -398,13 +398,22 @@ const CompanyCalendarPage: React.FC = () => {
                     date && setSelectedDate(date),
                   month: selectedDate,
                   onMonthChange: (date: Date) => setSelectedDate(date),
+                  modifiers: {
+                    hasEvent: events.map((e) => {
+                      const [year, month, day] = e.date.split("-");
+                      return new Date(Number(year), Number(month) - 1, Number(day));
+                    }),
+                  },
+                  modifiersClassNames: {
+                    hasEvent: "relative after:content-[''] after:absolute after:bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-[var(--accent-cyan)] after:rounded-full font-bold text-[var(--accent-cyan)]",
+                  },
                 } as any)}
                 className="rounded-md w-full p-0"
               />
 
               {/* Selected Date Info */}
               {selectedDate && (
-                <div className="mt-4 p-3 rounded-lg bg-[var(--shell)] border border-[var(--border)]">
+                <div className="mt-4 p-4 sm:p-5 rounded-xl bg-[var(--shell)] border border-[var(--border)] dark:border-white/10 shadow-sm">
                   <p className="text-xs text-[var(--text-sub)] mb-1">
                     {t("dashboard:companyCalendar.selectedDate")}
                   </p>
@@ -426,7 +435,7 @@ const CompanyCalendarPage: React.FC = () => {
                         {selectedDateEvents.map((event) => (
                           <div
                             key={event.id}
-                            className="text-xs p-2 rounded bg-[var(--surface)] border border-[var(--border)] cursor-pointer hover:border-[var(--accent-cyan)] transition-colors"
+                            className="text-xs p-3 sm:p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] dark:border-white/10 shadow-sm cursor-pointer hover:border-[var(--accent-cyan)] dark:hover:border-[var(--accent-cyan)] transition-all"
                             onClick={() => handleViewEvent(event)}
                           >
                             <div className="flex items-center gap-2">
@@ -506,10 +515,10 @@ const CompanyCalendarPage: React.FC = () => {
                           </div>
 
                           {/* Event Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <h4 className="text-[var(--text-main)]">
+                          <div className="flex-1 min-w-0 pr-16 pb-8 sm:pr-24 sm:pb-0">
+                            <div className="flex items-start justify-between mb-2 gap-4">
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-[var(--text-main)] truncate text-base font-semibold">
                                   {event.title}
                                 </h4>
                                 <div className="flex items-center gap-2 mt-1">
@@ -623,11 +632,13 @@ const CompanyCalendarPage: React.FC = () => {
             <CardTitle className="text-[var(--text-main)]">
               {t("dashboard:companyCalendar.allEvents")} ({events.length})
               {" - "}
-              {t("dashboard:companyCalendar.month")}{" "}
-              {selectedDate.toLocaleDateString("vi-VN", {
-                month: "long",
-                year: "numeric",
-              })}
+              {(() => {
+                const dateStr = selectedDate.toLocaleDateString("vi-VN", {
+                  month: "long",
+                  year: "numeric",
+                });
+                return dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+              })()}
             </CardTitle>
           </div>
         </CardHeader>
@@ -668,9 +679,9 @@ const CompanyCalendarPage: React.FC = () => {
                           {getTypeIcon(event.type)}
                         </span>
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0 pr-16 pb-8 sm:pr-24 sm:pb-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-[var(--text-main)]">
+                          <h3 className="text-[var(--text-main)] truncate text-base font-semibold min-w-0 max-w-[200px] sm:max-w-[400px]">
                             {event.title}
                           </h3>
                           <Badge
@@ -786,7 +797,7 @@ const CompanyCalendarPage: React.FC = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] w-[90vw] sm:max-w-[425px] overflow-hidden">
           <DialogHeader>
             <DialogTitle>
               {t("dashboard:companyCalendar.deleteDialog.title")}
@@ -796,8 +807,8 @@ const CompanyCalendarPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           {eventToDelete && (
-            <div className="py-4">
-              <div className="flex items-center space-x-3 p-4 bg-[var(--shell)] rounded-lg">
+            <div className="py-4 w-full overflow-hidden">
+              <div className="flex items-center space-x-3 p-4 bg-[var(--shell)] rounded-lg w-full overflow-hidden">
                 <div
                   className={`h-12 w-12 rounded-lg ${eventToDelete.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
                 >
@@ -805,8 +816,8 @@ const CompanyCalendarPage: React.FC = () => {
                     {getTypeIcon(eventToDelete.type)}
                   </span>
                 </div>
-                <div>
-                  <p className="text-[var(--text-main)] font-medium">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p className="text-[var(--text-main)] font-medium truncate block w-full">
                     {eventToDelete.title}
                   </p>
                   <p className="text-sm text-[var(--text-sub)]">
