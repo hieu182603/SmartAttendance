@@ -343,7 +343,7 @@ class AIServiceClient {
    * The AI service will stamp company_id (from JWT) onto every chunk.
    *
    * @param {string} authToken - Bearer JWT of the calling admin user
-   * @param {object} payload - { regulation_id, title, content, doc_type, chunk_size, chunk_overlap }
+   * @param {object} payload - { regulation_id, title, content, doc_type, access_level, allowed_roles, allowed_department_ids, chunk_size, chunk_overlap }
    */
   async ingestRegulation(authToken, payload) {
     if (!this.canMakeRequest()) {
@@ -429,4 +429,3 @@ class AIServiceClient {
 
 // Export singleton instance
 export const aiServiceClient = new AIServiceClient();
-

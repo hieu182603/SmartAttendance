@@ -33,6 +33,19 @@ def _chunk_company_id(metadata: Dict[str, Any]) -> Optional[str]:
     return str(value) if value is not None else None
 
 
+PRIVILEGED_DOCUMENT_ROLES = {"super_admin", "admin", "hr_manager"}
+
+
+def _normalize_role(role: Optional[str]) -> str:
+    return str(role or "").strip().lower()
+
+
+def _string_list(value: Any) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
 class DocumentManager:
     """Manage document ingestion and vector search"""
     
@@ -351,39 +364,36 @@ class DocumentManager:
         Returns:
             Filter criteria dict
         """
-        filter_criteria = {}
-        
-        # Admin can see all documents
-        if user_role == "admin":
+        role = _normalize_role(user_role)
+
+        if role in PRIVILEGED_DOCUMENT_ROLES:
             return {}
-        
-        # HR managers and managers can see department and public documents
-        if user_role in ["hr_manager", "manager"]:
-            if department_id:
-                filter_criteria = {
-                    "$or": [
-                        {"department_id": department_id},
-                        {"department_id": {"$exists": False}},
-                        {"access_level": "public"}
-                    ]
-                }
-            else:
-                filter_criteria = {
-                    "$or": [
-                        {"department_id": {"$exists": False}},
-                        {"access_level": "public"}
-                    ]
-                }
-        
-        # Others can only see public documents
-        else:
-            filter_criteria = {
-                "$or": [
-                    {"department_id": {"$exists": False}},
-                    {"access_level": "public"}
-                ]
-            }
-        
+
+        role_candidates = list({
+            role,
+            str(user_role or "").strip(),
+            str(user_role or "").strip().upper(),
+        } - {""})
+
+        filter_criteria: Dict[str, Any] = {
+            "$or": [
+                {"access_level": {"$ne": "restricted"}},
+                {"access_level": {"$exists": False}},
+                {"allowed_roles": {"$in": role_candidates}},
+                {"metadata.allowed_roles": {"$in": role_candidates}},
+                {"allowedRoles": {"$in": role_candidates}},
+                {"metadata.allowedRoles": {"$in": role_candidates}},
+            ]
+        }
+
+        if department_id:
+            filter_criteria["$or"].extend([
+                {"allowed_department_ids": str(department_id)},
+                {"metadata.allowed_department_ids": str(department_id)},
+                {"allowedDepartmentIds": str(department_id)},
+                {"metadata.allowedDepartmentIds": str(department_id)},
+            ])
+
         return filter_criteria
     
     def _check_document_access(
@@ -403,24 +413,31 @@ class DocumentManager:
         Returns:
             True if accessible
         """
-        # Admin can see all
-        if user_role == "admin":
+        role = _normalize_role(user_role)
+
+        if role in PRIVILEGED_DOCUMENT_ROLES:
             return True
-        
-        # Check public documents
-        if metadata.get("access_level") == "public":
+
+        access_level = metadata.get("access_level", "public")
+        if access_level != "restricted":
             return True
-        
-        # Check department-specific documents
-        doc_dept_id = metadata.get("department_id")
-        
-        if not doc_dept_id:
-            return True  # General documents
-        
-        if department_id and doc_dept_id == department_id:
-            if user_role in ["hr_manager", "manager"]:
-                return True
-        
+
+        allowed_roles = [
+            _normalize_role(item)
+            for item in _string_list(
+                metadata.get("allowed_roles") or metadata.get("allowedRoles")
+            )
+        ]
+        allowed_department_ids = _string_list(
+            metadata.get("allowed_department_ids") or metadata.get("allowedDepartmentIds")
+        )
+
+        if allowed_roles and role in allowed_roles:
+            return True
+
+        if department_id and allowed_department_ids:
+            return str(department_id) in allowed_department_ids
+
         return False
     
     async def delete_documents(

@@ -768,3 +768,120 @@ input[type="month"]::-moz-calendar-picker-indicator {
 .capture-flash {
   animation: flash-anim 0.5s ease-out;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Chatbot — Regulation source / download cards
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.chat-sources-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.chat-sources-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #a78bfa;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.chat-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.chat-source-card-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chat-source-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.chat-source-card:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.chat-source-card:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.chat-source-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #818cf8;
+  flex-shrink: 0;
+}
+
+.chat-source-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.chat-source-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-main, #e2e8f0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-source-type {
+  font-size: 0.65rem;
+  color: var(--text-sub, #64748b);
+}
+
+.chat-source-download {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a78bfa;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.chat-source-card:hover:not(:disabled) .chat-source-download {
+  background: rgba(99, 102, 241, 0.3);
+  color: #c4b5fd;
+}
+
+.chat-source-error {
+  color: #f87171;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}

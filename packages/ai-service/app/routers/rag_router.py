@@ -2,7 +2,7 @@
 from app.limiter import limiter
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime, timezone
 import logging
 
@@ -48,6 +48,9 @@ class RegulationIngestRequest(BaseModel):
     title: str = Field(..., description="Human-readable title of the regulation document")
     content: str = Field(..., description="Plain-text content extracted from the uploaded file")
     doc_type: str = Field("company_regulation", description="Document category tag")
+    access_level: Literal["public", "restricted"] = Field("public", description="Document access level")
+    allowed_roles: List[str] = Field(default_factory=list, description="Roles allowed when access_level is restricted")
+    allowed_department_ids: List[str] = Field(default_factory=list, description="Department IDs allowed when access_level is restricted")
     chunk_size: int = Field(1000, description="Text chunk size")
     chunk_overlap: int = Field(200, description="Overlap between chunks")
 
@@ -213,7 +216,9 @@ async def ingest_regulation(
                 "regulation_id": request.regulation_id,
                 "title": request.title,
                 "doc_type": request.doc_type,
-                "access_level": "public",
+                "access_level": request.access_level,
+                "allowed_roles": request.allowed_roles,
+                "allowed_department_ids": request.allowed_department_ids,
                 # company_id will also be stamped by DocumentManager.ingest()
             },
         }

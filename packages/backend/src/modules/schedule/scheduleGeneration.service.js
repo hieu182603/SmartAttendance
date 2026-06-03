@@ -181,6 +181,11 @@ class ScheduleGenerationService {
       return [];
     }
 
+    // Lấy companyId từ user để stamp lên schedule mới — nếu không có thì
+    // GET /api/schedules sẽ không lọc được theo công ty (trả về rỗng cho manager/admin).
+    const user = await UserModel.findById(userId).select('companyId').lean();
+    const companyId = user?.companyId || null;
+
     const operations = schedules.map(schedule => ({
       updateOne: {
         filter: {
@@ -188,11 +193,19 @@ class ScheduleGenerationService {
           date: schedule.date,
         },
         update: {
+          // $set chỉ đồng bộ metadata ca làm — KHÔNG đụng status để tránh
+          // ghi đè ngày 'off' (đã duyệt nghỉ phép), 'completed', 'missed'.
           $set: {
             shiftId: schedule.shiftId,
             shiftName: schedule.shiftName,
             startTime: schedule.startTime,
             endTime: schedule.endTime,
+            // companyId được $set để backfill các schedule cũ thiếu trường này.
+            ...(companyId ? { companyId } : {}),
+          },
+          // status chỉ áp khi tạo mới (insert) — ngày đã tồn tại giữ nguyên
+          // trạng thái nghiệp vụ trước đó.
+          $setOnInsert: {
             status: schedule.status,
           },
         },
@@ -269,7 +282,8 @@ class ScheduleGenerationService {
         userQuery.session(session);
       }
       const user = await userQuery;
-      
+
+      const companyId = user?.companyId || null;
       const defaultShiftId = user?.defaultShiftId?._id || null;
       const defaultShiftName = user?.defaultShiftId?.name || 'Nghỉ';
       const defaultStartTime = user?.defaultShiftId?.startTime || '08:00';
@@ -315,6 +329,8 @@ class ScheduleGenerationService {
                   status: 'off',
                   notes: noteText,
                   leaveRequestId: _id || null,
+                  // Backfill companyId cho row cũ (nếu trước đây bị null).
+                  ...(companyId ? { companyId } : {}),
                 },
               },
             },
@@ -324,6 +340,7 @@ class ScheduleGenerationService {
           const newSchedule = {
             userId,
             date: dateStr,
+            ...(companyId ? { companyId } : {}),
             // Không tạo shiftId ảo cho ngày nghỉ nếu user không có defaultShift
             ...(defaultShiftId
               ? {

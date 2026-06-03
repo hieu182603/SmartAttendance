@@ -1,10 +1,112 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Bot, User, Clock, Sparkles } from 'lucide-react';
-import { ChatMessage as ChatMessageType } from '../../services/chatbotService';
+import { Bot, User, Clock, Sparkles, FileText, Download, Loader2 } from 'lucide-react';
+import { ChatMessage as ChatMessageType, ChatSource } from '../../services/chatbotService';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import api from '../../services/api';
+
+// ─── Doc-type display labels ─────────────────────────────────────────────────
+const DOC_TYPE_LABELS: Record<string, string> = {
+  company_regulation: 'Nội quy',
+  hr_policy: 'Chính sách HR',
+  work_procedure: 'Quy trình',
+  code_of_conduct: 'Quy tắc ứng xử',
+  other: 'Tài liệu',
+  text: 'Tài liệu',
+};
+
+function filenameFromContentDisposition(header: unknown): string | null {
+  if (typeof header !== 'string') return null;
+
+  const encodedMatch = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    try {
+      return decodeURIComponent(encodedMatch[1].replace(/^"|"$/g, ''));
+    } catch {
+      return encodedMatch[1];
+    }
+  }
+
+  const filenameMatch = header.match(/filename="?([^";]+)"?/i);
+  return filenameMatch?.[1] ?? null;
+}
+
+function fallbackFilename(source: ChatSource): string {
+  return source.title || source.source || 'document';
+}
+
+// ─── Source card sub-component ────────────────────────────────────────────────
+function SourceCard({ source }: { source: ChatSource }) {
+  const [downloading, setDownloading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleDownload = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!source.regulation_id || downloading) return;
+
+    setDownloading(true);
+    setError(null);
+    try {
+      const response = await api.get(
+        `/companies/regulations/${source.regulation_id}/download`,
+        { responseType: 'blob' }
+      );
+      const blob = response.data as Blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filenameFromContentDisposition(response.headers?.['content-disposition']) || fallbackFilename(source);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        setError('Bạn không có quyền tải tài liệu này.');
+      } else if (status === 404) {
+        setError('Không tìm thấy file tài liệu.');
+      } else {
+        setError('Không tải được tài liệu. Vui lòng thử lại.');
+      }
+    } finally {
+      setDownloading(false);
+    }
+  }, [source, downloading]);
+
+  const docTypeLabel = DOC_TYPE_LABELS[source.doc_type || 'text'] || 'Tài liệu';
+
+  return (
+    <div className="chat-source-card-wrap">
+      <button
+        className="chat-source-card"
+        onClick={handleDownload}
+        disabled={downloading}
+        title={`Tải ${source.title || 'tài liệu'}`}
+      >
+        <div className="chat-source-icon">
+          <FileText size={15} />
+        </div>
+        <div className="chat-source-info">
+          <span className="chat-source-name">{source.title || 'Tài liệu'}</span>
+          <span className="chat-source-type">{docTypeLabel}</span>
+        </div>
+        <div className="chat-source-download">
+          {downloading ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <Download size={13} />
+          )}
+        </div>
+      </button>
+      {error && <span className="chat-source-error">{error}</span>}
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -21,6 +123,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const isAssistant = message.role === 'assistant';
   const isSystem = message.role === 'system';
+
+  // Deduplicate sources by regulation_id (same doc may appear from multiple chunks)
+  const regulationSources = React.useMemo(() => {
+    if (!message.sources) return [];
+    const seen = new Set<string>();
+    return message.sources.filter((s) => {
+      if (!s.regulation_id) return false;
+      if (seen.has(s.regulation_id)) return false;
+      seen.add(s.regulation_id);
+      return true;
+    });
+  }, [message.sources]);
 
   if (isSystem) {
     return (
@@ -85,6 +199,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               {message.content}
             </ReactMarkdown>
           </div>
+
+          {/* ── Regulation source download cards ───────────────────────── */}
+          {isAssistant && regulationSources.length > 0 && (
+            <div className="chat-sources-section">
+              <div className="chat-sources-title">
+                📎 Tài liệu liên quan
+              </div>
+              <div className="chat-sources-list">
+                {regulationSources.map((src, idx) => (
+                  <SourceCard key={src.regulation_id || idx} source={src} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className={`text-[10px] text-slate-400 dark:text-slate-500 mt-1 px-0.5 flex items-center gap-1 ${isAssistant ? 'justify-start' : 'justify-end'
