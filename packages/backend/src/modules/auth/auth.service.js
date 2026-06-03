@@ -268,15 +268,12 @@ export class AuthService {
         await redisSet(refreshKey(user._id), refreshToken, REFRESH_TTL);
         await AuthService.registerActiveSession(user, meta);
 
+        const fullUser = await AuthService.getCurrentUser(user._id);
+
         return {
             token: accessToken,
             refreshToken,
-            user: {
-                id: user._id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-            },
+            user: fullUser,
         };
     }
 
