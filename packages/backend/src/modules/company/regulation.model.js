@@ -71,6 +71,32 @@ const regulationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    // ── GridFS file storage ──────────────────────────────────────────────────
+    /** ObjectId trỏ đến file gốc trong GridFS bucket "regulation_files" */
+    gridFsFileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+    // ── Per-document access control ─────────────────────────────────────────
+    /**
+     * "public"     → mọi user cùng companyId có thể tải
+     * "restricted" → chỉ SUPER_ADMIN/ADMIN/HR_MANAGER hoặc role/dept được cấu hình
+     */
+    accessLevel: {
+      type: String,
+      enum: ["public", "restricted"],
+      default: "public",
+    },
+    /** Khi restricted, danh sách role được phép tải (rỗng = chỉ privileged roles) */
+    allowedRoles: {
+      type: [String],
+      default: [],
+    },
+    /** Khi restricted, danh sách departmentId được phép tải */
+    allowedDepartmentIds: {
+      type: [mongoose.Schema.Types.ObjectId],
+      default: [],
+    },
   },
   {
     timestamps: true,

@@ -1,6 +1,9 @@
 import multer from "multer";
+import mongoose from "mongoose";
 import { RegulationModel } from "./regulation.model.js";
 import { aiServiceClient } from "../../utils/aiServiceClient.js";
+import { uploadToGridFS, downloadStreamFromGridFS, deleteFromGridFS } from "../../utils/gridfs.js";
+import { ROLES } from "../../config/roles.config.js";
 import logger from "../../config/logger.js";
 
 // ─── File upload middleware ───────────────────────────────────────────────────
@@ -31,6 +34,102 @@ export const uploadMiddleware = multer({
     }
   },
 }).single("file");
+
+const ACCESS_LEVELS = new Set(["public", "restricted"]);
+const ALLOWED_ROLES = new Set(Object.values(ROLES));
+const PRIVILEGED_DOWNLOAD_ROLES = new Set([
+  ROLES.SUPER_ADMIN,
+  ROLES.ADMIN,
+  ROLES.HR_MANAGER,
+]);
+
+function normalizeRole(role) {
+  return typeof role === "string" ? role.trim().toUpperCase() : "";
+}
+
+function getUserDepartmentId(user) {
+  return (
+    user?.departmentId ||
+    user?.department_id ||
+    user?.userContext?.department ||
+    user?.department ||
+    null
+  );
+}
+
+function parseJsonArrayField(raw, fieldName) {
+  if (raw === undefined || raw === null || raw === "") return [];
+
+  let value = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      throw new Error(`${fieldName} phải là mảng JSON hợp lệ.`);
+    }
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`${fieldName} phải là mảng.`);
+  }
+
+  return value;
+}
+
+function parseRegulationAcl(body) {
+  const accessLevel = body.accessLevel || "public";
+  if (!ACCESS_LEVELS.has(accessLevel)) {
+    throw new Error("Quyền truy cập không hợp lệ.");
+  }
+
+  const allowedRoles = parseJsonArrayField(body.allowedRoles, "allowedRoles")
+    .map(normalizeRole)
+    .filter(Boolean);
+
+  for (const role of allowedRoles) {
+    if (!ALLOWED_ROLES.has(role)) {
+      throw new Error(`Role không hợp lệ trong allowedRoles: ${role}`);
+    }
+  }
+
+  const allowedDepartmentIds = parseJsonArrayField(
+    body.allowedDepartmentIds,
+    "allowedDepartmentIds"
+  ).map((id) => String(id).trim());
+
+  for (const id of allowedDepartmentIds) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new Error(`Department ID không hợp lệ trong allowedDepartmentIds: ${id}`);
+    }
+  }
+
+  return {
+    accessLevel,
+    allowedRoles: accessLevel === "restricted" ? allowedRoles : [],
+    allowedDepartmentIds: accessLevel === "restricted" ? allowedDepartmentIds : [],
+  };
+}
+
+export function canAccessRegulation(regulation, user) {
+  const userRole = normalizeRole(user?.role);
+  if (PRIVILEGED_DOWNLOAD_ROLES.has(userRole)) return true;
+
+  if (regulation?.accessLevel !== "restricted") return true;
+
+  const allowedRoles = (regulation.allowedRoles || []).map(normalizeRole);
+  const userDeptId = getUserDepartmentId(user);
+  const allowedDepartmentIds = (regulation.allowedDepartmentIds || []).map((id) =>
+    id?.toString()
+  );
+
+  const roleAllowed = allowedRoles.length > 0 && allowedRoles.includes(userRole);
+  const departmentAllowed =
+    allowedDepartmentIds.length > 0 &&
+    Boolean(userDeptId) &&
+    allowedDepartmentIds.includes(userDeptId.toString());
+
+  return roleAllowed || departmentAllowed;
+}
 
 // ─── Text extraction ──────────────────────────────────────────────────────────
 /**
@@ -113,11 +212,31 @@ export class RegulationController {
 
     const { title, description, docType = "company_regulation" } = req.body;
 
+    let acl;
+    try {
+      acl = parseRegulationAcl(req.body);
+    } catch (err) {
+      return res.status(400).json({ message: err.message });
+    }
+
     if (!title || !title.trim()) {
       return res.status(400).json({ message: "Tiêu đề tài liệu không được để trống." });
     }
 
-    // 1. Create metadata record (status: processing)
+    // 1. Save file to GridFS (persist the original file for future downloads)
+    let gridFsFileId = null;
+    try {
+      gridFsFileId = await uploadToGridFS(req.file.buffer, req.file.originalname, {
+        companyId: companyId.toString(),
+        mimeType: req.file.mimetype,
+        uploadedBy: userId?.toString(),
+      });
+    } catch (err) {
+      logger.error(`[regulation] GridFS upload error: ${err.message}`);
+      return res.status(500).json({ message: "Không lưu được file gốc. Vui lòng thử lại." });
+    }
+
+    // 2. Create metadata record (status: processing)
     let regulation;
     try {
       regulation = await RegulationModel.create({
@@ -130,8 +249,14 @@ export class RegulationController {
         docType,
         status: "processing",
         uploadedBy: userId,
+        gridFsFileId,
+        accessLevel: acl.accessLevel,
+        allowedRoles: acl.allowedRoles,
+        allowedDepartmentIds: acl.allowedDepartmentIds,
       });
     } catch (err) {
+      // Clean up GridFS file if metadata creation fails
+      try { await deleteFromGridFS(gridFsFileId); } catch { /* best-effort */ }
       logger.error(`[regulation] create metadata error: ${err.message}`);
       return res.status(500).json({ message: "Không lưu được thông tin tài liệu." });
     }
@@ -171,6 +296,9 @@ export class RegulationController {
         title: title.trim(),
         content,
         doc_type: docType,
+        access_level: acl.accessLevel,
+        allowed_roles: acl.allowedRoles,
+        allowed_department_ids: acl.allowedDepartmentIds,
         chunk_size: 1000,
         chunk_overlap: 200,
       });
@@ -308,7 +436,18 @@ export class RegulationController {
         );
       }
 
-      // 2. Soft-delete metadata record
+      // 2. Delete GridFS file (best-effort)
+      if (regulation.gridFsFileId) {
+        try {
+          await deleteFromGridFS(regulation.gridFsFileId);
+        } catch (gridErr) {
+          logger.warn(
+            `[regulation] GridFS delete failed for ${regulation._id}: ${gridErr.message}`
+          );
+        }
+      }
+
+      // 3. Soft-delete metadata record
       await RegulationModel.findByIdAndUpdate(regulation._id, {
         status: "deleted",
       });
@@ -323,7 +462,74 @@ export class RegulationController {
     }
   }
 
-  // /retry handler removed: backend does not persist file buffers, so the
-  // user must re-upload via POST /api/companies/regulations to recover from
-  // a failed ingest. See regulation.router.js for the note.
+  /**
+   * GET /api/companies/regulations/:id/download
+   * Stream the original file from GridFS.
+   * Access: any authenticated user in the same company (per-document ACL enforced here).
+   */
+  static async download(req, res) {
+    const companyId = req.user?.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({ message: "Không xác định được công ty." });
+    }
+
+    let regulation;
+    try {
+      regulation = await RegulationModel.findOne({
+        _id: req.params.id,
+        companyId,
+        status: { $ne: "deleted" },
+      });
+    } catch (err) {
+      logger.error(`[regulation] download lookup error: ${err.message}`);
+      return res.status(500).json({ message: "Lỗi khi tìm tài liệu." });
+    }
+
+    if (!regulation) {
+      return res.status(404).json({ message: "Không tìm thấy tài liệu." });
+    }
+
+    if (!canAccessRegulation(regulation, req.user)) {
+      return res
+        .status(403)
+        .json({ message: "Bạn không có quyền tải tài liệu này." });
+    }
+
+    // ── Stream from GridFS ──────────────────────────────────────────────
+    if (!regulation.gridFsFileId) {
+      return res.status(404).json({
+        message:
+          "File gốc không tồn tại. Tài liệu được upload trước khi hệ thống hỗ trợ tải file.",
+      });
+    }
+
+    try {
+      const safeFileName = encodeURIComponent(regulation.fileName || "document");
+      res.set({
+        "Content-Type": regulation.mimeType || "application/octet-stream",
+        "Content-Disposition": `attachment; filename*=UTF-8''${safeFileName}`,
+      });
+      if (regulation.fileSize) {
+        res.set("Content-Length", String(regulation.fileSize));
+      }
+
+      const stream = downloadStreamFromGridFS(regulation.gridFsFileId);
+      stream.on("error", (err) => {
+        logger.error(`[regulation] GridFS stream error: ${err.message}`);
+        if (!res.headersSent) {
+          const isMissingFile = /FileNotFound|not found/i.test(err.message);
+          res.status(isMissingFile ? 404 : 500).json({
+            message: isMissingFile
+              ? "File gốc không tồn tại."
+              : "Lỗi khi tải file.",
+          });
+        }
+      });
+      stream.pipe(res);
+    } catch (err) {
+      logger.error(`[regulation] download error: ${err.message}`);
+      return res.status(500).json({ message: "Lỗi khi tải file." });
+    }
+  }
 }

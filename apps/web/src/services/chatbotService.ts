@@ -1,14 +1,30 @@
 import api from './api';
 
+export interface ChatSource {
+  // Fields from AI service vector_search sources
+  title?: string;
+  doc_type?: string;
+  source?: string;
+  relevance_score?: number;
+  regulation_id?: string;
+  source_type?: 'vector_search' | 'database_query';
+  access_level?: string;
+  chunk_index?: number;
+  collection_name?: string;
+  // Fields from database_query sources
+  collection?: string;
+  query_type?: string;
+  // Legacy fields (backward compat)
+  content?: string;
+  metadata?: Record<string, unknown>;
+  score?: number;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
-  sources?: Array<{
-    content: string;
-    metadata: any;
-    score: number;
-  }>;
+  sources?: ChatSource[];
 }
 
 export interface Conversation {
@@ -24,11 +40,7 @@ export interface ChatbotResponse {
   conversation_id: string;
   message: string;
   timestamp: string;
-  sources?: Array<{
-    content: string;
-    metadata: any;
-    score: number;
-  }>;
+  sources?: ChatSource[];
 }
 
 export interface ConversationsResponse {

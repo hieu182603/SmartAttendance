@@ -9,13 +9,24 @@ import {
 
 export const regulationRouter = Router();
 
-// All regulation routes require authentication + admin/hr_manager role
+// ── Download: any authenticated user in the same company ─────────────────────
+// Per-document access control is enforced inside the controller (checks
+// accessLevel, allowedRoles, allowedDepartmentIds). This route is placed
+// BEFORE the requireRole guard so that employees can also download public
+// regulation documents.
+regulationRouter.get(
+  "/:id/download",
+  authMiddleware,
+  RegulationController.download
+);
+
+// ── Management routes: ADMIN / HR_MANAGER only ──────────────────────────────
 regulationRouter.use(authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER]));
 
 /**
  * POST /api/companies/regulations
  * Upload a regulation file (PDF/DOCX/TXT) and trigger AI learning.
- * Body: multipart/form-data — file, title, description?, docType?
+ * Body: multipart/form-data — file, title, description?, docType?, accessLevel?
  */
 regulationRouter.post(
   "/",
@@ -39,11 +50,6 @@ regulationRouter.get("/", RegulationController.list);
 
 /**
  * DELETE /api/companies/regulations/:id
- * Soft-delete regulation + purge vector chunks from AI service.
+ * Soft-delete regulation + purge vector chunks from AI service + delete GridFS file.
  */
 regulationRouter.delete("/:id", RegulationController.remove);
-
-// NOTE: /retry is intentionally NOT exposed. Backend does not persist the
-// uploaded file buffer, so the only safe "retry" is to re-upload the file
-// via POST /. Adding a stub here would mislead the frontend into thinking
-// a partial recovery is possible.

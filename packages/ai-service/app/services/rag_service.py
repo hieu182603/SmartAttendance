@@ -157,6 +157,12 @@ GỢI Ý HÀNH ĐỘNG TIẾP THEO
 - Ví dụ: Sau khi trả lời về chấm công → gợi ý "Bạn muốn xem lịch sử chấm công tuần này không?"
 - Ví dụ: Sau khi trả lời về ngày phép → gợi ý "Bạn muốn tạo đơn xin nghỉ phép không?"
 
+TÀI LIỆU & BIỂU MẪU
+- Nếu câu hỏi yêu cầu biểu mẫu, hợp đồng, tài liệu, file, mẫu đơn → trả lời ngắn gọn và **ưu tiên nêu tên tài liệu liên quan**.
+- **KHÔNG tự bịa link tải xuống.** Hệ thống sẽ tự động gắn link tải nếu tài liệu tồn tại trong kho dữ liệu.
+- Ví dụ: "Bạn có thể tham khảo **Nội quy lao động 2024**. Bấm nút tải bên dưới để lấy file."
+- Nếu có nhiều tài liệu liên quan, liệt kê tên tài liệu để người dùng chọn.
+
 TỐI ƯU HIỆU NĂNG & TRẢI NGHIỆM
 - Trả lời **trực tiếp vào câu hỏi**, tránh vòng vo hoặc nhắc lại nguyên văn câu hỏi nếu không cần thiết.
 - Khi ngữ cảnh đã rõ, **đưa thẳng kết luận và số liệu**, không cần giải thích dài dòng.
@@ -1497,6 +1503,7 @@ Chỉ trả lời những câu hỏi chung, không cung cấp thông tin cụ th
                 "doc_type": metadata.get("doc_type", "text"),
                 "source": metadata.get("source", "unknown"),
                 "relevance_score": float(score),
+                "regulation_id": metadata.get("regulation_id"),
                 "chunk_index": metadata.get("chunk_index", 0),
                 "collection_name": metadata.get("collection_name", RAG_COLLECTION_NAME),
                 "access_level": metadata.get("access_level", "public"),

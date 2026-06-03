@@ -195,6 +195,7 @@ function UploadForm({ onSuccess }: UploadFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [docType, setDocType] = useState("company_regulation");
+  const [accessLevel, setAccessLevel] = useState("public");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -242,6 +243,7 @@ function UploadForm({ onSuccess }: UploadFormProps) {
       fd.append("title", title.trim());
       fd.append("description", description.trim());
       fd.append("docType", docType);
+      fd.append("accessLevel", accessLevel);
       const res = await regulationApi.upload(fd);
       setSuccess(res.message);
       setFile(null);
@@ -333,6 +335,20 @@ function UploadForm({ onSuccess }: UploadFormProps) {
               {DOC_TYPES.map((v) => (
                 <option key={v} value={v}>{t(`dashboard:regulations.docType.${v}`)}</option>
               ))}
+            </select>
+          </div>
+          <div className="reg-field-group">
+            <label className="reg-label" htmlFor="reg-access-select">
+              Quyền truy cập
+            </label>
+            <select
+              id="reg-access-select"
+              className="reg-select"
+              value={accessLevel}
+              onChange={(e) => setAccessLevel(e.target.value)}
+            >
+              <option value="public">🌐 Công khai</option>
+              <option value="restricted">🔒 Giới hạn (HR/Admin)</option>
             </select>
           </div>
         </div>
