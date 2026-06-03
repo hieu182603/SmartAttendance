@@ -10,7 +10,7 @@ const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 10;
 
 export interface CreateUpgradePaymentPayload {
-  plan: "starter" | "standard" | "premium";
+  plan: "starter" | "standard" | "premium" | "addon";
   billingCycle: "monthly" | "yearly";
   companyName: string;
   employeeCount: number;
