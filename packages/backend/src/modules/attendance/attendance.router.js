@@ -5,6 +5,7 @@ import { requireRole, ROLES } from "../../middleware/role.middleware.js";
 import { requireAnyPermission, requirePermission } from "../../middleware/permission.middleware.js";
 import { PERMISSIONS } from "../../config/permissions.config.js";
 import { checkinRateLimiter } from "../../middleware/security.middleware.js";
+import { requireFeatureEnabled } from "../../middleware/featureToggle.middleware.js";
 import {
   getAttendanceHistory,
   getRecentAttendance,
@@ -24,6 +25,8 @@ import {
 export const attendanceRouter = Router();
 
 attendanceRouter.use(authMiddleware);
+// Gate the entire attendance module on the 'attendance' feature toggle.
+attendanceRouter.use(requireFeatureEnabled("attendance"));
 
 attendanceRouter.get("/history", requirePermission(PERMISSIONS.ATTENDANCE_VIEW_OWN), getAttendanceHistory);
 attendanceRouter.get("/recent", requirePermission(PERMISSIONS.ATTENDANCE_VIEW_OWN), getRecentAttendance);

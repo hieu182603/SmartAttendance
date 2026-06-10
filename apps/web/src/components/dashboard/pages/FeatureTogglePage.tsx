@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ToggleRight, Search, Plus, Trash2 } from 'lucide-react'
+import { ToggleRight, Search } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { featureToggleService, type FeatureToggle } from '@/services/featureToggleService'
+import { invalidateFeatureTogglesCache } from '@/hooks/useFeatureToggles'
 
 const ROLE_OPTIONS = [
   { value: 'EMPLOYEE', label: 'Employee' },
@@ -35,8 +35,6 @@ export default function FeatureTogglePage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
-  const [creating, setCreating] = useState(false)
-  const [newFeature, setNewFeature] = useState({ featureKey: '', name: '', description: '', category: 'core' })
 
   useEffect(() => {
     fetchFeatures()
@@ -59,6 +57,8 @@ export default function FeatureTogglePage() {
       const updated = await featureToggleService.update(feature.featureKey, { enabled: !feature.enabled })
       setFeatures(prev => prev.map(f => f.featureKey === updated.featureKey ? updated : f))
       toast.success(`${feature.name}: ${!feature.enabled ? 'Bật' : 'Tắt'} thành công`)
+      // Sync sidebar immediately
+      invalidateFeatureTogglesCache()
     } catch {
       toast.error('Cập nhật thất bại')
     }
@@ -72,35 +72,9 @@ export default function FeatureTogglePage() {
     try {
       const updated = await featureToggleService.update(feature.featureKey, { disabledForRoles: next })
       setFeatures(prev => prev.map(f => (f.featureKey === updated.featureKey ? updated : f)))
+      invalidateFeatureTogglesCache()
     } catch {
       toast.error('Cập nhật quyền thất bại')
-    }
-  }
-
-  async function handleDelete(feature: FeatureToggle) {
-    if (!window.confirm(`Xóa feature "${feature.name}"?`)) return
-    try {
-      await featureToggleService.remove(feature.featureKey)
-      setFeatures(prev => prev.filter(f => f.featureKey !== feature.featureKey))
-      toast.success('Đã xóa feature')
-    } catch {
-      toast.error('Xóa thất bại')
-    }
-  }
-
-  async function handleCreate() {
-    if (!newFeature.featureKey || !newFeature.name) {
-      toast.error('featureKey và tên là bắt buộc')
-      return
-    }
-    try {
-      const created = await featureToggleService.create(newFeature)
-      setFeatures(prev => [...prev, created])
-      setCreating(false)
-      setNewFeature({ featureKey: '', name: '', description: '', category: 'core' })
-      toast.success('Tạo feature thành công')
-    } catch {
-      toast.error('Tạo feature thất bại')
     }
   }
 
@@ -132,10 +106,6 @@ export default function FeatureTogglePage() {
             <p className="text-sm text-[var(--muted-foreground)]">Bật/tắt module cho toàn hệ thống hoặc theo role</p>
           </div>
         </div>
-        <Button onClick={() => setCreating(true)} size="sm" className="gap-2">
-          <Plus className="h-4 w-4" />
-          Thêm feature
-        </Button>
       </div>
 
       {/* Filters */}
@@ -191,14 +161,6 @@ export default function FeatureTogglePage() {
                       onCheckedChange={() => handleToggleGlobal(feature)}
                     />
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-red-500 hover:text-red-600"
-                    onClick={() => handleDelete(feature)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
 
@@ -228,60 +190,6 @@ export default function FeatureTogglePage() {
           <div className="text-center py-12 text-[var(--muted-foreground)]">Không tìm thấy feature nào</div>
         )}
       </div>
-
-      {/* Create dialog */}
-      <Dialog open={creating} onOpenChange={setCreating}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thêm Feature mới</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <Label>Feature Key *</Label>
-              <Input
-                placeholder="vd: custom_reports"
-                value={newFeature.featureKey}
-                onChange={e => setNewFeature(p => ({ ...p, featureKey: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Tên hiển thị *</Label>
-              <Input
-                placeholder="vd: Báo cáo tùy chỉnh"
-                value={newFeature.name}
-                onChange={e => setNewFeature(p => ({ ...p, name: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Mô tả</Label>
-              <Input
-                placeholder="Mô tả ngắn về chức năng..."
-                value={newFeature.description}
-                onChange={e => setNewFeature(p => ({ ...p, description: e.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div className="flex gap-2">
-              {['core', 'advanced', 'ai'].map(cat => (
-                <Button
-                  key={cat}
-                  variant={newFeature.category === cat ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setNewFeature(p => ({ ...p, category: cat }))}
-                >
-                  {CATEGORY_LABELS[cat]}
-                </Button>
-              ))}
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button onClick={handleCreate} className="flex-1">Tạo</Button>
-              <Button variant="outline" onClick={() => setCreating(false)} className="flex-1">Hủy</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

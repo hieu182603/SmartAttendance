@@ -3,11 +3,14 @@ import { authMiddleware } from '../../middleware/auth.middleware.js'
 import { requireRole, ROLES } from '../../middleware/role.middleware.js'
 import { requireAnyPermission, requirePermission } from '../../middleware/permission.middleware.js'
 import { PERMISSIONS } from '../../config/permissions.config.js'
+import { requireFeatureEnabled } from '../../middleware/featureToggle.middleware.js'
 import { createRequest, getMyRequests, getAllRequests, approveRequest, rejectRequest, getRequestTypes, bulkApproveRequests, bulkRejectRequests } from './request.controller.js'
 
 export const requestRouter = Router()
 
 requestRouter.use(authMiddleware)
+// Gate the entire requests module on the 'leave_management' feature toggle.
+requestRouter.use(requireFeatureEnabled('leave_management'))
 
 requestRouter.get('/types', requirePermission(PERMISSIONS.REQUESTS_VIEW_OWN), getRequestTypes)
 requestRouter.get('/my', requirePermission(PERMISSIONS.REQUESTS_VIEW_OWN), getMyRequests)

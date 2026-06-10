@@ -108,6 +108,7 @@ export async function tokenFor(user) {
     email: user.email,
     role: user.role,
     department_id: user.department,
+    companyId: user.companyId ?? null,
   });
 }
 

@@ -408,7 +408,7 @@ export class AuthService {
             }
         }
 
-        const user = await UserModel.findById(decoded.userId).select("_id email role department isActive isTrial trialExpiresAt").lean();
+        const user = await UserModel.findById(decoded.userId).select("_id email role department companyId isActive isTrial trialExpiresAt").lean();
         if (!user || user.isActive === false) {
             throw new Error("User not found or inactive");
         }
@@ -418,6 +418,7 @@ export class AuthService {
             email: user.email,
             role: user.role || "EMPLOYEE",
             department_id: user.department,
+            companyId: user.companyId ?? null,
         });
         const newRefresh = generateRefreshToken({ userId: user._id });
         await redisSet(refreshKey(user._id), newRefresh, REFRESH_TTL);

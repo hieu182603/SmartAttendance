@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireRole } from "../../middleware/role.middleware.js";
 import { ROLES } from "../../config/roles.config.js";
+import { requireFeatureEnabled } from "../../middleware/featureToggle.middleware.js";
 import {
   RegulationController,
   uploadMiddleware,
@@ -9,19 +10,22 @@ import {
 
 export const regulationRouter = Router();
 
-// ── Download: any authenticated user in the same company ─────────────────────
-// Per-document access control is enforced inside the controller (checks
-// accessLevel, allowedRoles, allowedDepartmentIds). This route is placed
-// BEFORE the requireRole guard so that employees can also download public
-// regulation documents.
+// ── Download: any authenticated user in the same company ─────────────────
+// Intentionally gated on the 'chatbot' toggle:
+// Regulation documents are the AI training corpus; exposing them when the
+// chatbot module is disabled for a company or user would leak confidential
+// company content through a module that has been administratively disabled.
+// The per-document accessLevel / allowedRoles check inside the controller still
+// runs as the secondary enforcement layer after this feature-toggle gate.
 regulationRouter.get(
   "/:id/download",
   authMiddleware,
+  requireFeatureEnabled("chatbot"),
   RegulationController.download
 );
 
-// ── Management routes: ADMIN / HR_MANAGER only ──────────────────────────────
-regulationRouter.use(authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER]));
+// ── Management routes: ADMIN / HR_MANAGER only, gated on 'chatbot' toggle ──────
+regulationRouter.use(authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER]), requireFeatureEnabled("chatbot"));
 
 /**
  * POST /api/companies/regulations

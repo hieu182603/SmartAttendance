@@ -1,16 +1,54 @@
 import { FeatureToggleModel, DEFAULT_FEATURES } from "./featureToggle.model.js";
 
 /**
+ * Resolve effective enabled state for one feature document given a user context.
+ * Mirrors the precedence in checkFeature():
+ *   1. Company override (highest priority)
+ *   2. Global enabled flag
+ *   3. Per-role disable list
+ */
+function resolveEffective(feature, userRole, companyId) {
+  if (companyId) {
+    const override = feature.companyOverrides?.find(
+      (o) => o.companyId?.toString() === companyId
+    );
+    if (override !== undefined) return override.enabled;
+  }
+  if (!feature.enabled) return false;
+  if (userRole && feature.disabledForRoles?.includes(userRole)) return false;
+  return true;
+}
+
+/**
+ * Synchronizes the feature toggles in the database with DEFAULT_FEATURES.
+ * Removes legacy keys and inserts any missing default features.
+ */
+async function syncDefaultFeatures() {
+  const existing = await FeatureToggleModel.find().lean();
+  const existingKeys = existing.map((f) => f.featureKey);
+  const defaultKeys = DEFAULT_FEATURES.map((f) => f.featureKey);
+
+  const keysToDelete = existingKeys.filter((k) => !defaultKeys.includes(k));
+  if (keysToDelete.length > 0) {
+    await FeatureToggleModel.deleteMany({ featureKey: { $in: keysToDelete } });
+    console.log(`[featureToggle] Cleaned up legacy toggles: ${keysToDelete.join(", ")}`);
+  }
+
+  const missingFeatures = DEFAULT_FEATURES.filter((f) => !existingKeys.includes(f.featureKey));
+  if (missingFeatures.length > 0) {
+    await FeatureToggleModel.insertMany(missingFeatures);
+    console.log(`[featureToggle] Seeded missing toggles: ${missingFeatures.map(f => f.featureKey).join(", ")}`);
+  }
+}
+
+/**
  * GET /api/feature-toggles
- * SUPER_ADMIN: list all feature toggles. Seeds defaults if empty.
+ * SUPER_ADMIN: list all feature toggles. Seeds/syncs defaults.
  */
 export async function getAll(req, res) {
   try {
-    let features = await FeatureToggleModel.find().sort("featureKey").lean();
-    if (features.length === 0) {
-      await FeatureToggleModel.insertMany(DEFAULT_FEATURES);
-      features = await FeatureToggleModel.find().sort("featureKey").lean();
-    }
+    await syncDefaultFeatures();
+    const features = await FeatureToggleModel.find().sort("featureKey").lean();
     return res.json({ success: true, data: features });
   } catch (err) {
     console.error("[featureToggle] getAll:", err.message);
@@ -47,44 +85,27 @@ export async function update(req, res) {
 }
 
 /**
- * POST /api/feature-toggles
- * Body: { featureKey, name, description?, category?, enabled? }
+ * GET /api/feature-toggles/effective
+ * Available to any authenticated user.
+ * Returns { featureKey: effectiveEnabled } map for ALL features, resolved for
+ * the current user's role and company — same precedence as checkFeature().
  */
-export async function create(req, res) {
+export async function getEffectiveToggles(req, res) {
   try {
-    const { featureKey, name, description, category, enabled } = req.body;
-    if (!featureKey || !name) {
-      return res.status(400).json({ success: false, message: "featureKey và name là bắt buộc" });
-    }
-    const feature = await FeatureToggleModel.create({
-      featureKey,
-      name,
-      description,
-      category,
-      enabled: enabled !== undefined ? enabled : true,
-      updatedBy: req.user?.userId,
-    });
-    return res.status(201).json({ success: true, data: feature });
-  } catch (err) {
-    if (err.code === 11000) {
-      return res.status(409).json({ success: false, message: "featureKey đã tồn tại" });
-    }
-    console.error("[featureToggle] create:", err.message);
-    return res.status(500).json({ success: false, message: err.message });
-  }
-}
+    const userRole = req.user?.role;
+    const companyId = req.user?.companyId?.toString();
 
-/**
- * DELETE /api/feature-toggles/:featureKey
- */
-export async function remove(req, res) {
-  try {
-    const { featureKey } = req.params;
-    const feature = await FeatureToggleModel.findOneAndDelete({ featureKey });
-    if (!feature) return res.status(404).json({ success: false, message: "Feature không tồn tại" });
-    return res.json({ success: true, message: "Đã xóa feature" });
+    await syncDefaultFeatures();
+    const features = await FeatureToggleModel.find().sort("featureKey").lean();
+
+    const effective = {};
+    for (const f of features) {
+      effective[f.featureKey] = resolveEffective(f, userRole, companyId);
+    }
+
+    return res.json({ success: true, data: effective });
   } catch (err) {
-    console.error("[featureToggle] remove:", err.message);
+    console.error("[featureToggle] getEffectiveToggles:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 }

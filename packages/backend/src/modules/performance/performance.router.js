@@ -14,11 +14,14 @@ import {
 } from "./performance.controller.js";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireRole, ROLES } from "../../middleware/role.middleware.js";
+import { requireFeatureEnabled } from "../../middleware/featureToggle.middleware.js";
 
 export const performanceRouter = express.Router();
 
 // Tất cả routes đều cần authentication
 performanceRouter.use(authMiddleware);
+// Gate the entire performance module on the 'performance_review' feature toggle.
+performanceRouter.use(requireFeatureEnabled("performance_review"));
 
 /**
  * @swagger

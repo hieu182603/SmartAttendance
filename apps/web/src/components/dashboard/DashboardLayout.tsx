@@ -41,6 +41,7 @@ import {
   type MenuItem,
 } from "@/utils/menuItems";
 import { usePermissionsOverride } from "@/context/PermissionsContext";
+import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
 
 
@@ -98,6 +99,7 @@ const DashboardLayout: React.FC = () => {
   const basePath = useMemo(() => getRoleBasePath(userRole), [userRole]);
   const { getEffectivePermissions } = usePermissionsOverride();
   const effectivePerms = useMemo(() => getEffectivePermissions(userRole), [getEffectivePermissions, userRole]);
+  const { isEnabled: isFeatureEnabled } = useFeatureToggles();
   const tMenu = useTranslation("menu").t;
   const menu = useMemo(
     () => getMenuByPermissionsWithTranslations(tMenu, userRole, basePath, effectivePerms),
@@ -107,33 +109,38 @@ const DashboardLayout: React.FC = () => {
   const roleName = useMemo(() => getRoleName(userRole), [userRole]);
 
   const filteredMenu = useMemo(() => {
+    // Lọc theo feature toggles trước
+    const featureFiltered = menu.filter(
+      item => !item.featureKey || isFeatureEnabled(item.featureKey)
+    );
+
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN) {
-      const adminItems = menu.filter(item => item.section === 'admin' || item.section === 'system');
+      const adminItems = featureFiltered.filter(item => item.section === 'admin' || item.section === 'system');
       const personalIds =
         userRole === UserRole.SUPER_ADMIN
           ? ['profile', 'chatbot']
           : [...ADMIN_PERSONAL_MENU_IDS];
-      const employeeItems = menu.filter(
+      const employeeItems = featureFiltered.filter(
         item => item.section === 'employee' && personalIds.includes(item.id),
       );
       return [...adminItems, ...employeeItems];
     }
     if (userRole === UserRole.HR_MANAGER) {
-      const adminItems = menu.filter(item => item.section === 'admin');
-      const employeeItems = menu.filter(
+      const adminItems = featureFiltered.filter(item => item.section === 'admin');
+      const employeeItems = featureFiltered.filter(
         item => item.section === 'employee' && HR_PERSONAL_MENU_IDS.has(item.id),
       );
       return [...adminItems, ...employeeItems];
     }
     if (userRole === UserRole.MANAGER) {
-      const deptAdminItems = menu.filter(
+      const deptAdminItems = featureFiltered.filter(
         item => item.section === 'admin' && DEPT_MANAGER_MENU_IDS.has(item.id),
       );
-      const employeeItems = menu.filter(item => item.section === 'employee');
+      const employeeItems = featureFiltered.filter(item => item.section === 'employee');
       return [...deptAdminItems, ...employeeItems];
     }
-    return menu.filter(item => item.section === 'employee');
-  }, [menu, userRole]);
+    return featureFiltered.filter(item => item.section === 'employee');
+  }, [menu, userRole, isFeatureEnabled]);
 
   const currentPage = useMemo(() => {
     const path = location.pathname.replace(basePath, "").replace(/^\//, "");

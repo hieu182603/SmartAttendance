@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireRole, ROLES } from "../../middleware/role.middleware.js";
+import { requireFeatureEnabled } from "../../middleware/featureToggle.middleware.js";
 import {
   getUsage,
   listInvoices,
@@ -16,10 +17,10 @@ import {
 export const aiBillingRouter = Router();
 
 // ── ADMIN (own company) ───────────────────────────────────────────────────────
-aiBillingRouter.get("/usage",                    authMiddleware, requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]), getUsage);
-aiBillingRouter.get("/invoices",                 authMiddleware, requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]), listInvoices);
-aiBillingRouter.get("/invoices/:invoiceCode",    authMiddleware, requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]), getInvoice);
-aiBillingRouter.post("/invoices/:invoiceCode/pay", authMiddleware, requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]), payInvoice);
+aiBillingRouter.get("/usage",                    authMiddleware, requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]), requireFeatureEnabled("chatbot"), getUsage);
+aiBillingRouter.get("/invoices",                 authMiddleware, requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]), requireFeatureEnabled("chatbot"), listInvoices);
+aiBillingRouter.get("/invoices/:invoiceCode",    authMiddleware, requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]), requireFeatureEnabled("chatbot"), getInvoice);
+aiBillingRouter.post("/invoices/:invoiceCode/pay", authMiddleware, requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]), requireFeatureEnabled("chatbot"), payInvoice);
 
 // ── SUPER_ADMIN ───────────────────────────────────────────────────────────────
 aiBillingRouter.get("/admin/companies",            authMiddleware, requireRole([ROLES.SUPER_ADMIN]), getAdminCompaniesUsage);

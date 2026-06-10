@@ -1420,10 +1420,12 @@ async function seed() {
         // ========== 13. TẠO FEATURE TOGGLES ==========
         console.log('🎚️  Creating feature toggles...');
         const featureToggleDocs = DEFAULT_FEATURES.map((f) => ({ ...f }));
-        const faceRecognitionToggle = featureToggleDocs.find((f) => f.featureKey === 'face_recognition');
-        if (faceRecognitionToggle) {
-            faceRecognitionToggle.companyOverrides = [{ companyId, enabled: false }];
-            faceRecognitionToggle.updatedBy = adminUser._id;
+        // Demo: disable performance_review for the seeded company so the
+        // toggle admin can re-enable it as a showcase of per-company overrides.
+        const performanceToggle = featureToggleDocs.find((f) => f.featureKey === 'performance_review');
+        if (performanceToggle) {
+            performanceToggle.companyOverrides = [{ companyId, enabled: false }];
+            performanceToggle.updatedBy = adminUser._id;
         }
         const createdFeatureToggles = await FeatureToggleModel.insertMany(featureToggleDocs);
         console.log(`✅ Created ${createdFeatureToggles.length} feature toggles\n`);
