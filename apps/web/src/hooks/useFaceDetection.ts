@@ -67,7 +67,7 @@ export const useFaceDetection = (): FaceDetectionState & FaceDetectionActions =>
 
     const video = currentVideoRef.current;
     const canvas = currentCanvasRef.current;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
     // Check video readiness
@@ -159,7 +159,7 @@ export const useFaceDetection = (): FaceDetectionState & FaceDetectionActions =>
       animationFrameRef.current = null;
     }
     if (currentCanvasRef.current) {
-      const ctx = currentCanvasRef.current.getContext("2d");
+      const ctx = currentCanvasRef.current.getContext("2d", { willReadFrequently: true });
       if (ctx) {
         ctx.clearRect(0, 0, currentCanvasRef.current.width, currentCanvasRef.current.height);
       }
