@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../../middleware/auth.middleware.js";
 import { requireRole, ROLES } from "../../middleware/role.middleware.js";
+import { requireFeatureEnabled } from "../../middleware/featureToggle.middleware.js";
 import {
   getAllEvents,
   getUpcomingEvents,
@@ -16,6 +17,8 @@ export const eventRouter = Router();
 
 // Public routes (authenticated users)
 eventRouter.use(authMiddleware);
+// Gate the entire calendar module on the 'company_calendar' feature toggle.
+eventRouter.use(requireFeatureEnabled("company_calendar"));
 
 // Get all events with filters
 eventRouter.get("/", getAllEvents);

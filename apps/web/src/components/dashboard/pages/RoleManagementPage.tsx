@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import UnauthorizedPage from "@/components/UnauthorizedPage";
 import {
   Shield, RefreshCw,
   Plus, X, Trash2, Save, Check,
@@ -8,6 +9,9 @@ import {
   getRolePermissions,
   updateRolePermissions,
 } from "@/services/userService";
+import { getMe } from "@/services/authService";
+import { useAuth } from "@/context/AuthContext";
+import { normalizeAuthUser } from "@/utils/userId";
 import {
   UserRole,
   Permission,
@@ -34,7 +38,7 @@ interface PermissionGroupItem {
 // ─── Constants ───────────────────────────────────────────
 
 const BUILTIN_ROLES = Object.values(UserRole).filter(
-  (r) => r !== UserRole.TRIAL
+  (r) => r !== UserRole.TRIAL && r !== UserRole.SUPER_ADMIN
 ) as UserRoleType[];
 
 const PRESET_COLORS = [
@@ -325,6 +329,7 @@ function PermissionsTab({
   onRolePermsChange,
   onCreateRole,
   onPersistRolePerms,
+  onResetFromServer,
 }: {
   customRoles: CustomRole[];
   onCustomRolesChange: (roles: CustomRole[]) => void;
@@ -332,7 +337,9 @@ function PermissionsTab({
   onRolePermsChange: (perms: Record<string, PermissionType[]>) => void;
   onCreateRole: () => void;
   onPersistRolePerms: (perms: Record<string, PermissionType[]>) => Promise<void>;
+  onResetFromServer: () => Promise<void>;
 }) {
+  const { setUser } = useAuth();
   const [selectedKey, setSelectedKey] = useState<string>(UserRole.EMPLOYEE);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -367,31 +374,49 @@ function PermissionsTab({
   };
 
   const handleSave = async () => {
-    const overrides: Record<string, PermissionType[]> = {};
-    for (const role of Object.values(UserRole)) {
-      const perms = rolePerms[role];
-      if (!perms) continue;
-      const def = ROLE_PERMISSIONS[role as UserRoleType] ?? [];
-      if (JSON.stringify([...perms].sort()) !== JSON.stringify([...def].sort())) {
-        overrides[role] = perms;
-      }
-    }
-    try { localStorage.setItem(LS_PERMS_KEY, JSON.stringify(overrides)); } catch { /* ignore */ }
-
-    if (isCustom) {
-      const updated = customRoles.map(cr =>
-        cr.key === selectedKey ? { ...cr, permissions: rolePerms[selectedKey] ?? cr.permissions } : cr
-      );
-      onCustomRolesChange(updated);
-      try { localStorage.setItem(LS_CUSTOM_ROLES_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
-    }
-
     try {
+      // 1. Persist to server first
       await onPersistRolePerms(rolePerms);
+
+      // Refresh auth user so session updates with new permissions immediately
+      try {
+        const me = await getMe();
+        setUser(normalizeAuthUser(me));
+      } catch (authErr) {
+        console.error("Failed to refresh user permissions after update:", authErr);
+      }
+
+      // 2. Only write to localStorage after server confirms success
+      const overrides: Record<string, PermissionType[]> = {};
+      for (const role of Object.values(UserRole)) {
+        const perms = rolePerms[role];
+        if (!perms) continue;
+        const def = ROLE_PERMISSIONS[role as UserRoleType] ?? [];
+        if (JSON.stringify([...perms].sort()) !== JSON.stringify([...def].sort())) {
+          overrides[role] = perms;
+        }
+      }
+      try { localStorage.setItem(LS_PERMS_KEY, JSON.stringify(overrides)); } catch { /* ignore */ }
+
+      if (isCustom) {
+        const updated = customRoles.map(cr =>
+          cr.key === selectedKey ? { ...cr, permissions: rolePerms[selectedKey] ?? cr.permissions } : cr
+        );
+        onCustomRolesChange(updated);
+        try { localStorage.setItem(LS_CUSTOM_ROLES_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+      }
+
       setHasChanges(false);
       toast.success("Đã lưu cấu hình quyền");
     } catch {
       toast.error("Không thể lưu cấu hình quyền lên máy chủ");
+      // Revert local modifications to match server state
+      try {
+        await onResetFromServer();
+        setHasChanges(false);
+      } catch {
+        toast.error("Không thể tải lại cấu hình quyền từ máy chủ");
+      }
     }
   };
 
@@ -435,7 +460,7 @@ function PermissionsTab({
             );
           })}
         </div>
-
+        {/* Temporarily hide custom roles and create new role flow until full-stack support is implemented
         {customRoles.length > 0 && (
           <>
             <p className="text-xs font-semibold text-[var(--text-sub)] uppercase tracking-wide">Roles tùy chỉnh</p>
@@ -473,6 +498,7 @@ function PermissionsTab({
           <Plus className="h-3.5 w-3.5" />
           Tạo role mới
         </button>
+        */}
       </div>
 
       {/* Permission editor */}
@@ -568,20 +594,28 @@ function PermissionsTab({
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────
-
 export default function RoleManagementPage() {
   const { rolePerms, setRolePerms, customRoles, setCustomRoles } = usePermissionsOverride();
   const [showCreateRole, setShowCreateRole] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [unauthorized, setUnauthorized] = useState(false);
 
   const loadRolePermissions = useCallback(async () => {
     try {
+      setLoading(true);
+      setUnauthorized(false);
       const res = await getRolePermissions();
       if (res?.rolePerms && typeof res.rolePerms === "object") {
         setRolePerms((prev) => ({ ...prev, ...res.rolePerms }));
       }
-    } catch {
-      toast.error("Không thể tải cấu hình quyền từ máy chủ");
+    } catch (err: any) {
+      if (err?.response?.status === 403 || err?.status === 403) {
+        setUnauthorized(true);
+      } else {
+        toast.error("Không thể tải cấu hình quyền từ máy chủ");
+      }
+    } finally {
+      setLoading(false);
     }
   }, [setRolePerms]);
 
@@ -598,6 +632,18 @@ export default function RoleManagementPage() {
     setRolePerms(prev => ({ ...prev, [role.key]: role.permissions }));
     toast.success(`Đã tạo role "${role.name}"`);
   };
+
+  if (unauthorized) {
+    return <UnauthorizedPage />;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -638,6 +684,7 @@ export default function RoleManagementPage() {
         onRolePermsChange={setRolePerms}
         onCreateRole={() => setShowCreateRole(true)}
         onPersistRolePerms={persistRolePerms}
+        onResetFromServer={loadRolePermissions}
       />
     </div>
   );

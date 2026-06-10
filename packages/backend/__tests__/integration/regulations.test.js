@@ -223,3 +223,59 @@ describe("Regulation download access control", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("Regulation delete – vector cleanup failure", () => {
+  let aiServiceClient;
+
+  beforeAll(async () => {
+    ({ aiServiceClient } = await import("../../src/utils/aiServiceClient.js"));
+  });
+
+  test("regulation is NOT soft-deleted when AI vector deletion fails", async () => {
+    // Arrange: create an active regulation
+    const regulation = await createRegulation();
+    expect(regulation.status).toBe("active");
+
+    // Force the AI vector delete call to reject
+    aiServiceClient.deleteRegulationVectors.mockRejectedValueOnce(
+      new Error("Vector store unavailable")
+    );
+
+    const token = await tokenFor(users.hr);
+
+    // Act: attempt to delete the regulation
+    const res = await request(app)
+      .delete(`/api/companies/regulations/${regulation._id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    // Assert: API reports failure (502), NOT success
+    expect(res.status).toBe(502);
+    expect(res.body.success).toBeUndefined();
+
+    // Assert: the regulation record is still active in the database
+    const afterDelete = await RegulationModel.findById(regulation._id);
+    expect(afterDelete).not.toBeNull();
+    expect(afterDelete.status).toBe("active");
+  });
+
+  test("regulation IS soft-deleted when AI vector deletion succeeds", async () => {
+    // Arrange: ensure the mock resolves normally (default behavior)
+    aiServiceClient.deleteRegulationVectors.mockResolvedValueOnce({ status: 200 });
+
+    const regulation = await createRegulation();
+    const token = await tokenFor(users.hr);
+
+    // Act
+    const res = await request(app)
+      .delete(`/api/companies/regulations/${regulation._id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    // Assert: success
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    // Assert: the regulation is now soft-deleted
+    const afterDelete = await RegulationModel.findById(regulation._id);
+    expect(afterDelete.status).toBe("deleted");
+  });
+});

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Bot, User, Clock, Sparkles, FileText, Download, Loader2 } from 'lucide-react';
+import { Bot, User, Clock, Sparkles, FileText, Download, Loader2, AlertTriangle } from 'lucide-react';
 import { ChatMessage as ChatMessageType, ChatSource } from '../../services/chatbotService';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
@@ -136,6 +136,16 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     });
   }, [message.sources]);
 
+  // Detect when assistant promises a download button but no real document is
+  // attached. Guards against LLM hallucinating doc codes (e.g. "HR-ONB-001")
+  // and telling the user to click a button that will never render.
+  const promisesDownloadButNoFile = React.useMemo(() => {
+    if (!isAssistant) return false;
+    if (regulationSources.length > 0) return false;
+    const text = (message.content || '').toLowerCase();
+    return /b[aâấ]m\s*n[uú]t\s*t[ảa]i|n[uú]t\s*t[ảa]i\s*b[eê]n\s*d[ưu][ơo]i|t[ảa]i\s*b[eê]n\s*d[ưu][ơo]i|t[ảa]i\s*file|download/.test(text);
+  }, [isAssistant, regulationSources.length, message.content]);
+
   if (isSystem) {
     return (
       <div className="flex justify-center my-3">
@@ -211,6 +221,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   <SourceCard key={src.regulation_id || idx} source={src} />
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ── Fallback when assistant references a file that isn't in the
+               knowledge base (no regulation source attached). Prevents the
+               user from hunting for a download button that will never appear. */}
+          {promisesDownloadButNoFile && (
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-300/60 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-500/10 px-3 py-2 text-[12px] leading-relaxed text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                Hệ thống <strong>chưa có file này</strong> trong kho tài liệu nên không hiển thị nút tải.
+                Bạn vui lòng kiểm tra mục <strong>Quản lý tài liệu / Nội quy</strong> hoặc liên hệ
+                bộ phận <strong>Nhân sự (HR)</strong> để được hỗ trợ.
+              </span>
             </div>
           )}
         </div>

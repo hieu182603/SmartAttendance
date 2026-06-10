@@ -18,6 +18,11 @@ export interface MenuItem {
   /** Roles that should NOT see this item even if they meet `minimumRole`. */
   excludeRoles?: UserRoleType[];
   section: 'admin' | 'employee' | 'system';
+  /**
+   * Khoá feature toggle tương ứng (featureKey trên DB).
+   * Nếu toggle bị tắt (enabled=false), menu item này sẽ bị ẩn.
+   */
+  featureKey?: string;
 }
 
 /** SUPER_ADMIN là platform admin — không quản lý HR/ops của từng công ty. */
@@ -64,6 +69,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: Camera,
     path: '/employee/scan',
     section: 'employee',
+    featureKey: 'attendance',
   },
   {
     id: 'history',
@@ -71,6 +77,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: History,
     path: '/employee/history',
     section: 'employee',
+    featureKey: 'attendance',
   },
   {
     id: 'schedule',
@@ -85,6 +92,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: Calendar,
     path: '/employee/company-calendar',
     section: 'employee',
+    featureKey: 'company_calendar',
   },
   {
     id: 'requests',
@@ -92,6 +100,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: FileText,
     path: '/employee/requests',
     section: 'employee',
+    featureKey: 'leave_management',
   },
   {
     id: 'leave-balance',
@@ -99,6 +108,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: CalendarDays,
     path: '/employee/leave-balance',
     section: 'employee',
+    featureKey: 'leave_management',
   },
   {
     id: 'profile',
@@ -113,6 +123,7 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: Wallet,
     path: '/employee/my-payslip',
     section: 'employee',
+    featureKey: 'payroll',
   },
   {
     id: 'chatbot',
@@ -121,6 +132,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/employee/chatbot',
     minimumRole: UserRole.EMPLOYEE,
     section: 'employee',
+    featureKey: 'chatbot',
   },
   // ── Admin / Super Admin ─────────────────────────────────────────────────────
   // (Thứ tự hiển thị SUPER_ADMIN: xem SUPER_ADMIN_MENU_ORDER)
@@ -156,6 +168,7 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.USERS_VIEW,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'employee_management',
   },
   {
     id: 'departments',
@@ -183,6 +196,7 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.REQUESTS_APPROVE_DEPARTMENT,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'leave_management',
   },
   {
     id: 'admin-attendance',
@@ -192,6 +206,7 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.ATTENDANCE_VIEW_ALL,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'attendance',
   },
   {
     id: 'shifts',
@@ -219,6 +234,7 @@ export const MENU_ITEMS: MenuItem[] = [
     minimumRole: UserRole.MANAGER,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'performance_review',
   },
   {
     id: 'attendance-analytics',
@@ -228,6 +244,7 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.ANALYTICS_VIEW_DEPARTMENT,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'attendance_analytics',
   },
   {
     id: 'admin-reports',
@@ -246,6 +263,7 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.PAYROLL_VIEW,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'payroll',
   },
   {
     id: 'payroll-reports',
@@ -255,6 +273,7 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.PAYROLL_VIEW,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'payroll',
   },
   {
     id: 'salary-matrix',
@@ -264,6 +283,7 @@ export const MENU_ITEMS: MenuItem[] = [
     permission: Permission.PAYROLL_MANAGE,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'payroll',
   },
   // ── Hệ thống & giám sát ────────────────────────────────────────────────────
   {
@@ -304,7 +324,7 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Cấu hình quyền theo role',
     icon: ShieldCheck,
     path: '/admin/role-management',
-    minimumRole: UserRole.ADMIN,
+    permission: Permission.USERS_MANAGE_ROLE,
     excludeRoles: EXCLUDE_SUPER_ADMIN,
     section: 'system',
   },
@@ -324,6 +344,7 @@ export const MENU_ITEMS: MenuItem[] = [
     path: '/admin/ai-billing',
     minimumRole: UserRole.ADMIN,
     section: 'admin',
+    featureKey: 'chatbot',
   },
   {
     id: 'company-regulations',
@@ -333,6 +354,7 @@ export const MENU_ITEMS: MenuItem[] = [
     minimumRole: UserRole.HR_MANAGER,
     excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
     section: 'admin',
+    featureKey: 'chatbot',
   },
 ];
 

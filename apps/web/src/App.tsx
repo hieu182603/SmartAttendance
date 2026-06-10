@@ -157,19 +157,38 @@ export default function App() {
               {/* Employee Routes - All authenticated users */}
               <Route path="/employee" element={<DashboardLayout />}>
                 <Route index element={<HomePageWrapper />} />
-                <Route path="scan" element={<ScanPage />} />
+                <Route path="scan" element={
+                    <ProtectedRoute featureKey="attendance" />
+                  }>
+                  <Route index element={<ScanPage />} />
+                </Route>
                 <Route path="schedule" element={<SchedulePage />} />
-                <Route path="requests" element={<RequestsPage />} />
-                <Route path="history" element={<HistoryPage />} />
-                <Route path="leave-balance" element={<LeaveBalancePage />} />
+                <Route element={
+                    <ProtectedRoute featureKey="leave_management" />
+                  }>
+                  <Route path="requests" element={<RequestsPage />} />
+                  <Route path="leave-balance" element={<LeaveBalancePage />} />
+                </Route>
+                <Route path="history" element={
+                    <ProtectedRoute featureKey="attendance" />}>
+                  <Route index element={<HistoryPage />} />
+                </Route>
                 <Route path="notifications" element={<NotificationsPage />} />
-                <Route path="camera-checkin" element={<CameraCheckinPage />} />
+                <Route path="camera-checkin" element={
+                    <ProtectedRoute featureKey="attendance" />}>
+                  <Route index element={<CameraCheckinPage />} />
+                </Route>
                 <Route
                   path="face-registration"
                   element={<FaceRegistrationPage />}
                 />
                 <Route path="profile" element={<ProfilePage />} />
-                <Route path="company-calendar" element={<CompanyCalendarPage />} />
+                <Route
+                  path="company-calendar"
+                  element={<ProtectedRoute featureKey="company_calendar" />}
+                >
+                  <Route index element={<CompanyCalendarPage />} />
+                </Route>
                 <Route
                   path="upgrade"
                   element={
@@ -183,10 +202,13 @@ export default function App() {
                 >
                   <Route index element={<UpgradePage />} />
                 </Route>
-                <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} />}>
+                <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} featureKey="chatbot" />}>
                   <Route path="chatbot" element={<ChatbotPage />} />
                 </Route>
-                <Route path="my-payslip" element={<MyPayslipPage />} />
+                <Route path="my-payslip" element={
+                    <ProtectedRoute featureKey="payroll" />}>
+                  <Route index element={<MyPayslipPage />} />
+                </Route>
                 {/* Catch-all: redirect invalid employee routes to 404 */}
                 <Route
                   path="*"
@@ -200,16 +222,27 @@ export default function App() {
               >
                 <Route path="/manager" element={<DashboardLayout />}>
                   {/* Common employee routes */}
-                  <Route path="scan" element={<ScanPage />} />
+                  <Route path="scan" element={
+                      <ProtectedRoute featureKey="attendance" />}>
+                    <Route index element={<ScanPage />} />
+                  </Route>
                   <Route path="schedule" element={<SchedulePage />} />
-                  <Route path="requests" element={<RequestsPage />} />
-                  <Route path="history" element={<HistoryPage />} />
-                  <Route path="leave-balance" element={<LeaveBalancePage />} />
+                  <Route element={
+                      <ProtectedRoute featureKey="leave_management" />}>
+                    <Route path="requests" element={<RequestsPage />} />
+                    <Route path="leave-balance" element={<LeaveBalancePage />} />
+                  </Route>
+                  <Route path="history" element={
+                      <ProtectedRoute featureKey="attendance" />}>
+                    <Route index element={<HistoryPage />} />
+                  </Route>
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route
                     path="camera-checkin"
-                    element={<CameraCheckinPage />}
-                  />
+                    element={<ProtectedRoute featureKey="attendance" />}
+                  >
+                    <Route index element={<CameraCheckinPage />} />
+                  </Route>
                   <Route
                     path="face-registration"
                     element={<FaceRegistrationPage />}
@@ -217,12 +250,17 @@ export default function App() {
                   <Route path="profile" element={<ProfilePage />} />
                   <Route
                     path="company-calendar"
-                    element={<CompanyCalendarPage />}
-                  />
-                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} />}>
+                    element={<ProtectedRoute featureKey="company_calendar" />}
+                  >
+                    <Route index element={<CompanyCalendarPage />} />
+                  </Route>
+                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} featureKey="chatbot" />}>
                   <Route path="chatbot" element={<ChatbotPage />} />
                 </Route>
-                  <Route path="my-payslip" element={<MyPayslipPage />} />
+                  <Route path="my-payslip" element={
+                      <ProtectedRoute featureKey="payroll" />}>
+                    <Route index element={<MyPayslipPage />} />
+                  </Route>
                   {/* Manager specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
@@ -230,6 +268,7 @@ export default function App() {
                     element={
                       <ProtectedRoute
                         permission={Permission.REQUESTS_APPROVE_DEPARTMENT}
+                        featureKey="leave_management"
                       />
                     }
                   >
@@ -240,6 +279,7 @@ export default function App() {
                     element={
                       <ProtectedRoute
                         permission={Permission.ANALYTICS_VIEW_DEPARTMENT}
+                        featureKey="attendance_analytics"
                       />
                     }
                   >
@@ -248,7 +288,7 @@ export default function App() {
                   <Route
                     path="performance-review"
                     element={
-                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                      <ProtectedRoute permission={Permission.USERS_VIEW} featureKey="performance_review" />
                     }
                   >
                     <Route index element={<PerformanceReviewPage />} />
@@ -299,16 +339,27 @@ export default function App() {
               >
                 <Route path="/hr" element={<DashboardLayout />}>
                   {/* Common employee routes */}
-                  <Route path="scan" element={<ScanPage />} />
+                  <Route path="scan" element={
+                      <ProtectedRoute featureKey="attendance" />}>
+                    <Route index element={<ScanPage />} />
+                  </Route>
                   <Route path="schedule" element={<SchedulePage />} />
-                  <Route path="requests" element={<RequestsPage />} />
-                  <Route path="history" element={<HistoryPage />} />
-                  <Route path="leave-balance" element={<LeaveBalancePage />} />
+                  <Route element={
+                      <ProtectedRoute featureKey="leave_management" />}>
+                    <Route path="requests" element={<RequestsPage />} />
+                    <Route path="leave-balance" element={<LeaveBalancePage />} />
+                  </Route>
+                  <Route path="history" element={
+                      <ProtectedRoute featureKey="attendance" />}>
+                    <Route index element={<HistoryPage />} />
+                  </Route>
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route
                     path="camera-checkin"
-                    element={<CameraCheckinPage />}
-                  />
+                    element={<ProtectedRoute featureKey="attendance" />}
+                  >
+                    <Route index element={<CameraCheckinPage />} />
+                  </Route>
                   <Route
                     path="face-registration"
                     element={<FaceRegistrationPage />}
@@ -316,18 +367,23 @@ export default function App() {
                   <Route path="profile" element={<ProfilePage />} />
                   <Route
                     path="company-calendar"
-                    element={<CompanyCalendarPage />}
-                  />
-                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} />}>
+                    element={<ProtectedRoute featureKey="company_calendar" />}
+                  >
+                    <Route index element={<CompanyCalendarPage />} />
+                  </Route>
+                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} featureKey="chatbot" />}>
                   <Route path="chatbot" element={<ChatbotPage />} />
                 </Route>
-                  <Route path="my-payslip" element={<MyPayslipPage />} />
+                  <Route path="my-payslip" element={
+                      <ProtectedRoute featureKey="payroll" />}>
+                    <Route index element={<MyPayslipPage />} />
+                  </Route>
                   {/* HR specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
                     path="employee-management"
                     element={
-                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                      <ProtectedRoute permission={Permission.USERS_VIEW} featureKey="employee_management" />
                     }
                   >
                     <Route index element={<EmployeeManagementPage />} />
@@ -335,7 +391,7 @@ export default function App() {
                   <Route
                     path="payroll-reports"
                     element={
-                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} />
+                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} featureKey="payroll" />
                     }
                   >
                     <Route index element={<PayrollReportsPage />} />
@@ -345,6 +401,7 @@ export default function App() {
                     element={
                       <ProtectedRoute
                         permission={Permission.REQUESTS_APPROVE_ALL}
+                        featureKey="leave_management"
                       />
                     }
                   >
@@ -355,6 +412,7 @@ export default function App() {
                     element={
                       <ProtectedRoute
                         permission={Permission.ANALYTICS_VIEW_ALL}
+                        featureKey="attendance_analytics"
                       />
                     }
                   >
@@ -363,7 +421,7 @@ export default function App() {
                   <Route
                     path="payroll"
                     element={
-                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} />
+                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} featureKey="payroll" />
                     }
                   >
                     <Route index element={<PayrollPage />} />
@@ -371,7 +429,7 @@ export default function App() {
                   <Route
                     path="salary-matrix"
                     element={
-                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} />
+                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} featureKey="payroll" />
                     }
                   >
                     <Route index element={<SalaryMatrixManagementPage />} />
@@ -379,7 +437,7 @@ export default function App() {
                   <Route
                     path="performance-review"
                     element={
-                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                      <ProtectedRoute permission={Permission.USERS_VIEW} featureKey="performance_review" />
                     }
                   >
                     <Route index element={<PerformanceReviewPage />} />
@@ -389,6 +447,7 @@ export default function App() {
                     element={
                       <ProtectedRoute
                         permission={Permission.ATTENDANCE_VIEW_ALL}
+                        featureKey="attendance"
                       />
                     }
                   >
@@ -420,7 +479,10 @@ export default function App() {
                     path="*"
                     element={<Navigate to="/not-found" replace />}
                   />
-                  <Route path="regulations">
+                  <Route
+                    path="regulations"
+                    element={<ProtectedRoute featureKey="chatbot" />}
+                  >
                     <Route index element={<RegulationsPage />} />
                   </Route>
                 </Route>
@@ -433,17 +495,31 @@ export default function App() {
                   <Route path="profile" element={<ProfilePage />} />
                   <Route
                     path="company-calendar"
-                    element={<CompanyCalendarPage />}
-                  />
-                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} />}>
+                    element={<ProtectedRoute featureKey="company_calendar" />}
+                  >
+                    <Route index element={<CompanyCalendarPage />} />
+                  </Route>
+                  <Route element={<ProtectedRoute minimumRole={UserRole.EMPLOYEE} featureKey="chatbot" />}>
                   <Route path="chatbot" element={<ChatbotPage />} />
                 </Route>
-                  <Route path="my-payslip" element={<MyPayslipPage />} />
-                  <Route path="scan" element={<ScanPage />} />
+                  <Route path="my-payslip" element={
+                      <ProtectedRoute featureKey="payroll" />}>
+                    <Route index element={<MyPayslipPage />} />
+                  </Route>
+                  <Route path="scan" element={
+                      <ProtectedRoute featureKey="attendance" />}>
+                    <Route index element={<ScanPage />} />
+                  </Route>
                   <Route path="schedule" element={<SchedulePage />} />
-                  <Route path="requests" element={<RequestsPage />} />
-                  <Route path="history" element={<HistoryPage />} />
-                  <Route path="leave-balance" element={<LeaveBalancePage />} />
+                  <Route element={
+                      <ProtectedRoute featureKey="leave_management" />}>
+                    <Route path="requests" element={<RequestsPage />} />
+                    <Route path="leave-balance" element={<LeaveBalancePage />} />
+                  </Route>
+                  <Route path="history" element={
+                      <ProtectedRoute featureKey="attendance" />}>
+                    <Route index element={<HistoryPage />} />
+                  </Route>
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route
                     path="face-registration"
@@ -451,14 +527,16 @@ export default function App() {
                   />
                   <Route
                     path="camera-checkin"
-                    element={<CameraCheckinPage />}
-                  />
+                    element={<ProtectedRoute featureKey="attendance" />}
+                  >
+                    <Route index element={<CameraCheckinPage />} />
+                  </Route>
                   {/* Admin specific routes with permission checks */}
                   <Route index element={<HomePageWrapper />} />
                   <Route
                     path="employee-management"
                     element={
-                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                      <ProtectedRoute permission={Permission.USERS_VIEW} featureKey="employee_management" />
                     }
                   >
                     <Route index element={<EmployeeManagementPage />} />
@@ -486,6 +564,7 @@ export default function App() {
                     element={
                       <ProtectedRoute
                         permission={Permission.REQUESTS_APPROVE_ALL}
+                        featureKey="leave_management"
                       />
                     }
                   >
@@ -496,6 +575,7 @@ export default function App() {
                     element={
                       <ProtectedRoute
                         permission={Permission.ANALYTICS_VIEW_ALL}
+                        featureKey="attendance_analytics"
                       />
                     }
                   >
@@ -504,7 +584,7 @@ export default function App() {
                   <Route
                     path="payroll-reports"
                     element={
-                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} />
+                      <ProtectedRoute permission={Permission.PAYROLL_VIEW} featureKey="payroll" />
                     }
                   >
                     <Route index element={<PayrollReportsPage />} />
@@ -512,7 +592,7 @@ export default function App() {
                   <Route
                     path="payroll"
                     element={
-                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} />
+                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} featureKey="payroll" />
                     }
                   >
                     <Route index element={<PayrollPage />} />
@@ -520,7 +600,7 @@ export default function App() {
                   <Route
                     path="salary-matrix"
                     element={
-                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} />
+                      <ProtectedRoute permission={Permission.PAYROLL_MANAGE} featureKey="payroll" />
                     }
                   >
                     <Route index element={<SalaryMatrixManagementPage />} />
@@ -528,7 +608,7 @@ export default function App() {
                   <Route
                     path="performance-review"
                     element={
-                      <ProtectedRoute permission={Permission.USERS_VIEW} />
+                      <ProtectedRoute permission={Permission.USERS_VIEW} featureKey="performance_review" />
                     }
                   >
                     <Route index element={<PerformanceReviewPage />} />
@@ -548,6 +628,7 @@ export default function App() {
                     element={
                       <ProtectedRoute
                         permission={Permission.ATTENDANCE_VIEW_ALL}
+                        featureKey="attendance"
                       />
                     }
                   >
@@ -582,7 +663,14 @@ export default function App() {
                   <Route path="leave-types">
                     <Route index element={<LeaveTypeManagementPage />} />
                   </Route>
-                  <Route path="role-management">
+                  <Route
+                    path="role-management"
+                    element={
+                      <ProtectedRoute
+                        permission={Permission.USERS_MANAGE_ROLE}
+                      />
+                    }
+                  >
                     <Route index element={<RoleManagementPage />} />
                   </Route>
                   <Route
@@ -623,7 +711,7 @@ export default function App() {
                   </Route>
                   <Route
                     path="ai-billing"
-                    element={<ProtectedRoute minimumRole={UserRole.ADMIN} />}
+                    element={<ProtectedRoute minimumRole={UserRole.ADMIN} featureKey="chatbot" />}
                   >
                     <Route index element={<AiUsageBillingPage />} />
                   </Route>
@@ -636,7 +724,10 @@ export default function App() {
                     path="*"
                     element={<Navigate to="/not-found" replace />}
                   />
-                  <Route path="regulations">
+                  <Route
+                    path="regulations"
+                    element={<ProtectedRoute featureKey="chatbot" />}
+                  >
                     <Route index element={<RegulationsPage />} />
                   </Route>
                 </Route>

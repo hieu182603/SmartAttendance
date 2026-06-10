@@ -422,7 +422,7 @@ export class RegulationController {
         });
       }
 
-      // 1. Delete vector chunks from AI Service (best-effort)
+      // 1. Delete vector chunks from AI Service — MUST succeed before soft-delete
       const authHeader = req.headers["authorization"];
       try {
         await aiServiceClient.deleteRegulationVectors(
@@ -430,13 +430,18 @@ export class RegulationController {
           regulation._id.toString()
         );
       } catch (aiErr) {
-        // Log but don't block — metadata deletion still proceeds
-        logger.warn(
+        // Abort: keep regulation active so orphaned AI chunks cannot survive the delete
+        logger.error(
           `[regulation] AI vector delete failed for ${regulation._id}: ${aiErr.message}`
         );
+        return res.status(502).json({
+          message:
+            `Không xóa được dữ liệu AI của tài liệu "${regulation.title}". ` +
+            `Tài liệu vẫn còn hiệu lực. Vui lòng thử lại sau.`,
+        });
       }
 
-      // 2. Delete GridFS file (best-effort)
+      // 2. Delete GridFS file (best-effort — only after vectors are confirmed gone)
       if (regulation.gridFsFileId) {
         try {
           await deleteFromGridFS(regulation.gridFsFileId);

@@ -42,4 +42,13 @@ export const featureToggleService = {
     const { data } = await api.get(`/feature-toggles/check/${featureKey}`);
     return data.data as { enabled: boolean };
   },
+
+  /**
+   * Returns a map of { featureKey: effectiveEnabled } resolved for the
+   * currently authenticated user (role + company overrides applied server-side).
+   */
+  getEffective: async (): Promise<Record<string, boolean>> => {
+    const { data } = await api.get("/feature-toggles/effective");
+    return data.data as Record<string, boolean>;
+  },
 };

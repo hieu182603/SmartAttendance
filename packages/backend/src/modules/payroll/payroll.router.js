@@ -6,6 +6,7 @@ import {
 } from "../../middleware/role.middleware.js";
 import { requirePermission } from "../../middleware/permission.middleware.js";
 import { PERMISSIONS } from "../../config/permissions.config.js";
+import { requireFeatureEnabled } from "../../middleware/featureToggle.middleware.js";
 import {
   getPayrollReports,
   getPayrollRecords,
@@ -37,6 +38,8 @@ import {
 export const payrollRouter = Router();
 
 payrollRouter.use(authMiddleware);
+// Gate the entire payroll module on the 'payroll' feature toggle.
+payrollRouter.use(requireFeatureEnabled("payroll"));
 
 // Reports endpoint
 payrollRouter.get(
