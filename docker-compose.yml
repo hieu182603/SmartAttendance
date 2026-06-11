@@ -17,15 +17,19 @@ services:
 
   backend:
     build:
-      context: ./packages/backend
-      dockerfile: Dockerfile
+      # Context MUST be repo root so the pnpm workspace (incl. @smartattendance/shared) resolves.
+      context: .
+      dockerfile: packages/backend/Dockerfile
     ports:
       - "4000:4000"
     environment:
       - MONGO_URI=${MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
+      - REFRESH_TOKEN_SECRET=${REFRESH_TOKEN_SECRET}
       - PORT=4000
       - FRONTEND_URL=${FRONTEND_URL}
+      # Extra allowed CORS origins (comma-separated), e.g. Vercel preview URLs
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - AI_SERVICE_URL=http://ai-service:8001
       - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY}
       - HOST=0.0.0.0
@@ -41,6 +45,15 @@ services:
       - EMAIL_SECURE=${EMAIL_SECURE}
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASS=${EMAIL_PASS}
+      # Sensitive field encryption (bank account at rest)
+      - BANK_ACCOUNT_ENCRYPTION_KEY=${BANK_ACCOUNT_ENCRYPTION_KEY}
+      # PayOS (billing / payment)
+      - PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID}
+      - PAYOS_API_KEY=${PAYOS_API_KEY}
+      - PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
+      # Observability (optional)
+      - SENTRY_DSN=${SENTRY_DSN}
+      - LOG_LEVEL=${LOG_LEVEL}
     depends_on:
       - ai-service
       - redis
@@ -58,7 +71,9 @@ services:
       - MONGODB_ATLAS_CLUSTER_URI=${MONGO_URI}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      # CORS allowlist for the AI service (who may call it — backend + web). Distinct
+      # from the backend's ALLOWED_ORIGINS, so it has its own variable.
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS_AI}
     restart: always
 
 volumes:
