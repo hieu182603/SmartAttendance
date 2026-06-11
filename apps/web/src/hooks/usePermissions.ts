@@ -11,13 +11,16 @@ import {
 } from '@/utils/roles';
 import { usePermissionsOverride } from '@/context/PermissionsContext';
 
+const SERVER_MANAGED_ROLES = new Set<string>(Object.values(UserRole));
+
 export function usePermissions() {
   const { user } = useAuth();
   const { getEffectivePermissions } = usePermissionsOverride();
   const role = (user?.role as UserRoleType) || UserRole.EMPLOYEE;
   const serverPerms = user?.permissions as PermissionType[] | undefined;
-  const effectivePerms =
-    serverPerms && serverPerms.length > 0
+  const effectivePerms = SERVER_MANAGED_ROLES.has(role)
+    ? (serverPerms ?? [])
+    : serverPerms && serverPerms.length > 0
       ? serverPerms
       : getEffectivePermissions(role);
 

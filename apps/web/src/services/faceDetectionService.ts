@@ -359,7 +359,7 @@ class FaceDetectionService {
    * Detect blur using FFT-based approach (simplified)
    */
   detectBlur(canvas: HTMLCanvasElement): number {
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return 1;
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -368,8 +368,9 @@ class FaceDetectionService {
     const sharpness = this.calculateImageSharpness(imageData);
 
     // Normalize to 0-1 scale (lower values = more blur)
-    // Typical range: 0-1000, good images usually > 100
-    const blurScore = Math.min(sharpness / 200, 1);
+    // Typical webcam range: 10-150 Laplacian variance. Good frames usually > 30.
+    // Divisor of 60 means a variance of 60 → score 1.0 (most clear webcam frames).
+    const blurScore = Math.min(sharpness / 60, 1);
 
     return blurScore;
   }
@@ -381,8 +382,8 @@ class FaceDetectionService {
     return new Promise((resolve) => {
       const canvas1 = document.createElement('canvas');
       const canvas2 = document.createElement('canvas');
-      const ctx1 = canvas1.getContext('2d');
-      const ctx2 = canvas2.getContext('2d');
+      const ctx1 = canvas1.getContext('2d', { willReadFrequently: true });
+      const ctx2 = canvas2.getContext('2d', { willReadFrequently: true });
 
       if (!ctx1 || !ctx2) {
         resolve(0);
@@ -442,7 +443,7 @@ class FaceDetectionService {
       const img = new Image();
       img.onload = () => {
         const tempCanvas = document.createElement('canvas');
-        const ctx = tempCanvas.getContext('2d');
+        const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
           resolve({ isValid: false, score: 0, issues: ['Canvas not supported'] });
           return;
@@ -474,8 +475,8 @@ class FaceDetectionService {
           score *= 0.9;
         }
 
-        // Blur check
-        if (blurScore < 0.3) {
+        // Blur check — threshold 0.15 avoids false positives on typical webcam feeds
+        if (blurScore < 0.15) {
           issues.push('blurry');
           score *= 0.7;
         }

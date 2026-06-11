@@ -38,6 +38,7 @@ import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { getAllUsers, getUserById, updateUserByAdmin, createUserByAdmin, bulkImportUsers, downloadImportTemplate, type BulkImportResult } from '@/services/userService'
 import { getAllDepartments, type Department as DepartmentType } from '@/services/departmentService'
+import { setUserRemoteStatus } from '@/services/attendanceService'
 import shiftService, { type Shift } from '@/services/shiftService'
 import { getPositions } from '@/services/payrollService'
 import api from '@/services/api'
@@ -81,6 +82,7 @@ interface User {
   phone?: string
   taxId?: string
   isActive?: boolean
+  isRemote?: boolean
   createdAt?: string
   defaultShiftId?: string | { _id: string; name: string; startTime?: string; endTime?: string }
 }
@@ -94,6 +96,7 @@ interface FormData {
   phone: string
   taxId: string
   isActive: boolean
+  isRemote: boolean
   defaultShiftId: string
 }
 
@@ -222,6 +225,7 @@ const EmployeeManagementPage: React.FC = () => {
     phone: '',
     taxId: '',
     isActive: true,
+    isRemote: false,
     defaultShiftId: '',
   })
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({})
@@ -423,6 +427,7 @@ const EmployeeManagementPage: React.FC = () => {
       phone: user.phone || '',
       taxId: user.taxId || '',
       isActive: user.isActive !== undefined ? user.isActive : true,
+      isRemote: user.isRemote ?? false,
       defaultShiftId: shiftId,
     })
     setValidationErrors({})
@@ -909,6 +914,11 @@ const EmployeeManagementPage: React.FC = () => {
                             </Avatar>
                             <div className="min-w-0 flex-1">
                               <p className="text-sm text-[var(--text-main)] truncate">{user.name || t('dashboard:employeeManagement.viewDialog.notAvailable')}</p>
+                              {user.isRemote && (
+                                <span className="inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-500">
+                                  Remote
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -1488,6 +1498,50 @@ const EmployeeManagementPage: React.FC = () => {
                 {!formData.isActive && (
                   <p className="text-xs text-red-500 mt-1">
                     {t('dashboard:employeeManagement.editDialog.inactiveWarning')}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Chế độ làm việc từ xa (Remote)</Label>
+                <Select
+                  value={formData.isRemote ? 'remote' : 'office'}
+                  onValueChange={async (v) => {
+                    const next = v === 'remote'
+                    setFormData((prev) => ({ ...prev, isRemote: next }))
+                    const targetUserId = selectedUser?._id || selectedUser?.id || ''
+                    if (!targetUserId) return
+                    try {
+                      await setUserRemoteStatus(targetUserId, next)
+                      toast.success(next ? 'Đã bật chế độ làm remote' : 'Đã tắt chế độ làm remote')
+                      fetchUsers()
+                    } catch (error) {
+                      setFormData((prev) => ({ ...prev, isRemote: !next }))
+                      toast.error((error as Error)?.message || 'Không thể cập nhật chế độ remote')
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">
+                    <SelectValue placeholder="Chọn chế độ làm việc" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--surface)] border-[var(--border)]">
+                    <SelectItem value="office">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-[var(--text-sub)]"></div>
+                        Làm tại văn phòng
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="remote">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                        Cho phép làm remote
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {formData.isRemote && (
+                  <p className="text-xs text-[var(--text-sub)] mt-1">
+                    Nhân viên có thể chấm công ngoài văn phòng. Mỗi bản ghi remote sẽ chờ HR duyệt.
                   </p>
                 )}
               </div>

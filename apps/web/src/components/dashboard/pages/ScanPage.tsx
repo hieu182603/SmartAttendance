@@ -56,6 +56,8 @@ interface State {
   hasCheckedOut: boolean;
   checkInTime: Date | null;
   canCheckOut: boolean;
+  isRemote?: boolean;
+  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
 }
 
 interface Permissions {
@@ -94,6 +96,7 @@ interface CheckInResponse {
     distance?: string;
     approvalStatus?: "PENDING" | "APPROVED" | "REJECTED";
     requiresApproval?: boolean;
+    isRemote?: boolean;
   };
 }
 
@@ -732,6 +735,9 @@ const ScanPage: React.FC = () => {
           hasCheckedIn: true,
           checkInTime: now,
           canCheckOut: false,
+          isRemote: response.data.data?.isRemote ?? prev.isRemote ?? false,
+          approvalStatus:
+            response.data.data?.approvalStatus ?? prev.approvalStatus ?? null,
         }));
 
         // Reset action state after successful check-in
@@ -852,7 +858,13 @@ const ScanPage: React.FC = () => {
       );
 
       if (response.data.success) {
-        setState((prev) => ({ ...prev, hasCheckedOut: true }));
+        setState((prev) => ({
+          ...prev,
+          hasCheckedOut: true,
+          isRemote: response.data.data?.isRemote ?? prev.isRemote ?? false,
+          approvalStatus:
+            response.data.data?.approvalStatus ?? prev.approvalStatus ?? null,
+        }));
         setShowEarlyCheckoutModal(false);
         setEarlyCheckoutReason(null);
         setEarlyCheckoutError(null);
@@ -1050,6 +1062,8 @@ const ScanPage: React.FC = () => {
             date: string;
             checkIn: string | null;
             checkOut: string | null;
+            isRemote?: boolean;
+            approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
           }>
         >("/attendance/recent?limit=1");
         if (response.data && response.data.length > 0) {
@@ -1075,6 +1089,8 @@ const ScanPage: React.FC = () => {
               hasCheckedOut: !!latestAttendance.checkOut,
               checkInTime: checkInTime,
               canCheckOut: false,
+              isRemote: latestAttendance.isRemote || false,
+              approvalStatus: latestAttendance.approvalStatus || null,
             }));
           }
         }
@@ -1998,6 +2014,31 @@ const ScanPage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Remote approval status */}
+            {state.isRemote && (
+              <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 bg-[var(--shell)] border border-[var(--border)] rounded-md">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.08em] text-[var(--text-sub)] font-semibold">
+                  <MapPin className="h-3 w-3 text-[var(--accent-cyan)]" strokeWidth={2} />
+                  <span>Chấm công từ xa</span>
+                </div>
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wide border ${
+                    state.approvalStatus === "APPROVED"
+                      ? "bg-green-500/15 border-green-500/30 text-green-600 dark:text-green-400"
+                      : state.approvalStatus === "REJECTED"
+                        ? "bg-red-500/15 border-red-500/30 text-red-600 dark:text-red-400"
+                        : "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                  }`}
+                >
+                  {state.approvalStatus === "APPROVED"
+                    ? "Đã duyệt"
+                    : state.approvalStatus === "REJECTED"
+                      ? "Bị từ chối"
+                      : "Chờ duyệt"}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Primary action + auto-capture toggle */}

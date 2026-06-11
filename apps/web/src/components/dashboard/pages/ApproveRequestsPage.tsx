@@ -29,13 +29,13 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { getAllRequests, approveRequest, rejectRequest, bulkApproveRequests, bulkRejectRequests } from '@/services/requestService'
-import { getPendingEarlyCheckouts, approveEarlyCheckout } from '@/services/attendanceService'
+import { getPendingEarlyCheckouts, approveEarlyCheckout, getPendingRemoteAttendance, approveRemoteAttendance } from '@/services/attendanceService'
 import { useAuth } from '@/context/AuthContext'
 import { SuperAdminCompanyFilterSlot } from '@/components/dashboard/SuperAdminCompanyFilterSlot'
 import type { ErrorWithMessage } from '@/types'
 
 type RequestStatus = 'pending' | 'approved' | 'rejected'
-type RequestType = 'leave' | 'overtime' | 'late' | 'remote' | 'early_checkout' // ⚠️ MỚI
+type RequestType = 'leave' | 'overtime' | 'late' | 'remote' | 'early_checkout' | 'remote_attendance' // ⚠️ MỚI
 type ActionType = 'approve' | 'reject' | null
 type Urgency = 'high' | 'medium' | 'low'
 
@@ -67,6 +67,7 @@ interface Request {
   earlyCheckoutReason?: 'machine_issue' | 'personal_emergency' | 'manager_request'
   reasonText?: string
   date?: string
+  isRemote?: boolean // ⚠️ MỚI: bản ghi chấm công remote
 }
 
 interface Stats {
@@ -105,6 +106,7 @@ const ApproveRequestsPage: React.FC = () => {
       late: t('dashboard:approveRequests.types.late'),
       remote: t('dashboard:approveRequests.types.remote'),
       early_checkout: 'Check-out sớm', // ⚠️ MỚI
+      remote_attendance: 'Chấm công remote', // ⚠️ MỚI
     }),
     [t]
   )
@@ -117,6 +119,7 @@ const ApproveRequestsPage: React.FC = () => {
       { value: 'late', label: typeLabelMap.late },
       { value: 'remote', label: typeLabelMap.remote },
       { value: 'early_checkout', label: typeLabelMap.early_checkout }, // ⚠️ MỚI
+      { value: 'remote_attendance', label: typeLabelMap.remote_attendance }, // ⚠️ MỚI: Chờ duyệt Remote
     ],
     [t, typeLabelMap]
   )
@@ -180,21 +183,32 @@ const ApproveRequestsPage: React.FC = () => {
   const fetchAllRequests = useCallback(async () => {
     try {
       const params: Record<string, string> = {}
-      if (filterType !== 'all' && filterType !== 'early_checkout') params.type = filterType
+      if (filterType !== 'all' && filterType !== 'early_checkout' && filterType !== 'remote_attendance') params.type = filterType
       if (filterDepartment !== 'all') params.department = filterDepartment
       if (debouncedSearchQuery) params.search = debouncedSearchQuery
       // Không filter theo status để lấy tất cả
 
-      // Fetch regular requests
-      const [requestsResult, earlyCheckoutsResult] = await Promise.all([
-        filterType === 'all' || filterType !== 'early_checkout'
+      const wantRegular = filterType === 'all' || (filterType !== 'early_checkout' && filterType !== 'remote_attendance')
+      const wantEarly = filterType === 'all' || filterType === 'early_checkout'
+      const wantRemote = filterType === 'all' || filterType === 'remote_attendance'
+
+      // Fetch regular requests + early checkouts + remote attendance song song
+      const [requestsResult, earlyCheckoutsResult, remoteResult] = await Promise.all([
+        wantRegular
           ? getAllRequests(params).catch(() => ({ requests: [] }))
           : Promise.resolve({ requests: [] }),
-        filterType === 'all' || filterType === 'early_checkout'
+        wantEarly
           ? getPendingEarlyCheckouts({
               search: debouncedSearchQuery || undefined,
               page: 1,
               limit: 1000, // Get all for stats
+            }).catch(() => ({ records: [] }))
+          : Promise.resolve({ records: [] }),
+        wantRemote
+          ? getPendingRemoteAttendance({
+              search: debouncedSearchQuery || undefined,
+              page: 1,
+              limit: 1000,
             }).catch(() => ({ records: [] }))
           : Promise.resolve({ records: [] }),
       ])
@@ -235,9 +249,41 @@ const ApproveRequestsPage: React.FC = () => {
 
       // Merge requests - ensure type compatibility
       const regularRequests: Request[] = (requestsResult.requests || []) as Request[]
+
+      // Convert remote attendance records to request format
+      const remoteRequests: Request[] = (remoteResult.records || []).map((record: any) => {
+        const hoursWorked = record.hoursWorked ?? 0;
+        const minutesWorked = record.minutesWorked ?? 0;
+
+        return {
+          id: record.attendanceId || record.id,
+          attendanceId: record.attendanceId || record.id,
+          status: 'pending' as RequestStatus,
+          type: 'remote_attendance' as RequestType,
+          employeeName: record.employeeName,
+          title: 'Chấm công remote',
+          description: `Đã làm việc ${minutesWorked} phút (${hoursWorked.toFixed(2)} giờ) từ xa.`,
+          reason: 'Chấm công từ xa',
+          department: record.department,
+          startDate: record.date,
+          endDate: record.date,
+          duration: `${minutesWorked} phút`,
+          urgency: 'medium' as Urgency,
+          submittedAt: record.submittedAt,
+          checkIn: record.checkIn,
+          checkOut: record.checkOut,
+          hoursWorked,
+          minutesWorked,
+          workCredit: record.workCredit ?? 0,
+          date: record.date,
+          isRemote: true,
+        };
+      })
+
       const allRequestsList: Request[] = [
         ...regularRequests,
         ...earlyCheckoutRequests,
+        ...remoteRequests,
       ]
 
       setAllRequests(allRequestsList)
@@ -314,6 +360,16 @@ const ApproveRequestsPage: React.FC = () => {
           actionType === 'approve'
             ? 'Đã phê duyệt yêu cầu check-out sớm'
             : 'Đã từ chối yêu cầu check-out sớm'
+        )
+      } else if (selectedRequest.type === 'remote_attendance' && selectedRequest.attendanceId) {
+        const approvalStatus = actionType === 'approve' ? 'APPROVED' : 'REJECTED'
+        await approveRemoteAttendance(selectedRequest.attendanceId, approvalStatus, {
+          notes: comments || undefined,
+        })
+        toast.success(
+          actionType === 'approve'
+            ? 'Đã phê duyệt chấm công remote'
+            : 'Đã từ chối chấm công remote'
         )
       } else {
         // Regular requests
@@ -428,6 +484,7 @@ const ApproveRequestsPage: React.FC = () => {
       case 'late': return <Clock className="h-4 w-4" />
       case 'remote': return <Briefcase className="h-4 w-4" />
       case 'early_checkout': return <Clock className="h-4 w-4" /> // ⚠️ MỚI
+      case 'remote_attendance': return <Briefcase className="h-4 w-4" /> // ⚠️ MỚI
       default: return <FileText className="h-4 w-4" />
     }
   }
@@ -439,6 +496,7 @@ const ApproveRequestsPage: React.FC = () => {
       case 'late': return 'bg-yellow-500/20 text-yellow-500'
       case 'remote': return 'bg-purple-500/20 text-purple-500'
       case 'early_checkout': return 'bg-red-500/20 text-red-500' // ⚠️ MỚI
+      case 'remote_attendance': return 'bg-blue-500/20 text-blue-500' // ⚠️ MỚI
       default: return 'bg-gray-500/20 text-gray-500'
     }
   }
@@ -715,8 +773,8 @@ const ApproveRequestsPage: React.FC = () => {
                             <h4 className="text-[var(--text-main)] mb-2">{request.title}</h4>
                             <p className="text-sm text-[var(--text-sub)] mb-3">{request.description || request.reason}</p>
 
-                            {/* ⚠️ MỚI: Early checkout specific info */}
-                            {request.type === 'early_checkout' && (
+                            {/* ⚠️ MỚI: Early checkout / Remote attendance specific info */}
+                            {(request.type === 'early_checkout' || request.type === 'remote_attendance') && (
                               <div className="mt-3 p-3 rounded-lg bg-[var(--background)]/50 border border-[var(--border)]">
                                 <div className="grid grid-cols-2 gap-3 text-xs">
                                   <div>
