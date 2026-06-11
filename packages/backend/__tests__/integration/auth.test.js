@@ -3,7 +3,7 @@
  * Uses MongoDB in-memory server + mocked Redis + mocked email.
  */
 
-import { jest, describe, test, expect, beforeAll, afterAll, beforeEach } from "@jest/globals";
+import { jest, describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
 
 process.env.JWT_SECRET = "test_jwt_secret_64chars_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 process.env.REFRESH_TOKEN_SECRET = "test_refresh_secret_64chars_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
@@ -55,7 +55,7 @@ jest.unstable_mockModule("../../src/utils/aiServiceClient.js", () => ({
 // ── Dynamic imports (after mocks) ─────────────────────────────────────────────
 let request, app, connectTestDB, disconnectTestDB, clearAllCollections;
 let UserModel, OtpModel;
-let sendOTPEmail, sendResetPasswordEmail;
+let sendOTPEmail;
 let redisConfigMock;
 
 beforeAll(async () => {
@@ -72,7 +72,7 @@ beforeAll(async () => {
   ({ default: app } = await import("../../src/app.js"));
   ({ UserModel } = await import("../../src/modules/users/user.model.js"));
   ({ OtpModel } = await import("../../src/modules/otp/otp.model.js"));
-  ({ sendOTPEmail, sendResetPasswordEmail } = await import("../../src/utils/email.util.js"));
+  ({ sendOTPEmail } = await import("../../src/utils/email.util.js"));
   redisConfigMock = await import("../../src/config/redis.js");
 });
 
@@ -87,22 +87,7 @@ beforeEach(async () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Tạo user đã verify trực tiếp vào DB — không phụ thuộc email mock.
-async function createVerifiedUser(email = "user@test.com", password = "SmartAttendance@2026!", name = "Test User") {
-  const bcrypt = (await import("bcryptjs")).default;
-  const hashed = await bcrypt.hash(password, 10);
-  const user = await UserModel.create({
-    email,
-    password: hashed,
-    name,
-    role: "TRIAL",
-    isVerified: true,
-    isActive: true,
-    isTrial: true,
-    trialExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-  });
-  return { email, password, user };
-}
+// Note: createVerifiedUser was defined here but never used, so it has been removed to fix linting.
 
 // Dùng cho tests cần test full register→OTP→verify flow.
 async function registerAndVerify(email = "user@test.com", password = "SmartAttendance@2026!", name = "Test User") {
