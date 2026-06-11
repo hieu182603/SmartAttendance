@@ -56,6 +56,7 @@ jest.unstable_mockModule("../../src/utils/aiServiceClient.js", () => ({
 let request, app, connectTestDB, disconnectTestDB, clearAllCollections;
 let UserModel, OtpModel;
 let sendOTPEmail, sendResetPasswordEmail;
+let redisConfigMock;
 
 beforeAll(async () => {
   const supertest = await import("supertest");
@@ -72,6 +73,7 @@ beforeAll(async () => {
   ({ UserModel } = await import("../../src/modules/users/user.model.js"));
   ({ OtpModel } = await import("../../src/modules/otp/otp.model.js"));
   ({ sendOTPEmail, sendResetPasswordEmail } = await import("../../src/utils/email.util.js"));
+  redisConfigMock = await import("../../src/config/redis.js");
 });
 
 afterAll(async () => {
@@ -468,5 +470,49 @@ describe("TC-AUTH-014: Reset password full flow", () => {
       resetToken: "invalidtoken",
     });
     expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TC-AUTH-015: Reset password bị chặn khi Redis disabled/degraded
+// ─────────────────────────────────────────────────────────────────────────────
+describe("TC-AUTH-015: Reset password blocked when Redis is inactive", () => {
+  afterEach(() => {
+    redisConfigMock.isRedisBindingActive.mockReturnValue(true);
+  });
+
+  test("verify-reset-otp returns 503 when Redis binding inactive", async () => {
+    const email = "noredisverify@test.com";
+    await registerAndVerify(email);
+
+    await request(app).post("/api/auth/forgot-password").send({ email });
+    const otp = await OtpModel.findOne({ email, purpose: "forgot_password" });
+    expect(otp).not.toBeNull();
+
+    redisConfigMock.isRedisBindingActive.mockReturnValue(false);
+
+    const res = await request(app)
+      .post("/api/auth/verify-reset-otp")
+      .send({ email, otp: otp.code });
+
+    expect(res.status).toBe(503);
+    expect(res.body).not.toHaveProperty("resetToken");
+    expect(res.body.message).toMatch(/không khả dụng/i);
+  });
+
+  test("reset-password returns 503 when Redis binding inactive", async () => {
+    const email = "noredisreset@test.com";
+    await registerAndVerify(email);
+
+    redisConfigMock.isRedisBindingActive.mockReturnValue(false);
+
+    const res = await request(app).post("/api/auth/reset-password").send({
+      email,
+      password: "NewSmartAttendance@2026!",
+      resetToken: "sometoken",
+    });
+
+    expect(res.status).toBe(503);
+    expect(res.body.message).toMatch(/không khả dụng/i);
   });
 });

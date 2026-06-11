@@ -128,4 +128,11 @@ userRouter.patch(
     UserController.activateUser
 );
 
+userRouter.patch(
+    "/:id/remote-status",
+    requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.HR_MANAGER]),
+    requireAnyPermission([PERMISSIONS.USERS_UPDATE, PERMISSIONS.USERS_UPDATE_DEPARTMENT]),
+    UserController.setRemoteStatus
+);
+
 

@@ -19,6 +19,8 @@ import {
   deleteAttendanceRecord,
   approveEarlyCheckout,
   getPendingEarlyCheckouts,
+  approveRemoteAttendance,
+  getPendingRemoteAttendance,
   createManualAttendance,
 } from "./attendance.controller.js";
 
@@ -98,6 +100,29 @@ attendanceRouter.patch(
   ]),
   requirePermission(PERMISSIONS.ATTENDANCE_APPROVE),
   approveEarlyCheckout
+);
+// Remote attendance: danh sách chờ duyệt + duyệt/từ chối
+attendanceRouter.get(
+  "/pending-remote",
+  requireRole([
+    ROLES.ADMIN,
+    ROLES.HR_MANAGER,
+    ROLES.MANAGER,
+    ROLES.SUPER_ADMIN,
+  ]),
+  requirePermission(PERMISSIONS.ATTENDANCE_REMOTE_APPROVE),
+  getPendingRemoteAttendance
+);
+attendanceRouter.patch(
+  "/:id/approve-remote",
+  requireRole([
+    ROLES.ADMIN,
+    ROLES.HR_MANAGER,
+    ROLES.MANAGER,
+    ROLES.SUPER_ADMIN,
+  ]),
+  requirePermission(PERMISSIONS.ATTENDANCE_REMOTE_APPROVE),
+  approveRemoteAttendance
 );
 // Generic parameterized routes should be defined LAST
 attendanceRouter.patch(

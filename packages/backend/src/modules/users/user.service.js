@@ -7,6 +7,7 @@ import { SystemConfigModel } from "../config/config.model.js";
 import { ROLE_PERMISSIONS, PERMISSIONS } from "../../config/permissions.config.js";
 import { invalidatePermissionCache } from "../../middleware/permission.middleware.js";
 import { canAccessUserTenant, TenantAccessError } from "../../utils/tenantCompany.util.js";
+import { redisDel } from "../../config/redis.js";
 import {
   applyBankAccountToUser,
   BANK_ACCOUNT_MODES,
@@ -200,12 +201,14 @@ export class UserService {
 
       // Nếu muốn search theo tên phòng ban, tìm trong Department model trước
       try {
-        const departments = await DepartmentModel.find({
+        const deptSearchFilter = {
           $or: [
             { name: { $regex: search, $options: "i" } },
             { code: { $regex: search, $options: "i" } }
           ]
-        }).select('_id');
+        };
+        if (companyId) deptSearchFilter.companyId = companyId;
+        const departments = await DepartmentModel.find(deptSearchFilter).select('_id');
 
         if (departments.length > 0) {
           const departmentIds = departments.map(d => d._id);
@@ -230,12 +233,14 @@ export class UserService {
       } else {
         // Nếu không phải ObjectId, tìm Department theo name hoặc code
         try {
-          const dept = await DepartmentModel.findOne({
+          const deptLookup = {
             $or: [
               { name: { $regex: department, $options: "i" } },
               { code: { $regex: department, $options: "i" } }
             ]
-          }).select('_id');
+          };
+          if (companyId) deptLookup.companyId = companyId;
+          const dept = await DepartmentModel.findOne(deptLookup).select('_id');
 
           if (dept) {
             query.department = dept._id;
@@ -415,6 +420,18 @@ export class UserService {
       updateFields.phone = cleanPhone;
     }
 
+    // Lấy target user trước khi resolve department/branch để biết tenant scope
+    const currentUser = await UserModel.findById(userId)
+      .select("defaultShiftId companyId")
+      .lean();
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+    if (requester && !canAccessUserTenant(requester, currentUser)) {
+      throw new TenantAccessError();
+    }
+    const tenantCompanyId = currentUser?.companyId ?? null;
+
     // Convert department từ string (code/name) sang ObjectId nếu cần
     if (updateFields.department !== undefined) {
       // Nếu là string rỗng hoặc null, set thành null để xóa department
@@ -428,13 +445,15 @@ export class UserService {
         } else {
           // Không phải ObjectId, tìm Department theo name hoặc code (fallback cho các API khác)
           const searchValue = String(updateFields.department).trim().toUpperCase();
-          const department = await DepartmentModel.findOne({
+          const deptLookup = {
             $or: [
               { name: { $regex: new RegExp(`^${String(updateFields.department).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
               { code: searchValue }
             ],
             status: "active"
-          }).select("_id");
+          };
+          if (tenantCompanyId) deptLookup.companyId = tenantCompanyId;
+          const department = await DepartmentModel.findOne(deptLookup).select("_id");
 
           if (!department) {
             throw new Error(`Không tìm thấy phòng ban với mã/tên: ${updateFields.department}`);
@@ -457,13 +476,15 @@ export class UserService {
         } else {
           // Không phải ObjectId, tìm Branch theo name hoặc code (fallback cho các API khác)
           const searchValue = String(updateFields.branch).trim().toUpperCase();
-          const branch = await BranchModel.findOne({
+          const branchLookup = {
             $or: [
               { name: { $regex: new RegExp(`^${String(updateFields.branch).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
               { code: searchValue }
             ],
             status: "active"
-          }).select("_id");
+          };
+          if (tenantCompanyId) branchLookup.companyId = tenantCompanyId;
+          const branch = await BranchModel.findOne(branchLookup).select("_id");
 
           if (!branch) {
             throw new Error(`Không tìm thấy chi nhánh với mã/tên: ${updateFields.branch}`);
@@ -490,16 +511,6 @@ export class UserService {
       if (!validRoles.includes(updateFields.role)) {
         throw new Error("Role không hợp lệ");
       }
-    }
-
-    const currentUser = await UserModel.findById(userId)
-      .select("defaultShiftId companyId")
-      .lean();
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-    if (requester && !canAccessUserTenant(requester, currentUser)) {
-      throw new TenantAccessError();
     }
 
     const oldDefaultShiftId = currentUser?.defaultShiftId?.toString();
@@ -543,6 +554,38 @@ export class UserService {
 
     if (!user) {
       throw new Error("User not found");
+    }
+
+    return user;
+  }
+
+  /**
+   * Bật/tắt chế độ chấm công remote cho nhân viên (Admin/HR)
+   */
+  static async setRemoteStatus(userId, isRemote, approvedBy = null) {
+    const update = {
+      isRemote: !!isRemote,
+      remoteApprovedBy: isRemote ? approvedBy : null,
+    };
+
+    const user = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: update },
+      { new: true, runValidators: true }
+    )
+      .select("-password -otp -otpExpires")
+      .populate("department", "name code")
+      .populate("branch", "name address");
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Invalidate cache để isUserRemote() lấy giá trị mới ngay
+    try {
+      await redisDel(`user_remote:${userId}`);
+    } catch (err) {
+      console.warn("[UserService] Không thể xóa cache user_remote:", err.message);
     }
 
     return user;
@@ -616,17 +659,21 @@ export class UserService {
       throw new Error("Email đã được đăng ký");
     }
 
-    // Validate department if provided
+    // Validate department if provided (scope theo tenant để tránh gán chéo công ty)
     if (department) {
-      const deptExists = await DepartmentModel.findById(department);
+      const deptFilter = { _id: department };
+      if (companyId) deptFilter.companyId = companyId;
+      const deptExists = await DepartmentModel.findOne(deptFilter);
       if (!deptExists) {
         throw new Error("Phòng ban không tồn tại");
       }
     }
 
-    // Validate branch if provided
+    // Validate branch if provided (scope theo tenant để tránh gán chéo công ty)
     if (branch) {
-      const branchExists = await BranchModel.findById(branch);
+      const branchFilter = { _id: branch };
+      if (companyId) branchFilter.companyId = companyId;
+      const branchExists = await BranchModel.findOne(branchFilter);
       if (!branchExists) {
         throw new Error("Chi nhánh không tồn tại");
       }
@@ -730,10 +777,11 @@ export class UserService {
    * department/branch có thể là tên (string) — sẽ tự lookup ID
    */
   static async bulkImportUsers(rows, adminRole, companyId = null) {
-    // Pre-load tất cả departments và branches để tránh N+1 queries
+    // Pre-load departments và branches trong cùng tenant để tránh N+1 queries
+    const tenantScope = companyId ? { companyId } : {};
     const [allDepts, allBranches] = await Promise.all([
-      DepartmentModel.find({}, "_id name").lean(),
-      BranchModel.find({}, "_id name").lean(),
+      DepartmentModel.find(tenantScope, "_id name").lean(),
+      BranchModel.find(tenantScope, "_id name").lean(),
     ]);
 
     const deptMap = Object.fromEntries(
