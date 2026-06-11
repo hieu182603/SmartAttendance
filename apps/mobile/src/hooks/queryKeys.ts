@@ -11,6 +11,8 @@ export const queryKeys = {
         history: (params?: { from?: string; to?: string; status?: string; page?: number; limit?: number }) =>
             [...queryKeys.attendance.all, 'history', params] as const,
         schedule: (month: string) => [...queryKeys.attendance.all, 'schedule', month] as const,
+        pendingRemote: (params?: { page?: number; limit?: number; search?: string }) =>
+            [...queryKeys.attendance.all, 'pendingRemote', params] as const,
     },
     notifications: {
         all: ['notifications'] as const,

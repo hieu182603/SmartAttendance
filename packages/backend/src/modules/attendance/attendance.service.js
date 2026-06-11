@@ -40,6 +40,30 @@ const getFaceService = () => {
 const EARTH_RADIUS_M = 6371e3;
 const MAX_DISTANCE = 100;
 
+/**
+ * Kiểm tra nhân viên có được phép chấm công từ xa (remote) không.
+ * Dùng Redis cache 5 phút để tránh query DB mỗi lần check-in/out.
+ * @param {string} userId - User ID
+ * @returns {Promise<boolean>}
+ */
+export const isUserRemote = async (userId) => {
+  try {
+    const isRemote = await cacheAside(
+      `user_remote:${userId}`,
+      300,
+      () =>
+        UserModel.findById(userId)
+          .select("isRemote")
+          .lean()
+          .then((u) => !!u?.isRemote)
+    );
+    return !!isRemote;
+  } catch (error) {
+    // Nếu lỗi khi kiểm tra, mặc định không phải remote (an toàn: vẫn áp geofence)
+    return false;
+  }
+};
+
 // ============================================================================
 // LOCATION UTILITIES
 // ============================================================================
@@ -694,6 +718,7 @@ export const buildAttendanceRecordResponse = (doc) => {
     notes: doc.notes || "",
     earlyCheckoutReason: doc.earlyCheckoutReason || null,
     approvalStatus: doc.approvalStatus || null,
+    isRemote: doc.isRemote || false,
     approvedBy: doc.approvedBy?.name || doc.approvedBy || null,
     approvedAt: doc.approvedAt ? formatTime(doc.approvedAt) : null,
     checkInLatitude: doc.checkInLatitude || null,
@@ -858,10 +883,16 @@ export const processCheckIn = async (
       return { success: false, data: null, error: locationValidation.message };
     }
 
-    // Find valid branch (geofence check — blocking)
-    const branchResult = await validateAndFindBranch(latitude, longitude);
-    if (!branchResult.valid) {
-      return { success: false, data: null, error: branchResult.message };
+    // Nhân viên remote: bỏ qua geofence nhưng vẫn log GPS coordinates
+    const remoteWorker = await isUserRemote(userId);
+
+    // Find valid branch (geofence check — blocking; bỏ qua nếu remote)
+    let branchResult = null;
+    if (!remoteWorker) {
+      branchResult = await validateAndFindBranch(latitude, longitude);
+      if (!branchResult.valid) {
+        return { success: false, data: null, error: branchResult.message };
+      }
     }
 
     // GPS accuracy: warning only — nếu đã trong geofence thì không block
@@ -875,14 +906,21 @@ export const processCheckIn = async (
     // Early duplicate check — must run before time/shift validation so that
     // "already checked in" takes priority over "too early" when re-hitting
     // the endpoint outside of allowed check-in window.
-    const existingRecord = await AttendanceModel.findOne({ userId, date: dateOnly }).select("_id").lean();
+    const existingRecord = await AttendanceModel.findOne({ userId, date: dateOnly })
+      .select("_id approvalStatus")
+      .lean();
     if (existingRecord) {
-      return {
-        success: false,
-        data: null,
-        error: "Bạn đã chấm công vào hôm nay rồi.",
-        code: "ALREADY_CHECKED_IN",
-      };
+      // Nếu bản ghi remote trước đó đã bị từ chối → xóa để cho phép chấm công lại
+      if (existingRecord.approvalStatus === "REJECTED") {
+        await AttendanceModel.deleteOne({ _id: existingRecord._id });
+      } else {
+        return {
+          success: false,
+          data: null,
+          error: "Bạn đã chấm công vào hôm nay rồi.",
+          code: "ALREADY_CHECKED_IN",
+        };
+      }
     }
 
     // ── Face verification (optimized: static imports, single DB query, fast verify) ──
@@ -1097,10 +1135,12 @@ export const processCheckIn = async (
           checkIn: now,
           checkInLatitude: latitude,
           checkInLongitude: longitude,
-          locationId: branchResult.branch._id,
+          locationId: remoteWorker ? null : branchResult.branch._id,
           status: isLate ? "late" : "present",
           notes: photoNotes,
           lowGpsAccuracy,
+          isRemote: remoteWorker,
+          ...(remoteWorker ? { approvalStatus: "PENDING" } : {}),
         },
       },
       {
@@ -1163,7 +1203,9 @@ export const processCheckIn = async (
     }
 
     const statusMsg = attendance.status === "late" ? " (Đi muộn)" : "";
-    const message = `Chấm công thành công!${statusMsg} (${shiftInfo.shiftName})`;
+    const message = remoteWorker
+      ? "Chấm công remote thành công! Đang chờ HR xác nhận."
+      : `Chấm công thành công!${statusMsg} (${shiftInfo.shiftName})`;
 
     const faceMsg = faceVerified ? `✅ Khuôn mặt khớp (${(faceSimilarity * 100).toFixed(1)}%)` : `(Không xác thực khuôn mặt)`;
     console.log(`[attendance] ✅ CHECK-IN THÀNH CÔNG: ${message} ${faceMsg}`);
@@ -1173,11 +1215,13 @@ export const processCheckIn = async (
       data: {
         checkInTime: formatTime(attendance.checkIn),
         checkInDate: formatDateLabel(attendance.date),
-        location: branchResult.branch.name,
-        distance: `${branchResult.distance}m`,
+        location: remoteWorker ? "Remote" : branchResult.branch.name,
+        distance: remoteWorker ? null : `${branchResult.distance}m`,
         shiftName: shiftInfo.shiftName,
         shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
         status: attendance.status,
+        isRemote: remoteWorker,
+        ...(remoteWorker ? { approvalStatus: "PENDING", requiresApproval: true } : {}),
         faceVerified,
         ...(faceSimilarity !== null && { faceSimilarity }),
       },
@@ -1228,14 +1272,20 @@ export const processCheckOut = async (
       return { success: false, data: null, error: locationValidation.message };
     }
 
-    // Find valid branch (geofence check — blocking)
-    const branchResult = await validateAndFindBranch(latitude, longitude);
-    if (!branchResult.valid) {
-      return {
-        success: false,
-        data: null,
-        error: `Bạn cách văn phòng gần nhất ${branchResult.distance}m. Vui lòng đến gần hơn (trong vòng ${MAX_DISTANCE}m) để check-out.`,
-      };
+    // Nhân viên remote: bỏ qua geofence nhưng vẫn log GPS coordinates
+    const remoteWorker = await isUserRemote(userId);
+
+    // Find valid branch (geofence check — blocking; bỏ qua nếu remote)
+    let branchResult = null;
+    if (!remoteWorker) {
+      branchResult = await validateAndFindBranch(latitude, longitude);
+      if (!branchResult.valid) {
+        return {
+          success: false,
+          data: null,
+          error: `Bạn cách văn phòng gần nhất ${branchResult.distance}m. Vui lòng đến gần hơn (trong vòng ${MAX_DISTANCE}m) để check-out.`,
+        };
+      }
     }
 
     // GPS accuracy: warning only — nếu đã trong geofence thì không block
@@ -1412,6 +1462,13 @@ export const processCheckOut = async (
       attendance.checkOutLatitude = latitude;
       attendance.checkOutLongitude = longitude;
       attendance.lowGpsAccuracy = lowGpsAccuracy;
+
+      // Bản ghi remote: reset về PENDING để HR/Admin duyệt lại dữ liệu
+      // check-in + check-out đầy đủ.
+      if (attendance.isRemote || remoteWorker) {
+        attendance.approvalStatus = "PENDING";
+        attendance.workCredit = 0;
+      }
     }
 
     // Tính work credit (nếu không phải early checkout cần duyệt)
@@ -1497,7 +1554,9 @@ export const processCheckOut = async (
 
     // Create message
     if (attendance.approvalStatus === "PENDING") {
-      message = `Check-out thành công! Yêu cầu của bạn đang chờ duyệt (${shiftInfo.shiftName})`;
+      message = attendance.isRemote || remoteWorker
+        ? `Chấm công remote thành công! Đang chờ HR xác nhận.`
+        : `Check-out thành công! Yêu cầu của bạn đang chờ duyệt (${shiftInfo.shiftName})`;
     }
 
     const faceMsg = faceVerified ? `✅ Khuôn mặt khớp (${(faceSimilarity * 100).toFixed(1)}%)` : `(Không xác thực khuôn mặt)`;
@@ -1510,8 +1569,8 @@ export const processCheckOut = async (
         checkOutDate: formatDateLabel(attendance.date),
         workHours,
         workCredit: attendance.workCredit,
-        location: branchResult.branch.name,
-        distance: `${branchResult.distance}m`,
+        location: remoteWorker ? "Remote" : branchResult.branch.name,
+        distance: remoteWorker ? null : `${branchResult.distance}m`,
         shiftName: shiftInfo.shiftName,
         shiftTime: `${shiftInfo.startTime} - ${shiftInfo.endTime}`,
         isEarlyLeave: checkOutInfo.isEarlyLeave,
@@ -1520,6 +1579,7 @@ export const processCheckOut = async (
         minutesOvertime: checkOutInfo.minutesOvertime,
         approvalStatus: attendance.approvalStatus,
         requiresApproval: attendance.approvalStatus === "PENDING",
+        isRemote: attendance.isRemote || remoteWorker,
         faceVerified,
         ...(faceSimilarity !== null && { faceSimilarity }),
       },

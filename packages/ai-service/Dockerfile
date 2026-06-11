@@ -50,11 +50,12 @@ RUN useradd --create-home --shell /bin/bash app \
 
 USER app
 
-EXPOSE 8080
+# The service listens on PORT (default 8001 — see app/utils/config.py and docker-compose.yml).
+EXPOSE 8001
 
-# Health check (basic TCP connection test)
+# Health check (basic TCP connection test on the actual service port)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import socket; s=socket.socket(); s.connect(('localhost', 8080)); s.close()" || exit 1
+    CMD python -c "import os, socket; s=socket.socket(); s.connect(('localhost', int(os.getenv('PORT', '8001')))); s.close()" || exit 1
 
 # Use exec form for better signal handling
 CMD ["python", "run.py"]

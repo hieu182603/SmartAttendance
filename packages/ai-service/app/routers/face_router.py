@@ -290,7 +290,7 @@ class LivenessVerifyResponse(BaseModel):
     error_message: Optional[str] = None
 
 
-@router.post("/liveness/session", response_model=LivenessChallengeResponse)
+@router.post("/liveness/session", response_model=LivenessChallengeResponse, dependencies=[Depends(verify_api_key)])
 async def create_liveness_session():
     """
     Create a new liveness verification session with a random challenge
@@ -310,7 +310,7 @@ async def create_liveness_session():
         )
 
 
-@router.post("/liveness/baseline/{session_id}", response_model=LivenessBaselineResponse)
+@router.post("/liveness/baseline/{session_id}", response_model=LivenessBaselineResponse, dependencies=[Depends(verify_api_key)])
 async def capture_liveness_baseline(
     session_id: str,
     image: UploadFile = File(...)
@@ -330,7 +330,7 @@ async def capture_liveness_baseline(
         )
 
 
-@router.post("/liveness/verify/{session_id}", response_model=LivenessVerifyResponse)
+@router.post("/liveness/verify/{session_id}", response_model=LivenessVerifyResponse, dependencies=[Depends(verify_api_key)])
 async def verify_liveness_challenge(
     session_id: str,
     image: UploadFile = File(...)

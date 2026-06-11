@@ -146,6 +146,7 @@ project.tar.gz
 # Documentation & Notes (ignore all .md files except README.md)
 *.md
 !README.md
+!DEPLOYMENT.md
 
 .blackboxcli/
 .scripts/

@@ -162,6 +162,8 @@ export const getRecentAttendance = async (req, res) => {
           : null,
         status: doc.status || "absent",
         location: doc.locationId?.name || null,
+        isRemote: doc.isRemote || false,
+        approvalStatus: doc.approvalStatus || null,
       };
     });
 
@@ -1440,6 +1442,298 @@ export const getPendingEarlyCheckouts = async (req, res) => {
     console.error("[attendance] getPendingEarlyCheckouts error", error);
     res.status(500).json({
       message: "Không lấy được danh sách yêu cầu check-out sớm",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * PATCH /attendance/:id/approve-remote
+ * Duyệt / từ chối bản ghi chấm công remote (HR/Admin/Manager)
+ */
+export const approveRemoteAttendance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approvalStatus, workCredit, notes } = req.body;
+    const approverId = req.user.userId;
+
+    if (!approvalStatus || !["APPROVED", "REJECTED"].includes(approvalStatus)) {
+      return res.status(400).json({
+        message: "approvalStatus phải là 'APPROVED' hoặc 'REJECTED'",
+      });
+    }
+
+    const attendance = await AttendanceModel.findById(id);
+    if (!attendance) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy bản ghi chấm công" });
+    }
+
+    // Company-level permission check: non-super-admin chỉ được duyệt bản ghi
+    // của nhân viên cùng công ty
+    if (req.user.role !== "SUPER_ADMIN") {
+      const recordUser = await UserModel.findById(attendance.userId)
+        .select("companyId")
+        .lean();
+      if (
+        !recordUser?.companyId ||
+        recordUser.companyId.toString() !== req.user.companyId?.toString()
+      ) {
+        return res.status(403).json({
+          message: "Không có quyền duyệt bản ghi của công ty khác",
+        });
+      }
+    }
+
+    // Chỉ duyệt được bản ghi remote đang PENDING
+    if (!attendance.isRemote) {
+      return res.status(400).json({
+        message: "Bản ghi này không phải chấm công remote",
+      });
+    }
+    if (attendance.approvalStatus !== "PENDING") {
+      return res.status(400).json({
+        message: "Bản ghi này không cần duyệt hoặc đã được duyệt rồi",
+      });
+    }
+
+    attendance.approvalStatus = approvalStatus;
+    attendance.approvedBy = approverId;
+    attendance.approvedAt = new Date();
+
+    if (approvalStatus === "APPROVED") {
+      if (workCredit !== undefined) {
+        attendance.workCredit = workCredit;
+      } else {
+        // Tự động tính workCredit dựa trên workHours của bản ghi
+        const schedule = await getUserSchedule(
+          attendance.userId,
+          attendance.date
+        );
+        const shiftInfo = await getShiftInfo(schedule);
+        const hoursWorked = attendance.workHours || 0;
+        const workCreditResult = calculateWorkCredit(hoursWorked, shiftInfo);
+        attendance.workCredit = workCreditResult.credit || 0;
+      }
+    } else {
+      // REJECTED → workCredit = 0, đánh dấu vắng mặt
+      attendance.workCredit = 0;
+      attendance.status = "absent";
+    }
+
+    if (notes) {
+      const approvalNote = `\n[Duyệt remote ${approvalStatus === "APPROVED" ? "chấp nhận" : "từ chối"}: ${notes}]`;
+      attendance.notes = attendance.notes
+        ? `${attendance.notes}${approvalNote}`
+        : approvalNote.trim();
+    }
+
+    await attendance.save();
+
+    // Emit real-time update
+    try {
+      const attendanceData = {
+        _id: attendance._id.toString(),
+        userId: attendance.userId.toString(),
+        date: attendance.date,
+        checkIn: attendance.checkIn,
+        checkOut: attendance.checkOut,
+        status: attendance.status,
+        workHours: attendance.workHours,
+        workCredit: attendance.workCredit,
+        approvalStatus: attendance.approvalStatus,
+        isRemote: attendance.isRemote,
+        locationId: attendance.locationId?.toString(),
+        action: "remote-approval-update",
+      };
+      emitAttendanceUpdate(attendance.userId.toString(), attendanceData);
+      emitAttendanceUpdateToAdmins(attendanceData);
+    } catch (socketError) {
+      console.error("[attendance] Error emitting remote approval update:", socketError);
+    }
+
+    // Gửi notification cho nhân viên
+    try {
+      const approver = await UserModel.findById(approverId).select("name").lean();
+      const isApproved = approvalStatus === "APPROVED";
+      const dateStr = attendance.date
+        ? new Date(attendance.date).toLocaleDateString("vi-VN")
+        : "";
+
+      await NotificationService.createNotification({
+        userId: attendance.userId,
+        type: isApproved ? "request_approved" : "request_rejected",
+        title: isApproved
+          ? "Chấm công remote đã được chấp nhận"
+          : "Chấm công remote đã bị từ chối",
+        message: isApproved
+          ? `Chấm công remote ngày ${dateStr} đã được ${approver?.name || "Quản lý"} chấp nhận.${notes ? ` Nhận xét: ${notes}` : ""}`
+          : `Chấm công remote ngày ${dateStr} đã bị ${approver?.name || "Quản lý"} từ chối.${notes ? ` Lý do: ${notes}` : ""}`,
+        relatedEntityType: "attendance",
+        relatedEntityId: attendance._id,
+        metadata: {
+          approvalStatus,
+          approverName: approver?.name,
+          date: attendance.date,
+          notes,
+          isRemote: true,
+        },
+      });
+    } catch (notifError) {
+      console.error("[attendance] remote notification error:", notifError);
+    }
+
+    const updated = await AttendanceModel.findById(id)
+      .populate("userId", "name email department role")
+      .populate("locationId", "name")
+      .populate("approvedBy", "name");
+
+    res.json({
+      message: `Đã ${approvalStatus === "APPROVED" ? "chấp nhận" : "từ chối"} bản ghi chấm công remote`,
+      record: buildAttendanceRecordResponse(updated),
+    });
+  } catch (error) {
+    console.error("[attendance] approveRemoteAttendance error", error);
+    res.status(500).json({
+      message: "Không thể duyệt bản ghi chấm công remote",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * GET /attendance/pending-remote
+ * Lấy danh sách bản ghi chấm công remote đang chờ duyệt (HR/Admin/Manager)
+ */
+export const getPendingRemoteAttendance = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+    const companyId = req.user.companyId;
+    const { page = 1, limit = 20, search } = req.query;
+
+    // Build user query based on role
+    let userQuery = {};
+
+    // Company-level data isolation: non-super-admins chỉ thấy nhân viên cùng công ty
+    if (userRole !== "SUPER_ADMIN") {
+      userQuery.companyId = companyId;
+    }
+
+    if (userRole === "MANAGER") {
+      const user = await UserModel.findById(userId).select("department");
+      if (user?.department) {
+        userQuery.department = user.department;
+        userQuery.role = { $in: ["EMPLOYEE"] };
+      } else {
+        return res.json({
+          records: [],
+          pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+        });
+      }
+    }
+
+    if (search) {
+      userQuery.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    let userIds = [];
+    if (Object.keys(userQuery).length > 0) {
+      const users = await UserModel.find(userQuery).select("_id");
+      userIds = users.map((u) => u._id);
+      if (userIds.length === 0) {
+        return res.json({
+          records: [],
+          pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+        });
+      }
+    }
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const query = {
+      isRemote: true,
+      approvalStatus: "PENDING",
+    };
+
+    if (userIds.length > 0) {
+      query.userId = { $in: userIds };
+    }
+
+    const [docs, total] = await Promise.all([
+      AttendanceModel.find(query)
+        .populate("userId", "name email department branch role")
+        .populate("locationId", "name")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      AttendanceModel.countDocuments(query),
+    ]);
+
+    const records = docs.map((doc) => {
+      const populatedUser =
+        doc.userId && typeof doc.userId === "object" ? doc.userId : null;
+      const departmentValue =
+        populatedUser?.department && typeof populatedUser.department === "object"
+          ? populatedUser.department.name || "N/A"
+          : populatedUser?.department || "N/A";
+
+      let hoursWorked = 0;
+      let minutesWorked = 0;
+      if (doc.checkIn && doc.checkOut) {
+        hoursWorked = (doc.checkOut - doc.checkIn) / (1000 * 60 * 60);
+        minutesWorked = hoursWorked * 60;
+      } else if (doc.checkIn) {
+        const now = new Date();
+        hoursWorked = (now - doc.checkIn) / (1000 * 60 * 60);
+        minutesWorked = hoursWorked * 60;
+      }
+
+      return {
+        id: doc._id.toString(),
+        attendanceId: doc._id.toString(),
+        userId: populatedUser?._id?.toString() || doc.userId?.toString(),
+        employeeName: populatedUser?.name || "N/A",
+        email: populatedUser?.email || "N/A",
+        department: departmentValue,
+        date: formatDateLabel(doc.date),
+        checkIn: formatTime(doc.checkIn),
+        checkOut: formatTime(doc.checkOut),
+        hoursWorked: Math.round(hoursWorked * 100) / 100,
+        minutesWorked: Math.round(minutesWorked),
+        workCredit: doc.workCredit || 0,
+        isRemote: true,
+        checkInLatitude: doc.checkInLatitude ?? null,
+        checkInLongitude: doc.checkInLongitude ?? null,
+        checkOutLatitude: doc.checkOutLatitude ?? null,
+        checkOutLongitude: doc.checkOutLongitude ?? null,
+        notes: doc.notes || "",
+        submittedAt: doc.createdAt
+          ? new Date(doc.createdAt).toLocaleString("vi-VN")
+          : "N/A",
+      };
+    });
+
+    res.json({
+      records,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error("[attendance] getPendingRemoteAttendance error", error);
+    res.status(500).json({
+      message: "Không lấy được danh sách chấm công remote chờ duyệt",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }

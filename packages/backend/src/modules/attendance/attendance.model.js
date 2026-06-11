@@ -105,6 +105,13 @@ const attendanceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // ⚠️ MỚI: Chấm công từ xa (remote)
+    // true = bản ghi được tạo bởi nhân viên remote (bỏ qua geofence, chờ HR duyệt)
+    isRemote: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
@@ -144,7 +151,11 @@ attendanceSchema.pre("save", function (next) {
 
     // Auto-determine status nếu chưa set hoặc đang là "absent"
     // Note: Logic đi muộn sẽ được xử lý ở controller (cần async để lấy schedule)
-    if (!this.status || this.status === "absent") {
+    // Lưu ý: KHÔNG tự đẩy status về "present" nếu bản ghi đã bị từ chối (REJECTED).
+    if (
+      this.approvalStatus !== "REJECTED" &&
+      (!this.status || this.status === "absent")
+    ) {
       if (this.checkIn && this.checkOut) {
         this.status = "present";
       } else if (this.checkIn) {
@@ -154,6 +165,12 @@ attendanceSchema.pre("save", function (next) {
         this.status = "absent";
       }
     }
+  }
+
+  // Bản ghi remote bị từ chối → luôn giữ trạng thái vắng mặt,
+  // bất kể checkIn hiện diện hay không.
+  if (this.approvalStatus === "REJECTED") {
+    this.status = "absent";
   }
 
   next();

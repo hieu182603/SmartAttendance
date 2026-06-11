@@ -32,6 +32,7 @@ export interface AttendanceRecord {
   notes?: string;
   earlyCheckoutReason?: "machine_issue" | "personal_emergency" | "manager_request" | null; // ⚠️ MỚI
   approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null; // ⚠️ MỚI
+  isRemote?: boolean; // ⚠️ MỚI: bản ghi chấm công từ xa (remote)
   approvedBy?: string | null; // ⚠️ MỚI
   approvedAt?: string | null; // ⚠️ MỚI
   checkInLatitude?: number | null; // Vĩ độ khi check-in
@@ -301,4 +302,59 @@ export const getPendingEarlyCheckouts = async (
         : "Không thể tải danh sách yêu cầu check-out sớm. Vui lòng thử lại."
     );
   }
+};
+
+/**
+ * Get pending remote attendance records awaiting HR approval
+ */
+export const getPendingRemoteAttendance = async (
+  params: AttendanceParams = {}
+): Promise<AllAttendanceResponse> => {
+  try {
+    const { data } = await api.get("/attendance/pending-remote", { params });
+    return {
+      records: data.records || [],
+      summary: { total: 0, present: 0, late: 0, absent: 0 },
+      pagination: data.pagination || {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+      },
+    } as AllAttendanceResponse;
+  } catch (error) {
+    console.error("[attendance] getPendingRemoteAttendance failed:", error);
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Không thể tải danh sách chấm công remote chờ duyệt. Vui lòng thử lại."
+    );
+  }
+};
+
+/**
+ * Approve or reject a remote attendance record
+ */
+export const approveRemoteAttendance = async (
+  id: string,
+  approvalStatus: "APPROVED" | "REJECTED",
+  options?: {
+    workCredit?: number;
+    notes?: string;
+  }
+) => {
+  const { data } = await api.patch(`/attendance/${id}/approve-remote`, {
+    approvalStatus,
+    workCredit: options?.workCredit,
+    notes: options?.notes,
+  });
+  return data as { message: string; record: AttendanceRecord };
+};
+
+/**
+ * Bật/tắt chế độ chấm công remote cho một nhân viên (Admin/HR)
+ */
+export const setUserRemoteStatus = async (userId: string, isRemote: boolean) => {
+  const { data } = await api.patch(`/users/${userId}/remote-status`, { isRemote });
+  return data as { message: string; user: unknown };
 };

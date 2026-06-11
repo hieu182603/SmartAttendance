@@ -34,6 +34,8 @@ export const processEndOfDayAttendance = async (targetDate = null) => {
       date: dateOnly,
       checkIn: { $ne: null },
       checkOut: null,
+      // Bỏ qua bản ghi remote đang chờ HR duyệt — không tự động check-out
+      $nor: [{ isRemote: true, approvalStatus: "PENDING" }],
     });
 
     if (notCheckedOut.length > 0) {

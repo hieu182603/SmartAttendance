@@ -16,12 +16,15 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { Icon } from '../../components/ui/Icon';
 import { AttendanceService } from '../../services/attendance.service';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme, Theme } from '../../theme';
 
 type Props = { navigation: StackNavigationProp<RootStackParamList, 'Attendance'>; route: any };
 
 export default function AttendanceScreen({ navigation, route }: Props) {
   const mode: 'check-in' | 'check-out' = route.params?.mode ?? 'check-in';
+  const { user } = useAuth();
+  const isRemote = !!user?.isRemote;
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('front');
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -72,7 +75,12 @@ export default function AttendanceScreen({ navigation, route }: Props) {
   }, []);
 
   const handleCapture = async () => {
-    if (!cameraRef.current || locationStatus !== 'ok' || !location) {
+    if (!cameraRef.current) {
+      Alert.alert('Lỗi', 'Camera chưa sẵn sàng. Vui lòng thử lại.');
+      return;
+    }
+    // Nhân viên remote: vẫn thu thập GPS nhưng không bắt buộc có vị trí hợp lệ
+    if (!isRemote && (locationStatus !== 'ok' || !location)) {
       Alert.alert('Lỗi', 'Đang lấy vị trí. Vui lòng thử lại.');
       return;
     }
@@ -81,20 +89,24 @@ export default function AttendanceScreen({ navigation, route }: Props) {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: false });
 
       const data = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        accuracy: location.coords.accuracy ?? 0,
+        latitude: location?.coords.latitude,
+        longitude: location?.coords.longitude,
+        accuracy: location?.coords.accuracy ?? 0,
         photo,
         earlyCheckoutReason: mode === 'check-out' ? route.params?.reason : undefined,
       };
 
+      let result: any;
       if (mode === 'check-out') {
-        await AttendanceService.checkOut(data);
+        result = await AttendanceService.checkOut(data);
       } else {
-        await AttendanceService.checkIn(data);
+        result = await AttendanceService.checkIn(data);
       }
 
-      Alert.alert('Thành công', `${mode === 'check-in' ? 'Check-in' : 'Check-out'} thành công!`, [
+      const fallbackMsg = isRemote
+        ? 'Chấm công remote thành công! Đang chờ HR xác nhận.'
+        : `${mode === 'check-in' ? 'Check-in' : 'Check-out'} thành công!`;
+      Alert.alert('Thành công', result?.message || fallbackMsg, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
@@ -128,13 +140,20 @@ export default function AttendanceScreen({ navigation, route }: Props) {
       <View style={s.camera}>
         <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
 
-        {/* GPS chip */}
-        <View style={s.gpsChip}>
-          <View style={[s.gpsDot, locationStatus === 'ok' && s.gpsDotGreen, locationStatus === 'error' && s.gpsDotRed]} />
-          <Text style={s.gpsText}>
-            {locationStatus === 'loading' ? 'Đang lấy vị trí...' : locationStatus === 'error' ? 'Không có GPS' : 'GPS · Hợp lệ'}
-          </Text>
-        </View>
+        {/* GPS chip / Remote badge */}
+        {isRemote ? (
+          <View style={s.gpsChip}>
+            <View style={[s.gpsDot, s.gpsDotGreen]} />
+            <Text style={s.gpsText}>Chế độ Remote</Text>
+          </View>
+        ) : (
+          <View style={s.gpsChip}>
+            <View style={[s.gpsDot, locationStatus === 'ok' && s.gpsDotGreen, locationStatus === 'error' && s.gpsDotRed]} />
+            <Text style={s.gpsText}>
+              {locationStatus === 'loading' ? 'Đang lấy vị trí...' : locationStatus === 'error' ? 'Không có GPS' : 'GPS · Hợp lệ'}
+            </Text>
+          </View>
+        )}
 
         {/* Scan target */}
         <View style={s.scanTarget}>
@@ -163,8 +182,8 @@ export default function AttendanceScreen({ navigation, route }: Props) {
         <View style={s.statusRow}>
           <View style={s.statusItem}>
             <Text style={s.statusLabel}>Vị trí</Text>
-            <Text style={[s.statusVal, locationStatus === 'ok' && s.statusValGreen]}>
-              {locationStatus === 'ok' ? '✓ Hợp lệ' : locationStatus === 'error' ? '✗ Lỗi' : '...'}
+            <Text style={[s.statusVal, (isRemote || locationStatus === 'ok') && s.statusValGreen]}>
+              {isRemote ? '✓ Remote' : locationStatus === 'ok' ? '✓ Hợp lệ' : locationStatus === 'error' ? '✗ Lỗi' : '...'}
             </Text>
           </View>
           <View style={s.statusItem}>
@@ -179,9 +198,9 @@ export default function AttendanceScreen({ navigation, route }: Props) {
 
         {/* Check-in button */}
         <TouchableOpacity
-          style={[s.checkinBtn, (isProcessing || locationStatus !== 'ok') && s.checkinBtnDisabled]}
+          style={[s.checkinBtn, (isProcessing || (!isRemote && locationStatus !== 'ok')) && s.checkinBtnDisabled]}
           onPress={handleCapture}
-          disabled={isProcessing || locationStatus !== 'ok'}
+          disabled={isProcessing || (!isRemote && locationStatus !== 'ok')}
           activeOpacity={0.85}
         >
           <LinearGradient

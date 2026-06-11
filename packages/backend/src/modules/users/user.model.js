@@ -66,6 +66,15 @@ const userSchema = new mongoose.Schema(
     },
     isActive: { type: Boolean, default: true },
 
+    // Chấm công từ xa (remote): nhân viên được phép chấm công ngoài geofence,
+    // bản ghi remote luôn ở trạng thái PENDING chờ HR duyệt
+    isRemote: { type: Boolean, default: false },
+    remoteApprovedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     // Số ngày phép
     leaveBalance: {
       // Nghỉ phép năm

@@ -205,6 +205,7 @@ export class AuthService {
         const { accessToken, refreshToken } = generateTokenFromUser(user);
         await redisSet(refreshKey(user._id), refreshToken, REFRESH_TTL);
         await AuthService.registerActiveSession(user, meta);
+        const permissions = await getEffectivePermissionsByRole(user.role);
         return {
             message: "Email verified successfully",
             token: accessToken,
@@ -215,6 +216,7 @@ export class AuthService {
                 name: user.name,
                 role: user.role,
                 isVerified: user.isVerified,
+                permissions,
             },
         };
     }
@@ -341,6 +343,12 @@ export class AuthService {
 
     // Xác thực OTP để reset password
     static async verifyResetOtp(email, otp) {
+        // Reset token chỉ lưu trên Redis — chặn issuance nếu Redis tắt/degraded,
+        // tránh trả token mà bước resetPassword sau đó không thể xác thực được.
+        if (!isRedisBindingActive()) {
+            throw new Error("Password reset service unavailable");
+        }
+
         const normalizedEmail = email.toLowerCase().trim();
         const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("User not found");
@@ -471,6 +479,12 @@ export class AuthService {
 
     // Đặt lại mật khẩu mới
     static async resetPassword(email, newPassword, resetToken) {
+        // Reset token chỉ lưu trên Redis — nếu Redis tắt/degraded thì không có nguồn xác thực,
+        // báo lỗi rõ ràng thay vì trả về "Invalid or expired reset token".
+        if (!isRedisBindingActive()) {
+            throw new Error("Password reset service unavailable");
+        }
+
         const normalizedEmail = email.toLowerCase().trim();
         const user = await UserModel.findOne({ email: normalizedEmail });
         if (!user) throw new Error("User not found");

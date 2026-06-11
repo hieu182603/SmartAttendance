@@ -1,6 +1,6 @@
 import { UserService } from "./user.service.js";
 import { UserModel } from "./user.model.js";
-import { TenantAccessError } from "../../utils/tenantCompany.util.js";
+import { TenantAccessError, resolveTenantCompanyId, canAccessUserTenant } from "../../utils/tenantCompany.util.js";
 
 function tenantRequester(req) {
   return {
@@ -559,6 +559,57 @@ export class UserController {
   }
 
   /**
+   * PATCH /api/users/:id/remote-status — bật/tắt chế độ chấm công remote (Admin/HR)
+   */
+  static async setRemoteStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { isRemote } = req.body || {};
+
+      if (typeof isRemote !== "boolean") {
+        return res.status(400).json({ message: "isRemote phải là true hoặc false" });
+      }
+
+      // Kiểm tra tenant scope (HR_MANAGER chỉ thao tác trong công ty của mình)
+      const requester = tenantRequester(req);
+      const target = await UserModel.findById(id).select("companyId").lean();
+      if (!target) {
+        return res.status(404).json({ message: "Không tìm thấy user" });
+      }
+      if (requester.role !== "SUPER_ADMIN" && !canAccessUserTenant(requester, target)) {
+        return res.status(403).json({ message: "Không có quyền thao tác với nhân viên này" });
+      }
+
+      const updated = await UserService.setRemoteStatus(id, isRemote, req.user?.userId || null);
+
+      await logActivity(req, {
+        action: "set_remote_status",
+        entityType: "user",
+        entityId: id,
+        details: {
+          description: `${isRemote ? "Bật" : "Tắt"} chế độ remote cho user: ${updated.name}`,
+          targetUserId: id,
+          isRemote,
+        },
+        status: "success",
+      });
+
+      return res.status(200).json({
+        message: isRemote
+          ? "Đã bật chế độ chấm công remote cho nhân viên"
+          : "Đã tắt chế độ chấm công remote cho nhân viên",
+        user: updated,
+      });
+    } catch (error) {
+      if (error.message === "User not found") {
+        return res.status(404).json({ message: "Không tìm thấy user" });
+      }
+      console.error("[UserController] setRemoteStatus error:", error);
+      return res.status(500).json({ message: error.message || "Lỗi server. Vui lòng thử lại sau." });
+    }
+  }
+
+  /**
    * @swagger
    * /api/users/me/avatar:
    *   post:
@@ -766,12 +817,15 @@ export class UserController {
   static async getManagers(req, res) {
     try {
       const { branchId } = req.query;
+      const companyId = resolveTenantCompanyId(req);
 
       // Query để lấy managers
       const query = {
         role: { $in: ["ADMIN", "HR_MANAGER", "MANAGER", "SUPER_ADMIN"] },
         isActive: true,
       };
+
+      if (companyId) query.companyId = companyId;
 
       if (branchId && branchId !== "all") {
         query.branch = branchId;

@@ -492,6 +492,11 @@ export class AuthController {
             const result = await AuthService.verifyResetOtp(parse.data.email, parse.data.otp);
             return res.status(200).json(result);
         } catch (error) {
+            if (error.message === "Password reset service unavailable") {
+                return res.status(503).json({
+                    message: "Dịch vụ đặt lại mật khẩu tạm thời không khả dụng. Vui lòng thử lại sau.",
+                });
+            }
             if (error.message === "User not found") {
                 return res.status(404).json({ message: "User not found" });
             }
@@ -610,6 +615,11 @@ export class AuthController {
             const result = await AuthService.resetPassword(parse.data.email, parse.data.password, parse.data.resetToken);
             return res.status(200).json(result);
         } catch (error) {
+            if (error.message === "Password reset service unavailable") {
+                return res.status(503).json({
+                    message: "Dịch vụ đặt lại mật khẩu tạm thời không khả dụng. Vui lòng thử lại sau.",
+                });
+            }
             if (error.message === "User not found") {
                 return res.status(404).json({ message: "User not found" });
             }
