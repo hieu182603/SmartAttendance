@@ -58,4 +58,22 @@ export const AttendanceService = {
         });
         return response.data;
     },
+
+    getPendingRemoteAttendance: async (params: { page?: number; limit?: number; search?: string } = {}) => {
+        const response = await api.get('/attendance/pending-remote', { params });
+        return response.data;
+    },
+
+    approveRemoteAttendance: async (
+        id: string,
+        approvalStatus: 'APPROVED' | 'REJECTED',
+        options?: { workCredit?: number; notes?: string }
+    ) => {
+        const response = await api.patch(`/attendance/${id}/approve-remote`, {
+            approvalStatus,
+            workCredit: options?.workCredit,
+            notes: options?.notes,
+        });
+        return response.data;
+    },
 };

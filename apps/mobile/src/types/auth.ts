@@ -14,6 +14,7 @@ export interface User {
     employeeId?: string;
     position?: string;
     phone?: string;
+    isRemote?: boolean;
 }
 
 export interface AuthResponse {

@@ -68,3 +68,36 @@ export function useCheckOut() {
         },
     });
 }
+
+/**
+ * Hook to fetch pending remote attendance records awaiting HR approval.
+ */
+export function usePendingRemoteAttendance(
+    params?: { page?: number; limit?: number; search?: string },
+    enabled: boolean = true
+) {
+    return useQuery({
+        queryKey: queryKeys.attendance.pendingRemote(params),
+        queryFn: () => AttendanceService.getPendingRemoteAttendance(params || {}),
+        enabled,
+    });
+}
+
+/**
+ * Mutation hook to approve/reject a remote attendance record.
+ * Invalidates attendance queries on success.
+ */
+export function useApproveRemoteAttendance() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (vars: {
+            id: string;
+            approvalStatus: 'APPROVED' | 'REJECTED';
+            options?: { workCredit?: number; notes?: string };
+        }) => AttendanceService.approveRemoteAttendance(vars.id, vars.approvalStatus, vars.options),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.attendance.all });
+        },
+    });
+}
