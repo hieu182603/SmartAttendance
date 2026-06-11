@@ -1,0 +1,48 @@
+# Root build context is used by packages/backend/Dockerfile (pnpm workspace build).
+# Keep the context small and never leak secrets or local artifacts into images.
+
+# Dependencies & build outputs (reinstalled/rebuilt inside the image)
+**/node_modules/
+**/dist/
+**/build/
+.pnpm-store/
+
+# Environment files — secrets are injected at runtime via compose, never baked in
+.env
+**/.env
+.env.local
+.env.*.local
+
+# Apps not needed by the backend image
+apps/web/
+apps/mobile/
+apps/lark-gadget/
+
+# AI service has its own Dockerfile/context
+packages/ai-service/
+
+# Git / CI / editor
+.git/
+.github/
+.vscode/
+.idea/
+.agent/
+.claude/
+.grapuco/
+
+# Tests & reports
+**/__tests__/
+**/playwright-report/
+**/test-results/
+**/coverage/
+**/.pytest_cache/
+
+# Logs & misc
+*.log
+**/*.log
+*.tar.gz
+project.tar.gz
+
+# Python local artifacts
+**/venv/
+**/__pycache__/
