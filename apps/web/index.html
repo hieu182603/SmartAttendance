@@ -88,25 +88,34 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/favico.js/0.3.10/favico.min.js"></script>
     <script>
       (function () {
+        var _retries = 0;
+        var MAX_RETRIES = 20;
         function init() {
           if (globalThis.Favico) {
-            // eslint-disable-next-line no-undef
-            globalThis._fav = new globalThis.Favico({ animation: "popFade" });
-            globalThis.setFaviconBadge = function (count) {
-              try {
-                if (typeof count === "number") {
-                  if (count > 0) globalThis._fav.badge(count);
-                  else globalThis._fav.reset();
-                } else if (typeof count === "string") {
-                  globalThis._fav.badge(count);
-                } else {
-                  globalThis._fav.reset();
+            try {
+              // eslint-disable-next-line no-undef
+              globalThis._fav = new globalThis.Favico({ animation: "none" });
+              globalThis.setFaviconBadge = function (count) {
+                try {
+                  if (!globalThis._fav) return;
+                  if (typeof count === "number") {
+                    if (count > 0) globalThis._fav.badge(count);
+                    else globalThis._fav.reset();
+                  } else if (typeof count === "string") {
+                    globalThis._fav.badge(count);
+                  } else {
+                    globalThis._fav.reset();
+                  }
+                } catch (e) {
+                  console.warn("setFaviconBadge error", e);
                 }
-              } catch (e) {
-                console.warn("setFaviconBadge error", e);
-              }
-            };
-          } else {
+              };
+            } catch (e) {
+              console.warn("Favico init error (badge notifications disabled):", e);
+              globalThis.setFaviconBadge = function () {};
+            }
+          } else if (_retries < MAX_RETRIES) {
+            _retries++;
             setTimeout(init, 200);
           }
         }

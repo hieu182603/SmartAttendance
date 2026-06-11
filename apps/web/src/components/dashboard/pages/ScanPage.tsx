@@ -2000,38 +2000,45 @@ const ScanPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Face detection hint (active action, face not good) */}
-          {faceStatus?.isRegistered &&
-            faceDetection.modelReady &&
-            activeAction !== "idle" &&
-            !autoCaptureEnabled &&
-            faceDetection.detectionStatus !== "good" && (
-              <div className="flex items-start gap-2 rounded-xl border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-2.5 text-xs text-[var(--warning)] flex-shrink-0">
-                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-px" />
-                <p>{faceDetection.statusMessage}</p>
-              </div>
-            )}
-
           {/* Primary action + auto-capture toggle */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 flex flex-col gap-2.5 flex-shrink-0">
-            {/* Auto-capture toggle (compact) */}
-            {faceStatus?.isRegistered && activeAction === "idle" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAutoCaptureEnabled((prev) => !prev);
-                  setAutoCaptureTriggered(false);
-                  faceDetection.resetConsecutiveFrames();
-                }}
-                className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-semibold border transition-colors ${autoCaptureEnabled
-                  ? "bg-[var(--success)]/12 border-[var(--success)]/30 text-[var(--success)]"
-                  : "bg-[var(--shell)] border-[var(--border)] text-[var(--text-sub)]"
-                  }`}
-                title={autoCaptureEnabled ? "Tắt tự động chấm công" : "Bật tự động chấm công"}
-              >
-                <Scan className="h-3 w-3" />
-                <span>{autoCaptureEnabled ? "Chế độ: Tự động" : "Chế độ: Thủ công"}</span>
-              </button>
+            {/* Auto-capture toggle (compact) — interactive when idle, badge when active */}
+            {faceStatus?.isRegistered && (
+              activeAction === "idle" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoCaptureEnabled((prev) => !prev);
+                    setAutoCaptureTriggered(false);
+                    faceDetection.resetConsecutiveFrames();
+                  }}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-semibold border transition-colors ${autoCaptureEnabled
+                    ? "bg-[var(--success)]/12 border-[var(--success)]/30 text-[var(--success)]"
+                    : "bg-[var(--shell)] border-[var(--border)] text-[var(--text-sub)]"
+                    }`}
+                  title={autoCaptureEnabled ? "Tắt tự động chấm công" : "Bật tự động chấm công"}
+                >
+                  <Scan className="h-3 w-3" />
+                  <span>{autoCaptureEnabled ? "Chế độ: Tự động" : "Chế độ: Thủ công"}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoCaptureEnabled((prev) => !prev);
+                    setAutoCaptureTriggered(false);
+                    faceDetection.resetConsecutiveFrames();
+                  }}
+                  className={`flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-semibold border transition-colors ${autoCaptureEnabled
+                    ? "bg-[var(--success)]/12 border-[var(--success)]/30 text-[var(--success)]"
+                    : "bg-[var(--shell)] border-[var(--border)] text-[var(--text-sub)]"
+                    }`}
+                  title={autoCaptureEnabled ? "Chuyển sang thủ công" : "Chuyển sang tự động"}
+                >
+                  {autoCaptureEnabled ? <Scan className="h-3 w-3" /> : <Camera className="h-3 w-3" />}
+                  <span>{autoCaptureEnabled ? "Chế độ: Tự động" : "Chế độ: Thủ công"}</span>
+                </button>
+              )
             )}
 
             {/* Primary action button */}
@@ -2046,35 +2053,71 @@ const ScanPage: React.FC = () => {
                 </div>
               </div>
             ) : primaryMode === "armed" ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveAction("idle");
-                  setAutoCaptureTriggered(false);
-                  faceDetection.resetConsecutiveFrames();
-                  if (autoCaptureTimeoutRef.current) clearTimeout(autoCaptureTimeoutRef.current);
-                }}
-                disabled={isProcessing}
-                className="w-full py-3 px-4 rounded-xl bg-[var(--shell)] border border-[var(--accent-cyan)] text-[var(--accent-cyan)] font-bold text-sm tracking-wider uppercase flex items-center justify-center gap-2.5 disabled:opacity-50 pulse-armed"
-              >
-                {isProcessing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Scan className="h-4 w-4" />
+              <div className="flex flex-col gap-2 w-full">
+                {/* Manual capture button — shown only when autoCaptureEnabled is false */}
+                {!autoCaptureEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeAction === "checkin") {
+                        voiceFeedback.speakMessage("Đang chấm công vào");
+                        handleCheckIn();
+                      } else if (activeAction === "checkout") {
+                        voiceFeedback.speakMessage("Đang chấm công ra");
+                        handleCheckOut();
+                      }
+                    }}
+                    disabled={isProcessing}
+                    className={`w-full py-3 px-4 rounded-xl font-bold text-sm tracking-wider uppercase flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      activeAction === "checkin"
+                        ? "bg-gradient-to-br from-[var(--accent-cyan)] to-[var(--success)] text-[#042f2e] shadow-[0_0_32px_-4px_rgba(34,197,94,0.4)] hover:shadow-[0_0_40px_-4px_rgba(34,197,94,0.55)] hover:-translate-y-px"
+                        : "bg-gradient-to-br from-orange-500 to-[var(--error)] text-white shadow-[0_4px_20px_-4px_rgba(239,68,68,0.4)] hover:shadow-[0_0_40px_-4px_rgba(239,68,68,0.55)] hover:-translate-y-px"
+                    }`}
+                  >
+                    {isProcessing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Camera className="h-4 w-4" />
+                    )}
+                    <div className="flex flex-col items-start">
+                      <span className="leading-none">
+                        {isProcessing
+                          ? "Đang xác thực..."
+                          : activeAction === "checkin"
+                            ? "Chụp & Check-in"
+                            : "Chụp & Check-out"}
+                      </span>
+                      <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
+                        {isProcessing ? "Vui lòng đợi..." : "Nhấn để chụp ảnh khuôn mặt"}
+                      </span>
+                    </div>
+                  </button>
                 )}
-                <div className="flex flex-col items-start">
-                  <span className="leading-none">
-                    {isProcessing
-                      ? "Đang xác thực..."
-                      : activeAction === "checkin"
-                        ? "Đang quét cho Check-in..."
-                        : "Đang quét cho Check-out..."}
-                  </span>
-                  <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
-                    Giữ yên — nhấn lại để hủy
-                  </span>
-                </div>
-              </button>
+
+                {/* Auto-scan indicator — shown only when autoCaptureEnabled is true */}
+                {autoCaptureEnabled && (
+                  <div className="w-full py-3 px-4 rounded-xl bg-[var(--shell)] border border-[var(--accent-cyan)] text-[var(--accent-cyan)] font-bold text-sm tracking-wider uppercase flex items-center justify-center gap-2.5 pulse-armed">
+                    {isProcessing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Scan className="h-4 w-4" />
+                    )}
+                    <div className="flex flex-col items-start">
+                      <span className="leading-none">
+                        {isProcessing
+                          ? "Đang xác thực..."
+                          : activeAction === "checkin"
+                            ? "Đang quét cho Check-in..."
+                            : "Đang quét cho Check-out..."}
+                      </span>
+                      <span className="text-[10px] font-semibold opacity-70 normal-case tracking-normal mt-1">
+                        Giữ yên — tự động chụp khi khuôn mặt OK
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
             ) : primaryMode === "checkin" ? (
               <button
                 type="button"

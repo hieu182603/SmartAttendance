@@ -705,7 +705,7 @@ const FaceRegistrationPage: React.FC = () => {
               if (lastVoiceMessageRef.current !== "reduce_glare") {
                 speakMessage("Tránh ánh sáng trực tiếp vào khuôn mặt.");
               }
-            } else if (blurScore < 0.35) {
+            } else if (blurScore < 0.15) {
               setDetectionStatus("warning");
               setMaskColor("warning");
               setStatusMessage("Ảnh có vẻ mờ. Giữ camera ổn định hoặc di chuyển chậm hơn.");
