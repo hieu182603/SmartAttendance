@@ -26,6 +26,7 @@ const getTitleByType = (type) => {
     'overtime': 'Tăng ca',
     'remote': 'Làm từ xa',
     'late': 'Đi muộn',
+    'early_leave': 'Về sớm',
     'correction': 'Sửa công',
     'other': 'Yêu cầu khác'
   }
@@ -41,6 +42,7 @@ const DEFAULT_REQUEST_TYPES = [
   { value: 'overtime', label: 'Tăng ca' },
   { value: 'remote', label: 'Làm từ xa' },
   { value: 'late', label: 'Đi muộn' },
+  { value: 'early_leave', label: 'Về sớm' },
   { value: 'correction', label: 'Sửa công' },
   { value: 'other', label: 'Yêu cầu khác' }
 ]
