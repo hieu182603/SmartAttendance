@@ -39,6 +39,7 @@ const SUPER_ADMIN_MENU_ORDER: Record<string, number> = {
   'company-management': 10,
   'ticket-management': 20,
   'feature-toggles': 30,
+  'google-analytics': 35,
   'ai-billing': 40,
   'system-health': 200,
   'active-sessions': 210,
@@ -157,6 +158,14 @@ export const MENU_ITEMS: MenuItem[] = [
     label: 'Quản lý chức năng',
     icon: ToggleRight,
     path: '/admin/feature-toggles',
+    minimumRole: UserRole.SUPER_ADMIN,
+    section: 'admin',
+  },
+  {
+    id: 'google-analytics',
+    label: 'Google Analytics',
+    icon: BarChart3,
+    path: '/admin/google-analytics',
     minimumRole: UserRole.SUPER_ADMIN,
     section: 'admin',
   },
@@ -363,6 +372,7 @@ export const PLATFORM_MENU_IDS = new Set([
   'company-management',
   'ticket-management',
   'feature-toggles',
+  'google-analytics',
 ]);
 /** HR day-to-day operations (collapsed group in sidebar). */
 export const HR_OPERATIONS_MENU_IDS = new Set([

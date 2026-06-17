@@ -19,6 +19,10 @@
 .env.local
 .env.*.local
 
+# Google Cloud service account keys
+**/attendance-smart-*.json
+**/*-service-account*.json
+
 # Logs (only ignore log files, not code folders)
 *.log
 npm-debug.log*
