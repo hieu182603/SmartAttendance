@@ -95,11 +95,10 @@ class ShiftAssignmentService {
                 options.isFullTime !== true; // Mặc định là tạo assignment mới nếu không phải full time
 
             if (shouldCreateAssignment) {
-                // Vô hiệu hóa các assignment cũ CỦA CÙNG CA NÀY đang active để tránh duplicate
+                // Vô hiệu hóa các assignment cũ đang active để tránh conflict
                 await EmployeeShiftAssignmentModel.updateMany(
                     {
                         userId,
-                        shiftId, // Chỉ vô hiệu hóa assignment của CÙNG ca này
                         isActive: true,
                     },
                     {
@@ -107,9 +106,13 @@ class ShiftAssignmentService {
                     }
                 );
 
-                // KHÔNG xóa defaultShiftId khi gán ca mới. 
-                // Assignment mới sẽ đóng vai trò ghi đè (ưu tiên cao hơn) hoặc bổ sung vào các ngày trống,
-                // còn defaultShiftId vẫn giữ nguyên làm ca mặc định cho các ngày khác.
+                // Xóa defaultShiftId khi chuyển từ full time sang assignment mới để tránh conflict
+                // Assignment sẽ có priority cao hơn defaultShiftId
+                await UserModel.findByIdAndUpdate(
+                    userId,
+                    { $unset: { defaultShiftId: 1 } },
+                    { new: true }
+                );
 
                 // Tạo assignment mới
                 // Đảm bảo effectiveFrom luôn là 00:00:00 để match với logic check trong generateScheduleForDate
@@ -135,10 +138,13 @@ class ShiftAssignmentService {
                     isActive: true,
                 });
 
-                // Regenerate schedule sau khi tạo assignment mới (CHẠY NGẦM ĐỂ TĂNG TỐC ĐỘ API)
-                scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId).catch(scheduleError => {
+                // Regenerate schedule sau khi tạo assignment mới
+                try {
+                    await scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId);
+                } catch (scheduleError) {
                     console.error(`[ShiftAssignmentService] Error regenerating schedule for user ${userId}:`, scheduleError);
-                });
+                    // Không throw error để không làm gián đoạn việc tạo assignment
+                }
 
                 return {
                     userId: user._id,
@@ -171,10 +177,11 @@ class ShiftAssignmentService {
                 { new: true }
             ).populate('defaultShiftId');
 
-            // Chạy ngầm việc regenerate schedule
-            scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId).catch(scheduleError => {
+            try {
+                await scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId);
+            } catch (scheduleError) {
                 console.warn(`[ShiftAssignmentService] Warning: Could not regenerate schedule for user ${userId}:`, scheduleError.message);
-            });
+            }
 
             return {
                 userId: updatedUser._id,
@@ -232,31 +239,19 @@ class ShiftAssignmentService {
     /**
      * Remove shift assignment từ nhân viên
      * @param {string} userId - User ID
-     * @param {string} shiftId - Shift ID
      * @returns {Promise<Object>} Result
      */
-    async removeShiftFromUser(userId, shiftId) {
+    async removeShiftFromUser(userId) {
         try {
-            const userBefore = await UserModel.findById(userId);
-            if (!userBefore) {
-                throw new Error('Nhân viên không tồn tại');
-            }
-
-            // Nếu ca mặc định là ca này thì xóa đi
-            if (userBefore.defaultShiftId && userBefore.defaultShiftId.toString() === shiftId.toString()) {
-                await UserModel.findByIdAndUpdate(userId, { $unset: { defaultShiftId: 1 } });
-            }
-
-            // Vô hiệu hóa các assignment CỦA CA NÀY đang active
-            await EmployeeShiftAssignmentModel.updateMany(
-                { userId, shiftId, isActive: true },
-                { $set: { isActive: false } }
+            const user = await UserModel.findByIdAndUpdate(
+                userId,
+                { $unset: { defaultShiftId: 1 } },
+                { new: true }
             );
 
-            // Chạy ngầm việc regenerate schedule
-            scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId).catch(scheduleError => {
-                console.warn(`[ShiftAssignmentService] Warning: Could not regenerate schedule for user ${userId}:`, scheduleError.message);
-            });
+            if (!user) {
+                throw new Error('Nhân viên không tồn tại');
+            }
 
             return {
                 success: true,
@@ -264,43 +259,6 @@ class ShiftAssignmentService {
             };
         } catch (error) {
             console.error('[ShiftAssignmentService] removeShiftFromUser error:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Remove shift assignment từ nhiều nhân viên
-     * @param {string[]} userIds - Array of User IDs
-     * @param {string} shiftId - Shift ID
-     * @returns {Promise<Object>} Result
-     */
-    async bulkRemoveShiftFromUsers(userIds, shiftId) {
-        try {
-            // Xóa ca mặc định
-            await UserModel.updateMany(
-                { _id: { $in: userIds }, defaultShiftId: shiftId },
-                { $unset: { defaultShiftId: 1 } }
-            );
-
-            // Vô hiệu hóa assignment
-            await EmployeeShiftAssignmentModel.updateMany(
-                { userId: { $in: userIds }, shiftId, isActive: true },
-                { $set: { isActive: false } }
-            );
-
-            // Chạy ngầm việc regenerate schedule
-            userIds.forEach(userId => {
-                scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId).catch(err => {
-                    console.warn(`[ShiftAssignmentService] Warning: Could not regenerate schedule for user ${userId}:`, err.message);
-                });
-            });
-
-            return {
-                success: true,
-                message: `Đã gỡ ca làm việc cho ${userIds.length} nhân viên`,
-            };
-        } catch (error) {
-            console.error('[ShiftAssignmentService] bulkRemoveShiftFromUsers error:', error);
             throw error;
         }
     }
@@ -327,12 +285,7 @@ class ShiftAssignmentService {
                     { effectiveTo: null },
                     { effectiveTo: { $gte: checkDate } },
                 ],
-            }).select('userId pattern daysOfWeek effectiveFrom effectiveTo').lean();
-
-            const assignmentMap = new Map();
-            assignments.forEach(a => {
-                assignmentMap.set(a.userId.toString(), a);
-            });
+            }).select('userId').lean();
 
             const assignmentUserIds = assignments
                 .map(a => a.userId.toString())
@@ -359,7 +312,7 @@ class ShiftAssignmentService {
                 ];
             }
 
-            const [usersList, total] = await Promise.all([
+            const [users, total] = await Promise.all([
                 UserModel.find(query)
                     .populate('department', 'name code')
                     .populate('branch', 'name')
@@ -369,17 +322,6 @@ class ShiftAssignmentService {
                     .lean(),
                 UserModel.countDocuments(query),
             ]);
-
-            const users = usersList.map(u => {
-                const assignment = assignmentMap.get(u._id.toString());
-                return {
-                    ...u,
-                    assignmentPattern: assignment ? assignment.pattern : 'all',
-                    assignmentDays: assignment ? assignment.daysOfWeek : null,
-                    effectiveFrom: assignment ? assignment.effectiveFrom : null,
-                    effectiveTo: assignment ? assignment.effectiveTo : null,
-                };
-            });
 
             return {
                 users,
@@ -418,21 +360,11 @@ class ShiftAssignmentService {
                             { effectiveTo: null },
                             { effectiveTo: { $gte: checkDate } },
                         ],
-                    }).select('userId pattern daysOfWeek').lean();
+                    }).select('userId').lean();
 
                     const assignmentUserIds = assignments
                         .map(a => a.userId.toString())
                         .filter((id, index, arr) => arr.indexOf(id) === index);
-
-                    // Lọc ra các user còn active
-                    const activeAssignmentUsers = await UserModel.find({
-                        _id: { $in: assignmentUserIds },
-                        isActive: true
-                    }).select('_id').lean();
-                    const activeAssignmentUserIds = activeAssignmentUsers.map(u => u._id.toString());
-
-                    // Lọc lại assignments để chỉ chứa những user active
-                    const activeAssignments = assignments.filter(a => activeAssignmentUserIds.includes(a.userId.toString()));
 
                     const defaultShiftUsers = await UserModel.find({
                         defaultShiftId: shift._id,
@@ -441,53 +373,11 @@ class ShiftAssignmentService {
 
                     const defaultShiftUserIds = defaultShiftUsers.map(u => u._id.toString());
 
-                    const allUserIds = [...new Set([...activeAssignmentUserIds, ...defaultShiftUserIds])];
-
-                    // Calculate counts per day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
-                    const employeeCountByDay = [0, 0, 0, 0, 0, 0, 0];
-                    for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek++) {
-                        const dayUserIds = new Set();
-                        
-                        // Add default shift users using workDays of the shift
-                        const workDays = shift.workDays || [1, 2, 3, 4, 5, 6];
-                        if (workDays.includes(dayOfWeek)) {
-                            defaultShiftUserIds.forEach(id => dayUserIds.add(id));
-                        }
-
-                        // Check each assignment
-                        activeAssignments.forEach(assignment => {
-                            let matched = false;
-                            switch (assignment.pattern) {
-                                case 'all':
-                                    matched = true;
-                                    break;
-                                case 'weekdays':
-                                    matched = dayOfWeek >= 1 && dayOfWeek <= 5;
-                                    break;
-                                case 'weekends':
-                                    matched = dayOfWeek === 0 || dayOfWeek === 6;
-                                    break;
-                                case 'custom':
-                                    if (assignment.daysOfWeek && assignment.daysOfWeek.includes(dayOfWeek)) {
-                                        matched = true;
-                                    }
-                                    break;
-                                case 'specific':
-                                    // specific is harder to calculate accurately for a generic week view
-                                    // We will approximate or ignore for weekly generic stats
-                                    break;
-                            }
-                            if (matched) {
-                                dayUserIds.add(assignment.userId.toString());
-                            }
-                        });
-                        employeeCountByDay[dayOfWeek] = dayUserIds.size;
-                    }
+                    const allUserIds = [...new Set([...assignmentUserIds, ...defaultShiftUserIds])];
 
                     return {
                         shiftId: shift._id,
                         count: allUserIds.length,
-                        employeeCountByDay,
                     };
                 })
             );

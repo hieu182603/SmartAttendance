@@ -28,7 +28,7 @@ const GAP_SIZE = 8;
 const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 const DAYS_OF_WEEK = ['CN','T2','T3','T4','T5','T6','T7'];
 
-type DayStatus = 'completed' | 'today' | 'scheduled' | 'off' | 'none' | 'late' | 'missed';
+type DayStatus = 'completed' | 'today' | 'scheduled' | 'off' | 'none' | 'late';
 
 export default function ScheduleScreen() {
   const queryClient = useQueryClient();
@@ -155,8 +155,7 @@ export default function ScheduleScreen() {
     if (schedule.status === 'off') return 'off';
 
     if (attendance) {
-      if (attendance.status === 'on_leave' || attendance.status === 'weekend') return 'off';
-      if (attendance.status === 'absent') return 'missed';
+      if (attendance.status === 'absent' || attendance.status === 'weekend') return 'off';
       if (attendance.status === 'LATE') return 'late';
       const checkIn = attendance.checkIn || attendance.check_in;
       const hasCheckIn = checkIn && String(checkIn).trim() !== '' &&
@@ -169,7 +168,7 @@ export default function ScheduleScreen() {
 
     const dateOnly = new Date(date);
     dateOnly.setHours(0, 0, 0, 0);
-    if (dateOnly < today) return 'missed';
+    if (dateOnly < today) return 'off';
 
     return 'scheduled';
   };
@@ -183,8 +182,6 @@ export default function ScheduleScreen() {
         return { backgroundColor: t.colors.status.success, textColor: '#ffffff', borderColor: t.colors.status.success };
       case 'late':
         return { backgroundColor: t.colors.status.warning, textColor: '#ffffff', borderColor: t.colors.status.warning };
-      case 'missed':
-        return { backgroundColor: t.colors.status.danger, textColor: '#ffffff', borderColor: t.colors.status.danger };
       case 'today':
         return { backgroundColor: t.colors.brand.primary, textColor: '#ffffff', borderColor: t.colors.brand.primary };
       case 'scheduled':
@@ -203,7 +200,6 @@ export default function ScheduleScreen() {
   const legendItems = [
     { color: t.colors.status.success, label: 'Đã làm' },
     { color: t.colors.status.warning, label: 'Đi muộn' },
-    { color: t.colors.status.danger, label: 'Vắng' },
     { color: t.colors.brand.primary, label: 'Hôm nay' },
     { color: t.colors.brand.primary, label: 'Đã lên lịch' },
     { color: 'rgba(148,163,184,0.4)', label: 'Nghỉ' },

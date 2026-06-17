@@ -18,7 +18,7 @@ const requestSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["leave", "sick", "unpaid", "compensatory", "maternity", "overtime", "remote", "late", "early_leave", "correction", "other"],
+      enum: ["leave", "sick", "unpaid", "compensatory", "maternity", "overtime", "remote", "late", "correction", "other"],
       required: true,
     },
     startDate: {
@@ -134,7 +134,6 @@ const mapLeaveType = (requestType) => {
     overtime: null,
     remote: null,
     late: null,
-    early_leave: null,
     correction: null,
     other: null,
   };

@@ -16,7 +16,6 @@ const shiftSchema = new mongoose.Schema(
     endTime: { type: String, required: true },
     breakDuration: { type: Number, default: 0 },
     isFlexible: { type: Boolean, default: false },
-    workDays: { type: [Number], default: [1, 2, 3, 4, 5, 6] },
     description: { type: String },
     isActive: { type: Boolean, default: true },
   },
@@ -41,7 +40,7 @@ shiftSchema.pre("save", function (next) {
 
 shiftSchema.post("save", async function (doc) {
   try {
-    if (this.isModified('startTime') || this.isModified('endTime') || this.isModified('breakDuration') || this.isModified('workDays')) {
+    if (this.isModified('startTime') || this.isModified('endTime') || this.isModified('breakDuration')) {
       const { scheduleGenerationService } = await import('../schedule/scheduleGeneration.service.js');
       const { EmployeeScheduleModel } = await import('../schedule/schedule.model.js');
       
@@ -70,13 +69,14 @@ shiftSchema.post("save", async function (doc) {
         }
       );
       
-      if (this.isModified('workDays') && userIds.length > 0) {
-        const endDate = new Date(today);
-        endDate.setMonth(endDate.getMonth() + 3);
-        await scheduleGenerationService.batchCreateOrUpdateSchedule(userIds, today, endDate);
-        console.log(`[ShiftModel] Regenerated schedules for ${userIds.length} users because workDays changed.`);
+      for (const userId of userIds) {
+        try {
+          await scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId, 3);
+        } catch (error) {
+          console.warn(`[ShiftModel] Warning: Could not regenerate schedule for user ${userId}:`, error.message);
+        }
       }
-
+      
       console.log(`[ShiftModel] Updated schedules for shift ${doc.name} (${doc._id}), affected ${userIds.length} users`);
     }
   } catch (error) {
@@ -91,7 +91,7 @@ shiftSchema.post('findOneAndUpdate', async function (doc) {
     const update = this.getUpdate();
     const $set = update.$set || update;
     
-    if ($set && ($set.startTime || $set.endTime || $set.breakDuration || $set.workDays !== undefined)) {
+    if ($set && ($set.startTime || $set.endTime || $set.breakDuration)) {
       const { scheduleGenerationService } = await import('../schedule/scheduleGeneration.service.js');
       const { EmployeeScheduleModel } = await import('../schedule/schedule.model.js');
       
@@ -121,13 +121,14 @@ shiftSchema.post('findOneAndUpdate', async function (doc) {
       
       const userIds = [...new Set(schedules.map(s => s.userId.toString()))];
       
-      if ($set.workDays !== undefined && userIds.length > 0) {
-        const endDate = new Date(today);
-        endDate.setMonth(endDate.getMonth() + 3);
-        await scheduleGenerationService.batchCreateOrUpdateSchedule(userIds, today, endDate);
-        console.log(`[ShiftModel] Regenerated schedules for ${userIds.length} users because workDays changed.`);
+      for (const userId of userIds) {
+        try {
+          await scheduleGenerationService.regenerateScheduleOnAssignmentChange(userId, 3);
+        } catch (error) {
+          console.warn(`[ShiftModel] Warning: Could not regenerate schedule for user ${userId}:`, error.message);
+        }
       }
-
+      
       console.log(`[ShiftModel] Updated schedules for shift ${doc.name} (${doc._id}), affected ${userIds.length} users`);
     }
   } catch (error) {
