@@ -29,6 +29,10 @@ interface Shift {
   employeeCountByDay?: number[];
   effectiveFrom?: string;
   effectiveTo?: string;
+  employeeCount?: number;
+  isFlexible?: boolean;
+  workDays?: number[];
+  description?: string;
 }
 
 interface SimpleDepartment {
@@ -203,7 +207,7 @@ export function ShiftsPage() {
       const newShift = await shiftService.createShift(payload);
       toast.success(`✅ Đã tạo ca làm việc ${formData.name}`);
       setIsDialogOpen(false);
-      setFormData({ name: '', startTime: '', endTime: '', breakDuration: '', description: '' });
+      setFormData({ name: '', startTime: '', endTime: '', breakDuration: '', description: '', workDays: [1, 2, 3, 4, 5, 6] });
       await loadShifts();
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi tạo ca làm việc';
@@ -217,13 +221,9 @@ export function ShiftsPage() {
       name: shift.name,
       startTime: shift.startTime,
       endTime: shift.endTime,
-      breakDuration: shift.breakDuration || 0,
-      employees: shift.employeeCount || 0,
-      employeeCountByDay: shift.employeeCountByDay || [0, 0, 0, 0, 0, 0, 0],
-      isFlexible: shift.isFlexible,
-      isActive: shift.isActive,
-      workDays: shift.workDays || [1, 2, 3, 4, 5, 6],
+      breakDuration: shift.breakDuration?.toString() || '0',
       description: shift.description || '',
+      workDays: shift.workDays || [1, 2, 3, 4, 5, 6],
     });
     setIsEditDialogOpen(true);
   };
