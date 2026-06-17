@@ -10,6 +10,7 @@ import {
   bulkAssignShift,
   getEmployeesByShift,
   removeShiftFromEmployee,
+  bulkRemoveShiftFromEmployees,
   getShiftEmployeeCounts,
   getUserAssignments,
   updateAssignment,
@@ -37,6 +38,7 @@ router.post("/:shiftId/assign", authMiddleware, requireRole([ROLES.ADMIN, ROLES.
 router.post("/:shiftId/assign/bulk", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), bulkAssignShift);
 router.post("/:shiftId/assign/departments", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), assignShiftToDepartments);
 router.delete("/:shiftId/assign/:userId", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), removeShiftFromEmployee);
+router.post("/:shiftId/assign/bulk-remove", authMiddleware, requireRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.SUPER_ADMIN]), bulkRemoveShiftFromEmployees);
 
 // Routes CRUD cơ bản
 // GET / - Tất cả authenticated users đều có thể xem shifts (filtering sẽ được xử lý trong controller)
