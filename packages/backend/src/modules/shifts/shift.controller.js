@@ -10,12 +10,16 @@ export const getAllShifts = async (req, res) => {
 
     // Lấy employee count cho tất cả shifts
     const counts = await shiftAssignmentService.getShiftEmployeeCounts();
-    const countMap = new Map(counts.map(c => [c.shiftId.toString(), c.count]));
+    const countMap = new Map(counts.map(c => [c.shiftId.toString(), c]));
 
-    const data = shifts.map(shift => ({
-      ...shift,
-      employeeCount: countMap.get(shift._id.toString()) || 0,
-    }));
+    const data = shifts.map(shift => {
+      const shiftCounts = countMap.get(shift._id.toString());
+      return {
+        ...shift,
+        employeeCount: shiftCounts?.count || 0,
+        employeeCountByDay: shiftCounts?.employeeCountByDay || [0, 0, 0, 0, 0, 0, 0],
+      };
+    });
 
     res.json({ success: true, data });
   } catch (error) {
@@ -39,7 +43,12 @@ export const getAllShifts = async (req, res) => {
 };
 /** * Tạo mới 1 ca làm */ export const createShift = async (req, res) => {
   try {
-    const newShift = await ShiftModel.create(req.body);
+    const companyId = resolveTenantCompanyId(req);
+    const payload = { ...req.body };
+    if (companyId) {
+      payload.companyId = companyId;
+    }
+    const newShift = await ShiftModel.create(payload);
     res.status(201).json({ success: true, data: newShift });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -271,6 +280,8 @@ export const assignShiftToDepartments = async (req, res) => {
 
     const results = [];
 
+
+
     for (const uid of targetUserIds) {
       try {
         const result = await shiftAssignmentService.assignShiftToUser(uid, shiftId, options);
@@ -332,7 +343,7 @@ export const removeShiftFromEmployee = async (req, res) => {
     const { ShiftModel } = await import("./shift.model.js");
     const shift = shiftId ? await ShiftModel.findById(shiftId) : null;
 
-    const result = await shiftAssignmentService.removeShiftFromUser(userId);
+    const result = await shiftAssignmentService.removeShiftFromUser(userId, shiftId);
 
     // Send notification to user
     if (shift) {
@@ -354,6 +365,26 @@ export const removeShiftFromEmployee = async (req, res) => {
     }
 
     res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Remove shift assignment từ nhiều nhân viên
+ * POST /shifts/:shiftId/assign/bulk-remove
+ */
+export const bulkRemoveShiftFromEmployees = async (req, res) => {
+  try {
+    const { shiftId } = req.params;
+    const { userIds } = req.body;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ success: false, message: "Danh sách nhân viên không hợp lệ" });
+    }
+
+    const result = await shiftAssignmentService.bulkRemoveShiftFromUsers(userIds, shiftId);
+    res.json(result);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Clock, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Clock, Users, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -21,11 +23,12 @@ interface Shift {
   startTime: string;
   endTime: string;
   breakDuration: number;
-  isFlexible?: boolean;
-  description?: string;
   isActive?: boolean;
   employees?: number;
   color?: string;
+  employeeCountByDay?: number[];
+  effectiveFrom?: string;
+  effectiveTo?: string;
 }
 
 interface SimpleDepartment {
@@ -38,7 +41,12 @@ interface SimpleUser {
   _id: string;
   name?: string;
   email?: string;
+  departmentId?: string;
 }
+
+const toggleArrayValue = (arr: string[], value: string) => {
+  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+};
 
 const getColorClass = (color: string) => {
   const colors: Record<string, string> = {
@@ -82,6 +90,7 @@ export function ShiftsPage() {
     endTime: '',
     breakDuration: '',
     description: '',
+    workDays: [1, 2, 3, 4, 5, 6] as number[],
   });
 
   // Gán ca
@@ -100,7 +109,11 @@ export function ShiftsPage() {
   });
   const [deptSearch, setDeptSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
+  const [assignedUserSearch, setAssignedUserSearch] = useState("");
+  const [assignedPatternFilter, setAssignedPatternFilter] = useState("all_patterns");
   const [isAssignSubmitting, setIsAssignSubmitting] = useState(false);
+  const [assignedEmployees, setAssignedEmployees] = useState<any[]>([]);
+  const [selectedUsersToRemove, setSelectedUsersToRemove] = useState<string[]>([]);
 
   useEffect(() => {
     loadShifts();
@@ -124,10 +137,11 @@ export function ShiftsPage() {
             code: d.code,
           })) || [];
 
-        const userList = (usersRes.users || []).map((u) => ({
+        const userList = (usersRes.users || []).map((u: any) => ({
           _id: u._id as string,
           name: u.name,
           email: u.email,
+          departmentId: u.department?._id || u.department || null,
         }));
 
         setDepartments(deptList);
@@ -181,11 +195,12 @@ export function ShiftsPage() {
         name: formData.name,
         startTime: formData.startTime,
         endTime: formData.endTime,
-        breakDuration: parseInt(formData.breakDuration),
-        description: formData.description || undefined,
+        breakDuration: Number(formData.breakDuration),
+        description: formData.description,
+        workDays: formData.workDays,
       };
-
-      await api.post('/shifts', payload);
+      
+      const newShift = await shiftService.createShift(payload);
       toast.success(`✅ Đã tạo ca làm việc ${formData.name}`);
       setIsDialogOpen(false);
       setFormData({ name: '', startTime: '', endTime: '', breakDuration: '', description: '' });
@@ -202,14 +217,32 @@ export function ShiftsPage() {
       name: shift.name,
       startTime: shift.startTime,
       endTime: shift.endTime,
-      breakDuration: shift.breakDuration?.toString() || '0',
+      breakDuration: shift.breakDuration || 0,
+      employees: shift.employeeCount || 0,
+      employeeCountByDay: shift.employeeCountByDay || [0, 0, 0, 0, 0, 0, 0],
+      isFlexible: shift.isFlexible,
+      isActive: shift.isActive,
+      workDays: shift.workDays || [1, 2, 3, 4, 5, 6],
       description: shift.description || '',
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleOpenAssign = (shift: Shift) => {
+  const handleOpenAssign = async (shift: Shift) => {
     setAssignShift(shift);
+    
+    try {
+      const response = await shiftService.getEmployeesByShift(shift._id || shift.id!, { limit: 500 });
+      if (response && response.users) {
+        setAssignedEmployees(response.users);
+      } else {
+        setAssignedEmployees([]);
+      }
+    } catch (error) {
+      console.error("Failed to load existing employees for shift", error);
+      setAssignedEmployees([]);
+    }
+
     setAssignForm({
       departmentIds: [],
       userIds: [],
@@ -219,14 +252,36 @@ export function ShiftsPage() {
       effectiveTo: "",
       specificDatesText: "",
     });
+    setAssignedUserSearch("");
+    setAssignedPatternFilter("all_patterns");
+    setSelectedUsersToRemove([]);
     setIsAssignDialogOpen(true);
   };
 
-  const toggleArrayValue = (current: string[], value: string): string[] => {
-    if (current.includes(value)) {
-      return current.filter((v) => v !== value);
+  const handleRemoveAssignedUser = async (userId: string) => {
+    if (!assignShift) return;
+    try {
+      await shiftService.removeShiftFromEmployee(userId, assignShift._id || assignShift.id!);
+      setAssignedEmployees(prev => prev.filter(u => u._id !== userId));
+      setSelectedUsersToRemove(prev => prev.filter(id => id !== userId));
+      toast.success("Đã gỡ nhân viên khỏi ca");
+    } catch (error) {
+      toast.error("Lỗi khi gỡ nhân viên");
     }
-    return [...current, value];
+  };
+
+  const handleBulkRemoveAssignedUsers = async () => {
+    if (!assignShift || selectedUsersToRemove.length === 0) return;
+    try {
+      const loadingToastId = toast.loading("Đang gỡ danh sách nhân viên...");
+      await shiftService.bulkRemoveShiftFromEmployees(selectedUsersToRemove, assignShift._id || assignShift.id!);
+      setAssignedEmployees(prev => prev.filter(u => !selectedUsersToRemove.includes(u._id)));
+      setSelectedUsersToRemove([]);
+      toast.dismiss(loadingToastId);
+      toast.success("Đã gỡ danh sách nhân viên khỏi ca");
+    } catch (error) {
+      toast.error("Lỗi khi gỡ nhân viên");
+    }
   };
 
   const handleSubmitAssign = async () => {
@@ -241,7 +296,7 @@ export function ShiftsPage() {
     }
 
     const payload: any = {
-      departmentIds: assignForm.departmentIds,
+      departmentIds: [],
       userIds: assignForm.userIds,
       pattern: assignForm.pattern,
     };
@@ -288,6 +343,36 @@ export function ShiftsPage() {
     }
   };
 
+  const renderPatternBadge = (user: any) => {
+    if (!user.assignmentPattern) return <Badge variant="outline" className="text-[var(--text-sub)]">Mặc định</Badge>;
+    
+    let text = "Tất cả các ngày";
+    if (user.assignmentPattern === "weekdays") text = "Thứ 2 - Thứ 6";
+    else if (user.assignmentPattern === "weekends") text = "Cuối tuần";
+    else if (user.assignmentPattern === "custom") {
+      const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+      text = user.assignmentDays?.map((d: number) => days[d]).join(", ") || "Tùy chỉnh";
+    }
+
+    let dateText = "";
+    if (user.effectiveFrom || user.effectiveTo) {
+      const from = user.effectiveFrom ? new Date(user.effectiveFrom).toLocaleDateString("vi-VN") : "...";
+      const to = user.effectiveTo ? new Date(user.effectiveTo).toLocaleDateString("vi-VN") : "...";
+      if (from !== "..." || to !== "...") {
+        dateText = `(${from} - ${to})`;
+      }
+    }
+
+    return (
+      <div className="flex flex-col gap-1 items-start">
+        <Badge variant="outline" className="bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/20 font-medium">
+          {text}
+        </Badge>
+        {dateText && <span className="text-xs text-[var(--text-sub)]">{dateText}</span>}
+      </div>
+    );
+  };
+
   const handleSubmitEdit = async () => {
     if (!selectedShift) return;
 
@@ -302,11 +387,12 @@ export function ShiftsPage() {
         name: formData.name,
         startTime: formData.startTime,
         endTime: formData.endTime,
-        breakDuration: parseInt(formData.breakDuration),
-        description: formData.description || undefined,
+        breakDuration: Number(formData.breakDuration),
+        description: formData.description,
+        workDays: formData.workDays,
       };
 
-      await api.put(`/shifts/${shiftId}`, payload);
+      const updatedShift = await shiftService.updateShift(selectedShift._id!, payload);
       toast.success(`✅ Đã cập nhật ca làm việc ${formData.name}`);
       setIsEditDialogOpen(false);
       setSelectedShift(null);
@@ -416,6 +502,7 @@ export function ShiftsPage() {
                   onChange={(e) => setFormData({ ...formData, breakDuration: e.target.value })}
                 />
               </div>
+
 
               <div className="space-y-2">
                 <Label>Mô tả (tùy chọn)</Label>
@@ -540,18 +627,21 @@ export function ShiftsPage() {
                 </tr>
               </thead>
               <tbody>
-                {shifts.map((shift) => (
-                  <tr key={shift.id || shift._id} className="border-b border-[var(--border)] hover:bg-[var(--shell)]">
-                    <td className="py-3 px-4 text-[var(--text-main)]">{shift.name}</td>
-                    <td className="py-3 px-4 text-center text-[var(--text-sub)]">{shift.employees || 0}</td>
-                    <td className="py-3 px-4 text-center text-[var(--text-sub)]">{shift.employees || 0}</td>
-                    <td className="py-3 px-4 text-center text-[var(--text-sub)]">{shift.employees || 0}</td>
-                    <td className="py-3 px-4 text-center text-[var(--text-sub)]">{shift.employees || 0}</td>
-                    <td className="py-3 px-4 text-center text-[var(--text-sub)]">{shift.employees || 0}</td>
-                    <td className="py-3 px-4 text-center text-[var(--text-sub)]">{shift.employees || 0}</td>
-                    <td className="py-3 px-4 text-center text-[var(--text-sub)]">-</td>
-                  </tr>
-                ))}
+                {shifts.map((shift) => {
+                  const counts = shift.employeeCountByDay || [0, 0, 0, 0, 0, 0, 0];
+                  return (
+                    <tr key={shift.id || shift._id} className="border-b border-[var(--border)] hover:bg-[var(--shell)]">
+                      <td className="py-3 px-4 text-[var(--text-main)]">{shift.name}</td>
+                      <td className="py-3 px-4 text-center text-[var(--text-sub)]">{counts[1] || 0}</td>
+                      <td className="py-3 px-4 text-center text-[var(--text-sub)]">{counts[2] || 0}</td>
+                      <td className="py-3 px-4 text-center text-[var(--text-sub)]">{counts[3] || 0}</td>
+                      <td className="py-3 px-4 text-center text-[var(--text-sub)]">{counts[4] || 0}</td>
+                      <td className="py-3 px-4 text-center text-[var(--text-sub)]">{counts[5] || 0}</td>
+                      <td className="py-3 px-4 text-center text-[var(--text-sub)]">{counts[6] || 0}</td>
+                      <td className="py-3 px-4 text-center text-[var(--text-sub)]">{counts[0] || 0}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -609,6 +699,7 @@ export function ShiftsPage() {
                 onChange={(e) => setFormData({ ...formData, breakDuration: e.target.value })}
               />
             </div>
+
 
             <div className="space-y-2">
               <Label>Mô tả (tùy chọn)</Label>
@@ -691,16 +782,181 @@ export function ShiftsPage() {
 
       {/* Assign Dialog */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-3xl">
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Gán ca làm việc</DialogTitle>
-            <DialogDescription className="text-[var(--text-sub)]">
-              Chọn phòng ban / nhân viên và khoảng ngày áp dụng cho ca{" "}
-              <span className="font-semibold">{assignShift?.name}</span>.
-            </DialogDescription>
+            <DialogTitle>Quản lý Thành viên Ca làm việc</DialogTitle>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-[var(--text-sub)]">Xem nhân viên hoặc gán ca cho: </span>
+              <select 
+                className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] text-sm rounded px-2 py-1 outline-none focus:border-[var(--primary)] transition-colors"
+                value={assignShift?._id || assignShift?.id || ""}
+                onChange={(e) => {
+                  const shift = shifts.find(s => (s._id || s.id) === e.target.value);
+                  if (shift) handleOpenAssign(shift);
+                }}
+              >
+                {shifts.map(s => (
+                  <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 max-h-[480px] overflow-y-auto">
+          <Tabs defaultValue="list" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4 bg-[var(--shell)] border border-[var(--border)]">
+              <TabsTrigger value="list" className="data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--primary)] text-[var(--text-main)]">Danh sách đã gán ({assignedEmployees.length})</TabsTrigger>
+              <TabsTrigger value="assign" className="data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--primary)] text-[var(--text-main)]">Thêm mới / Cập nhật</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="list">
+              <div className="mb-4 flex flex-col sm:flex-row items-center gap-3 w-full">
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-sub)]" />
+                  <Input
+                    placeholder="Tìm kiếm theo tên hoặc email..."
+                    value={assignedUserSearch}
+                    onChange={e => setAssignedUserSearch(e.target.value)}
+                    className="pl-9 bg-[var(--input-bg)] border-[var(--border)] w-full h-10"
+                  />
+                </div>
+                <select
+                  className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] text-sm rounded-md px-3 h-10 outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] transition-colors w-full sm:w-[220px]"
+                  value={assignedPatternFilter}
+                  onChange={e => setAssignedPatternFilter(e.target.value)}
+                >
+                  <option value="all_patterns">Tất cả kiểu lặp</option>
+                  <option value="all">Mặc định / Tất cả các ngày</option>
+                  <option value="weekdays">Thứ 2 - Thứ 6</option>
+                  <option value="weekends">Cuối tuần</option>
+                  <option value="custom">Tùy chỉnh</option>
+                </select>
+                {selectedUsersToRemove.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="ml-auto flex items-center gap-2"
+                    onClick={handleBulkRemoveAssignedUsers}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Xóa {selectedUsersToRemove.length} nhân viên
+                  </Button>
+                )}
+              </div>
+              <div className="border border-[var(--border)] rounded-md h-[440px] overflow-y-auto bg-[var(--surface)]">
+                {assignedEmployees.length > 0 ? (
+                  <Table>
+                    <TableHeader className="bg-[var(--shell)]">
+                      <TableRow className="border-[var(--border)] hover:bg-transparent">
+                        <TableHead className="w-[40px]">
+                          <input 
+                            type="checkbox"
+                            className="rounded border-[var(--border)] bg-transparent checked:bg-[var(--primary)]"
+                            checked={
+                              assignedEmployees.length > 0 && 
+                              selectedUsersToRemove.length === assignedEmployees.filter(u => {
+                                let matchesSearch = true;
+                                if (assignedUserSearch.trim()) {
+                                  const q = assignedUserSearch.toLowerCase();
+                                  matchesSearch = (u.name?.toLowerCase() || "").includes(q) || (u.email?.toLowerCase() || "").includes(q);
+                                }
+                                let matchesPattern = true;
+                                if (assignedPatternFilter !== "all_patterns") {
+                                  const p = u.assignmentPattern || "all";
+                                  matchesPattern = p === assignedPatternFilter;
+                                }
+                                return matchesSearch && matchesPattern;
+                              }).length
+                            }
+                            onChange={(e) => {
+                              const filteredUsers = assignedEmployees.filter(u => {
+                                let matchesSearch = true;
+                                if (assignedUserSearch.trim()) {
+                                  const q = assignedUserSearch.toLowerCase();
+                                  matchesSearch = (u.name?.toLowerCase() || "").includes(q) || (u.email?.toLowerCase() || "").includes(q);
+                                }
+                                let matchesPattern = true;
+                                if (assignedPatternFilter !== "all_patterns") {
+                                  const p = u.assignmentPattern || "all";
+                                  matchesPattern = p === assignedPatternFilter;
+                                }
+                                return matchesSearch && matchesPattern;
+                              });
+
+                              if (e.target.checked) {
+                                setSelectedUsersToRemove(filteredUsers.map(u => u._id));
+                              } else {
+                                setSelectedUsersToRemove([]);
+                              }
+                            }}
+                          />
+                        </TableHead>
+                        <TableHead className="text-[var(--text-sub)]">Nhân viên</TableHead>
+                        <TableHead className="text-[var(--text-sub)]">Email / Tài khoản</TableHead>
+                        <TableHead className="text-[var(--text-sub)]">Kiểu lặp & Thời gian</TableHead>
+                        <TableHead className="text-[var(--text-sub)] text-right">Hành động</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {assignedEmployees
+                        .filter(u => {
+                          let matchesSearch = true;
+                          if (assignedUserSearch.trim()) {
+                            const q = assignedUserSearch.toLowerCase();
+                            matchesSearch = (u.name?.toLowerCase() || "").includes(q) || (u.email?.toLowerCase() || "").includes(q);
+                          }
+                          
+                          let matchesPattern = true;
+                          if (assignedPatternFilter !== "all_patterns") {
+                            const p = u.assignmentPattern || "all";
+                            matchesPattern = p === assignedPatternFilter;
+                          }
+                          
+                          return matchesSearch && matchesPattern;
+                        })
+                        .map((user) => (
+                        <TableRow key={user._id} className="border-[var(--border)] hover:bg-[var(--shell)]">
+                          <TableCell>
+                            <input 
+                              type="checkbox"
+                              className="rounded border-[var(--border)] bg-transparent checked:bg-[var(--primary)]"
+                              checked={selectedUsersToRemove.includes(user._id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedUsersToRemove(prev => [...prev, user._id]);
+                                } else {
+                                  setSelectedUsersToRemove(prev => prev.filter(id => id !== user._id));
+                                }
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium text-[var(--text-main)]">{user.name}</TableCell>
+                          <TableCell className="text-[var(--text-sub)]">{user.email || user.username || '---'}</TableCell>
+                          <TableCell>{renderPatternBadge(user)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveAssignedUser(user._id)}
+                              className="h-8 w-8 text-[var(--error)] hover:text-[var(--error)] hover:bg-[var(--error)]/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-[var(--text-sub)]">
+                    <Users className="h-12 w-12 text-[var(--text-sub)] mb-2 opacity-50" />
+                    <p>Chưa có nhân viên nào được gán vào ca này.</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="assign">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 max-h-[440px] overflow-y-auto">
             {/* Departments */}
             <div className="space-y-3">
               <h3 className="font-medium text-[var(--text-main)] flex items-center gap-2">
@@ -723,7 +979,30 @@ export function ShiftsPage() {
                     );
                   })
                   .map((dept) => {
-                    const checked = assignForm.departmentIds.includes(dept._id);
+                    const deptUsers = users.filter((u) => u.departmentId === dept._id);
+                    const checked =
+                      deptUsers.length > 0 &&
+                      deptUsers.every((u) => assignForm.userIds.includes(u._id));
+
+                    const handleDeptChange = () => {
+                      if (checked) {
+                        setAssignForm((prev) => ({
+                          ...prev,
+                          userIds: prev.userIds.filter(
+                            (id) => !deptUsers.some((u) => u._id === id)
+                          ),
+                        }));
+                      } else {
+                        setAssignForm((prev) => {
+                          const newUserIds = [...prev.userIds];
+                          deptUsers.forEach((u) => {
+                            if (!newUserIds.includes(u._id)) newUserIds.push(u._id);
+                          });
+                          return { ...prev, userIds: newUserIds };
+                        });
+                      }
+                    };
+
                     return (
                       <label
                         key={dept._id}
@@ -733,12 +1012,7 @@ export function ShiftsPage() {
                           type="checkbox"
                           className="accent-[var(--accent-cyan)]"
                           checked={checked}
-                          onChange={() =>
-                            setAssignForm((prev) => ({
-                              ...prev,
-                              departmentIds: toggleArrayValue(prev.departmentIds, dept._id),
-                            }))
-                          }
+                          onChange={handleDeptChange}
                         />
                         <span className="text-[var(--text-main)]">
                           {dept.name} ({dept.code})
@@ -916,24 +1190,27 @@ export function ShiftsPage() {
                   />
                 </div>
               )}
-            </div>
-          </div>
+              </div>
+              </div>
+              <div className="flex justify-end pt-6 gap-2">
+                <Button
+                  onClick={handleSubmitAssign}
+                  disabled={isAssignSubmitting}
+                  className="bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white"
+                >
+                  {isAssignSubmitting ? "Đang xử lý..." : "Lưu cài đặt"}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
 
-          <DialogFooter className="pt-4">
+          <DialogFooter className="pt-4 border-t border-[var(--border)]">
             <Button
               variant="outline"
               onClick={() => setIsAssignDialogOpen(false)}
-              className="border-[var(--border)] text-[var(--text-main)]"
-              disabled={isAssignSubmitting}
+              className="bg-[var(--surface)] text-[var(--text-main)] border-[var(--border)] hover:bg-[var(--shell)]"
             >
-              Hủy
-            </Button>
-            <Button
-              onClick={handleSubmitAssign}
-              className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
-              disabled={isAssignSubmitting}
-            >
-              {isAssignSubmitting ? "Đang gán..." : "Gán ca"}
+              Đóng
             </Button>
           </DialogFooter>
         </DialogContent>
