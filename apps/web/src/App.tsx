@@ -107,6 +107,9 @@ const TicketManagementPage = lazy(() =>
 const CompanyManagementPage = lazy(() =>
   import("@/components/dashboard/pages/CompanyManagementPage")
 );
+const GoogleAnalyticsPage = lazy(() =>
+  import("@/components/dashboard/pages/GoogleAnalyticsPage")
+);
 const RegulationsPage = lazy(() =>
   import("@/components/dashboard/pages/RegulationsPage")
 );
@@ -708,6 +711,12 @@ export default function App() {
                     element={<ProtectedRoute minimumRole={UserRole.SUPER_ADMIN} />}
                   >
                     <Route index element={<CompanyManagementPage />} />
+                  </Route>
+                  <Route
+                    path="google-analytics"
+                    element={<ProtectedRoute minimumRole={UserRole.SUPER_ADMIN} />}
+                  >
+                    <Route index element={<GoogleAnalyticsPage />} />
                   </Route>
                   <Route
                     path="ai-billing"
