@@ -142,31 +142,24 @@ class ScheduleGenerationService {
    * @private
    */
   _generateFromDefaultShift(user, startDate, endDate) {
-    if (!user.defaultShiftId || !user.defaultShiftId.isActive) {
+    if (!user.defaultShiftId) {
       return [];
     }
 
     const schedules = [];
     const currentDate = new Date(startDate);
+    const shift = user.defaultShiftId;
 
     while (currentDate <= endDate) {
-      const checkDate = new Date(currentDate);
-      checkDate.setHours(0, 0, 0, 0);
-
-      const workDays = user.defaultShiftId.workDays || [1, 2, 3, 4, 5, 6];
-
-      // Chỉ tạo lịch cho những ngày nằm trong workDays của shift
-      if (workDays.includes(checkDate.getDay())) {
-        schedules.push({
-          userId: user._id,
-          date: new Date(checkDate),
-          shiftId: user.defaultShiftId._id,
-          shiftName: user.defaultShiftId.name,
-          startTime: user.defaultShiftId.startTime,
-          endTime: user.defaultShiftId.endTime,
-          status: 'scheduled',
-        });
-      }
+      schedules.push({
+        userId: user._id,
+        date: new Date(currentDate),
+        shiftId: shift._id,
+        shiftName: shift.name,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        status: 'scheduled',
+      });
 
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -183,28 +176,6 @@ class ScheduleGenerationService {
    */
   async createOrUpdateSchedule(userId, startDate, endDate) {
     const schedules = await this.generateScheduleFromAssignments(userId, startDate, endDate);
-
-    const validDates = schedules.map(s => s.date.getTime());
-    const allDatesInRange = [];
-    let curr = new Date(startDate);
-    curr.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-    
-    while (curr <= end) {
-      if (!validDates.includes(curr.getTime())) {
-        allDatesInRange.push(new Date(curr));
-      }
-      curr.setDate(curr.getDate() + 1);
-    }
-
-    if (allDatesInRange.length > 0) {
-      await EmployeeScheduleModel.deleteMany({
-        userId,
-        date: { $in: allDatesInRange },
-        status: 'scheduled'
-      });
-    }
 
     if (schedules.length === 0) {
       return [];

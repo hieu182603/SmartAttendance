@@ -31,18 +31,6 @@ const shiftService = {
     }
   },
 
-  // Tạo mới ca làm việc
-  createShift: async (payload: any): Promise<Shift> => {
-    const response = await api.post("/shifts", payload);
-    return response.data.data;
-  },
-
-  // Cập nhật ca làm việc
-  updateShift: async (id: string, payload: any): Promise<Shift> => {
-    const response = await api.put(`/shifts/${id}`, payload);
-    return response.data.data;
-  },
-
   // Assign shift cho nhân viên
   assignShiftToEmployee: async (userId: string, shiftId: string) => {
     const response = await api.post(`/shifts/${shiftId}/assign`, { userId });
@@ -83,12 +71,6 @@ const shiftService = {
   // Remove shift assignment từ nhân viên
   removeShiftFromEmployee: async (userId: string, shiftId: string) => {
     const response = await api.delete(`/shifts/${shiftId}/assign/${userId}`);
-    return response.data;
-  },
-
-  // Bulk remove shift assignment từ nhiều nhân viên
-  bulkRemoveShiftFromEmployees: async (userIds: string[], shiftId: string) => {
-    const response = await api.post(`/shifts/${shiftId}/assign/bulk-remove`, { userIds });
     return response.data;
   },
 
