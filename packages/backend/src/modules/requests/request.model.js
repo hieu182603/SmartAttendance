@@ -61,6 +61,11 @@ const requestSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    overtimeHours: {
+      type: Number,
+      min: 0,
+      max: 24,
+    },
   },
   { timestamps: true }
 );

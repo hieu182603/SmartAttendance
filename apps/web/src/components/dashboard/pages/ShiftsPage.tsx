@@ -824,7 +824,7 @@ export function ShiftsPage() {
                   value={assignedPatternFilter}
                   onChange={e => setAssignedPatternFilter(e.target.value)}
                 >
-                  <option value="all_patterns">Tất cả kiểu lặp</option>
+                  <option value="all_patterns">Tất cả lịch làm việc</option>
                   <option value="all">Mặc định / Tất cả các ngày</option>
                   <option value="weekdays">Thứ 2 - Thứ 6</option>
                   <option value="weekends">Cuối tuần</option>
@@ -892,8 +892,7 @@ export function ShiftsPage() {
                         </TableHead>
                         <TableHead className="text-[var(--text-sub)]">Nhân viên</TableHead>
                         <TableHead className="text-[var(--text-sub)]">Email / Tài khoản</TableHead>
-                        <TableHead className="text-[var(--text-sub)]">Kiểu lặp & Thời gian</TableHead>
-                        <TableHead className="text-[var(--text-sub)] text-right">Hành động</TableHead>
+                        <TableHead className="text-[var(--text-sub)]">Lịch làm việc & Thời gian</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -932,16 +931,6 @@ export function ShiftsPage() {
                           <TableCell className="font-medium text-[var(--text-main)]">{user.name}</TableCell>
                           <TableCell className="text-[var(--text-sub)]">{user.email || user.username || '---'}</TableCell>
                           <TableCell>{renderPatternBadge(user)}</TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveAssignedUser(user._id)}
-                              className="h-8 w-8 text-[var(--error)] hover:text-[var(--error)] hover:bg-[var(--error)]/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -956,7 +945,7 @@ export function ShiftsPage() {
             </TabsContent>
 
             <TabsContent value="assign">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 max-h-[440px] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
             {/* Departments */}
             <div className="space-y-3">
               <h3 className="font-medium text-[var(--text-main)] flex items-center gap-2">
@@ -1087,7 +1076,7 @@ export function ShiftsPage() {
             <div className="space-y-4 md:col-span-2">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Kiểu lặp</Label>
+                  <Label>Lịch làm việc</Label>
                   <select
                     className="w-full bg-[var(--input-bg)] border-[var(--border)] rounded-md px-3 py-2 text-sm"
                     value={assignForm.pattern}

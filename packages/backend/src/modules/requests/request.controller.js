@@ -163,7 +163,7 @@ export const getMyRequests = async (req, res) => {
 export const createRequest = async (req, res) => {
   try {
     const userId = req.user.userId
-    const { type, startDate, endDate, reason, description, urgency } = req.body
+    const { type, startDate, endDate, reason, description, urgency, overtimeHours } = req.body
 
     if (!type || !startDate || !endDate || !reason) {
       return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' })
@@ -217,6 +217,7 @@ export const createRequest = async (req, res) => {
       reason,
       description: description || reason,
       urgency: urgency || 'medium',
+      ...(overtimeHours !== undefined ? { overtimeHours } : {})
     })
 
     // Populate user info to match getMyRequests format
@@ -482,6 +483,40 @@ export const approveRequest = async (req, res) => {
         await scheduleGenerationService.applyLeaveToSchedule(request)
       } catch (scheduleError) {
         // Silent fail - schedule update không critical
+      }
+    }
+
+    // Xử lý đơn Tăng ca (OT)
+    if (request.type === 'overtime') {
+      try {
+        const { AttendanceModel } = await import('../attendance/attendance.model.js');
+        // Sử dụng overtimeHours do người dùng nhập. Nếu không có thì fallback tính thử từ date hoặc cho mặc định 4 tiếng.
+        let otHours = request.overtimeHours;
+        if (!otHours) {
+           const calculated = (new Date(request.endDate) - new Date(request.startDate)) / (1000 * 60 * 60);
+           // Nếu người dùng chọn nhầm từ ngày này sang ngày khác (vd: 13 ngày) thì chỉ giới hạn tối đa 4 tiếng
+           otHours = calculated > 0 && calculated <= 12 ? calculated : 4;
+        }
+        
+        // Cắt giờ/phút/giây để query chính xác theo field `date` của AttendanceModel (luôn dùng Date.UTC để khớp)
+        const reqDate = new Date(request.startDate);
+        const dateStr = new Date(Date.UTC(reqDate.getUTCFullYear(), reqDate.getUTCMonth(), reqDate.getUTCDate()));
+
+        // Cập nhật isOvertimeApproved và overtimeHours vào bảng chấm công
+        await AttendanceModel.updateMany(
+          { 
+            userId: request.userId._id || request.userId,
+            date: dateStr
+          },
+          { 
+            $set: { 
+              isOvertimeApproved: true,
+              overtimeHours: Math.max(otHours, 0)
+            }
+          }
+        );
+      } catch (otError) {
+        console.error("Error updating overtime approval:", otError);
       }
     }
 
