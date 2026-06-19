@@ -19,6 +19,7 @@ import {
   checkLateStatus,
   calculateWorkCredit,
   applyTimeToDate,
+  resolveWorkCredit,
 } from "./attendance.service.js";
 import {
   emitAttendanceUpdate,
@@ -232,6 +233,9 @@ export const getAttendanceHistory = async (req, res) => {
         checkInLongitude: doc.checkInLongitude || null,
         checkOutLatitude: doc.checkOutLatitude || null,
         checkOutLongitude: doc.checkOutLongitude || null,
+        workCredit: resolveWorkCredit(doc),
+        approvalStatus: doc.approvalStatus || null,
+        earlyCheckoutReason: doc.earlyCheckoutReason || null,
       };
     });
 
@@ -774,6 +778,7 @@ export const getAllAttendance = async (req, res) => {
         checkIn: "-",
         checkOut: "-",
         hours: "-",
+        workCredit: 0,
         status: "absent",
         location: "-",
         notes: "",
@@ -792,7 +797,7 @@ export const getAllAttendance = async (req, res) => {
 
     const summary = {
       total: totalUsers,
-      present: allRecords.filter((record) => record.status === "ontime").length,
+      present: allRecords.filter((record) => ["ontime", "overtime"].includes(record.status)).length,
       late: allRecords.filter((record) => record.status === "late").length,
       absent: allRecords.filter((record) => record.status === "absent").length,
     };
@@ -837,8 +842,9 @@ export const updateAttendanceRecord = async (req, res) => {
         return res.status(404).json({ message: "Không tìm thấy nhân viên" });
       }
 
-      let targetDate = date ? new Date(date) : new Date();
-      targetDate.setHours(0, 0, 0, 0);
+      let inputDate = date ? new Date(date) : new Date();
+      // Parse inputDate to UTC midnight
+      let targetDate = new Date(Date.UTC(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate()));
 
       attendance = await AttendanceModel.findOne({
         userId: userId,
@@ -953,6 +959,24 @@ export const updateAttendanceRecord = async (req, res) => {
     // Recalculate work hours nếu checkIn hoặc checkOut thay đổi
     if (checkIn !== undefined || checkOut !== undefined) {
       attendance.calculateWorkHours();
+      
+      // Tính toán lại trạng thái late nếu admin sửa Giờ vào
+      if (checkIn !== undefined && attendance.checkIn) {
+        try {
+          const { getUserSchedule, getShiftInfo, checkLateStatus } = await import('./attendance.service.js');
+          const schedule = await getUserSchedule(attendance.userId, attendance.date);
+          const shiftInfo = await getShiftInfo(schedule);
+          
+          const isLate = checkLateStatus(attendance.checkIn, shiftInfo);
+          if (isLate) {
+            attendance.status = "late";
+          } else if (attendance.status === "absent" || attendance.status === "late") {
+            attendance.status = "present";
+          }
+        } catch (error) {
+          console.error("Error recalculating late status in update:", error);
+        }
+      }
     }
 
     await attendance.save();
@@ -1815,7 +1839,7 @@ export const getDepartmentAttendance = async (req, res) => {
       total: users.length,
       present: allDocs.filter((d) => {
         const s = deriveStatus(d);
-        return s === "ontime";
+        return s === "ontime" || s === "overtime";
       }).length,
       late: allDocs.filter((d) => {
         const s = deriveStatus(d);

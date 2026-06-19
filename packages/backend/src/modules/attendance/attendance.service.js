@@ -376,13 +376,20 @@ export const deriveStatus = (doc) => {
     return "absent";
   }
 
-  // Đi muộn
+  // Nếu có đơn Tăng ca được duyệt thì hiển thị overtime (nếu thực sự có làm lố giờ)
+  if (doc.isOvertimeApproved) {
+    if (doc.workHours !== undefined && doc.workHours !== null) {
+      if (doc.workHours > 8) return "overtime";
+    } else {
+      return "overtime";
+    }
+  }
+
+  // Đi muộn (luôn được ưu tiên đánh dấu nếu trễ giờ ca cố định)
   if (doc.status === "late") return "late";
 
-  // Tăng ca (trên 8h thực tế)
-  if (doc.workHours && doc.workHours > 8) return "overtime";
-
-  // Mặc định: đi làm đúng giờ
+  // Mặc định: đi làm đúng giờ (hoặc làm bù flexible)
+  // LƯU Ý: Đã bỏ tự động gán "overtime" khi workHours > 8
   return "ontime";
 };
 
@@ -687,6 +694,45 @@ export const addPhotoToNotes = (existingNotes, photoUrl, type = "checkin") => {
 // ============================================================================
 
 /**
+ * Resolve work credit for old records that don't have it saved properly
+ * @param {Object} doc - Attendance document
+ * @returns {number}
+ */
+export const resolveWorkCredit = (doc) => {
+  let baseCredit = 0;
+
+  if (typeof doc.workCredit === "number" && doc.workCredit > 0) {
+    baseCredit = doc.workCredit; // Số công thực tế đã tính (tối đa 1.0)
+  } else if (doc.workHours && doc.workHours > 0) {
+    // Fallback cho bản ghi cũ
+    if (doc.workHours >= 8) baseCredit = 1.0;
+    else if (doc.workHours >= 4) baseCredit = 0.5;
+  }
+  
+  // Tránh ghi đè nếu bản ghi đang chờ duyệt hoặc bị từ chối
+  if (doc.approvalStatus === "PENDING" || doc.approvalStatus === "REJECTED") {
+    return 0;
+  }
+
+  // Cộng thêm OT nếu đã được duyệt
+  if (doc.isOvertimeApproved && doc.overtimeHours > 0) {
+    let effectiveOvertime = doc.overtimeHours;
+    
+    // Nếu đã có giờ làm việc thực tế, giới hạn OT bằng số giờ làm dôi ra (vượt 8 tiếng)
+    if (doc.workHours !== undefined && doc.workHours !== null) {
+      const actualExtraHours = Math.max(0, doc.workHours - 8);
+      effectiveOvertime = Math.min(doc.overtimeHours, actualExtraHours);
+    }
+    
+    // 1 tiếng OT = 1/8 công
+    const otCredit = effectiveOvertime / 8;
+    return baseCredit + (Math.round(otCredit * 100) / 100);
+  }
+
+  return baseCredit;
+};
+
+/**
  * Build attendance record response
  * @param {Object} doc - Attendance document
  * @returns {Object|null}
@@ -712,7 +758,7 @@ export const buildAttendanceRecordResponse = (doc) => {
     checkIn: formatTime(doc.checkIn),
     checkOut: formatTime(doc.checkOut),
     hours: formatWorkHours(doc.workHours),
-    workCredit: doc.workCredit !== undefined ? doc.workCredit : 0,
+    workCredit: resolveWorkCredit(doc),
     status: deriveStatus(doc),
     location: doc.locationId?.name || "-",
     notes: doc.notes || "",
@@ -831,7 +877,7 @@ export const validateWorkHours = (hoursWorked, shiftInfo) => {
 export const calculateWorkCredit = (hoursWorked, shiftInfo) => {
   const minutesWorked = hoursWorked * 60;
 
-  // Ca part-time / flexible
+  // Ca part-time / flexible (làm bù)
   if (shiftInfo.isFlexible) {
     if (minutesWorked < ATTENDANCE_CONFIG.MIN_WORK_MINUTES) {
       return {
@@ -839,8 +885,10 @@ export const calculateWorkCredit = (hoursWorked, shiftInfo) => {
         error: `Cần làm ít nhất ${ATTENDANCE_CONFIG.MIN_WORK_MINUTES} phút để check-out.`,
       };
     }
-    // Tính theo giờ thực tế (có thể > 1.0)
-    return { credit: Math.round(hoursWorked * 100) / 100 };
+    // Đối với flexible shift, số công = giờ làm / 8 (tối đa 1.0 cho ngày thường)
+    // OT chỉ được cộng vào khi quản lý duyệt đơn Tăng ca (thông qua hàm resolveWorkCredit)
+    const rawCredit = hoursWorked / 8;
+    return { credit: Math.min(Math.round(rawCredit * 100) / 100, 1.0) };
   }
 
   // Ca hành chính (8h-17h)
@@ -849,7 +897,7 @@ export const calculateWorkCredit = (hoursWorked, shiftInfo) => {
   } else if (hoursWorked < 8) {
     return { credit: 0.5 }; // Nửa công
   } else {
-    return { credit: 1.0 }; // Đủ công
+    return { credit: 1.0 }; // Đủ công (tối đa 1.0)
   }
 };
 

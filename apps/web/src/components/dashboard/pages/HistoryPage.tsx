@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, Fragment } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, X } from "lucide-react";
+import { Eye, X, Camera, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -188,7 +188,7 @@ const HistoryPage: React.FC = () => {
   // COMPUTED VALUES
   // ==========================================================================
   const summary = useMemo(() => {
-    const total = allRecords.length;
+    const total = allRecords.reduce((acc, item) => acc + (item.workCredit || 0), 0);
     const late = allRecords.filter((item) => item.status === "late").length;
     const absent = allRecords.filter((item) => item.status === "absent").length;
     const overtime = allRecords.filter(
@@ -298,6 +298,19 @@ const HistoryPage: React.FC = () => {
   // ==========================================================================
   // RENDER HELPERS
   // ==========================================================================
+  const groupedRecords = useMemo(() => {
+    return records.reduce((acc, record) => {
+      const parts = record.date.split("/"); // DD/MM/YYYY
+      let monthYear = "Khác";
+      if (parts.length === 3) {
+        monthYear = `Tháng ${parts[1]}/${parts[2]}`;
+      }
+      if (!acc[monthYear]) acc[monthYear] = [];
+      acc[monthYear].push(record);
+      return acc;
+    }, {} as Record<string, AttendanceRecord[]>);
+  }, [records]);
+
   const renderTableBody = () => {
     if (loading) {
       return (
@@ -329,80 +342,87 @@ const HistoryPage: React.FC = () => {
       );
     }
 
-    return records.map((record, index) => {
-      const hasPhoto =
-        record.notes?.includes("http") || record.location?.includes("http");
-      return (
-        <tr
-          key={record.id || index}
-          className={`border-b border-[var(--border)] hover:bg-[var(--shell)] transition-colors ${
-            index % 2 === 0 ? "bg-[var(--shell)]/50" : ""
-          }`}
-        >
-          <td className="py-3 px-4 text-[var(--text-main)]">{record.date}</td>
-          <td className="py-3 px-4 text-[var(--text-sub)]">{record.day}</td>
-          <td className="py-3 px-4 text-[var(--text-main)]">
-            {record.checkIn}
-          </td>
-          <td className="py-3 px-4 text-[var(--text-main)]">
-            {record.checkOut}
-          </td>
-          <td className="py-3 px-4 text-[var(--text-main)]">{record.hours}</td>
-          <td className="py-3 px-4 text-[var(--text-main)]">
-            {record.workCredit !== undefined ? (
-              <span className="font-medium">
-                {record.workCredit === 0
-                  ? "0"
-                  : record.workCredit === 0.5
-                  ? "0.5"
-                  : record.workCredit === 1.0
-                  ? "1.0"
-                  : record.workCredit.toFixed(2)}
-              </span>
-            ) : (
-              <span className="text-[var(--text-sub)]">-</span>
-            )}
-          </td>
-          <td className="py-3 px-4 text-[var(--text-sub)]">
-            {formatLocation(record.location, t)}
-          </td>
-          <td className="py-3 px-4">
-            <div className="flex flex-col gap-1">
-              {getStatusBadge(record.status, t)}
-              {record.approvalStatus === "PENDING" && (
-                <Badge variant="warning" className="text-xs">
-                  Chờ duyệt
-                </Badge>
-              )}
-              {record.approvalStatus === "APPROVED" && (
-                <Badge variant="success" className="text-xs">
-                  Đã duyệt
-                </Badge>
-              )}
-              {record.approvalStatus === "REJECTED" && (
-                <Badge variant="error" className="text-xs">
-                  Từ chối
-                </Badge>
-              )}
-            </div>
-          </td>
-          <td className="py-3 px-4 text-center">
-            {hasPhoto ? (
-              <button
-                type="button"
-                onClick={() => handleRecordClick(record)}
-                className="inline-flex items-center gap-1 text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors"
-                title={t("dashboard:history.photo.viewTitle")}
-              >
-                <Eye className="h-4 w-4" />
-              </button>
-            ) : (
-              <span className="text-[var(--text-sub)]">-</span>
-            )}
+    return Object.entries(groupedRecords).map(([monthYear, monthRecords]) => (
+      <Fragment key={monthYear}>
+        <tr className="bg-[var(--shell)] border-b border-[var(--border)]">
+          <td colSpan={9} className="py-2 px-4 font-semibold text-[var(--text-main)] text-sm tracking-wider uppercase">
+            {monthYear}
           </td>
         </tr>
-      );
-    });
+        {monthRecords.map((record, index) => {
+          const hasPhoto =
+            record.notes?.includes("http") || record.location?.includes("http");
+          return (
+            <tr
+              key={record.id || index}
+              className={`border-b border-[var(--border)] hover:bg-[var(--shell)] transition-colors ${
+                index % 2 === 0 ? "bg-[var(--shell)]/30" : ""
+              }`}
+            >
+              <td className="py-3 px-4 text-[var(--text-main)]">{record.date}</td>
+              <td className="py-3 px-4 text-[var(--text-sub)]">{record.day}</td>
+              <td className="py-3 px-4 text-[var(--text-main)]">
+                {record.checkIn}
+              </td>
+              <td className="py-3 px-4 text-[var(--text-main)]">
+                {record.checkOut}
+              </td>
+              <td className="py-3 px-4 text-[var(--text-main)]">{record.hours}</td>
+              <td className="py-3 px-4 text-[var(--text-main)]">
+                {record.workCredit !== undefined ? (
+                  <span className="font-medium">
+                    {record.workCredit === 0
+                      ? "0"
+                      : record.workCredit === 0.5
+                      ? "0.5"
+                      : record.workCredit === 1.0
+                      ? "1.0"
+                      : record.workCredit.toFixed(2)}
+                  </span>
+                ) : (
+                  <span className="text-[var(--text-sub)]">-</span>
+                )}
+              </td>
+              <td className="py-3 px-4 text-[var(--text-sub)]">
+                {formatLocation(record.location, t)}
+              </td>
+              <td className="py-3 px-4">
+                <div className="flex flex-col gap-1">
+                  {getStatusBadge(record.status, t)}
+                  {record.approvalStatus === "PENDING" && (
+                    <Badge variant="warning" className="text-xs">
+                      Chờ duyệt
+                    </Badge>
+                  )}
+                  {record.approvalStatus === "APPROVED" && (
+                    <Badge variant="success" className="text-xs">
+                      Đã duyệt
+                    </Badge>
+                  )}
+                  {record.approvalStatus === "REJECTED" && (
+                    <Badge variant="error" className="text-xs">
+                      Từ chối
+                    </Badge>
+                  )}
+                </div>
+              </td>
+              <td className="py-3 px-4 text-center">
+                {hasPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => handleRecordClick(record)}
+                    className="inline-flex items-center gap-1 text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors"
+                    title={t("dashboard:history.photo.viewTitle")}
+                  >
+                    <Camera className="h-4 w-4" />
+                  </button>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </Fragment>
+    ));
   };
 
   const renderImageModal = () => {
@@ -765,39 +785,44 @@ const HistoryPage: React.FC = () => {
                 </p>
               </div>
             ) : (
-              records.map((record, index) => {
-                const hasPhoto =
-                  record.notes?.includes("http") ||
-                  record.location?.includes("http");
-                return (
-                  <Card
-                    key={record.id || index}
-                    className="bg-[var(--shell)] border-[var(--border)]"
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <p className="text-sm font-semibold text-[var(--text-main)]">
-                              {record.date}
-                            </p>
-                            <span className="text-xs text-[var(--text-sub)]">
-                              ({record.day})
-                            </span>
-                            {getStatusBadge(record.status, t)}
+              Object.entries(groupedRecords).map(([monthYear, monthRecords]) => (
+                <Fragment key={monthYear}>
+                  <div className="py-2 px-1 font-semibold text-[var(--text-main)] text-sm tracking-wider uppercase mt-4 first:mt-0">
+                    {monthYear}
+                  </div>
+                  {monthRecords.map((record, index) => {
+                    const hasPhoto =
+                      record.notes?.includes("http") ||
+                      record.location?.includes("http");
+                    return (
+                      <Card
+                        key={record.id || index}
+                        className="bg-[var(--shell)] border-[var(--border)]"
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <p className="text-sm font-semibold text-[var(--text-main)]">
+                                  {record.date}
+                                </p>
+                                <span className="text-xs text-[var(--text-sub)]">
+                                  ({record.day})
+                                </span>
+                                {getStatusBadge(record.status, t)}
+                              </div>
+                            </div>
+                            {hasPhoto && (
+                              <button
+                                type="button"
+                                onClick={() => handleRecordClick(record)}
+                                className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--primary)]"
+                                title={t("dashboard:history.photo.viewTitle")}
+                              >
+                                <Camera className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
-                        </div>
-                        {hasPhoto && (
-                          <button
-                            type="button"
-                            onClick={() => handleRecordClick(record)}
-                            className="p-1.5 hover:bg-[var(--surface)] rounded text-[var(--primary)]"
-                            title={t("dashboard:history.photo.viewTitle")}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-[var(--text-sub)]">
@@ -873,7 +898,9 @@ const HistoryPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 );
-              })
+              })}
+                </Fragment>
+              ))
             )}
           </div>
 

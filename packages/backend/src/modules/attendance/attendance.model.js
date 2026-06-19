@@ -45,6 +45,16 @@ const attendanceSchema = new mongoose.Schema(
     },
     notes: { type: String, trim: true },
 
+    isOvertimeApproved: {
+      type: Boolean,
+      default: false,
+    },
+    overtimeHours: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     // ⚠️ MỚI: Work credit (tính công)
     workCredit: {
       type: Number,

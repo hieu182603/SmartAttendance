@@ -115,6 +115,7 @@ const RequestsPage: React.FC = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [requestType, setRequestType] = useState<string>("");
   const [requestReason, setRequestReason] = useState("");
+  const [requestOvertimeHours, setRequestOvertimeHours] = useState<number | "">("");
   const [requestDateRange, setRequestDateRange] = useState<DateRange>({
     start: "",
     end: "",
@@ -432,21 +433,52 @@ const RequestsPage: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const payload = {
-        type: requestType,
-        startDate: requestDateRange.start,
-        endDate: requestDateRange.end || requestDateRange.start,
-        reason: requestReason.trim(),
-      };
-      const newRequest = await createRequestApi(payload) as Request;
+      const startStr = requestDateRange.start;
+      const endStr = requestDateRange.end || requestDateRange.start;
+      
+      let createdRequests: Request[] = [];
+      
+      if (requestType === "overtime" && startStr !== endStr) {
+        // Tự tách block cho đơn Tăng ca
+        const startDate = new Date(startStr);
+        const endDate = new Date(endStr);
+        
+        // Loop qua từng ngày
+        let currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+          const dateString = currentDate.toISOString().split("T")[0];
+          
+          const payload = {
+            type: requestType,
+            startDate: dateString,
+            endDate: dateString,
+            reason: requestReason.trim(),
+            ...(requestOvertimeHours ? { overtimeHours: Number(requestOvertimeHours) } : {})
+          };
+          
+          const newRequest = await createRequestApi(payload) as Request;
+          createdRequests.push(newRequest);
+          
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      } else {
+        const payload = {
+          type: requestType,
+          startDate: startStr,
+          endDate: endStr,
+          reason: requestReason.trim(),
+          ...(requestType === "overtime" && requestOvertimeHours ? { overtimeHours: Number(requestOvertimeHours) } : {})
+        };
+        const newRequest = await createRequestApi(payload) as Request;
+        createdRequests.push(newRequest);
+      }
 
-      // The response from createRequest should already have all needed fields
-      // Add to allRequests for stats
-      setAllRequests((prev) => [newRequest, ...prev]);
+      // Add to allRequests for stats (đảo ngược mảng để mới nhất lên đầu)
+      setAllRequests((prev) => [...createdRequests.reverse(), ...prev]);
 
       // Add to current requests list if on pending tab or all tab
       if (selectedTab === 'pending' || selectedTab === 'all') {
-        setRequests((prev) => [newRequest, ...prev]);
+        setRequests((prev) => [...createdRequests, ...prev]);
       }
 
       // Switch to pending tab if not already there
@@ -457,6 +489,7 @@ const RequestsPage: React.FC = () => {
       setIsCreateDialogOpen(false);
       setRequestType("");
       setRequestReason("");
+      setRequestOvertimeHours("");
       setRequestDateRange({ start: "", end: "" });
       toast.success(t('dashboard:requests.success.createSuccess'));
     } catch (error) {
@@ -776,6 +809,22 @@ const RequestsPage: React.FC = () => {
                   />
                 </div>
               </div>
+              
+              {requestType === "overtime" && (
+                <div className="space-y-2">
+                  <Label>Số giờ tăng ca (tuỳ chọn)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={requestOvertimeHours}
+                    onChange={(e) => setRequestOvertimeHours(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="Ví dụ: 4"
+                    className="border-[var(--border)] bg-[var(--input-bg)]"
+                  />
+                  <p className="text-xs text-[var(--text-sub)]">Nếu để trống, hệ thống sẽ tự tính toán (mặc định 4 tiếng nếu sai lệch ngày).</p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>{t('dashboard:requests.reason')}</Label>

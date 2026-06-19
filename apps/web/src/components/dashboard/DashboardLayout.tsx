@@ -216,7 +216,7 @@ const DashboardLayout: React.FC = () => {
 
             <div className="hidden md:block text-right">
               <p className="text-sm text-[var(--text-main)]">
-                {user?.email || t('common:dashboard.user')}
+                {user?.name || user?.email || t('common:dashboard.user')}
               </p>
               <p className="text-xs text-[var(--text-sub)]">{roleName}</p>
             </div>
