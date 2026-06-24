@@ -93,6 +93,7 @@ Thumbs.db
 **/*.ckpt
 **/*.checkpoint
 **/models/
+!**/app/models/
 **/checkpoints/
 **/weights/
 **/embeddings/
