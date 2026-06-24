@@ -44,7 +44,7 @@ htmlcov/
 .nox/
 
 # AI Models and large data files (mount via Fly.io volumes)
-models/
+/models/
 *.onnx
 *.bin
 *.pth
