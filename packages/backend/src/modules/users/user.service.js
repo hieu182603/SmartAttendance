@@ -368,6 +368,7 @@ export class UserService {
       "branch",
       "defaultShiftId",
       "isActive",
+      "isRemote",
       "avatar",
       "avatarUrl",
       "taxId"

@@ -469,9 +469,11 @@ export class UserController {
       if (error.message === "User not found") {
         return res.status(404).json({ message: "Không tìm thấy user" });
       }
+      if (error.message.includes("không có quyền phân quyền")) {
+        return res.status(403).json({ message: error.message });
+      }
       if (
         error.message === "Không có dữ liệu để cập nhật" ||
-        error.message.includes("không có quyền phân quyền") ||
         error.message.includes("không hợp lệ") ||
         error.message.includes("phải có") ||
         error.message.includes("không được để trống")
@@ -738,16 +740,7 @@ export class UserController {
         });
       }
 
-      // Get current user role for permission check
-      const currentUser = await UserService.getUserById(req.user.userId);
-      const currentUserRole = currentUser.role;
-
-      // Only privileged roles can create users (must match requireRole on the route)
-      if (!["SUPER_ADMIN", "ADMIN", "HR_MANAGER"].includes(currentUserRole)) {
-        return res.status(403).json({
-          message: "Chỉ SUPER_ADMIN, ADMIN và HR_MANAGER mới có quyền tạo tài khoản",
-        });
-      }
+      const currentUserRole = req.user.role;
 
       const companyId = req.user.companyId;
       const newUser = await UserService.createUserByAdmin(parse.data, currentUserRole, companyId);
@@ -800,7 +793,10 @@ export class UserController {
       if (error.message === "Email đã được đăng ký") {
         return res.status(409).json({ message: error.message });
       }
-      if (error.message.includes("không có quyền") || error.message.includes("không tồn tại")) {
+      if (error.message.includes("không có quyền")) {
+        return res.status(403).json({ message: error.message });
+      }
+      if (error.message.includes("không tồn tại")) {
         return res.status(400).json({ message: error.message });
       }
       console.error("[UserController] Create user by admin error:", error);

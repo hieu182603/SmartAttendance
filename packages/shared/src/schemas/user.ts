@@ -36,6 +36,7 @@ export const updateUserByAdminSchema = z.object({
   branch: z.string().optional(),
   defaultShiftId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
+  isRemote: z.boolean().optional(),
   avatar: z.union([z.string().url("URL không hợp lệ"), z.literal("")]).optional(),
   avatarUrl: z.union([z.string().url("URL không hợp lệ"), z.literal("")]).optional(),
   taxId: z.string().optional(),
