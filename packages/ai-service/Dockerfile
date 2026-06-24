@@ -1,4 +1,4 @@
-﻿# Multi-stage build for optimized image size
+# Multi-stage build for optimized image size
 FROM python:3.11-slim as builder
 
 # Install build dependencies
@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y \
 # Create virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# Install CPU-only PyTorch and torchvision first to avoid heavy GPU/CUDA dependencies (saving ~8GB image size)
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -26,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     libgomp1 \
     libxcb1 \
     libx11-6 \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 

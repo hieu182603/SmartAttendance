@@ -53,6 +53,9 @@ services:
       - PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
       # Observability (optional)
       - LOG_LEVEL=${LOG_LEVEL}
+      # Google Analytics Configuration
+      - GA_PROPERTY_ID=${GA_PROPERTY_ID}
+      - GA_SERVICE_ACCOUNT_KEY_PATH=${GA_SERVICE_ACCOUNT_KEY_PATH}
     depends_on:
       - ai-service
       - redis
