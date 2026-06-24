@@ -1,6 +1,5 @@
 // Exportable Express app — no DB connection, no server.listen, no cron.
 // Import this in tests via Supertest; import index.js to actually run the server.
-import * as Sentry from "@sentry/node";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -259,9 +258,6 @@ app.use("/api/companies", companyRouter);
 app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
-
-// Sentry must capture errors before the generic handler responds
-Sentry.setupExpressErrorHandler(app);
 
 app.use((err, _req, res, _next) => {
   if (res.headersSent) return _next(err);

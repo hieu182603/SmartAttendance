@@ -43,6 +43,13 @@ const livenessUpload = multer({
   storage: multer.memoryStorage(),
 });
 
+faceRouter.post(
+  "/upload",
+  faceRateLimit,
+  upload.single("image"),
+  FaceController.uploadSingleImage
+);
+
 /**
  * @route   POST /api/face/register
  * @desc    Register user face with 5-7 images

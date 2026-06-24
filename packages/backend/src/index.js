@@ -3,9 +3,6 @@
 // AFTER all other imports resolve. Isolating it in env.js ensures .env
 // is loaded before any module reads process.env.
 import "./config/env.js";
-import { initSentry } from "./config/sentry.js";
-
-initSentry();
 
 import app from "./app.js";
 import { connectDatabase } from "./config/database.js";

@@ -38,7 +38,6 @@ import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { getAllUsers, getUserById, updateUserByAdmin, createUserByAdmin, bulkImportUsers, downloadImportTemplate, type BulkImportResult } from '@/services/userService'
 import { getAllDepartments, type Department as DepartmentType } from '@/services/departmentService'
-import { setUserRemoteStatus } from '@/services/attendanceService'
 import shiftService, { type Shift } from '@/services/shiftService'
 import { getPositions } from '@/services/payrollService'
 import api from '@/services/api'
@@ -191,10 +190,7 @@ const EmployeeManagementPage: React.FC = () => {
 
   const canView = hasPermission(Permission.USERS_VIEW)
   const canManageRolePermission = hasPermission(Permission.USERS_MANAGE_ROLE)
-  
-  if (!canView) {
-    return <UnauthorizedPage />
-  }
+
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -307,10 +303,12 @@ const EmployeeManagementPage: React.FC = () => {
 
   useEffect(() => {
     const fetchDepartments = async () => {
-      const userRole = currentUser?.role as UserRoleType
-      const hasPermission = userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN
-      
-      if (!hasPermission) {
+      const canFetchDepts =
+        hasPermission(Permission.DEPARTMENTS_VIEW) ||
+        hasPermission(Permission.DEPARTMENTS_MANAGE) ||
+        hasPermission(Permission.USERS_CREATE)
+
+      if (!canFetchDepts) {
         console.log('[EmployeeManagement] User does not have permission to fetch departments')
         return
       }
@@ -334,7 +332,7 @@ const EmployeeManagementPage: React.FC = () => {
       }
     }
     fetchDepartments()
-  }, [currentUser?.role])
+  }, [hasPermission])
 
   useEffect(() => {
     const fetchShifts = async () => {
@@ -685,6 +683,10 @@ const EmployeeManagementPage: React.FC = () => {
       const now = new Date()
       return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
     }).length,
+  }
+
+  if (!canView) {
+    return <UnauthorizedPage />
   }
 
   return (
@@ -1506,19 +1508,8 @@ const EmployeeManagementPage: React.FC = () => {
                 <Label className="text-sm font-medium">Chế độ làm việc từ xa (Remote)</Label>
                 <Select
                   value={formData.isRemote ? 'remote' : 'office'}
-                  onValueChange={async (v) => {
-                    const next = v === 'remote'
-                    setFormData((prev) => ({ ...prev, isRemote: next }))
-                    const targetUserId = selectedUser?._id || selectedUser?.id || ''
-                    if (!targetUserId) return
-                    try {
-                      await setUserRemoteStatus(targetUserId, next)
-                      toast.success(next ? 'Đã bật chế độ làm remote' : 'Đã tắt chế độ làm remote')
-                      fetchUsers()
-                    } catch (error) {
-                      setFormData((prev) => ({ ...prev, isRemote: !next }))
-                      toast.error((error as Error)?.message || 'Không thể cập nhật chế độ remote')
-                    }
+                  onValueChange={(v) => {
+                    setFormData((prev) => ({ ...prev, isRemote: v === 'remote' }))
                   }}
                 >
                   <SelectTrigger className="bg-[var(--shell)] border-[var(--border)] h-9">

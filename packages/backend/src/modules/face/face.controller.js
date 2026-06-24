@@ -15,6 +15,7 @@ import {
 } from "../../config/app.config.js";
 import { aiServiceClient } from "../../utils/aiServiceClient.js";
 import FormData from "form-data";
+import axios from "axios";
 import { redisGet, redisSet, redisDel } from "../../config/redis.js";
 import { OtpModel } from "../otp/otp.model.js";
 import { UserModel } from "../users/user.model.js";
@@ -32,14 +33,35 @@ const faceFailImagesKey = (userId) => `face_fail_images:${userId}`;
 
 export class FaceController {
   /**
+   * Upload a single face image to Cloudinary (for mini-programs that upload one-by-one)
+   * POST /api/face/upload
+   */
+  static async uploadSingleImage(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: "No image file provided" });
+      }
+      const result = await uploadFaceImage(req.file.buffer);
+      return res.status(200).json({
+        success: true,
+        fileUrl: result.url,
+        publicId: result.publicId
+      });
+    } catch (error) {
+      console.error("Upload face image error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  /**
    * Register user face with multiple images
    * POST /api/face/register
    */
   static async registerFace(req, res) {
     try {
       const userId = req.user.userId;
-      const files = req.files;
-      const { liveness_success, liveness_passed, liveness_confidence, liveness_challenge, consent_given, consent_channel } = req.body;
+      let files = req.files;
+      const { faceImages, liveness_success, liveness_passed, liveness_confidence, liveness_challenge, consent_given, consent_channel } = req.body;
 
       // NĐ 13/2023: require explicit consent for biometric data
       if (!consent_given || consent_given === 'false') {
@@ -48,6 +70,25 @@ export class FaceController {
           errorCode: "CONSENT_REQUIRED",
           message: "Bạn cần đồng ý với chính sách thu thập dữ liệu sinh trắc học trước khi đăng ký khuôn mặt.",
         });
+      }
+
+      if (faceImages && Array.isArray(faceImages) && faceImages.length > 0) {
+        try {
+          files = await Promise.all(faceImages.map(async (url, idx) => {
+            const response = await axios.get(url, { responseType: 'arraybuffer' });
+            return {
+              buffer: Buffer.from(response.data),
+              originalname: `face_${idx}.jpg`,
+              mimetype: 'image/jpeg'
+            };
+          }));
+        } catch (downloadErr) {
+          console.error("Failed to download face images from URLs:", downloadErr);
+          return res.status(400).json({
+            success: false,
+            message: "Không tải được một số ảnh từ link đã gửi.",
+          });
+        }
       }
 
       if (!files || files.length === 0) {
