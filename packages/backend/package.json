@@ -18,7 +18,6 @@
     "migrate:actualBaseSalary": "node scripts/migrateActualBaseSalary.js"
   },
   "dependencies": {
-    "@sentry/node": "^10.53.1",
     "@smartattendance/shared": "workspace:*",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",

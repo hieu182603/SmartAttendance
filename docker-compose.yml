@@ -52,7 +52,6 @@ services:
       - PAYOS_API_KEY=${PAYOS_API_KEY}
       - PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
       # Observability (optional)
-      - SENTRY_DSN=${SENTRY_DSN}
       - LOG_LEVEL=${LOG_LEVEL}
     depends_on:
       - ai-service
