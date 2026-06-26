@@ -1,0 +1,103 @@
+<!-- pages/history/history.ttml -->
+<view class="theme-{{theme}} hist-root">
+
+  <view class="hist-header">
+    <text class="hist-title">{{t.attendance.title || 'Lịch Sử Chấm Công'}}</text>
+
+    <!-- Month Picker -->
+    <view class="filter-row">
+      <view class="month-nav" bindtap="prevMonth">
+        <text class="month-nav-text">‹</text>
+      </view>
+      <text class="month-label">{{t.schedule.months[currentMonth - 1] || currentMonth}} / {{currentYear}}</text>
+      <view class="month-nav" bindtap="nextMonth">
+        <text class="month-nav-text">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Báo cáo tóm tắt tháng (Summary Grid) -->
+  <view class="summary-grid">
+    <view class="summary-card">
+      <view class="summary-dot bg-success" />
+      <text class="summary-value text-success">{{summary.onTime}}</text>
+      <text class="summary-label">{{t.attendance.onTime}}</text>
+    </view>
+    <view class="summary-card">
+      <view class="summary-dot bg-warning" />
+      <text class="summary-value text-warning">{{summary.late}}</text>
+      <text class="summary-label">{{t.attendance.late}}</text>
+    </view>
+    <view class="summary-card">
+      <view class="summary-dot bg-danger" />
+      <text class="summary-value text-danger">{{summary.absent}}</text>
+      <text class="summary-label">{{t.attendance.absent}}</text>
+    </view>
+    <view class="summary-card">
+      <view class="summary-dot bg-info" />
+      <text class="summary-value text-accent">{{summary.total}}</text>
+      <text class="summary-label">{{t.leaveBalance.total || 'Tổng ngày'}}</text>
+    </view>
+  </view>
+
+  <!-- Loading State -->
+  <view class="loading-box" tt:if="{{loading}}">
+    <view class="spinner" />
+    <text class="loading-text">{{t.common.loading || 'Đang tải...'}}</text>
+  </view>
+
+  <!-- History List -->
+  <view class="hist-list" tt:elif="{{hasRecords}}">
+    <view
+      tt:for="{{records}}"
+      tt:key="id"
+      class="hist-item hist-item--{{item.statusClass}} anim-rise"
+    >
+      <!-- Left Date Block -->
+      <view class="hist-date-block">
+        <text class="hist-day">{{item.dayOfWeek}}</text>
+        <text class="hist-date">{{item.date}}</text>
+      </view>
+
+      <!-- Middle Content (Times & Location) -->
+      <view class="hist-content-middle">
+        <view class="time-block">
+          <view class="time-row">
+            <text class="time-label">{{t.attendance.checkIn || 'Giờ vào'}}</text>
+            <text class="time-val">{{item.checkInDisplay}}</text>
+          </view>
+          <view class="time-row">
+            <text class="time-label">{{t.attendance.checkOut || 'Giờ ra'}}</text>
+            <text class="time-val">{{item.checkOutDisplay}}</text>
+          </view>
+        </view>
+        
+        <!-- Location Row -->
+        <view class="location-row" tt:if="{{item.location}}">
+          <view class="icon icon-location icon--sm location-icon" />
+          <text class="location-text">{{item.location}}</text>
+        </view>
+      </view>
+
+      <!-- Right Column (Status & Workhours) -->
+      <view class="hist-content-right">
+        <view class="status-badge-wrap">
+          <view class="hist-status-badge badge--{{item.statusClass}}">
+            <text class="hist-status-text">{{item.statusText}}</text>
+          </view>
+        </view>
+        <view class="hours-wrap" tt:if="{{item.workHours}}">
+          <text class="hours-text">{{item.workHours}}h</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Empty State -->
+  <view class="empty-state-wrap" tt:else>
+    <view class="icon icon-document icon--xl" style="opacity: 0.15; margin-bottom: 24rpx;" />
+    <text class="empty-text">{{t.common.noData || 'Không có dữ liệu'}}</text>
+  </view>
+
+  <view style="height: 120rpx;" />
+</view>

@@ -1,0 +1,182 @@
+<!-- pages/payslip/payslip.ttml -->
+<view class="theme-{{theme}} payslip-root">
+
+  <view class="payslip-header">
+    <text class="payslip-title">{{t.profile.payslip || 'Phiếu Lương'}}</text>
+
+    <!-- Month Picker -->
+    <view class="filter-row">
+      <view class="month-nav" bindtap="prevMonth">
+        <text class="month-nav-text">‹</text>
+      </view>
+      <text class="month-label">{{currentYear}}-{{currentMonthStr}}</text>
+      <view class="month-nav" bindtap="nextMonth">
+        <text class="month-nav-text">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Loading State -->
+  <view class="loading-box" tt:if="{{loading}}">
+    <view class="spinner" />
+    <text class="loading-text">{{t.common.loading || 'Đang tải...'}}</text>
+  </view>
+
+  <block tt:elif="{{hasRecord}}">
+    <!-- Hero Card -->
+    <view class="hero-salary-card">
+      <view class="hero-bg-accent" />
+      <text class="hero-period-label">{{record.periodLabel}}</text>
+      
+      <view class="hero-net-wrap">
+        <view class="hero-net-header">
+          <text class="hero-net-label">THỰC LĨNH (NET)</text>
+          <view class="eye-toggle-btn" bindtap="toggleShowSalary">
+            <view class="icon {{showSalary ? 'icon-eye-white' : 'icon-eye-off-white'}}" />
+          </view>
+        </view>
+        <text class="hero-net-value">{{showSalary ? record.netSalaryFormatted : '•••••• ₫'}}</text>
+      </view>
+
+      <view class="hero-status-row">
+        <view class="status-badge status--{{record.status}}">
+          <view class="status-dot status-dot--{{record.status}}" />
+          <text class="status-text">{{record.statusText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Details Card (General Info) -->
+    <view class="section-card">
+      <text class="section-title">{{t.profile.personalInfo || 'Thông tin nhân viên'}}</text>
+      
+      <view class="detail-row">
+        <text class="detail-label">Nhân viên</text>
+        <text class="detail-value text-bold">{{record.employeeName}}</text>
+      </view>
+      <view class="detail-row">
+        <text class="detail-label">Mã nhân viên</text>
+        <text class="detail-value">{{record.employeeId}}</text>
+      </view>
+      <view class="detail-row" tt:if="{{record.department}}">
+        <text class="detail-label">Phòng ban</text>
+        <text class="detail-value">{{record.department}}</text>
+      </view>
+      <view class="detail-row" tt:if="{{record.position}}">
+        <text class="detail-label">Chức vụ</text>
+        <text class="detail-value">{{record.position}}</text>
+      </view>
+      <view class="detail-divider" />
+      
+      <view class="detail-row">
+        <text class="detail-label">Ngày công chuẩn ca</text>
+        <text class="detail-value">{{record.totalDays}} ngày</text>
+      </view>
+      <view class="detail-row">
+        <text class="detail-label">Ngày công thực tế</text>
+        <text class="detail-value text-accent">{{record.workDays}} ngày</text>
+      </view>
+      <view class="detail-row">
+        <text class="detail-label">Nghỉ phép (Có/Không lương)</text>
+        <text class="detail-value">{{record.paidLeaveDays}} / {{record.unpaidLeaveDays}} ngày</text>
+      </view>
+      <view class="detail-row" tt:if="{{record.overtimeHours > 0}}">
+        <text class="detail-label">Tăng ca</text>
+        <text class="detail-value">{{record.overtimeHours}} giờ</text>
+      </view>
+    </view>
+
+    <!-- Income Breakdown Card -->
+    <view class="section-card">
+      <text class="section-title text-success-title">CÁC KHOẢN THU NHẬP</text>
+      
+      <view class="detail-row">
+        <text class="detail-label">Lương cơ bản</text>
+        <text class="detail-value tabular">{{showSalary ? record.baseSalaryFormatted : '•••••• ₫'}}</text>
+      </view>
+      <view class="detail-row">
+        <text class="detail-label">Lương thực tế theo công</text>
+        <text class="detail-value tabular">{{showSalary ? record.actualBaseSalaryFormatted : '•••••• ₫'}}</text>
+      </view>
+      <view class="detail-row" tt:if="{{record.overtimePay > 0}}">
+        <text class="detail-label">Lương tăng ca</text>
+        <text class="detail-value tabular">{{showSalary ? record.overtimePayFormatted : '•••••• ₫'}}</text>
+      </view>
+      <view class="detail-row" tt:if="{{record.bonus > 0}}">
+        <text class="detail-label">Thưởng & Trợ cấp</text>
+        <text class="detail-value tabular">{{showSalary ? record.bonusFormatted : '•••••• ₫'}}</text>
+      </view>
+      
+      <view class="detail-divider" />
+      
+      <view class="detail-row total-row">
+        <text class="total-label text-primary">TỔNG THU NHẬP (GROSS)</text>
+        <text class="total-value text-primary tabular">{{showSalary ? record.grossSalaryFormatted : '•••••• ₫'}}</text>
+      </view>
+    </view>
+
+    <!-- Deductions Breakdown Card -->
+    <view class="section-card">
+      <text class="section-title text-danger-title">CÁC KHOẢN KHẤU TRỪ</text>
+      
+      <view class="detail-row">
+        <text class="detail-label">BHXH (8%)</text>
+        <text class="detail-value tabular">{{showSalary ? record.insuranceSocialFormatted : '•••••• ₫'}}</text>
+      </view>
+      <view class="detail-row">
+        <text class="detail-label">BHYT (1.5%)</text>
+        <text class="detail-value tabular">{{showSalary ? record.insuranceHealthFormatted : '•••••• ₫'}}</text>
+      </view>
+      <view class="detail-row">
+        <text class="detail-label">BHTN (1%)</text>
+        <text class="detail-value tabular">{{showSalary ? record.insuranceUnemploymentFormatted : '•••••• ₫'}}</text>
+      </view>
+      <view class="detail-row" tt:if="{{record.taxAmount > 0}}">
+        <text class="detail-label">Thuế TNCN</text>
+        <text class="detail-value tabular">{{showSalary ? record.taxAmountFormatted : '•••••• ₫'}}</text>
+      </view>
+      <view class="detail-row" tt:if="{{record.deductions > 0}}">
+        <text class="detail-label">Giảm trừ khác</text>
+        <text class="detail-value tabular">{{showSalary ? record.deductionsFormatted : '•••••• ₫'}}</text>
+      </view>
+      
+      <view class="detail-divider" />
+      
+      <view class="detail-row total-row">
+        <text class="total-label text-danger">TỔNG KHẤU TRỪ</text>
+        <text class="total-value text-danger tabular">{{showSalary ? record.totalDeductionsFormatted : '•••••• ₫'}}</text>
+      </view>
+    </view>
+
+    <!-- Notes Card -->
+    <view class="notes-card" tt:if="{{record.notes}}">
+      <text class="notes-title">Ghi chú nhân sự:</text>
+      <text class="notes-content">{{record.notes}}</text>
+    </view>
+    
+    <view class="notes-card" tt:else>
+      <text class="notes-title">Lưu ý:</text>
+      <text class="notes-content">Mọi thắc mắc về bảng lương vui lòng liên hệ phòng Nhân sự trước ngày 05 hàng tháng để được đối soát và giải đáp.</text>
+    </view>
+
+    <!-- Export Action Buttons -->
+    <view class="export-actions-wrap">
+      <button class="export-btn btn-pdf" bindtap="exportPDF">
+        <view class="icon icon-document" style="margin-right: 12rpx; filter: brightness(0) invert(1);" />
+        <text>Xuất PDF</text>
+      </button>
+      <button class="export-btn btn-excel" bindtap="exportExcel">
+        <view class="icon icon-calendar" style="margin-right: 12rpx; filter: brightness(0) invert(1);" />
+        <text>Xuất Excel</text>
+      </button>
+    </view>
+  </block>
+
+  <!-- Empty State: chưa có phiếu lương cho kỳ này -->
+  <view class="payslip-empty" tt:else>
+    <view class="icon icon-document icon--lg" />
+    <text class="empty-text">{{t.payslip.noData || 'Chưa có phiếu lương cho kỳ này'}}</text>
+  </view>
+
+  <view style="height: 120rpx;" />
+</view>

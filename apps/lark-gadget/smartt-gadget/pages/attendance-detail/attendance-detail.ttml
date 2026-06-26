@@ -1,0 +1,110 @@
+<!-- pages/attendance-detail/attendance-detail.ttml -->
+<view class="theme-{{theme}} ad-root">
+
+  <!-- ── Gradient Hero ── -->
+  <view class="ad-hero">
+    <view class="ad-hero-ring ad-hero-ring-1" />
+    <view class="ad-hero-ring ad-hero-ring-2" />
+
+    <view class="ad-topbar">
+      <view class="ad-back-btn" bindtap="goBack">
+        <view class="icon icon-back icon--sm" />
+      </view>
+      <text class="ad-top-title">{{t.attendanceDetail.title}}</text>
+      <view class="ad-top-spacer" />
+    </view>
+
+    <text class="ad-hero-date">{{record.date}}</text>
+    <text class="ad-hero-shift">{{record.location}}</text>
+
+    <view class="ad-hero-stats">
+      <view class="ad-hero-stat">
+        <text class="ad-hero-stat-lbl">{{t.attendanceDetail.checkIn || 'Vào lúc'}}</text>
+        <text class="ad-hero-stat-val">{{record.checkIn}}</text>
+        <text class="ad-hero-stat-sub">{{record.statusText}}</text>
+      </view>
+      <view class="ad-hero-stat">
+        <text class="ad-hero-stat-lbl">{{t.dashboard.working || 'Đã làm'}}</text>
+        <text class="ad-hero-stat-val">{{record.worked}}</text>
+        <text class="ad-hero-stat-sub">Hoàn thành</text>
+      </view>
+      <view class="ad-hero-stat">
+        <text class="ad-hero-stat-lbl">{{t.attendance.checkOut || 'Ra lúc'}}</text>
+        <text class="ad-hero-stat-val">{{record.checkOut}}</text>
+        <text class="ad-hero-stat-sub"></text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── Content ── -->
+  <view class="ad-content">
+
+    <!-- Status row card -->
+    <view class="ad-status-row">
+      <text class="ad-status-title">{{t.attendance.status || 'Trạng thái'}}</text>
+      <view class="badge badge--{{record.statusClass}}">{{record.statusText}}</view>
+    </view>
+
+    <!-- Timeline -->
+    <view class="ad-timeline">
+      <view class="ad-tl-item">
+        <view class="ad-tl-dot ad-tl-dot--accent">
+          <view class="icon icon-calendar icon--sm" />
+        </view>
+        <view class="ad-tl-line" />
+        <view class="ad-tl-body">
+          <text class="ad-tl-time">{{record.checkIn}}</text>
+          <text class="ad-tl-label">{{t.attendanceDetail.checkIn || 'Giờ vào'}}</text>
+          <view class="ad-tl-loc-row" tt:if="{{record.location}}">
+            <text class="ad-tl-loc">{{record.location}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="ad-tl-item">
+        <view class="ad-tl-dot ad-tl-dot--muted">
+          <view class="icon icon-logout icon--sm" />
+        </view>
+        <view class="ad-tl-body">
+          <text class="ad-tl-time">{{record.checkOut}}</text>
+          <text class="ad-tl-label">{{t.attendance.checkOut || 'Giờ ra'}}</text>
+          <view class="ad-tl-loc-row">
+            <text class="ad-tl-loc">{{record.worked}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Location card -->
+    <view class="ad-map-card">
+      <view class="ad-map-placeholder">
+        <view class="icon icon-location icon--lg" />
+      </view>
+      <view class="ad-map-info">
+        <text class="ad-map-name">{{record.location || t.attendanceDetail.location || 'Địa điểm'}}</text>
+        <text class="ad-map-dist" tt:if="{{record.hasGps}}">✓ {{withinText}}</text>
+      </view>
+    </view>
+
+    <!-- Info grid -->
+    <view class="ad-info-grid">
+      <view class="ad-ig-item" tt:if="{{record.hasGps}}">
+        <text class="ad-ig-label">{{t.attendanceDetail.location || 'Tọa độ GPS'}}</text>
+        <text class="ad-ig-val">{{record.lat}}, {{record.lng}}</text>
+      </view>
+      <view class="ad-ig-item">
+        <text class="ad-ig-label">{{t.dashboard.working || 'Đã làm'}}</text>
+        <text class="ad-ig-val">{{record.worked}}</text>
+      </view>
+      <view class="ad-ig-item">
+        <text class="ad-ig-label">{{t.attendanceDetail.location || 'Địa điểm'}}</text>
+        <text class="ad-ig-val">{{record.location || '—'}}</text>
+      </view>
+      <view class="ad-ig-item">
+        <text class="ad-ig-label">{{t.attendance.status || 'Trạng thái'}}</text>
+        <text class="ad-ig-val">{{record.statusText}}</text>
+      </view>
+    </view>
+
+  </view>
+</view>

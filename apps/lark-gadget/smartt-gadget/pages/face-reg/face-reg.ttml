@@ -1,0 +1,174 @@
+<!-- pages/face-reg/face-reg.ttml -->
+<view class="theme-{{theme}} face-root">
+
+  <!-- ── 1. Màn hình Đồng ý (Decree 13 Consent Flow) ── -->
+  <view class="consent-container" tt:if="{{!consentGiven}}">
+    <view class="consent-card">
+      <text class="consent-title">{{t.face.consentTitle || 'Đồng ý thu thập dữ liệu sinh trắc học'}}</text>
+      
+      <text class="consent-body">
+        {{t.face.consentBody || 'Theo Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân, chúng tôi cần sự đồng ý của bạn để thu thập và xử lý hình ảnh khuôn mặt phục vụ cho việc điểm danh, chấm công cơ quan.'}}
+      </text>
+
+      <view class="consent-bullets">
+        <text class="consent-bullet">• {{t.face.consentBullet1 || 'Hình ảnh khuôn mặt của bạn từ 4 góc độ khác nhau.'}}</text>
+        <text class="consent-bullet">• {{t.face.consentBullet2 || 'Dữ liệu vector sinh trắc học được mã hóa.'}}</text>
+        <text class="consent-bullet">• {{t.face.consentBullet3 || 'Dữ liệu được bảo mật và chỉ sử dụng nội bộ để xác nhận danh tính.'}}</text>
+      </view>
+
+      <text class="consent-body">
+        {{t.face.consentWithdraw || 'Bạn có thể yêu cầu rút lại sự đồng ý hoặc xóa dữ liệu khuôn mặt bất kỳ lúc nào bằng cách liên hệ với phòng nhân sự (HR).'}}
+      </text>
+
+      <!-- Hộp kiểm Đồng ý -->
+      <view class="checkbox-row" bindtap="toggleConsentChecked">
+        <view class="custom-checkbox {{consentChecked ? 'custom-checkbox--checked' : ''}}">
+          <view class="icon icon-check-white icon--sm" style="display: block;" tt:if="{{consentChecked}}" />
+        </view>
+        <text class="checkbox-label">{{t.face.consentCheckbox || 'Tôi đã đọc và đồng ý với chính sách thu thập dữ liệu sinh trắc học của SmartAttendance'}}</text>
+      </view>
+
+      <!-- Các nút hành động -->
+      <view class="consent-actions">
+        <button
+          class="btn-consent {{consentChecked ? 'btn-consent--active' : 'btn-consent--disabled'}}"
+          bindtap="giveConsent"
+          disabled="{{!consentChecked}}"
+        >
+          {{t.common.confirm || 'Đồng ý và tiếp tục'}}
+        </button>
+        <button class="btn-decline" bindtap="declineConsent">{{t.common.cancel || 'Từ chối'}}</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── 2. Màn hình Chụp đăng ký (Face Registration) ── -->
+  <view class="registration-container" tt:else>
+    
+    <view class="face-header">
+      <text class="face-title">{{t.face.title || 'Đăng Ký Khuôn Mặt'}}</text>
+      <text class="face-sub">{{t.face.subtitle || 'Chụp đủ 4 góc mặt để hệ thống nhận diện chính xác nhất'}}</text>
+    </view>
+
+    <!-- Trạng thái đã đăng ký cũ -->
+    <view class="reg-status-card" tt:if="{{isRegistered}}">
+      <view class="status-icon-box">
+        <view class="icon icon-check-white icon--sm" style="display: block;" />
+      </view>
+      <view class="status-info-box">
+        <text class="reg-status-text">{{t.face.success || 'Đã đăng ký khuôn mặt'}}</text>
+        <text class="reg-status-sub">{{t.face.statusSub || 'Bạn vẫn có thể chụp lại để cập nhật mẫu quét mới'}}</text>
+      </view>
+    </view>
+
+    <!-- Khung quét sinh trắc học trực tiếp -->
+    <view class="camera-section" tt:if="{{cameraAuthorized}}">
+      <view class="camera-wrapper">
+        <camera id="faceRegCamera" class="live-camera" device-position="front" flash="off" binderror="onCameraError" />
+        
+        <!-- Định vị góc quét (Brackets) -->
+        <view class="cam-bracket bracket-tl"></view>
+        <view class="cam-bracket bracket-tr"></view>
+        <view class="cam-bracket bracket-bl"></view>
+        <view class="cam-bracket bracket-br"></view>
+        
+        <!-- Hiệu ứng quét laser -->
+        <view class="scanner-sweep" />
+      </view>
+      
+      <!-- Hướng dẫn góc hiện tại -->
+      <view class="current-angle-guide" tt:if="{{capturedCount < 4}}">
+        <text class="current-angle-label">Góc chụp hiện tại: <text class="current-angle-highlight">{{angles[activeAngleIndex].label}}</text></text>
+      </view>
+    </view>
+
+    <!-- Thông báo chưa cấp quyền Camera -->
+    <view class="camera-error-card" tt:else>
+      <view class="icon icon-warning icon--lg" />
+      <text class="camera-error-text">Không thể mở camera</text>
+      <text class="camera-error-sub">Vui lòng cấp quyền truy cập camera trong Cài đặt ứng dụng để bắt đầu quét khuôn mặt trực tiếp.</text>
+      <button class="btn-settings" bindtap="openSetting">Mở Cài đặt</button>
+    </view>
+
+    <!-- Lưới 4 góc mặt -->
+    <view class="guide-section">
+      <text class="section-label">Góc chụp sinh trắc học:</text>
+      
+      <view class="angle-grid">
+        <view
+          tt:for="{{angles}}"
+          tt:key="id"
+          class="angle-card {{item.imagePath ? 'angle-card--captured' : 'angle-card--empty'}} {{index === activeAngleIndex ? 'angle-card--active' : ''}}"
+          bindtap="selectAngle"
+          data-index="{{index}}"
+        >
+          <view class="angle-preview-wrap">
+            <image
+              tt:if="{{item.imagePath}}"
+              class="angle-preview-img"
+              src="{{item.imagePath}}"
+              mode="aspectFill"
+            />
+            <view tt:else class="angle-placeholder">
+              <view class="icon {{item.iconClass}} icon--lg" />
+            </view>
+            <view class="angle-done-badge" tt:if="{{item.imagePath}}">
+              <view class="icon icon-check-white icon--sm" style="display: block;" />
+            </view>
+          </view>
+          <text class="angle-label">{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Tiến trình -->
+    <view class="progress-section">
+      <view class="progress-info-row">
+        <text class="progress-label">{{t.profile.personalInfo || 'Tiến trình đăng ký'}}</text>
+        <text class="progress-count">{{capturedCount}}/4 {{t.face.anglesText || 'góc'}}</text>
+      </view>
+      <view class="progress-bar-wrap">
+        <view class="progress-bar-fill progress-fill-{{capturedCount}}" />
+      </view>
+    </view>
+
+    <!-- Nút xử lý -->
+    <view class="submit-section">
+      <!-- Nút chụp từ camera nhúng -->
+      <button
+        tt:if="{{capturedCount < 4}}"
+        class="btn-register btn-register--active"
+        bindtap="takePhoto"
+        disabled="{{loading}}"
+      >
+        {{ 'Chụp góc: ' + angles[activeAngleIndex].label }}
+      </button>
+
+      <!-- Nút gửi đăng ký -->
+      <button
+        tt:else
+        class="btn-register btn-register--active"
+        bindtap="handleRegister"
+        disabled="{{loading}}"
+      >
+        <text tt:if="{{loading}}">{{t.common.loading || 'Đang xử lý...'}}</text>
+        <text tt:else>{{t.face.confirm || 'Gửi dữ liệu khuôn mặt'}}</text>
+      </button>
+
+      <button class="btn-reset" bindtap="resetAll" tt:if="{{capturedCount > 0}}" disabled="{{loading}}">
+        {{t.face.retake || 'Chụp lại từ đầu'}}
+      </button>
+    </view>
+
+    <!-- Lưu ý -->
+    <view class="note-card">
+      <text class="note-title">Lưu ý khi chụp ảnh:</text>
+      <text class="note-item">• Đủ ánh sáng, không ngược sáng.</text>
+      <text class="note-item">• Không đeo kính râm, khẩu trang, mũ.</text>
+      <text class="note-item">• Giữ điện thoại ngang tầm mắt.</text>
+    </view>
+
+  </view>
+
+  <view style="height: 80rpx;" />
+</view>

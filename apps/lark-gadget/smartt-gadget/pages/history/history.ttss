@@ -1,0 +1,361 @@
+/* pages/history/history.ttss — Premium UI/UX Redesign matching Aurora Ink theme */
+
+.hist-root {
+  min-height: 100vh;
+  background-color: var(--bg-base);
+  background-image: radial-gradient(120% 60% at 50% -10%, var(--bg-base-2) 0%, var(--bg-base) 60%);
+  padding: 36rpx 32rpx;
+  box-sizing: border-box;
+}
+
+/* ── 1. Header & Month Picker ── */
+.hist-header {
+  margin-bottom: 40rpx;
+}
+
+.hist-title {
+  font-size: 40rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.6rpx;
+  display: block;
+  margin-bottom: 28rpx;
+}
+
+/* Month navigation slider */
+.filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--bg-surface);
+  border-radius: 32rpx;
+  padding: 16rpx 24rpx;
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.month-nav {
+  width: 68rpx;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-base-2);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.month-nav:active {
+  transform: scale(0.92);
+  background-color: var(--border-color);
+}
+
+.month-nav-text {
+  font-size: 36rpx;
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.month-label {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: 0.5rpx;
+}
+
+/* ── 2. Bento Summary Grid ── */
+.summary-grid {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 48rpx;
+}
+
+.summary-card {
+  flex: 1;
+  border-radius: 28rpx;
+  padding: 32rpx 12rpx;
+  text-align: center;
+  border: 1rpx solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+/* Custom soft bento background tints per status card */
+.summary-card:nth-child(1) {
+  background-color: rgba(16, 185, 129, 0.04);
+  border-color: rgba(16, 185, 129, 0.12);
+}
+.summary-card:nth-child(2) {
+  background-color: rgba(245, 158, 11, 0.04);
+  border-color: rgba(245, 158, 11, 0.12);
+}
+.summary-card:nth-child(3) {
+  background-color: rgba(239, 68, 68, 0.04);
+  border-color: rgba(239, 68, 68, 0.12);
+}
+.summary-card:nth-child(4) {
+  background-color: rgba(99, 102, 241, 0.04);
+  border-color: rgba(99, 102, 241, 0.12);
+}
+
+.summary-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+}
+
+.bg-success { background-color: #10B981; }
+.bg-warning { background-color: #F59E0B; }
+.bg-danger { background-color: #EF4444; }
+.bg-info { background-color: var(--accent); }
+
+.summary-value {
+  font-size: 38rpx;
+  font-weight: 800;
+  margin-bottom: 8rpx;
+  line-height: 1;
+}
+
+.summary-label {
+  font-size: 20rpx;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ── 3. Loading State ── */
+.loading-box {
+  padding: 140rpx 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 4px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: hist-spin 0.8s linear infinite;
+  margin-bottom: 20rpx;
+}
+
+@keyframes hist-spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 26rpx;
+  color: var(--text-muted);
+}
+
+/* ── 4. Premium History List ── */
+.hist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.hist-item {
+  position: relative;
+  background-color: var(--bg-surface);
+  border-radius: 32rpx;
+  padding: 36rpx 32rpx;
+  display: flex;
+  align-items: flex-start;
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+}
+
+.hist-item:active {
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.02);
+}
+
+/* Left vertical indicator line */
+.hist-item::before {
+  content: "";
+  position: absolute;
+  top: 24rpx;
+  bottom: 24rpx;
+  left: 0;
+  width: 6rpx;
+  border-radius: 0 4rpx 4rpx 0;
+  background: var(--text-muted);
+}
+
+.hist-item--success::before { background: #10B981; }
+.hist-item--warning::before { background: #F59E0B; }
+.hist-item--danger::before { background: #EF4444; }
+.hist-item--info::before { background: var(--accent); }
+
+/* Left Date block */
+.hist-date-block {
+  display: flex;
+  flex-direction: column;
+  margin-right: 28rpx;
+  border-right: 1px solid var(--border-color);
+  padding-right: 24rpx;
+  min-width: 100rpx;
+}
+
+.hist-day {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5rpx;
+}
+
+.hist-date {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-top: 6rpx;
+}
+
+/* Middle content area */
+.hist-content-middle {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.time-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.time-row {
+  display: flex;
+  align-items: center;
+}
+
+.time-label {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  width: 110rpx;
+  font-weight: 600;
+}
+
+.time-val {
+  font-size: 26rpx;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* Location details */
+.location-row {
+  display: flex;
+  align-items: center;
+  margin-top: 16rpx;
+}
+
+.location-icon {
+  width: 24rpx;
+  height: 24rpx;
+  margin-right: 8rpx;
+}
+
+.location-text {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Right content area */
+.hist-content-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 160rpx;
+  gap: 16rpx;
+}
+
+.status-badge-wrap {
+  display: flex;
+  height: 38rpx;
+  align-items: center;
+}
+
+.hist-status-badge {
+  padding: 8rpx 20rpx;
+  border-radius: 14rpx;
+  text-align: center;
+  font-weight: 700;
+}
+
+.badge--success {
+  background-color: rgba(16, 185, 129, 0.08);
+  border: 1rpx solid rgba(16, 185, 129, 0.2);
+  color: #10B981;
+}
+
+.badge--warning {
+  background-color: rgba(245, 158, 11, 0.08);
+  border: 1rpx solid rgba(245, 158, 11, 0.2);
+  color: #F59E0B;
+}
+
+.badge--danger {
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1rpx solid rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+}
+
+.badge--info {
+  background-color: var(--accent-soft);
+  border: 1rpx solid var(--accent);
+  color: var(--accent);
+}
+
+.hist-status-text {
+  font-size: 18rpx;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5rpx;
+}
+
+.hours-wrap {
+  display: flex;
+  height: 38rpx;
+  align-items: center;
+}
+
+.hours-text {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+/* ── 5. Empty State ── */
+.empty-state-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 180rpx 40rpx;
+  text-align: center;
+}
+
+.empty-text {
+  color: var(--text-muted);
+  font-size: 28rpx;
+  font-weight: 600;
+}

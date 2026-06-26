@@ -1,0 +1,263 @@
+/* pages/manager/approvals.ttss */
+
+.app-root {
+  min-height: 100vh;
+  background-color: var(--bg-base);
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+/* ── Header ── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 36rpx;
+}
+
+.app-title {
+  font-size: 40rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.6rpx;
+}
+
+.app-badge {
+  background: #FEF3C7;
+  border: 1px solid #FDE68A;
+  border-radius: 9999rpx;
+  padding: 6rpx 20rpx;
+}
+
+.app-badge-text {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #D97706;
+}
+
+/* ── Tabs Bar ── */
+.tab-bar {
+  display: flex;
+  background-color: var(--bg-surface);
+  border-radius: 20rpx;
+  padding: 8rpx;
+  margin-bottom: 36rpx;
+  border: 1rpx solid var(--border-color);
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tab-item--active .tab-text {
+  color: #D97706;
+  font-weight: 700;
+}
+
+.tab-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  width: 48rpx;
+  height: 4rpx;
+  background-color: #D97706;
+  border-radius: 9999rpx;
+}
+
+/* Loading */
+.loading-box {
+  padding: 80rpx 0;
+  text-align: center;
+}
+
+.loading-text {
+  font-size: 26rpx;
+  color: var(--text-muted);
+}
+
+/* ── Request Card ── */
+.req-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.req-card {
+  background-color: var(--bg-surface);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  border: 1rpx solid var(--border-color);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.req-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28rpx;
+}
+
+.req-emp-info {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.req-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background-color: #FEF3C7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #FDE68A;
+}
+
+.req-avatar-letter {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: #D97706;
+}
+
+.req-emp-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.req-emp-name {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.req-dept {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-top: 2rpx;
+}
+
+.badge-text-val {
+  font-size: 20rpx;
+}
+
+/* Details */
+.req-details-box {
+  background-color: var(--bg-base);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  border: 1rpx solid var(--border-color);
+  margin-bottom: 28rpx;
+}
+
+.req-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.req-detail-icon {
+  font-size: 28rpx;
+}
+
+.req-detail-label {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  width: 120rpx;
+  font-weight: 500;
+}
+
+.req-detail-val {
+  font-size: 24rpx;
+  color: var(--text-primary);
+  font-weight: 600;
+  flex: 1;
+}
+
+.reason-val {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* Actions */
+.req-actions-row {
+  display: flex;
+  gap: 20rpx;
+}
+
+.btn-action-approve {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 16rpx;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: 0 4rpx 10rpx rgba(5, 150, 105, 0.25);
+}
+
+.btn-action-approve:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.btn-action-reject {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 16rpx;
+  background-color: transparent;
+  border: 2rpx solid #DC2626;
+  color: #DC2626;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-action-reject:active {
+  background-color: rgba(220, 38, 38, 0.08);
+}
+
+.req-done-badge-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Empty State */
+.empty-state-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 40rpx;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 24rpx;
+}
+
+.empty-text {
+  color: var(--text-muted);
+  font-size: 26rpx;
+}

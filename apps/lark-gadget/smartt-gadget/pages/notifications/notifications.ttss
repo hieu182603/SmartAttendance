@@ -1,0 +1,89 @@
+/* pages/notifications/notifications.ttss */
+.notif-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.notif-header-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.read-all-btn {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 8rpx 0;
+}
+
+.notif-list {
+  flex: 1;
+  width: 100%;
+}
+
+.notif-card {
+  background-color: var(--bg-surface);
+  border-radius: 24rpx;
+  padding: 28rpx 32rpx;
+  margin-bottom: 16rpx;
+  border: 1rpx solid var(--border-color);
+  display: flex;
+  flex-direction: row;
+  gap: 24rpx;
+  align-items: flex-start;
+  position: relative;
+}
+
+.notif-card--unread {
+  background-color: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.notif-card-icon-wrap {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 20rpx;
+  background-color: rgba(99, 102, 241, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notif-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-card-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+}
+
+.unread-dot {
+  position: absolute;
+  top: 28rpx;
+  right: 28rpx;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background-color: var(--accent);
+  box-shadow: 0 0 12rpx var(--accent);
+}
+
+.notif-card-msg {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 8rpx;
+}
+
+.notif-card-time {
+  font-size: 20rpx;
+  color: var(--text-muted);
+}

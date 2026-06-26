@@ -1,0 +1,177 @@
+<!-- pages/attendance/attendance.ttml -->
+<view class="theme-{{theme}} att-root">
+
+  <!-- ── Top Status Bar Spacer ── -->
+  <view class="safe-area-top" />
+
+  <!-- ── Simulated Camera Scanning View ── -->
+  <view class="camera-preview-area">
+    
+    <!-- GPS Chip Overlay -->
+    <view class="gps-chip-overlay">
+      <view class="gps-dot {{hasLocation && (isRemote || !isOutOfRange) ? 'gps-dot--success' : 'gps-dot--error'}}" />
+      <text class="gps-text">{{locationText}}</text>
+    </view>
+
+    <!-- Scanning Target (Oval Frame) -->
+    <view class="scan-frame-wrapper">
+      
+      <!-- Oval outline -->
+      <view class="face-oval-frame {{capturedImage ? 'face-oval-frame--captured' : ''}}" bindtap="handleFrameTap">
+        <!-- Photo preview if captured -->
+        <image
+          tt:if="{{capturedImage}}"
+          class="photo-preview-img"
+          src="{{capturedImage}}"
+          mode="aspectFill"
+        />
+        <!-- Live camera if not captured and camera is authorized -->
+        <camera
+          id="attCamera"
+          tt:elif="{{cameraAuthorized}}"
+          class="live-camera"
+          device-position="front"
+          flash="off"
+          binderror="onCameraError"
+        />
+        <!-- Fallback if camera not authorized -->
+        <view tt:else class="camera-center-hint">
+          <view class="icon icon-warning icon--lg" />
+          <text class="camera-ico-label">Yêu cầu quyền Camera</text>
+        </view>
+
+        <!-- Scanning line (Only if not captured) -->
+        <view class="scanning-line" tt:if="{{!capturedImage}}" />
+
+        <!-- Retake overlay -->
+        <view class="retake-overlay" tt:if="{{capturedImage}}">
+          <text class="retake-text">{{t.face.retake || 'Chụp lại'}}</text>
+        </view>
+      </view>
+
+      <!-- Corner Brackets -->
+      <view class="bracket bracket-tl" />
+      <view class="bracket bracket-tr" />
+      <view class="bracket bracket-bl" />
+      <view class="bracket bracket-br" />
+
+    </view>
+
+    <!-- Instructions -->
+    <view class="instruction-box">
+      <text class="instruction-txt" style="display: block;">Nhìn thẳng vào camera và giữ yên để nhận dạng khuôn mặt</text>
+    </view>
+
+  </view>
+
+  <!-- ── Control Panel ── -->
+  <view class="bottom-control-panel">
+    
+    <!-- Status Row (3 columns) -->
+    <view class="stats-row-three">
+      <view class="stat-col-item">
+        <view class="stat-col-label">{{t.attendanceDetail.location || 'Vị trí'}}</view>
+        <view class="stat-col-value {{hasLocation && (isRemote || !isOutOfRange) ? 'text-success' : 'text-danger'}}">
+          {{hasLocation && (isRemote || !isOutOfRange) ? 'Hợp lệ' : 'Ngoài phạm vi'}}
+        </view>
+        <view class="stat-col-sub" tt:if="{{hasLocation}}">{{latDisplay}}, {{lngDisplay}}</view>
+        <view class="stat-col-sub" tt:else style="opacity: 0;">-</view>
+      </view>
+      <view class="stat-col-item">
+        <view class="stat-col-label">{{t.dashboard.shiftLabel}}</view>
+        <view class="stat-col-value">08:00 – 17:00</view>
+        <view class="stat-col-sub" style="opacity: 0;">-</view>
+      </view>
+      <view class="stat-col-item">
+        <view class="stat-col-label">{{t.attendance.status || 'Trạng thái'}}</view>
+        <view class="stat-col-value">
+          {{showCheckIn ? (t.dashboard.notWorking || 'Chưa vào') : (t.dashboard.working || 'Đang làm')}}
+        </view>
+        <view class="stat-col-sub" style="opacity: 0;">-</view>
+      </view>
+
+    </view>
+
+    <!-- Geolocation Update Button (Only visible if no location, out of range or to update) -->
+    <view class="locate-btn-row" tt:if="{{!hasLocation || isOutOfRange}}">
+      <button class="btn-locate-outline" bindtap="getLocation" disabled="{{loadingLocation}}">
+        <text tt:if="{{loadingLocation}}">{{t.common.loading}}</text>
+        <text tt:else>{{t.common.retry || 'Cập nhật lại GPS'}}</text>
+      </button>
+    </view>
+
+    <!-- Action Submit Button: Check In / Check Out -->
+    <view class="action-submit-row">
+      
+      <!-- 1. Check-In -->
+      <button
+        class="btn-submit-action {{canSubmit ? 'btn-submit-action--blue' : 'btn-submit-action--disabled'}}"
+        bindtap="handleCheckIn"
+        disabled="{{!canSubmit}}"
+        tt:if="{{showCheckIn}}"
+      >
+        <view class="icon icon-check-white icon--sm" style="margin-right: 12rpx; display: inline-block;" tt:if="{{!loading}}" />
+        <text tt:if="{{loading}}">{{t.common.loading}}</text>
+        <text tt:else>{{t.dashboard.checkInNow}}</text>
+      </button>
+
+      <!-- 2. Check-Out -->
+      <button
+        class="btn-submit-action {{canSubmit ? 'btn-submit-action--red' : 'btn-submit-action--disabled'}}"
+        bindtap="handleCheckOut"
+        disabled="{{!canSubmit}}"
+        tt:if="{{showCheckOut}}"
+      >
+        <view class="icon icon-logout-white icon--sm" style="margin-right: 12rpx; display: inline-block;" tt:if="{{!loading}}" />
+        <text tt:if="{{loading}}">{{t.common.loading}}</text>
+        <text tt:else>{{t.dashboard.checkOutNow}}</text>
+      </button>
+
+      <!-- 3. Done -->
+      <view class="completed-banner-wrap" tt:if="{{showDone}}">
+        <view class="icon icon-check icon--sm" />
+        <text class="completed-text">{{t.attendanceDetail.completed || 'Bạn đã hoàn thành chấm công hôm nay!'}}</text>
+      </view>
+
+    </view>
+
+    <view class="back-link-row" bindtap="goBack">
+      <text class="back-link-txt">{{t.common.back || 'Quay lại trang chủ'}}</text>
+    </view>
+
+  </view>
+
+  <!-- ── OTP Fallback Modal ── -->
+  <view class="otp-modal-backdrop" tt:if="{{showOtpModal}}">
+    <view class="otp-modal">
+      <text class="otp-title">Xác thực OTP dự phòng</text>
+      <text class="otp-subtitle">Xác thực khuôn mặt thất bại nhiều lần. Vui lòng nhập mã OTP đã được gửi đến email của bạn để hoàn tất chấm công.</text>
+      
+      <view class="otp-input-wrap">
+        <input
+          class="otp-input"
+          type="number"
+          maxlength="6"
+          placeholder="000000"
+          placeholder-style="color: #94a3b8;"
+          bindinput="onOtpInput"
+          value="{{otpVal}}"
+          focus="{{showOtpModal}}"
+        />
+      </view>
+
+      <view class="otp-error-row" tt:if="{{otpError}}">
+        <text class="otp-error-txt">{{otpError}}</text>
+      </view>
+
+      <view class="otp-actions">
+        <button class="otp-btn-cancel" bindtap="closeOtpModal">Hủy</button>
+        <button class="otp-btn-submit" bindtap="submitOtp" disabled="{{otpLoading}}">
+          <text tt:if="{{otpLoading}}">Đang gửi...</text>
+          <text tt:else>Xác nhận</text>
+        </button>
+      </view>
+    </view>
+  </view>
+
+</view>

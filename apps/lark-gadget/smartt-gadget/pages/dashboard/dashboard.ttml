@@ -1,0 +1,191 @@
+<!-- pages/dashboard/dashboard.ttml -->
+<view class="theme-{{theme}} dash-root">
+
+  <!-- ── Header ── -->
+  <view class="dash-header">
+    <view class="header-left">
+      <text class="greeting">Xin chào</text>
+      <text class="user-name">{{displayName}}</text>
+    </view>
+
+    <view class="header-right">
+      <view class="notif-btn" bindtap="goToNotifications">
+        <view class="notif-bell-wrap">
+          <view class="icon icon-bell icon--md" />
+          <view class="notif-badge" tt:if="{{unreadNotifCount > 0}}">
+            <text class="notif-badge-text">{{unreadNotifCount}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="avatar-circle">
+        <view class="icon icon-user-white icon--md" tt:if="{{nameInitial === '?'}}" />
+        <text class="avatar-text" tt:else>{{nameInitial}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── Hero Card ── -->
+  <view class="hero-card-wrap">
+    <view class="hero-decor hero-decor-1" />
+    <view class="hero-decor hero-decor-2" />
+
+    <view class="hero-top">
+      <view class="hero-shift-info">
+        <text class="hero-shift-label">{{t.dashboard.shiftLabel}}</text>
+        <text class="hero-shift-time">{{shiftStart}} – {{shiftEnd}}</text>
+      </view>
+      <view class="working-badge">
+        <view class="working-dot {{isCheckedIn ? 'working-dot--active' : ''}}" />
+        <text class="working-badge-text">{{isCheckedIn ? t.dashboard.working : t.dashboard.notWorking}}</text>
+      </view>
+    </view>
+
+    <view class="hero-clock">
+      <text class="hero-time">{{clockStr}}</text>
+      <text class="hero-date">{{dateStr}}</text>
+    </view>
+
+    <view class="hero-stats">
+      <view class="hero-stat-item">
+        <text class="hero-stat-label">{{t.dashboard.statIn}}</text>
+        <text class="hero-stat-value">{{checkInTimeStr}}</text>
+      </view>
+      <view class="hero-stat-item">
+        <text class="hero-stat-label">{{t.dashboard.statWorked}}</text>
+        <text class="hero-stat-value">{{workedStr}}</text>
+      </view>
+      <view class="hero-stat-item">
+        <text class="hero-stat-label">{{t.dashboard.statRemaining}}</text>
+        <text class="hero-stat-value">{{remainingStr}}</text>
+      </view>
+    </view>
+
+    <!-- Nút Checkin tích hợp trực tiếp -->
+    <view class="checkout-btn" bindtap="goToAttendance">
+      <view class="icon icon--sm {{isCheckedIn ? 'icon-logout-indigo' : 'icon-login-indigo'}}" />
+      <text class="checkout-btn-text">{{isCheckedIn ? t.dashboard.checkOutNow : t.dashboard.checkInNow}}</text>
+    </view>
+  </view>
+
+
+
+  <!-- ── Thống kê tháng này ── -->
+  <view class="section-wrap">
+    <view class="section-header">
+      <text class="section-title">{{monthLabel}}</text>
+      <text class="section-link" bindtap="goToHistory">Xem chi tiết</text>
+    </view>
+    
+    <view class="stats-row-grid">
+      <!-- Thống kê đi làm -->
+      <view class="stat-progress-card">
+        <view class="stat-card-badge stat-badge--blue">
+          <text>+{{attendanceThisMonth}} ngày</text>
+        </view>
+        <view class="stat-card-icon-wrap">
+          <view class="icon icon-calendar icon--sm" />
+        </view>
+        <text class="stat-card-value">{{attendanceThisMonth}}</text>
+        <text class="stat-card-label">Ngày đi làm</text>
+        <view class="stat-bar-wrap">
+          <view class="stat-bar-fill stat-bar-fill--blue" style="width: {{monthlyActiveDaysPercent}}%;" />
+        </view>
+      </view>
+
+      <!-- Thống kê giờ làm -->
+      <view class="stat-progress-card">
+        <view class="stat-card-badge stat-badge--green">
+          <text>Đạt chỉ tiêu</text>
+        </view>
+        <view class="stat-card-icon-wrap">
+          <view class="icon icon-time icon--sm" />
+        </view>
+        <text class="stat-card-value">{{workedHoursThisMonth}}h</text>
+        <text class="stat-card-label">Giờ làm việc</text>
+        <view class="stat-bar-wrap">
+          <view class="stat-bar-fill stat-bar-fill--green" style="width: {{monthlyWorkedHoursPercent}}%;" />
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ── Hoạt động gần đây ── -->
+  <view class="section-wrap">
+    <view class="section-header">
+      <text class="section-title">Hoạt động gần đây</text>
+      <text class="section-link" bindtap="goToHistory">Tất cả</text>
+    </view>
+    
+    <view class="activity-list">
+      <block tt:if="{{recentActivities.length === 0}}">
+        <view class="activity-item activity-item--empty">
+          <text class="activity-empty-text">Chưa có hoạt động hôm nay</text>
+        </view>
+      </block>
+      <block tt:else>
+        <view class="activity-item" tt:for="{{recentActivities}}" tt:key="id">
+          <view class="activity-icon-wrap activity-icon-wrap--{{item.iconType}}">
+            <view class="icon icon-{{item.type === 'checkout' ? 'logout' : (item.iconType === 'orange' ? 'time' : 'user')}} icon--sm" />
+          </view>
+          <view class="activity-body">
+            <text class="activity-title">{{item.title}}</text>
+            <text class="activity-sub">{{item.sub}}</text>
+          </view>
+          <view class="activity-meta">
+            <text class="activity-time">{{item.time}}</text>
+            <view class="activity-badge activity-badge--{{item.badge.color}}" tt:if="{{item.badge}}">
+              <text class="activity-badge-text">{{item.badge.label}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- ── Phân hệ Quản lý (Manager) ── -->
+  <block tt:if="{{isManagerOrAdmin}}">
+    <view class="section-wrap">
+      <view class="section-header">
+        <text class="section-title">{{t.dashboard.teamToday}}</text>
+        <text class="section-link" bindtap="goToTeamStatus">{{t.dashboard.detailsLink}}</text>
+      </view>
+      <view class="manager-stat-grid">
+        <view class="m-stat-card border--green" bindtap="goToTeamStatus">
+          <text class="m-stat-val text-success">{{teamStats.present}}</text>
+          <text class="m-stat-label">{{t.dashboard.present}}</text>
+        </view>
+        <view class="m-stat-card border--yellow" bindtap="goToTeamStatus">
+          <text class="m-stat-val text-warning">{{teamStats.late}}</text>
+          <text class="m-stat-label">{{t.dashboard.late}}</text>
+        </view>
+        <view class="m-stat-card border--red" bindtap="goToTeamStatus">
+          <text class="m-stat-val text-danger">{{teamStats.absent}}</text>
+          <text class="m-stat-label">{{t.dashboard.absent}}</text>
+        </view>
+      </view>
+    </view>
+    <!-- Thẻ duyệt đơn của Manager -->
+    <view class="section-wrap">
+      <view class="approval-card-banner" bindtap="goToApprovals">
+        <view class="approval-card-left">
+          <view class="approval-icon-box">
+            <view class="icon icon-document" />
+          </view>
+          <view class="approval-text-info">
+            <text class="approval-card-title">{{t.dashboard.approvalsBannerTitle}}</text>
+            <text class="approval-card-sub">{{t.dashboard.approvalsBannerSub}}</text>
+          </view>
+        </view>
+        <view class="approval-card-right">
+          <view class="approval-count-badge" tt:if="{{pendingCount > 0}}">
+            <text class="approval-count-text">{{pendingCount}}</text>
+          </view>
+          <text class="approval-chevron">›</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view style="height: 120rpx;" />
+  <bottom-nav active-tab="home" user-role="{{userRole}}" />
+</view>

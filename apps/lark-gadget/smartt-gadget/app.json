@@ -1,0 +1,37 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/dashboard/dashboard",
+    "pages/attendance/attendance",
+    "pages/face-reg/face-reg",
+    "pages/history/history",
+    "pages/manager/approvals",
+    "pages/manager/team-status",
+    "pages/forgot-pw/forgot-pw",
+    "pages/change-password/change-password",
+    "pages/schedule/schedule",
+    "pages/requests/requests",
+    "pages/leave-balance/leave-balance",
+    "pages/payslip/payslip",
+    "pages/profile/profile",
+    "pages/settings/settings",
+    "pages/notifications/notifications",
+    "pages/attendance-detail/attendance-detail",
+    "pages/request-detail/request-detail"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#0d0f1e",
+    "navigationBarTitleText": "Smart Attendance",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0d0f1e"
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "Quyền lấy vị trí GPS để xác định phạm vi chấm công văn phòng."
+    },
+    "scope.camera": {
+      "desc": "Quyền truy cập Camera để nhận diện khuôn mặt khi chấm công."
+    }
+  }
+}

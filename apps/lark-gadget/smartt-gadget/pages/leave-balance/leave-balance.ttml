@@ -1,0 +1,96 @@
+<!-- pages/leave-balance/leave-balance.ttml -->
+<view class="theme-{{theme}} page-root">
+  
+  <!-- Hero Section -->
+  <view class="hero">
+    <view class="hero-glow-1" />
+    <view class="hero-glow-2" />
+    <view class="hero-ring" />
+    
+    <view class="top-bar">
+      <view class="back-btn" bindtap="goBack">
+        <view class="icon icon-back" />
+      </view>
+      <text class="top-title">{{t.leaveBalance.title || 'Số ngày phép'}}</text>
+      <view style="width: 72rpx;" />
+    </view>
+
+    <!-- Glassmorphic Card Container -->
+    <view class="balance-card">
+      <view class="balance-display">
+        <view class="donut-wrap">
+          <view class="donut-outer">
+            <text class="donut-num">{{remaining}}</text>
+            <text class="donut-lbl">{{t.attendanceDetail.remaining || 'Còn lại'}}</text>
+          </view>
+          <view class="donut-arc" style="border-right-color: {{pct > 50 ? '#10B981' : 'transparent'}}" />
+        </view>
+        <view class="balance-info">
+          <text class="balance-year">Năm 2026</text>
+          <text class="balance-used">{{used}} / {{total}} {{t.leaveBalance.daysUsed || 'ngày đã dùng'}}</text>
+          <text class="balance-sub">{{remaining}} {{t.leaveBalance.daysLeft || 'ngày còn lại'}}</text>
+        </view>
+      </view>
+
+      <view class="expire-note">
+        <view class="icon icon-time-white" style="width: 26rpx; height: 26rpx;" />
+        <text class="expire-text">{{t.leaveBalance.expiresOn || 'Hết hạn'}} 31/12/2026</text>
+      </view>
+    </view>
+  </view>
+
+  <scroll-view class="content-scroll" scroll-y="{{true}}" shows-vertical-scroll-indicator="{{false}}">
+    <view class="scroll-padding">
+      
+      <!-- Leave Types Breakdown -->
+      <text class="section-title">{{t.leaveBalance.title || 'Số ngày phép'}}</text>
+      <view class="leave-types">
+        <view class="leave-type-card" tt:for="{{displayBalances}}" tt:key="name">
+          <view class="lt-icon-wrap" style="background-color: {{item.iconBg}};">
+            <view class="icon {{item.iconClass}}" />
+          </view>
+          <view class="lt-body">
+            <text class="lt-name">{{item.name}}</text>
+            <view class="lt-bar-wrap">
+              <view class="lt-bar-fill" style="width: {{item.percent}}%; background-color: {{item.barColor}};" />
+            </view>
+          </view>
+          <view class="lt-right">
+            <text class="lt-count" style="color: {{item.barColor}};">{{item.remaining}}</text>
+            <text class="lt-total">/ {{item.total}} ngày</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- History -->
+      <text class="section-title">{{t.leaveBalance.history || 'Lịch sử nghỉ phép'}}</text>
+      <view class="history-list">
+        <view class="empty-state" tt:if="{{history.length === 0}}">
+          <text class="empty-text">{{t.common.noData || 'Chưa có lịch sử nghỉ phép'}}</text>
+        </view>
+        
+        <view class="hist-item" tt:for="{{history}}" tt:key="id">
+          <view class="hist-icon-wrap">
+            <view class="icon icon-calendar" />
+          </view>
+          <view class="hist-body">
+            <text class="hist-title">{{item.type}}</text>
+            <text class="hist-date">{{item.startDate}} – {{item.endDate}}</text>
+          </view>
+          <view class="hist-right">
+            <text class="hist-days text-{{item.statusClass}}">{{item.daysText}}</text>
+            <view class="badge badge--{{item.statusClass}}">{{item.statusText}}</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Request Button -->
+      <button class="btn btn--primary btn-request" bindtap="goToRequestForm">
+        <view class="icon icon-check-white" style="margin-right: 12rpx; display: inline-block;" />
+        <text>{{t.leaveBalance.requestLeave || 'Xin nghỉ phép'}}</text>
+      </button>
+
+      <view style="height: 48rpx;" />
+    </view>
+  </scroll-view>
+</view>

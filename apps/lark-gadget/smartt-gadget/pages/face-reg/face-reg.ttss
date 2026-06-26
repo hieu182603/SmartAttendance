@@ -1,0 +1,711 @@
+/* pages/face-reg/face-reg.ttss — Premium UI/UX matching theme tokens */
+
+.face-root {
+  min-height: 100vh;
+  background-color: var(--bg-base);
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+/* ── 1. Consent Screen ── */
+.consent-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 85vh;
+}
+
+.consent-card {
+  background-color: var(--bg-card);
+  border-radius: 32rpx;
+  padding: 48rpx 36rpx;
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.consent-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 24rpx;
+  right: 24rpx;
+  height: 1rpx;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+
+.consent-title {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.6rpx;
+  margin-bottom: 28rpx;
+  display: block;
+}
+
+.consent-body {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+.consent-bullets {
+  background-color: var(--bg-base-2);
+  border-radius: 24rpx;
+  padding: 28rpx;
+  margin-bottom: 28rpx;
+  border: 1rpx solid var(--border-color);
+}
+
+.consent-bullet {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.consent-bullet:last-child {
+  margin-bottom: 0;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  margin-top: 36rpx;
+  margin-bottom: 40rpx;
+  padding: 12rpx;
+}
+
+.custom-checkbox {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 12rpx;
+  border: 2rpx solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+  background-color: var(--bg-surface);
+}
+
+.custom-checkbox--checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12rpx var(--accent-soft);
+}
+
+.checkbox-label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.consent-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.btn-consent {
+  height: 96rpx;
+  border-radius: 9999rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.btn-consent--active {
+  background: var(--btn-bg);
+  color: #ffffff;
+  box-shadow: var(--glow-accent);
+}
+
+.btn-consent--active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent);
+  pointer-events: none;
+}
+
+.btn-consent--disabled,
+button.btn-consent[disabled] {
+  background: var(--bg-base-2) !important;
+  color: var(--text-disabled) !important;
+}
+
+.btn-decline {
+  height: 96rpx;
+  border-radius: 9999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  background-color: transparent;
+  border: 1.5px solid var(--border-color);
+  color: var(--text-muted);
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 2. Registration Main Screen ── */
+.registration-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.face-header {
+  margin-bottom: 36rpx;
+}
+
+.face-title {
+  font-size: 40rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.6rpx;
+  display: block;
+}
+
+.face-sub {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  margin-top: 6rpx;
+  display: block;
+}
+
+.reg-status-card {
+  background-color: var(--success-light);
+  border: 1px solid var(--accent-3);
+  border-radius: 24rpx;
+  padding: 24rpx 32rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 36rpx;
+}
+
+.status-icon-box {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background-color: var(--accent-3);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.status-info-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.reg-status-text {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.reg-status-sub {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  margin-top: 4rpx;
+}
+
+/* === 3. Live Biometric Camera Widget === */
+.camera-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 8rpx;
+  margin-bottom: 48rpx;
+  width: 100%;
+}
+
+.camera-wrapper {
+  width: 320rpx;
+  height: 420rpx;
+  border-radius: 50%;
+  border: 4rpx solid var(--border-strong);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 16rpx 48rpx rgba(99, 102, 241, 0.16);
+  background-color: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-camera {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+/* Biometric alignment corners (brackets) */
+.cam-bracket {
+  position: absolute;
+  width: 32rpx;
+  height: 32rpx;
+  border-color: var(--accent);
+  border-style: solid;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.bracket-tl {
+  top: 24rpx;
+  left: 24rpx;
+  border-width: 4rpx 0 0 4rpx;
+  border-top-left-radius: 12rpx;
+}
+
+.bracket-tr {
+  top: 24rpx;
+  right: 24rpx;
+  border-width: 4rpx 4rpx 0 0;
+  border-top-right-radius: 12rpx;
+}
+
+.bracket-bl {
+  bottom: 24rpx;
+  left: 24rpx;
+  border-width: 0 0 4rpx 4rpx;
+  border-bottom-left-radius: 12rpx;
+}
+
+.bracket-br {
+  bottom: 24rpx;
+  right: 24rpx;
+  border-width: 0 4rpx 4rpx 0;
+  border-bottom-right-radius: 12rpx;
+}
+
+/* Current target angle guide text */
+.current-angle-guide {
+  margin-top: 28rpx;
+  text-align: center;
+}
+
+.current-angle-label {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.current-angle-highlight {
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 6rpx;
+}
+
+/* Permission error fallback */
+.camera-error-card {
+  background-color: var(--bg-card);
+  border-radius: 32rpx;
+  padding: 48rpx 36rpx;
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 48rpx;
+  box-sizing: border-box;
+}
+
+.camera-error-text {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-top: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.camera-error-sub {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 32rpx;
+}
+
+.btn-settings {
+  background: var(--btn-bg);
+  color: #ffffff;
+  border-radius: 9999rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  padding: 0 48rpx;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: var(--glow-accent);
+}
+
+/* Highlight state for active card */
+.angle-card--active {
+  border-color: var(--accent) !important;
+  background-color: var(--accent-soft) !important;
+  box-shadow: 0 8rpx 24rpx var(--accent-soft) !important;
+  transform: scale(1.02);
+  animation: activePulse 2s infinite ease-in-out;
+}
+
+@keyframes activePulse {
+  0%, 100% {
+    border-color: var(--accent);
+    box-shadow: 0 0 16rpx var(--accent-soft);
+  }
+  50% {
+    border-color: var(--accent-2);
+    box-shadow: 0 0 28rpx var(--accent-soft);
+  }
+}
+
+/* Angles Grid */
+.guide-section {
+  margin-bottom: 40rpx;
+}
+
+.section-label {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+.angle-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+}
+
+.angle-card {
+  flex: 1;
+  min-width: 0;
+  background-color: var(--bg-card);
+  border-radius: 20rpx;
+  padding: 24rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.angle-card:active {
+  transform: scale(0.97);
+  background-color: var(--bg-base-2);
+}
+
+.angle-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8rpx;
+  right: 8rpx;
+  height: 1rpx;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+
+.angle-card--captured {
+  border-color: var(--accent-3);
+  background-color: var(--success-light);
+  box-shadow: 0 4rpx 12rpx rgba(16, 185, 129, 0.08);
+}
+
+/* Image preview outer wrap */
+.angle-preview-wrap {
+  width: 90rpx;
+  height: 90rpx;
+  border-radius: 50%;
+  position: relative;
+  border: 2rpx solid var(--border-color);
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%), var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.angle-card--captured .angle-preview-wrap {
+  border-color: var(--accent-3);
+  box-shadow: 0 0 12rpx var(--success-light);
+}
+
+.angle-preview-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.angle-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.angle-placeholder .icon {
+  width: 44rpx;
+  height: 44rpx;
+  opacity: 0.95;
+}
+
+/* Biometric scanner sweep animation */
+.scanner-sweep {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 8rpx;
+  background: linear-gradient(to bottom, rgba(99, 102, 241, 0) 0%, var(--accent) 50%, rgba(99, 102, 241, 0) 100%);
+  opacity: 0.8;
+  animation: scanSweep 2s ease-in-out infinite;
+  pointer-events: none;
+  box-shadow: 0 0 12rpx var(--accent);
+}
+
+@keyframes scanSweep {
+  0% {
+    top: -10%;
+  }
+  50% {
+    top: 100%;
+  }
+  100% {
+    top: -10%;
+  }
+}
+
+.angle-done-badge {
+  position: absolute;
+  bottom: -4rpx;
+  right: -4rpx;
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  background-color: var(--accent-3);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3rpx solid var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  z-index: 5;
+}
+
+.angle-label {
+  font-size: 20rpx;
+  color: var(--text-primary);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Progress Section */
+.progress-section {
+  margin-bottom: 40rpx;
+  background-color: var(--bg-card);
+  border-radius: 32rpx;
+  padding: 32rpx 36rpx;
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.progress-section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20rpx;
+  right: 20rpx;
+  height: 1rpx;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+
+.progress-info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.progress-label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.progress-count {
+  font-size: 24rpx;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.progress-bar-wrap {
+  height: 12rpx;
+  border-radius: 9999rpx;
+  background-color: var(--bg-base-2);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 9999rpx;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+  transition: width 0.3s ease;
+  box-shadow: 0 2rpx 6rpx var(--accent-soft);
+}
+
+.progress-fill-0 { width: 0%; }
+.progress-fill-1 { width: 25%; }
+.progress-fill-2 { width: 50%; }
+.progress-fill-3 { width: 75%; }
+.progress-fill-4 { width: 100%; }
+
+/* Submit Section */
+.submit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 40rpx;
+}
+
+.btn-register {
+  height: 96rpx;
+  border-radius: 9999rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-register--active {
+  background: var(--btn-bg);
+  color: #ffffff;
+  box-shadow: var(--glow-accent);
+}
+
+.btn-register--active:active {
+  transform: scale(0.98);
+  opacity: 0.92;
+}
+
+.btn-register--active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent);
+  pointer-events: none;
+}
+
+.btn-register--disabled,
+button.btn-register[disabled] {
+  background: var(--bg-base-2) !important;
+  color: var(--text-disabled) !important;
+}
+
+.btn-reset {
+  height: 96rpx;
+  border-radius: 9999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  background-color: transparent;
+  border: 1.5px solid var(--danger-border);
+  color: var(--text-danger);
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-reset:active {
+  background-color: rgba(239, 68, 68, 0.05);
+  transform: scale(0.98);
+}
+
+/* Note Card */
+.note-card {
+  background-color: var(--bg-card);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.note-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20rpx;
+  right: 20rpx;
+  height: 1rpx;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+
+.note-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--warning-alt);
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.note-item {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.note-item:last-child {
+  margin-bottom: 0;
+}

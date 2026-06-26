@@ -18,6 +18,8 @@
 **/.env
 .env.local
 .env.*.local
+apps/lark-gadget/smartt-gadget/env.js
+
 
 # Google Cloud service account keys
 **/attendance-smart-*.json
@@ -45,11 +47,8 @@ Thumbs.db
 # Cursor IDE
 .cursor/commands/
 
-# Shared UI/UX
-.shared/ui-ux-pro-max/
 
 # Local AI/tooling workspace config
-.claude/
 .grapuco/
 
 # Python (Comprehensive AI/ML Service)

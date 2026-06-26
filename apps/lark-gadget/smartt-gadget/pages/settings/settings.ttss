@@ -1,0 +1,88 @@
+/* pages/settings/settings.ttss */
+.settings-header {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-section {
+  margin-bottom: 40rpx;
+}
+
+.section-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 16rpx;
+  text-transform: uppercase;
+  letter-spacing: 0.8rpx;
+  display: block;
+}
+
+.settings-list {
+  background-color: var(--bg-surface);
+  border-radius: 24rpx;
+  border: 1rpx solid var(--border-color);
+  padding: 8rpx 32rpx;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.settings-item:last-child {
+  border-bottom: none;
+}
+
+.row-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-bg-blue {
+  background-color: #EEF2FF;
+}
+
+.icon-bg-slate {
+  background-color: #F1F5F9;
+}
+
+.icon-bg-orange {
+  background-color: #FEF3C7;
+}
+
+.icon-bg-red {
+  background-color: #FEE2E2;
+}
+
+.row-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.row-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4rpx;
+}
+
+.row-sub {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+.item-val {
+  font-size: 26rpx;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
