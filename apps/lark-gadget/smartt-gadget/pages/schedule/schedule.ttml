@@ -1,0 +1,128 @@
+<!-- pages/schedule/schedule.ttml -->
+<view class="theme-{{theme}} container sched-page">
+
+  <!-- Header -->
+  <view class="sched-head anim-rise">
+    <view class="sched-head-row">
+      <view class="sched-head-titles">
+        <text class="sched-eyebrow">{{eyebrow}}</text>
+        <text class="sched-title">{{t.schedule.title || 'Lịch làm việc'}}</text>
+      </view>
+      <view class="sched-head-actions">
+        <view class="icon-btn">
+          <view class="icon icon-bell icon--md" />
+        </view>
+        <view class="icon-btn avatar-btn">
+          <view class="icon icon-avatar icon--md" />
+        </view>
+      </view>
+    </view>
+    
+    <!-- Week Navigation Row -->
+    <view class="sched-nav-row">
+      <view class="sched-nav-btn {{currentWeekOffset === -1 ? 'is-disabled' : ''}}" bindtap="prevWeek">
+        <text class="sched-nav-arrow">‹</text>
+      </view>
+      <view class="sched-sub-wrap">
+        <view class="icon icon-calendar-muted icon--sm" style="margin-right: 12rpx;" />
+        <text class="sched-sub">{{subtitle}}</text>
+      </view>
+      <view class="sched-nav-btn {{currentWeekOffset === 1 ? 'is-disabled' : ''}}" bindtap="nextWeek">
+        <text class="sched-nav-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Hero stats -->
+  <view class="sched-hero anim-rise delay-1">
+    <view class="sched-hero-left">
+      <view class="progress-ring-container">
+        <view class="progress-ring" style="background: conic-gradient(var(--accent) {{progressAngle}}deg, var(--bg-base-2) 0deg)"></view>
+        <view class="progress-ring-inner">
+          <text class="progress-ring-num tnum">{{workCount}}</text>
+          <text class="progress-ring-den">/{{days.length}}</text>
+        </view>
+      </view>
+      <text class="progress-ring-label">{{labelWork}}</text>
+    </view>
+    
+    <view class="sched-hero-div" />
+    
+    <view class="sched-hero-right">
+      <view class="sched-stat-row">
+        <view class="sched-stat-icon icon-off-muted" />
+        <view class="sched-stat-info">
+          <text class="sched-stat-val tnum">{{offCount}}</text>
+          <text class="sched-stat-label">{{labelOff}}</text>
+        </view>
+      </view>
+      
+      <view class="sched-stat-row">
+        <view class="sched-stat-icon icon-time-muted" />
+        <view class="sched-stat-info">
+          <view class="sched-stat-val-wrapper">
+            <text class="sched-stat-val tnum">{{totalHours}}</text>
+            <text class="sched-stat-unit">h</text>
+          </view>
+          <text class="sched-stat-label">{{labelHours}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Week strip (horizontal day pills) -->
+  <view class="sched-week-strip anim-rise delay-1">
+    <view class="sched-week-strip-inner">
+      <view
+        class="sched-pill {{selectedDate === item.date ? 'is-active' : ''}} {{item.isOff ? 'is-off' : ''}}"
+        tt:for="{{days}}"
+        tt:key="date"
+        bindtap="selectDay"
+        data-date="{{item.date}}"
+      >
+        <text class="sched-pill-day">{{item.dayName}}</text>
+        <text class="sched-pill-date tnum">{{item.date}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Schedule list -->
+  <view class="sched-list">
+    <view
+      id="day-{{item.date}}"
+      class="sched-card anim-rise {{selectedDate === item.date ? 'is-selected' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isOff ? 'is-off' : ''}}"
+      tt:for="{{days}}"
+      tt:key="date"
+      bindtap="selectDay"
+      data-date="{{item.date}}"
+      style="animation-delay: {{0.14 + index * 0.05}}s"
+    >
+      <view class="sched-date">
+        <text class="sched-date-num {{item.isToday ? 'text-aurora' : ''}}">{{item.date}}</text>
+        <text class="sched-date-name">{{item.dayName}}</text>
+      </view>
+
+      <view class="sched-info">
+        <view class="sched-info-top">
+          <text class="sched-shift">{{item.shiftName}}</text>
+          <view class="badge {{item.isToday ? 'badge--info' : 'badge--neutral'}}" tt:if="{{item.badge}}">{{item.badge}}</view>
+        </view>
+
+        <view class="sched-meta" tt:if="{{!item.isOff}}">
+          <view class="sched-meta-row">
+            <view class="icon icon-time-muted icon--sm" style="margin-right: 12rpx;" />
+            <text class="sched-meta-text tnum">{{item.time}}</text>
+          </view>
+          <view class="sched-meta-row">
+            <view class="icon icon-location-muted icon--sm" style="margin-right: 12rpx;" />
+            <text class="sched-meta-text">{{item.location}}</text>
+          </view>
+        </view>
+        <text class="sched-off-text" tt:else>{{t.schedule.off || 'Nghỉ'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view style="height: 140rpx;" />
+  <bottom-nav active-tab="schedule" user-role="{{userRole}}" />
+</view>

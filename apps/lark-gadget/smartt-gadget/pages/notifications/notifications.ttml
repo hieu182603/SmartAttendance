@@ -1,0 +1,38 @@
+<!-- pages/notifications/notifications.ttml -->
+<view class="theme-{{theme}} container">
+  <!-- Top bar matching React Native screen -->
+  <view class="notif-header mb-16">
+    <view class="notif-header-title">
+      <text class="text-lg text-primary">{{t.notifications.title}}</text>
+      <text class="text-sm text-muted mt-8">{{t.notifications.subtitle}}</text>
+    </view>
+    <text class="read-all-btn" bindtap="markAllAsRead" tt:if="{{hasUnread}}">{{t.notifications.markAllRead}}</text>
+  </view>
+
+  <scroll-view class="notif-list" scroll-y="{{true}}" shows-vertical-scroll-indicator="{{false}}">
+    <!-- Empty State -->
+    <view class="empty-state" tt:if="{{notifications.length === 0}}">
+      <view class="empty-icon">🔔</view>
+      <text class="empty-text">{{t.notifications.empty}}</text>
+    </view>
+
+    <!-- Notification Cards -->
+    <view 
+      class="notif-card {{item.unread ? 'notif-card--unread' : ''}}" 
+      tt:for="{{notifications}}" 
+      tt:key="id" 
+      bindtap="markAsRead" 
+      data-id="{{item.id}}"
+    >
+      <view class="notif-card-icon-wrap">
+        <view class="icon icon-bell" />
+      </view>
+      <view class="notif-card-body">
+        <text class="notif-card-title">{{item.title}}</text>
+        <text class="notif-card-msg">{{item.body}}</text>
+        <text class="notif-card-time">{{item.time}}</text>
+      </view>
+      <view class="unread-dot" tt:if="{{item.unread}}" />
+    </view>
+  </scroll-view>
+</view>

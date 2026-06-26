@@ -1,0 +1,202 @@
+<!-- pages/forgot-pw/forgot-pw.ttml -->
+<view class="theme-{{theme}} forgot-root">
+  <!-- ── Hero/Header Section ── -->
+  <view class="hero">
+    <view class="ring ring-1" />
+    <view class="ring ring-2" />
+    <view class="ring ring-3" />
+
+    <!-- Back Button -->
+    <view class="back-btn" bindtap="goBack" tt:if="{{step < 4}}">
+      <view class="icon icon-back" />
+    </view>
+
+    <view class="logo-wrap">
+      <view class="logo-inner">
+        <view class="logo-ico icon {{step === 1 ? 'icon-mail' : (step === 2 ? 'icon-key' : (step === 3 ? 'icon-lock' : 'icon-check-white'))}}" />
+      </view>
+    </view>
+    <text class="hero-title">
+      <text tt:if="{{step === 1}}">{{t.forgotPw.title}}</text>
+      <text tt:elif="{{step === 2}}">{{t.forgotPw.titleOtp}}</text>
+      <text tt:elif="{{step === 3}}">{{t.forgotPw.titleReset}}</text>
+      <text tt:else>{{t.forgotPw.titleSuccess}}</text>
+    </text>
+    <text class="hero-sub">
+      <text tt:if="{{step === 1}}">{{t.forgotPw.subtitle}}</text>
+      <text tt:elif="{{step === 2}}">{{t.forgotPw.subtitleOtp}}</text>
+      <text tt:elif="{{step === 3}}">{{t.forgotPw.subtitleReset}}</text>
+      <text tt:else>{{t.forgotPw.subtitleSuccess}}</text>
+    </text>
+  </view>
+
+  <!-- ── Form/Content Section ── -->
+  <scroll-view
+    class="form-scroll"
+    scroll-y="{{true}}"
+    shows-vertical-scroll-indicator="{{false}}"
+  >
+    <view class="form-container">
+
+      <!-- STEP 1: Enter Email -->
+      <view class="step-wrap" tt:if="{{step === 1}}">
+        <view class="field">
+          <text class="field-label">{{t.forgotPw.emailLabel}}</text>
+          <view class="input-wrap">
+            <view class="input-ico icon icon-mail" />
+            <input
+              class="input-box"
+              type="text"
+              placeholder="ten@congty.com"
+              placeholder-class="input-placeholder"
+              bindinput="onEmailInput"
+              value="{{email}}"
+            />
+          </view>
+        </view>
+
+        <view class="info-card">
+          <view class="info-ico icon icon-warning" />
+          <text class="info-text">{{t.forgotPw.otpPrompt}}</text>
+        </view>
+
+        <view class="error-row" tt:if="{{errorMsg}}">
+          <text class="error-txt">{{errorMsg}}</text>
+        </view>
+
+        <button class="btn-login-grad" bindtap="sendOtp" disabled="{{loading}}">
+          <text tt:if="{{loading}}">{{t.forgotPw.btnSending}}</text>
+          <text tt:else>{{t.forgotPw.btnSend}}</text>
+        </button>
+
+        <view class="footer-wrap">
+          <text class="footer-txt">{{t.forgotPw.rememberPw || 'Nhớ mật khẩu rồi? '}}</text>
+          <text class="footer-link" bindtap="goBack">{{t.forgotPw.loginLink}}</text>
+        </view>
+      </view>
+
+      <!-- STEP 2: Verify OTP -->
+      <view class="step-wrap" tt:if="{{step === 2}}">
+        <view class="email-badge">
+          <view class="badge-icon icon icon-mail" />
+          <text class="badge-txt">{{maskedEmail}}</text>
+        </view>
+
+        <view class="field">
+          <text class="field-label">{{t.forgotPw.otpCodeLabel}}</text>
+          <view class="input-wrap">
+            <view class="input-ico icon icon-lock" />
+            <input
+              class="input-box"
+              type="number"
+              maxlength="6"
+              placeholder="123456"
+              placeholder-class="input-placeholder"
+              bindinput="onOtpInput"
+              value="{{otp}}"
+            />
+          </view>
+        </view>
+
+        <view class="timer-row">
+          <text class="timer-txt">{{t.forgotPw.timerLabel}} <text class="timer-bold">{{countdownStr}}</text></text>
+          <text class="resend-link {{canResend ? 'resend-link--active' : ''}}" bindtap="resendOtp">{{t.forgotPw.resendLabel}}</text>
+        </view>
+
+        <view class="error-row" tt:if="{{errorMsg}}">
+          <text class="error-txt">{{errorMsg}}</text>
+        </view>
+
+        <button class="btn-login-grad" bindtap="verifyOtp" disabled="{{loading}}">
+          <text tt:if="{{loading}}">{{t.forgotPw.btnVerifying}}</text>
+          <text tt:else>{{t.forgotPw.btnVerify}}</text>
+        </button>
+
+        <view class="footer-wrap">
+          <text class="footer-txt">{{t.forgotPw.wrongEmail || 'Nhập sai email? '}}</text>
+          <text class="footer-link" bindtap="goToStep1">{{t.forgotPw.resendLabel || 'Quay lại'}}</text>
+        </view>
+      </view>
+
+      <!-- STEP 3: Reset Password -->
+      <view class="step-wrap" tt:if="{{step === 3}}">
+        <!-- New Password -->
+        <view class="field">
+          <text class="field-label">{{t.forgotPw.newPasswordLabel}}</text>
+          <view class="input-wrap">
+            <view class="input-ico icon icon-lock" />
+            <input
+              class="input-box password-box"
+              password="{{!showPw}}"
+              placeholder="{{t.forgotPw.newPasswordPlaceholder}}"
+              placeholder-class="input-placeholder"
+              bindinput="onPasswordInput"
+              value="{{password}}"
+            />
+            <view class="eye-btn" bindtap="toggleShowPw">
+              <view class="icon {{showPw ? 'icon-eye-off' : 'icon-eye'}}" />
+            </view>
+          </view>
+        </view>
+
+        <!-- Rules display -->
+        <view class="rules-list">
+          <view class="rule-item {{ruleLength ? 'rule-item--ok' : ''}}">
+            <view class="rule-dot {{ruleLength ? 'rule-dot--ok' : ''}}" />
+            <text class="rule-txt {{ruleLength ? 'rule-txt--ok' : ''}}">{{t.forgotPw.ruleLength}}</text>
+          </view>
+          <view class="rule-item {{ruleUpper ? 'rule-item--ok' : ''}}">
+            <view class="rule-dot {{ruleUpper ? 'rule-dot--ok' : ''}}" />
+            <text class="rule-txt {{ruleUpper ? 'rule-txt--ok' : ''}}">{{t.forgotPw.ruleUpper}}</text>
+          </view>
+          <view class="rule-item {{ruleNumber ? 'rule-item--ok' : ''}}">
+            <view class="rule-dot {{ruleNumber ? 'rule-dot--ok' : ''}}" />
+            <text class="rule-txt {{ruleNumber ? 'rule-txt--ok' : ''}}">{{t.forgotPw.ruleNumber}}</text>
+          </view>
+        </view>
+
+        <!-- Confirm Password -->
+        <view class="field">
+          <text class="field-label">{{t.forgotPw.confirmPasswordLabel}}</text>
+          <view class="input-wrap">
+            <view class="input-ico icon icon-lock" />
+            <input
+              class="input-box password-box"
+              password="{{!showConfirm}}"
+              placeholder="{{t.forgotPw.confirmPasswordPlaceholder}}"
+              placeholder-class="input-placeholder"
+              bindinput="onConfirmInput"
+              value="{{confirm}}"
+            />
+            <view class="eye-btn" bindtap="toggleShowConfirm">
+              <view class="icon {{showConfirm ? 'icon-eye-off' : 'icon-eye'}}" />
+            </view>
+          </view>
+        </view>
+
+        <view class="error-row" tt:if="{{errorMsg}}">
+          <text class="error-txt">{{errorMsg}}</text>
+        </view>
+
+        <button class="btn-login-grad" bindtap="resetPassword" disabled="{{loading}}">
+          <text tt:if="{{loading}}">{{t.forgotPw.btnResetting}}</text>
+          <text tt:else>{{t.forgotPw.btnReset}}</text>
+        </button>
+      </view>
+
+      <!-- STEP 4: Success Screen -->
+      <view class="step-wrap text-center" tt:if="{{step === 4}}">
+        <view class="success-icon-wrap">
+          <view class="success-icon icon icon-check" />
+        </view>
+        <text class="success-title">{{t.forgotPw.successTitle}}</text>
+        <text class="success-sub">{{t.forgotPw.successSub}}</text>
+
+        <button class="btn-login-grad" bindtap="goToLogin">
+          {{t.forgotPw.btnLogin}}
+        </button>
+      </view>
+
+    </view>
+  </scroll-view>
+</view>

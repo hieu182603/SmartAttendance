@@ -1,0 +1,95 @@
+<!-- pages/login/login.ttml -->
+<view class="theme-{{theme}} login-root">
+
+  <!-- ── Hero Section ── -->
+  <view class="hero">
+    <view class="ring ring-1" />
+    <view class="ring ring-2" />
+    <view class="ring ring-3" />
+
+    <view class="logo-wrap">
+      <view class="logo-inner">
+        <text class="logo-char">S</text>
+      </view>
+    </view>
+    <text class="hero-title">SMA</text>
+    <text class="hero-sub">Smart Attendance System</text>
+  </view>
+
+  <!-- ── Form Section ── -->
+  <scroll-view
+    class="form-scroll"
+    scroll-y="{{true}}"
+    shows-vertical-scroll-indicator="{{false}}"
+  >
+    <view class="form-container">
+      <text class="section-label">{{t.login.title}}</text>
+      <text class="section-sub">{{t.login.subtitle}}</text>
+
+      <!-- Email -->
+      <view class="field">
+        <text class="field-label">{{t.login.emailLabel}}</text>
+        <view class="input-wrap">
+          <view class="input-ico icon icon-mail" />
+          <input
+            class="input-box"
+            type="text"
+            placeholder="ten@congty.com"
+            placeholder-class="input-placeholder"
+            bindinput="onEmailInput"
+            value="{{email}}"
+          />
+        </view>
+      </view>
+
+      <!-- Password -->
+      <view class="field">
+        <text class="field-label">{{t.login.pwLabel}}</text>
+        <view class="input-wrap">
+          <view class="input-ico icon icon-lock" />
+          <input
+            class="input-box password-box"
+            password="{{!showPw}}"
+            placeholder="••••••••"
+            placeholder-class="input-placeholder"
+            bindinput="onPasswordInput"
+            value="{{password}}"
+          />
+          <view class="eye-btn" bindtap="toggleShowPw">
+            <view class="icon {{showPw ? 'icon-eye-off' : 'icon-eye'}}" />
+          </view>
+        </view>
+      </view>
+
+      <!-- Remember Me & Forgot Password -->
+      <view class="actions-row">
+        <view class="remember-wrap" bindtap="toggleRememberMe">
+          <view class="checkbox {{rememberMe ? 'checkbox--checked' : ''}}">
+            <view class="checkbox-inner" tt:if="{{rememberMe}}" />
+          </view>
+          <text class="remember-lbl">Ghi nhớ đăng nhập</text>
+        </view>
+        <view class="forgot-btn" bindtap="goToForgotPw">
+          <text class="forgot-txt">{{t.login.forgotPw}}</text>
+        </view>
+      </view>
+
+      <!-- Error Message -->
+      <view class="error-row" tt:if="{{errorMsg}}">
+        <text class="error-txt">{{errorMsg}}</text>
+      </view>
+
+      <!-- Login Button -->
+      <button class="btn-login-grad" bindtap="handleLogin" disabled="{{loading}}">
+        <text tt:if="{{loading}}">{{t.login.btnLoading}}</text>
+        <text tt:else>{{t.login.btnText}}</text>
+      </button>
+
+      <!-- Footer -->
+      <view class="footer-wrap">
+        <text class="footer-txt">{{t.login.footerTxt}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+</view>

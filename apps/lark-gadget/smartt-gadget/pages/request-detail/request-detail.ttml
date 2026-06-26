@@ -1,0 +1,87 @@
+<!-- pages/request-detail/request-detail.ttml -->
+<view class="theme-{{theme}} page-root">
+
+  <!-- Hero -->
+  <view class="hero">
+    <view class="hero-ring" />
+    <view class="hero-topbar">
+      <view class="back-btn" bindtap="goBack">
+        <view class="icon icon-back" style="width: 32rpx; height: 32rpx;" />
+      </view>
+      <text class="hero-topbar-title">{{t.requestDetail.title}}</text>
+      <view class="back-btn-spacer" />
+    </view>
+    <text class="hero-type">{{request.type}}</text>
+    <text class="hero-title">{{request.type}} · {{request.date}}</text>
+    <view class="hero-meta">
+      <view class="badge badge--{{request.statusClass}}">{{request.statusText}}</view>
+      <text class="hero-date">{{t.requests.submittedOn || 'Gửi ngày'}} {{request.submittedAt || request.date}}</text>
+    </view>
+  </view>
+
+  <scroll-view class="detail-scroll" scroll-y="{{true}}" shows-vertical-scroll-indicator="{{false}}">
+    <view class="detail-content">
+
+      <!-- Info card -->
+      <view class="card">
+        <text class="card-title">{{t.requestDetail.info || 'Thông tin đơn'}}</text>
+        <view class="detail-row">
+          <text class="detail-lbl">{{t.requests.type || 'Loại đơn'}}</text>
+          <text class="detail-val">{{request.type}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-lbl">{{t.schedule.workDate || 'Thời gian'}}</text>
+          <text class="detail-val">{{request.date}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-lbl">{{t.requests.balance || 'Số lượng / Thời hạn'}}</text>
+          <text class="detail-val">{{request.duration}}</text>
+        </view>
+        <view class="detail-row">
+          <text class="detail-lbl">{{t.requests.reason || 'Lý do'}}</text>
+          <text class="detail-val">{{request.reason}}</text>
+        </view>
+      </view>
+
+      <!-- Timeline card -->
+      <view class="card">
+        <text class="card-title">{{t.requestDetail.timeline || 'Tiến trình phê duyệt'}}</text>
+        <view
+          class="tl-item"
+          tt:for="{{timeline}}"
+          tt:key="time"
+          data-last="{{index === timeline.length - 1}}"
+        >
+          <view class="tl-dot {{item.active ? 'tl-dot--done' : ''}}">
+            <view tt:if="{{item.active}}" class="icon icon-check-white" style="width: 24rpx; height: 24rpx;" />
+          </view>
+          <view class="tl-line" tt:if="{{index < timeline.length - 1}}" />
+          <view class="tl-body">
+            <text class="tl-name">{{item.action}}</text>
+            <text class="tl-role">{{item.actor}}</text>
+            <text class="tl-time">{{item.time}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Approver note card -->
+      <view class="card" tt:if="{{request.note}}">
+        <text class="card-title">{{t.requestDetail.note || 'Ghi chú từ người duyệt'}}</text>
+        <view class="note-box">
+          <text class="note-author">{{request.noteAuthor}}</text>
+          <text class="note-text">{{request.note}}</text>
+        </view>
+      </view>
+
+      <!-- Action buttons -->
+      <view class="action-row">
+        <button class="btn btn--primary action-primary" bindtap="goBack">{{t.requestDetail.back || 'Quay lại danh sách'}}</button>
+      </view>
+      <view class="action-cancel" tt:if="{{request.statusClass === 'warning'}}" bindtap="goBack">
+        <text class="action-cancel-txt">{{t.requestDetail.cancel || 'Hủy đơn'}}</text>
+      </view>
+
+      <view style="height: 48rpx;" />
+    </view>
+  </scroll-view>
+</view>

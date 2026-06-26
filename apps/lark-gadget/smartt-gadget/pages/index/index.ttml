@@ -1,0 +1,31 @@
+<!-- pages/index/index.ttml — Splash, căn theo mobile SplashScreen -->
+<view class="splash-root">
+  <!-- Blobs nền nổi -->
+  <view class="splash-blob splash-blob-1" />
+  <view class="splash-blob splash-blob-2" />
+  <view class="splash-blob splash-blob-3" />
+
+  <view class="splash-content">
+    <!-- Logo + vòng nhịp -->
+    <view class="splash-logo-wrap">
+      <view class="splash-ring" />
+      <view class="splash-logo anim-pop">
+        <view class="icon icon-logo" />
+      </view>
+    </view>
+
+    <!-- Thương hiệu -->
+    <view class="splash-brand anim-rise delay-2">
+      <text class="splash-brand-name">Smart Attendance</text>
+      <text class="splash-brand-sub">Hệ thống quản lý công và điểm danh</text>
+    </view>
+
+    <!-- Dấu chấm nhảy -->
+    <view class="splash-loader anim-fade delay-3">
+      <view class="splash-dot splash-dot-1" />
+      <view class="splash-dot splash-dot-2" />
+      <view class="splash-dot splash-dot-3" />
+    </view>
+  </view>
+
+</view>

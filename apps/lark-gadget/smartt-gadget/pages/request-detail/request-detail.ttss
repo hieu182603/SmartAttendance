@@ -1,0 +1,256 @@
+/* pages/request-detail/request-detail.ttss — aligned to mobile RequestDetailScreen */
+
+.page-root {
+  min-height: 100vh;
+  background-color: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Hero ── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--aurora);
+  padding: 96rpx 40rpx 48rpx;
+}
+
+.hero-ring {
+  position: absolute;
+  top: -120rpx;
+  right: -120rpx;
+  width: 400rpx;
+  height: 400rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.hero-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 40rpx;
+}
+
+.back-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
+  background-color: rgba(255, 255, 255, 0.15);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-btn:active {
+  transform: scale(0.92);
+}
+
+.back-btn-spacer {
+  width: 72rpx;
+  height: 72rpx;
+}
+
+.hero-topbar-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hero-type {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.hero-title {
+  font-size: 44rpx;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.8rpx;
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.hero-date {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ── Scroll content ── */
+.detail-scroll {
+  flex: 1;
+  width: 100%;
+}
+
+.detail-content {
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background-color: var(--bg-card);
+  border-radius: 32rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  border: 1rpx solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+/* ── Info rows ── */
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--bg-base);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-lbl {
+  font-size: 26rpx;
+  color: var(--text-muted);
+}
+
+.detail-val {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: right;
+  max-width: 60%;
+  padding-left: 32rpx;
+}
+
+/* ── Timeline ── */
+.tl-item {
+  position: relative;
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 32rpx;
+}
+
+.tl-item:last-child {
+  margin-bottom: 0;
+}
+
+.tl-dot {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background-color: var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.tl-dot--done {
+  background-color: var(--success);
+}
+
+.tl-line {
+  position: absolute;
+  left: 27rpx;
+  top: 56rpx;
+  width: 4rpx;
+  height: 40rpx;
+  background-color: var(--border-color);
+}
+
+.tl-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.tl-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tl-role {
+  font-size: 24rpx;
+  color: var(--text-muted);
+}
+
+.tl-time {
+  font-size: 24rpx;
+  color: var(--text-muted);
+}
+
+/* ── Approver note ── */
+.note-box {
+  background-color: var(--bg-base);
+  border-radius: 20rpx;
+  padding: 24rpx;
+}
+
+.note-author {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.note-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 40rpx;
+}
+
+/* ── Actions ── */
+.action-row {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.action-primary {
+  flex: 1;
+}
+
+.action-cancel {
+  width: 100%;
+  height: 96rpx;
+  border-radius: 9999rpx;
+  background-color: #FEE2E2;
+  border: 1.5px solid #FECACA;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-cancel:active {
+  transform: scale(0.98);
+}
+
+.action-cancel-txt {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #DC2626;
+}

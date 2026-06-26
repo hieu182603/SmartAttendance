@@ -1,0 +1,107 @@
+<!-- pages/manager/approvals.ttml -->
+<view class="theme-{{theme}} app-root">
+
+  <!-- Header -->
+  <view class="app-header">
+    <text class="app-title">{{t.manager.approvals.title}}</text>
+    <view class="app-badge" tt:if="{{pendingCount > 0}}">
+      <text class="app-badge-text">{{pendingCount}} {{t.manager.dashboard.pending}}</text>
+    </view>
+  </view>
+
+  <!-- Tabs -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'PENDING' ? 'tab-item--active' : ''}}" bindtap="setTab" data-tab="PENDING">
+      <text class="tab-text">{{t.requests.status.pending}} ({{pendingCount}})</text>
+      <view class="tab-indicator" tt:if="{{activeTab === 'PENDING'}}" />
+    </view>
+    <view class="tab-item {{activeTab === 'APPROVED' ? 'tab-item--active' : ''}}" bindtap="setTab" data-tab="APPROVED">
+      <text class="tab-text">{{t.requests.status.approved}}</text>
+      <view class="tab-indicator" tt:if="{{activeTab === 'APPROVED'}}" />
+    </view>
+    <view class="tab-item {{activeTab === 'REJECTED' ? 'tab-item--active' : ''}}" bindtap="setTab" data-tab="REJECTED">
+      <text class="tab-text">{{t.requests.status.rejected}}</text>
+      <view class="tab-indicator" tt:if="{{activeTab === 'REJECTED'}}" />
+    </view>
+  </view>
+
+  <!-- Loading -->
+  <view class="loading-box" tt:if="{{loading}}">
+    <text class="loading-text">⏳ {{t.common.loading}}</text>
+  </view>
+
+  <!-- Request List -->
+  <view class="req-list" tt:elif="{{hasRequests}}">
+    <view tt:for="{{requests}}" tt:key="id" class="req-card">
+
+      <view class="req-card-header">
+        <view class="req-emp-info">
+          <!-- Avatar wrapper -->
+          <view class="req-avatar">
+            <text class="req-avatar-letter">{{item.nameInitial}}</text>
+          </view>
+          <view class="req-emp-meta">
+            <text class="req-emp-name">{{item.employeeName}}</text>
+            <text class="req-dept">{{item.department}}</text>
+          </view>
+        </view>
+        <!-- Type Badge -->
+        <view class="badge badge--{{item.typeClass}}">
+          <text class="badge-text-val">{{item.typeText}}</text>
+        </view>
+      </view>
+
+      <!-- Details block -->
+      <view class="req-details-box">
+        <view class="req-detail-row">
+          <view class="icon icon-calendar icon--sm" style="margin-right: 12rpx; margin-top: 4rpx;" />
+          <text class="req-detail-label">{{t.requests.fromDate}}:</text>
+          <text class="req-detail-val">{{item.fromDate}} → {{item.toDate}}</text>
+        </view>
+        <!-- Time Detail Row for Early Checkout & Remote Attendance -->
+        <view class="req-detail-row" tt:if="{{item.type === 'early_checkout' || item.type === 'remote_attendance'}}">
+          <view class="icon icon-time icon--sm" style="margin-right: 12rpx; margin-top: 4rpx;" />
+          <text class="req-detail-label">{{t.schedule.workHours}}:</text>
+          <text class="req-detail-val">{{item.checkIn || '--:--'}} → {{item.checkOut || '--:--'}} ({{item.hoursWorked}}h)</text>
+        </view>
+        <view class="req-detail-row">
+          <view class="icon icon-document icon--sm" style="margin-right: 12rpx; margin-top: 4rpx;" />
+          <text class="req-detail-label">{{t.requests.reason}}:</text>
+          <text class="req-detail-val reason-val">{{item.reason}}</text>
+        </view>
+        <view class="req-detail-row">
+          <view class="icon icon-time icon--sm" style="margin-right: 12rpx; margin-top: 4rpx;" />
+          <text class="req-detail-label">{{t.requests.submittedOn}}:</text>
+          <text class="req-detail-val">{{item.createdAt}}</text>
+        </view>
+      </view>
+
+      <!-- Actions (only if PENDING) -->
+      <view class="req-actions-row" tt:if="{{item.isPending}}">
+        <button class="btn-action-approve" bindtap="handleApprove" data-id="{{item.id}}" data-name="{{item.employeeName}}" data-type="{{item.type}}">
+          {{t.manager.approvals.approve}}
+        </button>
+        <button class="btn-action-reject" bindtap="handleReject" data-id="{{item.id}}" data-name="{{item.employeeName}}" data-type="{{item.type}}">
+          {{t.manager.approvals.reject}}
+        </button>
+      </view>
+
+      <!-- Done Badge -->
+      <view class="req-done-badge-row" tt:else>
+        <view class="badge badge--{{item.statusClass}}">
+          <text>{{item.statusText}}</text>
+        </view>
+      </view>
+
+    </view>
+  </view>
+
+  <!-- Empty State -->
+  <view class="empty-state-wrap" tt:elif="{{!loading}}">
+    <text class="empty-icon">🎉</text>
+    <text class="empty-text">{{t.common.noData}}</text>
+  </view>
+
+  <view style="height: 120rpx;" />
+  <bottom-nav active-tab="approvals" />
+</view>

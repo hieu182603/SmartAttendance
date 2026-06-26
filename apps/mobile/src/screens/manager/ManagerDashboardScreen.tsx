@@ -156,18 +156,11 @@ export default function ManagerDashboardScreen({ navigation }: Props) {
               <Text style={s.qaLabel}>Điểm danh nhóm</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('ManagerSchedule')}>
+            <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('Schedule')}>
               <View style={[s.qaIcon, { backgroundColor: theme.colors.status.warningBg }]}>
                 <Icon name="calendar-outline" size={20} color={theme.colors.status.warning} library="ionicons" />
               </View>
               <Text style={s.qaLabel}>Ca làm việc</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[s.qaItem, s.qaFlex]} onPress={() => navigation.navigate('ManagerTeam')}>
-              <View style={[s.qaIcon, { backgroundColor: theme.colors.background.indigoTint }]}>
-                <Icon name="star-outline" size={20} color={theme.colors.brand.primaryActive} library="ionicons" />
-              </View>
-              <Text style={s.qaLabel}>Đánh giá</Text>
             </TouchableOpacity>
           </View>
 

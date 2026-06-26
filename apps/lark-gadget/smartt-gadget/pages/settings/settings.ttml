@@ -1,0 +1,54 @@
+<!-- pages/settings/settings.ttml -->
+<view class="theme-{{theme}} container">
+  <!-- Top Section / Info -->
+  <view class="settings-header mt-8 mb-24">
+    <text class="text-lg text-primary">{{t.settings.title}}</text>
+    <text class="text-sm text-muted mt-8">{{t.settings.subtitle}}</text>
+  </view>
+
+  <!-- Section: System -->
+  <view class="settings-section">
+    <text class="section-title">{{t.settings.systemSec}}</text>
+    <view class="settings-list">
+      <!-- Language Picker Row -->
+      <view class="settings-item" bindtap="handleLanguageChange">
+        <view class="row-icon icon-bg-blue">
+          <view class="icon icon-globe-accent" style="width: 36rpx; height: 36rpx;" />
+        </view>
+        <view class="row-body">
+          <text class="row-label">{{t.settings.language}}</text>
+          <text class="row-sub">{{t.settings.languageDesc || 'Hiển thị ứng dụng'}}</text>
+        </view>
+        <text class="item-val">{{language === 'en' ? t.settings.en : t.settings.vi}} ›</text>
+      </view>
+
+      <!-- Dark Mode Switch Row -->
+      <view class="settings-item">
+        <view class="row-icon icon-bg-slate">
+          <view class="icon icon-moon" style="width: 36rpx; height: 36rpx;" />
+        </view>
+        <view class="row-body">
+          <text class="row-label">{{t.settings.darkMode}}</text>
+          <text class="row-sub">{{t.settings.darkModeDesc}}</text>
+        </view>
+        <switch checked="{{darkMode}}" bindchange="handleDarkModeToggle" color="#6366f1" />
+      </view>
+
+
+
+      <!-- Push Notifications Switch Row -->
+      <view class="settings-item">
+        <view class="row-icon icon-bg-blue">
+          <view class="icon icon-bell" style="width: 36rpx; height: 36rpx;" />
+        </view>
+        <view class="row-body">
+          <text class="row-label">{{t.settings.pushNotifications}}</text>
+          <text class="row-sub">{{t.settings.pushNotificationsDesc}}</text>
+        </view>
+        <switch checked="{{pushNotif}}" bindchange="handleNotificationsToggle" color="#6366f1" />
+      </view>
+    </view>
+  </view>
+
+
+</view>

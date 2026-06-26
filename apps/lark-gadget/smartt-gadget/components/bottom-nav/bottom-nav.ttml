@@ -1,0 +1,28 @@
+<!-- components/bottom-nav/bottom-nav.ttml -->
+<view class="theme-{{theme}} nav-bar-container">
+  <view class="nav-bar">
+    <block tt:for="{{tabs}}" tt:key="id">
+      
+      <!-- Central Floating Action Button (FAB) -->
+      <view tt:if="{{item.isCenter}}" class="nav-tab-item nav-tab-item--center" bindtap="onTabTap" data-index="{{index}}">
+        <view class="fab-outer">
+          <view class="fab-inner">
+            <view class="nav-icon icon-{{item.icon}}" />
+          </view>
+        </view>
+        <text class="nav-label {{activeTab === item.id ? 'active' : ''}}">{{item.label}}</text>
+      </view>
+
+      <!-- Standard Navigation Tab -->
+      <view tt:else class="nav-tab-item {{activeTab === item.id ? 'active' : ''}}" bindtap="onTabTap" data-index="{{index}}">
+        <view class="icon-pill-wrap">
+          <view class="icon-pill {{activeTab === item.id ? 'icon-pill--active' : ''}}">
+            <view class="nav-icon icon-{{item.icon}}" />
+          </view>
+        </view>
+        <text class="nav-label">{{item.label}}</text>
+      </view>
+
+    </block>
+  </view>
+</view>

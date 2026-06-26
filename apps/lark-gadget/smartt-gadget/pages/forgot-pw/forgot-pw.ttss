@@ -1,0 +1,404 @@
+/* pages/forgot-pw/forgot-pw.ttss — Style trang khôi phục mật khẩu đồng bộ React Native */
+
+.forgot-root {
+  min-height: 100vh;
+  background-color: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Hero/Header Section ── */
+.hero {
+  height: 520rpx;
+  background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.ring {
+  position: absolute;
+  border-radius: 9999rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.ring-1 {
+  width: 400rpx;
+  height: 400rpx;
+  top: -120rpx;
+  right: -120rpx;
+}
+
+.ring-2 {
+  width: 240rpx;
+  height: 240rpx;
+  bottom: 60rpx;
+  left: -60rpx;
+}
+
+.ring-3 {
+  width: 640rpx;
+  height: 640rpx;
+  top: -200rpx;
+  left: -160rpx;
+}
+
+/* Back Button */
+.back-btn {
+  position: absolute;
+  top: 64rpx;
+  left: 32rpx;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 20rpx;
+  background-color: rgba(255, 255, 255, 0.15);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.back-btn:active {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.logo-wrap {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 44rpx;
+  background-color: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28rpx;
+  z-index: 2;
+  box-shadow: 0 16rpx 32rpx rgba(0, 0, 0, 0.15);
+}
+
+.logo-inner {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-ico {
+  width: 60rpx;
+  height: 60rpx;
+}
+
+.hero-title {
+  font-size: 44rpx;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.8rpx;
+  z-index: 2;
+}
+
+.hero-sub {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 6rpx;
+  z-index: 2;
+  text-align: center;
+  padding: 0 40rpx;
+}
+
+/* ── Form Section ── */
+.form-scroll {
+  flex: 1;
+  background-color: var(--bg-base);
+  border-top-left-radius: 72rpx;
+  border-top-right-radius: 72rpx;
+  margin-top: -72rpx;
+  position: relative;
+  z-index: 2;
+}
+
+.form-container {
+  padding: 48rpx;
+  padding-top: 56rpx;
+  padding-bottom: 64rpx;
+}
+
+.step-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* ── Fields ── */
+.field {
+  margin-bottom: 28rpx;
+  width: 100%;
+}
+
+.field-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12rpx;
+  letter-spacing: 0.4rpx;
+  display: block;
+}
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-ico {
+  position: absolute;
+  left: 28rpx;
+  font-size: 34rpx;
+  color: #94a3b8;
+  z-index: 2;
+}
+
+.input-box {
+  flex: 1;
+  height: 100rpx;
+  border-radius: 28rpx;
+  border: 3rpx solid var(--border-color);
+  background-color: var(--bg-input);
+  padding-left: 88rpx;
+  padding-right: 32rpx;
+  font-size: 30rpx;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.password-box {
+  padding-right: 88rpx;
+}
+
+.input-placeholder {
+  color: #94a3b8;
+}
+
+.eye-btn {
+  position: absolute;
+  right: 24rpx;
+  padding: 12rpx;
+  z-index: 2;
+}
+
+/* Info Card */
+.info-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: rgba(99, 102, 241, 0.08);
+  border: 1rpx solid rgba(99, 102, 241, 0.2);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 40rpx;
+  gap: 16rpx;
+}
+
+.info-ico {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+}
+
+.info-text {
+  font-size: 24rpx;
+  color: #a5b4fc;
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* OTP Step: Email Badge */
+.email-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: rgba(99, 102, 241, 0.1);
+  border: 1rpx solid rgba(99, 102, 241, 0.2);
+  padding: 10rpx 24rpx;
+  border-radius: 99rpx;
+  gap: 12rpx;
+  margin-bottom: 40rpx;
+}
+
+.badge-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.badge-txt {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #4F46E5;
+}
+
+/* OTP Step: Timer and Resend Row */
+.timer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12rpx;
+  margin-bottom: 40rpx;
+}
+
+.timer-txt {
+  font-size: 26rpx;
+  color: #94a3b8;
+}
+
+.timer-bold {
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.resend-link {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #475569;
+}
+
+.resend-link--active {
+  color: #6366f1;
+}
+
+/* Reset Password Step: Rules */
+.rules-list {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 36rpx;
+  gap: 12rpx;
+}
+
+.rule-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.rule-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background-color: #475569;
+}
+
+.rule-dot--ok {
+  background-color: #059669;
+}
+
+.rule-txt {
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
+.rule-txt--ok {
+  color: #059669;
+  font-weight: 500;
+}
+
+/* ── Error Row ── */
+.error-row {
+  margin-bottom: 32rpx;
+  text-align: center;
+}
+
+.error-txt {
+  font-size: 26rpx;
+  color: #DC2626;
+}
+
+/* ── Success Screen ── */
+.success-icon-wrap {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 2rpx solid rgba(16, 185, 129, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 40rpx auto 32rpx auto;
+}
+
+.success-icon {
+  width: 80rpx;
+  height: 80rpx;
+}
+
+.success-title {
+  font-size: 40rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+.success-sub {
+  font-size: 26rpx;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 64rpx;
+  display: block;
+  padding: 0 24rpx;
+}
+
+/* ── Button styles matching global ── */
+.btn-login-grad {
+  height: 100rpx;
+  border-radius: 9999rpx;
+  background: var(--btn-bg);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 700;
+  letter-spacing: 0.6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: 0 12rpx 40rpx var(--btn-shadow);
+  width: 100%;
+}
+
+.btn-login-grad[disabled] {
+  background: #1e1f2e !important;
+  color: #475569 !important;
+  box-shadow: none !important;
+}
+
+.btn-login-grad:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.footer-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 48rpx;
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
+.footer-txt {
+  color: #94a3b8;
+}
+
+.footer-link {
+  color: #6366f1;
+  font-weight: 600;
+}

@@ -1,28 +1,66 @@
 import { google } from "googleapis";
 import path from "path";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import logger from "../../config/logger.js";
 
 // ── helpers ──────────────────────────────────────────────────────────
 const PROPERTY_ID = process.env.GA_PROPERTY_ID;
 const KEY_PATH = process.env.GA_SERVICE_ACCOUNT_KEY_PATH;
+// Base64-encoded service account JSON — preferred for containerised deployments
+// where mounting a key file is impractical.
+const KEY_BASE64 = process.env.GA_SERVICE_ACCOUNT_KEY;
 
 let _analyticsData = null;
+
+/**
+ * Resolve the service-account credentials from one of two sources:
+ *   1. GA_SERVICE_ACCOUNT_KEY  – base64-encoded JSON (takes priority)
+ *   2. GA_SERVICE_ACCOUNT_KEY_PATH – path to a JSON file on disk
+ */
+function loadCredentials() {
+  // Priority 1: base64-encoded JSON in env var
+  if (KEY_BASE64) {
+    try {
+      const json = Buffer.from(KEY_BASE64, "base64").toString("utf-8");
+      return JSON.parse(json);
+    } catch (err) {
+      throw new Error(
+        `GA_SERVICE_ACCOUNT_KEY is set but could not be decoded: ${err.message}`
+      );
+    }
+  }
+
+  // Priority 2: file path
+  if (KEY_PATH) {
+    const resolvedPath = path.resolve(KEY_PATH);
+    if (!existsSync(resolvedPath)) {
+      throw new Error(
+        `GA_SERVICE_ACCOUNT_KEY_PATH points to "${resolvedPath}" but the file does not exist. ` +
+          "Either mount the file into the container or use GA_SERVICE_ACCOUNT_KEY (base64) instead."
+      );
+    }
+    return JSON.parse(readFileSync(resolvedPath, "utf-8"));
+  }
+
+  throw new Error(
+    "Google Analytics credentials not configured. " +
+      "Set GA_SERVICE_ACCOUNT_KEY (base64) or GA_SERVICE_ACCOUNT_KEY_PATH (file path) in .env"
+  );
+}
 
 function getClient() {
   if (_analyticsData) return _analyticsData;
 
-  if (!PROPERTY_ID || !KEY_PATH) {
+  if (!PROPERTY_ID || (!KEY_PATH && !KEY_BASE64)) {
     throw new Error(
-      "GA_PROPERTY_ID and GA_SERVICE_ACCOUNT_KEY_PATH must be set in .env"
+      "GA_PROPERTY_ID and either GA_SERVICE_ACCOUNT_KEY or GA_SERVICE_ACCOUNT_KEY_PATH must be set in .env"
     );
   }
 
-  const resolvedPath = path.resolve(KEY_PATH);
-  const keyFile = JSON.parse(readFileSync(resolvedPath, "utf-8"));
+  const credentials = loadCredentials();
 
   const auth = new google.auth.GoogleAuth({
-    credentials: keyFile,
+    credentials,
     scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
   });
 
@@ -402,6 +440,6 @@ export class AnalyticsService {
    * Check if GA is configured.
    */
   static isConfigured() {
-    return !!(PROPERTY_ID && KEY_PATH);
+    return !!(PROPERTY_ID && (KEY_PATH || KEY_BASE64));
   }
 }

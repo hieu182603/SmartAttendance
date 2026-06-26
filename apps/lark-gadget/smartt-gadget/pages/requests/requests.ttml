@@ -1,0 +1,190 @@
+<!-- pages/requests/requests.ttml -->
+<view class="theme-{{theme}} page-root">
+  
+  <!-- Header -->
+  <view class="header-section">
+    <text class="title">{{t.requests.title || 'Yêu cầu & Đơn từ'}}</text>
+    <view class="sched-head-actions">
+      <view class="icon-btn">
+        <view class="icon icon-bell icon--md" />
+      </view>
+      <view class="icon-btn avatar-btn">
+        <view class="icon icon-avatar icon--md" />
+      </view>
+    </view>
+  </view>
+
+  <!-- Create New Request Button -->
+  <view class="create-btn-container" bindtap="openTypePicker">
+    <view class="create-btn">
+      <view class="icon icon-plus-white" style="width: 32rpx; height: 32rpx; margin-right: 12rpx;" />
+      <text class="create-btn-text">{{t.requests.create || 'Tạo đơn mới'}}</text>
+    </view>
+  </view>
+
+  <!-- Filter Tabs -->
+  <scroll-view class="tabs-scroll" scroll-x="{{true}}" shows-horizontal-scroll-indicator="{{false}}">
+    <view class="tabs-row">
+      <view
+        tt:for="{{tabs}}"
+        tt:key="*this"
+        class="tab-item {{activeTab === index ? 'tab-item--active' : ''}}"
+        bindtap="switchTab"
+        data-index="{{index}}"
+      >
+        <text class="tab-text {{activeTab === index ? 'tab-text--active' : ''}}">{{item}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- Requests List -->
+  <scroll-view class="requests-list" scroll-y="{{true}}" shows-vertical-scroll-indicator="{{false}}">
+    <view class="list-padding">
+      <view class="empty-card" tt:if="{{filteredRequests.length === 0}}">
+        <text class="empty-text">{{t.common.noData || 'Không có đơn nào'}}</text>
+      </view>
+
+      <view
+        class="request-card"
+        tt:for="{{filteredRequests}}"
+        tt:key="id"
+        bindtap="goToDetail"
+        data-id="{{item.id}}"
+      >
+        <!-- Card Top -->
+        <view class="card-top">
+          <view class="card-type-row">
+            <view class="card-icon-wrap" style="background-color: {{item.meta.bg}};">
+              <view class="icon icon-req-{{item.type || 'other'}}" style="width: 36rpx; height: 36rpx;" />
+            </view>
+            <view class="card-type-info">
+              <text class="card-name">{{item.title}}</text>
+              <text class="card-created">{{t.requests.submittedOn || 'Gửi ngày'}} {{item.createdAt}}</text>
+            </view>
+          </view>
+          <view class="badge badge--{{item.statusClass}}">{{item.statusText}}</view>
+        </view>
+
+        <!-- Divider -->
+        <view class="divider" />
+
+        <!-- Card Grid -->
+        <view class="card-grid">
+          <view class="grid-item">
+            <text class="grid-label">{{t.requests.fromDate || 'Từ ngày'}}</text>
+            <text class="grid-val">{{item.date}}</text>
+          </view>
+          <view class="grid-item">
+            <text class="grid-label">{{t.requests.toDate || 'Đến ngày'}}</text>
+            <text class="grid-val">{{item.endDate || '--'}}</text>
+          </view>
+          <view class="grid-item w-100">
+            <text class="grid-label">{{t.requests.reason || 'Lý do'}}</text>
+            <text class="grid-val max-line-1">{{item.reason || '--'}}</text>
+          </view>
+          <view class="grid-item w-100" tt:if="{{item.status === 'rejected' && item.rejectionReason}}">
+            <text class="grid-label text-danger">{{t.requests.rejectionReason || 'Lý do từ chối:'}}</text>
+            <text class="grid-val text-danger">{{item.rejectionReason}}</text>
+          </view>
+        </view>
+      </view>
+      
+      <view style="height: 120rpx;" />
+    </view>
+  </scroll-view>
+
+
+
+  <!-- Bottom Sheet: Choose Request Type -->
+  <view class="modal-backdrop" tt:if="{{showTypePicker}}" bindtap="closeTypePicker">
+    <view class="bottom-sheet" catchtap="stopBubble">
+      <view class="sheet-handle" />
+      <text class="sheet-title">{{t.requests.create || 'Tạo đơn mới'}}</text>
+      
+      <scroll-view class="sheet-options" scroll-y="{{true}}" shows-vertical-scroll-indicator="{{false}}">
+        <view
+          class="sheet-opt-item"
+          tt:for="{{sheetOptions}}"
+          tt:key="id"
+          bindtap="selectRequestType"
+          data-id="{{item.id}}"
+        >
+          <view class="sheet-opt-icon-wrap" style="background-color: {{item.bg}};">
+            <view class="icon icon-req-{{item.id || 'other'}}" style="width: 40rpx; height: 40rpx;" />
+          </view>
+          <view class="sheet-opt-body">
+            <text class="sheet-opt-name">{{item.label}}</text>
+            <text class="sheet-opt-sub">{{item.sub}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- Create Form Modal -->
+  <view class="modal-backdrop" tt:if="{{showForm}}">
+    <view class="form-sheet">
+      <view class="sheet-handle" />
+      <view class="form-header">
+        <text class="sheet-title">{{t.requests.create || 'Tạo đơn'}} — {{formTypeLabel}}</text>
+        <view class="close-btn" bindtap="closeForm">
+          <view class="icon icon-close" />
+        </view>
+      </view>
+
+      <scroll-view class="form-scroll-body" scroll-y="{{true}}" shows-vertical-scroll-indicator="{{false}}">
+        <view class="form-padding">
+          
+          <!-- Leave Type Selection -->
+          <view class="form-field">
+            <text class="form-label">{{t.requests.type || 'Loại đơn'}}</text>
+            <view class="form-select" bindtap="openTypePicker">
+              <text class="form-select-txt">{{formTypeLabel}}</text>
+              <text class="chevron">›</text>
+            </view>
+          </view>
+
+          <!-- Start Date & End Date Row -->
+          <view class="form-row">
+            <view class="form-col mr-8">
+              <text class="form-label">{{t.requests.fromDate || 'Từ ngày'}}</text>
+              <picker mode="date" value="{{startDateStr}}" bindchange="onStartDateChange">
+                <view class="form-select">
+                  <text class="form-select-txt">{{startDateStr}}</text>
+                </view>
+              </picker>
+            </view>
+            <view class="form-col">
+              <text class="form-label">{{t.requests.toDate || 'Đến ngày'}}</text>
+              <picker mode="date" value="{{endDateStr}}" bindchange="onEndDateChange">
+                <view class="form-select">
+                  <text class="form-select-txt">{{endDateStr}}</text>
+                </view>
+              </picker>
+            </view>
+          </view>
+
+          <!-- Reason -->
+          <view class="form-field">
+            <text class="form-label">{{t.requests.reason || 'Lý do'}}</text>
+            <textarea
+              class="form-textarea"
+              placeholder="{{t.requests.reasonPlaceholder || 'Nhập lý do xin nghỉ...'}}"
+              bindinput="onReasonInput"
+              value="{{reason}}"
+            />
+          </view>
+
+          <!-- Submit Button -->
+          <button class="btn btn--primary btn-submit" bindtap="submitRequest" disabled="{{submitLoading}}">
+            <text tt:if="{{submitLoading}}">{{t.common.loading || 'Đang gửi...'}}</text>
+            <text tt:else>{{t.requests.submit || 'Gửi đơn'}}</text>
+          </button>
+
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <bottom-nav active-tab="requests" user-role="{{userRole}}" />
+</view>

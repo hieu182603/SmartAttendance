@@ -1,0 +1,282 @@
+/* pages/attendance-detail/attendance-detail.ttss */
+.ad-root {
+  min-height: 100vh;
+  background-color: var(--bg-base);
+}
+
+/* ── Gradient Hero ── */
+.ad-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 88rpx 40rpx 48rpx;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+}
+
+.ad-hero-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.ad-hero-ring-1 {
+  top: -160rpx;
+  right: -160rpx;
+  width: 440rpx;
+  height: 440rpx;
+}
+
+.ad-hero-ring-2 {
+  bottom: -80rpx;
+  left: -80rpx;
+  width: 320rpx;
+  height: 320rpx;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.ad-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32rpx;
+}
+
+.ad-back-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1rpx solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ad-top-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.ad-top-spacer {
+  width: 72rpx;
+}
+
+.ad-hero-date {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 8rpx;
+}
+
+.ad-hero-shift {
+  display: block;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 32rpx;
+}
+
+.ad-hero-stats {
+  display: flex;
+  gap: 16rpx;
+}
+
+.ad-hero-stat {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  text-align: center;
+}
+
+.ad-hero-stat-lbl {
+  display: block;
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 8rpx;
+}
+
+.ad-hero-stat-val {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 4rpx;
+}
+
+.ad-hero-stat-sub {
+  display: block;
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── Content ── */
+.ad-content {
+  padding: 32rpx;
+}
+
+/* Status row */
+.ad-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32rpx;
+  background: var(--bg-surface);
+  border-radius: 24rpx;
+  padding: 28rpx;
+  border: 1rpx solid var(--border-color);
+}
+
+.ad-status-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Timeline */
+.ad-timeline {
+  background: var(--bg-surface);
+  border-radius: 32rpx;
+  padding: 32rpx;
+  border: 1rpx solid var(--border-color);
+  margin-bottom: 24rpx;
+}
+
+.ad-tl-item {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 32rpx;
+  position: relative;
+}
+
+.ad-tl-item:last-child {
+  margin-bottom: 0;
+}
+
+.ad-tl-dot {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 9999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.ad-tl-dot--accent {
+  background: var(--accent-soft);
+}
+
+.ad-tl-dot--warn {
+  background: var(--success-light);
+}
+
+.ad-tl-dot--muted {
+  background: var(--bg-card-alt);
+}
+
+.ad-tl-line {
+  position: absolute;
+  left: 35rpx;
+  top: 72rpx;
+  width: 4rpx;
+  height: 40rpx;
+  background: var(--border-color);
+}
+
+.ad-tl-body {
+  flex: 1;
+}
+
+.ad-tl-time {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4rpx;
+}
+
+.ad-tl-label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-bottom: 8rpx;
+}
+
+.ad-tl-loc-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.ad-tl-loc {
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+/* Location card */
+.ad-map-card {
+  background: var(--bg-surface);
+  border-radius: 32rpx;
+  overflow: hidden;
+  border: 1rpx solid var(--border-color);
+  margin-bottom: 24rpx;
+}
+
+.ad-map-placeholder {
+  height: 240rpx;
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ad-map-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 28rpx;
+}
+
+.ad-map-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ad-map-dist {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #059669;
+}
+
+/* Info grid */
+.ad-info-grid {
+  background: var(--bg-surface);
+  border-radius: 32rpx;
+  border: 1rpx solid var(--border-color);
+  padding: 32rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24rpx;
+}
+
+.ad-ig-item {
+  width: 45%;
+}
+
+.ad-ig-label {
+  display: block;
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-bottom: 8rpx;
+}
+
+.ad-ig-val {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}

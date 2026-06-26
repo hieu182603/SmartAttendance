@@ -1,0 +1,81 @@
+<!-- pages/manager/team-status.ttml ── Theo dõi đội nhóm hôm nay -->
+<view class="theme-{{theme}} team-root">
+
+  <view class="team-header">
+    <text class="team-title">{{t.dashboard.teamToday}}</text>
+    <text class="team-date">{{todayStr}}</text>
+  </view>
+
+  <!-- Thống kê tổng (Stats Indicators) -->
+  <view class="team-stats">
+    <view class="team-stat-card {{statusFilter === '' ? 'team-stat-card--active' : ''}}" bindtap="filterByStatus" data-status="">
+      <text class="team-stat-num text-accent">{{stats.total}}</text>
+      <text class="team-stat-label">{{t.leaveBalance.total || 'Tổng số'}}</text>
+    </view>
+    <view class="team-stat-card {{statusFilter === 'ON_TIME' ? 'team-stat-card--active' : ''}}" bindtap="filterByStatus" data-status="ON_TIME">
+      <text class="team-stat-num text-success">{{stats.onTime}}</text>
+      <text class="team-stat-label">{{t.attendance.onTime}}</text>
+    </view>
+    <view class="team-stat-card {{statusFilter === 'LATE' ? 'team-stat-card--active' : ''}}" bindtap="filterByStatus" data-status="LATE">
+      <text class="team-stat-num text-warning">{{stats.late}}</text>
+      <text class="team-stat-label">{{t.attendance.late}}</text>
+    </view>
+    <view class="team-stat-card {{statusFilter === 'ABSENT' ? 'team-stat-card--active' : ''}}" bindtap="filterByStatus" data-status="ABSENT">
+      <text class="team-stat-num text-danger">{{stats.absent}}</text>
+      <text class="team-stat-label">{{t.attendance.absent}}</text>
+    </view>
+  </view>
+
+  <!-- Search Bar (Bo tròn) -->
+  <view class="search-wrap">
+    <view class="search-box">
+      <view class="icon icon-search icon--sm" style="margin-right: 16rpx;" />
+      <input
+        class="search-input"
+        placeholder="{{t.common.search}}..."
+        placeholder-class="search-placeholder"
+        bindinput="onSearch"
+        value="{{searchQuery}}"
+      />
+    </view>
+  </view>
+
+  <!-- Loading -->
+  <view class="loading-box" tt:if="{{loading}}">
+    <text class="loading-text">⏳ {{t.common.loading}}</text>
+  </view>
+
+  <!-- Team List -->
+  <view class="team-list" tt:elif="{{filteredMembers.length > 0}}">
+    <view
+      tt:for="{{filteredMembers}}"
+      tt:key="id"
+      class="member-card"
+    >
+      <view class="member-avatar">
+        <text class="member-avatar-letter">{{item.nameInitial}}</text>
+      </view>
+
+      <view class="member-info">
+        <text class="member-name">{{item.fullName}}</text>
+        <text class="member-dept">{{item.department}}</text>
+      </view>
+
+      <view class="member-right">
+        <view class="member-status-badge member-status--{{item.statusClass}}">
+          <text class="member-status-text">{{item.statusText}}</text>
+        </view>
+        <text class="member-time">{{item.checkIn || '--:--'}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Empty State -->
+  <view class="empty-state-wrap" tt:elif="{{!loading}}">
+    <text class="empty-icon">🔍</text>
+    <text class="empty-text">{{t.common.noData}}</text>
+  </view>
+
+  <view style="height: 120rpx;" />
+  <bottom-nav active-tab="team" />
+</view>

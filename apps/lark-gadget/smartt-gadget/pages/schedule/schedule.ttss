@@ -1,0 +1,514 @@
+/* pages/schedule/schedule.ttss — Aurora Ink */
+
+.sched-page {
+  padding-bottom: 0;
+}
+
+/* ── Header ── */
+.sched-head {
+  margin-bottom: 28rpx;
+}
+
+.sched-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.sched-head-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.sched-eyebrow {
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8rpx;
+}
+
+.sched-title {
+  font-size: 44rpx;
+  font-weight: 800;
+  letter-spacing: -0.8rpx;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.sched-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.icon-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background-color: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.avatar-btn {
+  border-color: var(--accent-soft);
+  background-color: var(--accent-soft);
+}
+
+/* ── Week Navigation Row ── */
+.sched-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24rpx;
+  background-color: var(--bg-card-alt);
+  border: 1rpx solid var(--border-color);
+  border-radius: 20rpx;
+  padding: 12rpx 16rpx;
+}
+
+.sched-nav-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+  background-color: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  border: 1rpx solid var(--border-color);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.sched-nav-btn:active {
+  transform: scale(0.92);
+  background-color: var(--bg-base-2);
+}
+
+.sched-nav-btn.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.sched-nav-arrow {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.sched-sub-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sched-sub {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ── Hero stats ── */
+.sched-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  border-radius: 28rpx;
+  padding: 36rpx 40rpx;
+  margin-bottom: 34rpx;
+  box-shadow: var(--shadow-md);
+  gap: 32rpx;
+}
+
+.sched-hero-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 160rpx;
+}
+
+.progress-ring-container {
+  position: relative;
+  width: 120rpx;
+  height: 120rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12rpx;
+}
+
+.progress-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transform: rotate(-90deg);
+}
+
+.progress-ring-inner {
+  position: absolute;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background-color: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-ring-num {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.progress-ring-den {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.progress-ring-label {
+  font-size: 18rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5rpx;
+}
+
+.sched-hero-div {
+  width: 1rpx;
+  align-self: stretch;
+  background: var(--border-color);
+  margin: 6rpx 0;
+}
+
+.sched-hero-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24rpx;
+}
+
+.sched-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.sched-stat-icon {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 14rpx;
+  background-color: var(--bg-card-alt);
+  background-size: 28rpx 28rpx;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: 1rpx solid var(--border-color);
+}
+
+.sched-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.sched-stat-val-wrapper {
+  display: flex;
+  align-items: baseline;
+}
+
+.sched-stat-val {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.sched-stat-unit {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-left: 2rpx;
+}
+
+.sched-stat-label {
+  font-size: 18rpx;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4rpx;
+  margin-top: 2rpx;
+}
+
+/* ── Week strip ── */
+.sched-week-strip {
+  margin-bottom: 28rpx;
+  width: 100%;
+}
+
+.sched-week-strip-inner {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 8rpx;
+  padding: 2rpx 0;
+  width: 100%;
+}
+
+.sched-pill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 4rpx;
+  border-radius: 22rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.sched-pill-day {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6rpx;
+}
+
+.sched-pill-date {
+  margin-top: 6rpx;
+  font-size: 32rpx;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.6rpx;
+}
+
+.sched-pill.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 8rpx 20rpx var(--accent-soft);
+  transform: translateY(-2rpx);
+}
+
+.sched-pill.is-active .sched-pill-day,
+.sched-pill.is-active .sched-pill-date {
+  color: #FFFFFF;
+}
+
+.sched-pill.is-off {
+  background: var(--bg-card-alt);
+  border-style: dashed;
+}
+
+.sched-pill.is-off .sched-pill-date {
+  color: var(--text-muted);
+}
+
+/* ── List ── */
+.sched-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.sched-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+  background: var(--bg-card);
+  border: 1rpx solid var(--border-color);
+  border-radius: 26rpx;
+  padding: 28rpx 30rpx;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.sched-card:active {
+  transform: scale(0.98);
+}
+
+.sched-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 24rpx;
+  right: 24rpx;
+  height: 1rpx;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+  pointer-events: none;
+}
+
+/* Selected Day Highlight */
+.sched-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 10rpx 32rpx var(--accent-soft);
+  transform: scale(1.01);
+}
+
+/* Today highlight */
+.sched-card.is-today {
+  border-color: rgba(99, 102, 241, 0.3);
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(67, 56, 202, 0.04)),
+    var(--bg-card);
+  box-shadow: var(--glow-accent);
+}
+
+.sched-card.is-today::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6rpx;
+  background: linear-gradient(180deg, #6366F1 0%, #4338CA 100%);
+}
+
+/* Off day */
+.sched-card.is-off {
+  background: var(--bg-card-alt);
+  border-style: dashed;
+  box-shadow: none;
+  opacity: 0.94;
+}
+
+.sched-card.is-off::before {
+  display: none;
+}
+
+/* Date column */
+.sched-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 96rpx;
+  padding-right: 26rpx;
+  border-right: 1rpx solid var(--border-color);
+}
+
+.sched-date-num {
+  font-size: 50rpx;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-primary);
+  letter-spacing: -1.5rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.sched-date-name {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+}
+
+.is-off .sched-date-num {
+  color: var(--text-muted);
+}
+
+/* Info column */
+.sched-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  min-width: 0;
+}
+
+.sched-info-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.sched-shift {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.is-off .sched-shift {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.sched-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.sched-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.sched-meta-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.sched-off-text {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ── Custom SVGs for Schedule Meta ── */
+.icon-calendar-muted {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='none' stroke='%2364748B' stroke-width='36' stroke-linecap='round' stroke-linejoin='round'><rect x='48' y='80' width='416' height='384' rx='48'/><path d='M128 48v32M384 48v32M48 160h416M304 260h80v80h-80z'/></svg>");
+}
+
+.icon-time-muted {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='none' stroke='%2364748B' stroke-width='36' stroke-linecap='round' stroke-linejoin='round'><circle cx='256' cy='256' r='208'/><path d='M256 112v144h96'/></svg>");
+}
+
+.icon-location-muted {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='none' stroke='%2364748B' stroke-width='32' stroke-linecap='round' stroke-linejoin='round'><path d='M256 48c-79.5 0-144 64.5-144 144 0 112 144 272 144 272s144-160 144-272c0-79.5-64.5-144-144-144z'/><circle cx='256' cy='192' r='48'/></svg>");
+}
+
+.icon-off-muted {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='none' stroke='%2364748B' stroke-width='36' stroke-linecap='round' stroke-linejoin='round'><rect x='96' y='96' width='320' height='320' rx='48'/><path d='M200 176v160M312 176v160'/></svg>");
+}
+
+.icon-bell {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='none' stroke='%236366F1' stroke-width='36' stroke-linecap='round' stroke-linejoin='round'><path d='M427.68 351.43C402 320 383.57 304 383.57 217.47c0-73-51.36-124-119.57-133v-19.1a16 16 0 00-32 0v19.1c-68.21 9-119.57 60-119.57 133C112.43 304 94 320 68.32 351.43A32 32 0 0093.09 403H402.9a32 32 0 0024.78-51.57zM220 440a40 40 0 0072 0'/></svg>");
+}
+
+.icon-avatar {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='none' stroke='%236366F1' stroke-width='36' stroke-linecap='round' stroke-linejoin='round'><path d='M344 144c-3.92 52.87-44 96-88 96s-84.15-43.12-88-96c-4-55 35-96 88-96s92 42 88 96zM256 304c-87 0-175.3 48-191.64 138.6C62.39 453.52 78.58 464 96 464h320c17.42 0 33.61-10.48 31.64-21.4C431.3 352 343 304 256 304z'/></svg>");
+}
+
+.icon--md {
+  width: 36rpx;
+  height: 36rpx;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}

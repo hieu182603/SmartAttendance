@@ -1,0 +1,158 @@
+<!-- pages/profile/profile.ttml -->
+<view class="theme-{{theme}} container p-0">
+  
+  <!-- Hero Section -->
+  <view class="profile-hero">
+    <view class="ring ring-1" />
+    <view class="ring ring-2" />
+    <view class="avatar-wrap">
+      <view class="avatar-img">
+        <view class="icon icon-user-white icon--md" tt:if="{{initial === '?'}}" />
+        <text class="avatar-text" tt:else>{{initial}}</text>
+      </view>
+      <view class="avatar-online" />
+    </view>
+    <text class="hero-name">{{user.fullName}}</text>
+    <text class="hero-role">{{user.roleText}} · {{user.department || 'Engineering'}}</text>
+  </view>
+
+  <!-- Stats Strip -->
+  <view class="stats-strip">
+    <view class="stat-item" bindtap="goToHistory">
+      <text class="stat-val text-accent">18</text>
+      <text class="stat-lbl">{{t.profile.workDays}}</text>
+    </view>
+    <view class="stat-item" bindtap="goToLeaveBalance">
+      <text class="stat-val text-success">12</text>
+      <text class="stat-lbl">{{t.profile.leavesLeft}}</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-val text-primary">142h</text>
+      <text class="stat-lbl">{{t.profile.workHours}}</text>
+    </view>
+  </view>
+
+  <!-- Menu Content -->
+  <view class="profile-content">
+    
+    <!-- Section: Account -->
+    <view class="menu-section mt-16">
+      <text class="section-title">{{t.profile.personalInfo}}</text>
+      <view class="menu-group">
+        <!-- Personal info display -->
+        <view class="menu-item">
+          <view class="menu-icon icon-bg-blue">
+            <view class="icon icon-user" />
+          </view>
+          <view class="menu-body">
+            <text class="menu-name">{{t.profile.empId}}</text>
+            <text class="menu-sub">EMP{{user.id || '2026'}}</text>
+          </view>
+        </view>
+        <view class="menu-item">
+          <view class="menu-icon icon-bg-blue">
+            <view class="icon icon-mail" />
+          </view>
+          <view class="menu-body">
+            <text class="menu-name">{{t.profile.email}}</text>
+            <text class="menu-sub">{{user.email}}</text>
+          </view>
+        </view>
+        <!-- Face registration link -->
+        <view class="menu-item" bindtap="goToFaceReg">
+          <view class="menu-icon icon-bg-blue">
+            <view class="icon icon-face-scan" />
+          </view>
+          <view class="menu-body">
+            <text class="menu-name">{{t.profile.faceReg}}</text>
+            <text class="menu-sub">{{t.profile.faceRegSub}}</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+        <!-- Change password link -->
+        <view class="menu-item" bindtap="goToChangePassword">
+          <view class="menu-icon icon-bg-green">
+            <view class="icon icon-lock" />
+          </view>
+          <view class="menu-body">
+            <text class="menu-name">{{t.profile.changePassword}}</text>
+            <text class="menu-sub">{{t.profile.changePasswordSub}}</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Section: Work -->
+    <view class="menu-section">
+      <text class="section-title">{{t.profile.work}}</text>
+      <view class="menu-group">
+        <!-- Leave Balance -->
+        <view class="menu-item" bindtap="goToLeaveBalance">
+          <view class="menu-icon icon-bg-orange">
+            <view class="icon icon-calendar" />
+          </view>
+          <view class="menu-body">
+            <text class="menu-name">{{t.profile.leaveBalance}}</text>
+            <text class="menu-sub">{{t.profile.leaveBalanceSub}}</text>
+          </view>
+          <view class="menu-right">
+            <view class="menu-badge"><text>12 {{t.common.day}}</text></view>
+            <text class="menu-arrow">›</text>
+          </view>
+        </view>
+        <!-- Payslip -->
+        <view class="menu-item" bindtap="goToPayslip">
+          <view class="menu-icon icon-bg-green">
+            <view class="icon icon-wallet" />
+          </view>
+          <view class="menu-body">
+            <text class="menu-name">{{t.profile.payslip}}</text>
+            <text class="menu-sub">{{t.profile.payslipSub}}</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+        <!-- Attendance history -->
+        <view class="menu-item" bindtap="goToHistory">
+          <view class="menu-icon icon-bg-blue">
+            <view class="icon icon-time" />
+          </view>
+          <view class="menu-body">
+            <text class="menu-name">{{t.profile.history}}</text>
+            <text class="menu-sub">{{t.profile.historySub}}</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Section: Settings -->
+    <view class="menu-section">
+      <text class="section-title">{{t.profile.appSettings}}</text>
+      <view class="menu-group">
+        <!-- Settings -->
+        <view class="menu-item" bindtap="goToSettings">
+          <view class="menu-icon icon-bg-slate">
+            <view class="icon icon-settings" />
+          </view>
+          <view class="menu-body">
+            <text class="menu-name">{{t.profile.appSettings}}</text>
+            <text class="menu-sub">{{t.profile.appSettingsSub}}</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+
+      </view>
+    </view>
+
+    <!-- Logout Button -->
+    <button class="logout-btn mt-24 mb-24" bindtap="handleLogout">
+      <view class="icon icon-logout" style="margin-right: 12rpx;" />
+      <text>{{t.common.logout}}</text>
+    </button>
+
+  
+  </view>
+  <view style="height: 120rpx;" />
+  <bottom-nav active-tab="profile" />
+</view>
