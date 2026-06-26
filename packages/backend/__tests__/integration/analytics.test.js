@@ -26,6 +26,12 @@ jest.unstable_mockModule("fs", () => {
   const actualFs = jest.requireActual("fs");
   return {
     ...actualFs,
+    existsSync: jest.fn().mockImplementation((filepath) => {
+      if (filepath.includes("test-key.json")) {
+        return true;
+      }
+      return actualFs.existsSync(filepath);
+    }),
     readFileSync: jest.fn().mockImplementation((filepath, options) => {
       if (filepath.includes("test-key.json")) {
         return JSON.stringify({
