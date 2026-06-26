@@ -29,7 +29,7 @@ export class AnalyticsController {
     try {
       if (!AnalyticsService.isConfigured()) {
         return res.status(503).json({
-          message: "Google Analytics is not configured. Set GA_PROPERTY_ID and GA_SERVICE_ACCOUNT_KEY_PATH in .env",
+          message: "Google Analytics is not configured. Set GA_PROPERTY_ID and GA_SERVICE_ACCOUNT_KEY (base64) or GA_SERVICE_ACCOUNT_KEY_PATH in .env",
           configured: false,
         });
       }

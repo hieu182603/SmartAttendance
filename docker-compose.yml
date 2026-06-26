@@ -56,6 +56,11 @@ services:
       # Google Analytics Configuration
       - GA_PROPERTY_ID=${GA_PROPERTY_ID}
       - GA_SERVICE_ACCOUNT_KEY_PATH=${GA_SERVICE_ACCOUNT_KEY_PATH}
+      # Base64-encoded service account JSON (alternative to file path — set ONE of the two)
+      - GA_SERVICE_ACCOUNT_KEY=${GA_SERVICE_ACCOUNT_KEY}
+    volumes:
+      # Mount GA service account key file into the container (skip if using GA_SERVICE_ACCOUNT_KEY base64)
+      - ./packages/backend/attendance-smart-476502-77552ada5ec4.json:/app/packages/backend/attendance-smart-476502-77552ada5ec4.json:ro
     depends_on:
       - ai-service
       - redis
