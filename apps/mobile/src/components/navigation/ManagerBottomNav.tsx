@@ -9,7 +9,7 @@ const TABS = [
   { name: 'ManagerDashboard', icon: 'grid-outline', label: 'Tổng quan' },
   { name: 'ManagerTeam', icon: 'people-outline', label: 'Team' },
   { name: 'ManagerApprovals', icon: 'checkmark-done-outline', label: 'Duyệt đơn', isCenter: true },
-  { name: 'ManagerSchedule', icon: 'calendar-outline', label: 'Lịch' },
+  { name: 'Schedule', icon: 'calendar-outline', label: 'Lịch' },
   { name: 'Profile', icon: 'person-outline', label: 'Tôi' },
 ];
 

@@ -44,9 +44,6 @@ export default function EmployeeProfileViewScreen() {
             <Icon name="chevron-back-outline" size={16} color={theme.colors.text.onPrimary} library="ionicons" />
           </TouchableOpacity>
           <View style={s.heroActions}>
-            <TouchableOpacity style={s.hActBtn} onPress={() => navigation.navigate('PerformanceReview')} activeOpacity={0.7}>
-              <Icon name="star-outline" size={16} color={theme.colors.text.onPrimary} library="ionicons" />
-            </TouchableOpacity>
             <TouchableOpacity style={s.hActBtn} activeOpacity={0.7}>
               <Icon name="share-social-outline" size={16} color={theme.colors.text.onPrimary} library="ionicons" />
             </TouchableOpacity>
@@ -70,10 +67,6 @@ export default function EmployeeProfileViewScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
         <View style={s.actionRow}>
-          <TouchableOpacity style={[s.actBtn, s.actPrimary]} onPress={() => navigation.navigate('PerformanceReview')} activeOpacity={0.85}>
-            <Icon name="star-outline" size={16} color={theme.colors.text.onPrimary} library="ionicons" />
-            <Text style={s.actPrimaryTxt}>Đánh giá</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={[s.actBtn, s.actSecondary]} activeOpacity={0.85}>
             <Icon name="call-outline" size={16} color={theme.colors.text.primary} library="ionicons" />
             <Text style={s.actSecondaryTxt}>Liên hệ</Text>

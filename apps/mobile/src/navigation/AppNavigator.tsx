@@ -37,11 +37,8 @@ import LeaveBalanceScreen from '../screens/employee/LeaveBalanceScreen';
 // Manager Screens
 import ManagerDashboardScreen from '../screens/manager/ManagerDashboardScreen';
 import ManagerTeamScreen from '../screens/manager/ManagerTeamScreen';
-import TeamReportsScreen from '../screens/manager/TeamReportsScreen';
 import ManagerApprovalsScreen from '../screens/manager/ManagerApprovalsScreen';
-import ManagerScheduleScreen from '../screens/manager/ManagerScheduleScreen';
 import ApprovalDetailScreen from '../screens/manager/ApprovalDetailScreen';
-import PerformanceReviewScreen from '../screens/manager/PerformanceReviewScreen';
 
 // Admin Screens
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -78,7 +75,6 @@ export type RootStackParamList = {
   AdminPositions: undefined;
   Notifications: undefined;
   ApprovalDetail: { requestId: string };
-  PerformanceReview: undefined;
   EmployeeDetail: { userId: string };
   EmployeeProfileView: undefined;
   PayrollSummary: undefined;
@@ -111,8 +107,7 @@ export type ManagerTabParamList = {
   ManagerDashboard: undefined;
   ManagerTeam: undefined;
   ManagerApprovals: undefined;
-  ManagerSchedule: undefined;
-  TeamReports: undefined;
+  Schedule: undefined;
   Profile: undefined;
   ChangePassword: undefined;
   Settings: undefined;
@@ -171,8 +166,7 @@ function ManagerTabNavigator() {
       <ManagerTab.Screen name="ManagerDashboard" component={ManagerDashboardScreen} />
       <ManagerTab.Screen name="ManagerTeam" component={ManagerTeamScreen} />
       <ManagerTab.Screen name="ManagerApprovals" component={ManagerApprovalsScreen} options={{ tabBarButton: () => null }} />
-      <ManagerTab.Screen name="ManagerSchedule" component={ManagerScheduleScreen} />
-      <ManagerTab.Screen name="TeamReports" component={TeamReportsScreen} options={{ tabBarButton: () => null }} />
+      <ManagerTab.Screen name="Schedule" component={ScheduleScreen} />
       <ManagerTab.Screen name="Profile" component={ProfileScreen} />
       <ManagerTab.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ tabBarButton: () => null }} />
       <ManagerTab.Screen name="Settings" component={SettingsScreen} options={{ tabBarButton: () => null }} />
@@ -277,7 +271,6 @@ export default function AppNavigator({ userRole, isLoading }: AppNavigatorProps)
         <Stack.Screen name="AdminDepartments" component={AdminDepartmentsScreen} />
         <Stack.Screen name="AdminPositions" component={AdminPositionsScreen} />
         <Stack.Screen name="ApprovalDetail" component={ApprovalDetailScreen} />
-        <Stack.Screen name="PerformanceReview" component={PerformanceReviewScreen} />
         <Stack.Screen name="EmployeeDetail" component={EmployeeDetailScreen} />
         <Stack.Screen name="EmployeeProfileView" component={EmployeeProfileViewScreen} />
         <Stack.Screen name="PayrollSummary" component={PayrollSummaryScreen} />

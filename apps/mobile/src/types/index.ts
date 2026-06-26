@@ -25,7 +25,6 @@ export enum Screen {
   ManagerDashboard = 'MANAGER_DASHBOARD',
   ManagerTeam = 'MANAGER_TEAM',
   ManagerApprovals = 'MANAGER_APPROVALS',
-  ManagerSchedule = 'MANAGER_SCHEDULE',
   // Admin Screens
   AdminDashboard = 'ADMIN_DASHBOARD',
   AdminUsers = 'ADMIN_USERS',
@@ -34,7 +33,6 @@ export enum Screen {
   AdminAudit = 'ADMIN_AUDIT',
   // Common Screens
   Settings = 'SETTINGS',
-  TeamReports = 'TEAM_REPORTS',
 }
 
 export interface Shift {

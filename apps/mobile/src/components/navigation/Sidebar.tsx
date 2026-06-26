@@ -33,8 +33,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     { screen: Screen.ManagerDashboard, icon: 'dashboard', label: 'Tổng quan' },
     { screen: Screen.ManagerApprovals, icon: 'fact_check', label: 'Duyệt đơn', badge: pendingCount > 0 ? pendingCount : undefined },
     { screen: Screen.ManagerTeam, icon: 'groups', label: 'Đội nhóm' },
-    { screen: Screen.ManagerSchedule, icon: 'calendar_month', label: 'Lịch làm việc' },
-    { screen: Screen.TeamReports, icon: 'analytics', label: 'Báo cáo' },
+    { screen: Screen.Schedule, icon: 'calendar_month', label: 'Lịch làm việc' },
     { screen: Screen.Settings, icon: 'settings', label: 'Cài đặt' },
   ];
 
@@ -55,8 +54,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
       [Screen.ManagerDashboard]: 'ManagerDashboard',
       [Screen.ManagerTeam]: 'ManagerTeam',
       [Screen.ManagerApprovals]: 'ManagerApprovals',
-      [Screen.ManagerSchedule]: 'ManagerSchedule',
-      [Screen.TeamReports]: 'TeamReports',
+      [Screen.Schedule]: 'Schedule',
       [Screen.AdminDashboard]: 'AdminDashboard',
       [Screen.AdminUsers]: 'AdminUsers',
       [Screen.AdminReports]: 'AdminReports',
