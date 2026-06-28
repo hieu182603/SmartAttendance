@@ -118,6 +118,7 @@ export function ShiftsPage() {
   const [isAssignSubmitting, setIsAssignSubmitting] = useState(false);
   const [assignedEmployees, setAssignedEmployees] = useState<any[]>([]);
   const [selectedUsersToRemove, setSelectedUsersToRemove] = useState<string[]>([]);
+  const [activeAssignTab, setActiveAssignTab] = useState("list");
 
   useEffect(() => {
     loadShifts();
@@ -255,6 +256,7 @@ export function ShiftsPage() {
     setAssignedUserSearch("");
     setAssignedPatternFilter("all_patterns");
     setSelectedUsersToRemove([]);
+    setActiveAssignTab("list");
     setIsAssignDialogOpen(true);
   };
 
@@ -802,7 +804,7 @@ export function ShiftsPage() {
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="list" className="w-full">
+          <Tabs value={activeAssignTab} onValueChange={setActiveAssignTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4 bg-[var(--shell)] border border-[var(--border)]">
               <TabsTrigger value="list" className="data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--primary)] text-[var(--text-main)]">Danh sách đã gán ({assignedEmployees.length})</TabsTrigger>
               <TabsTrigger value="assign" className="data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--primary)] text-[var(--text-main)]">Thêm mới / Cập nhật</TabsTrigger>
@@ -1181,15 +1183,6 @@ export function ShiftsPage() {
               )}
               </div>
               </div>
-              <div className="flex justify-end pt-6 gap-2">
-                <Button
-                  onClick={handleSubmitAssign}
-                  disabled={isAssignSubmitting}
-                  className="bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white"
-                >
-                  {isAssignSubmitting ? "Đang xử lý..." : "Lưu cài đặt"}
-                </Button>
-              </div>
             </TabsContent>
           </Tabs>
 
@@ -1201,6 +1194,15 @@ export function ShiftsPage() {
             >
               Đóng
             </Button>
+            {activeAssignTab === "assign" && (
+              <Button
+                onClick={handleSubmitAssign}
+                disabled={isAssignSubmitting}
+                className="bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white"
+              >
+                {isAssignSubmitting ? "Đang xử lý..." : "Lưu cài đặt"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

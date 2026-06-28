@@ -88,15 +88,22 @@ export function UpdateEventDialog({
         endTime: event.endTime || "17:00",
         type: event.type || "meeting",
         location: event.location || "",
-        attendeeCount: event.attendeeCount || 0,
+        attendeeCount: (event.attendeeCount || event.attendees?.length || "") as number | "",
         isAllDay: event.isAllDay || false,
-        color: event.color || "#3B82F6",
       });
     }
   }, [event]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const colorMap: Record<string, string> = {
+      holiday: "#EF4444",
+      meeting: "#3B82F6",
+      event: "#10B981",
+      deadline: "#F59E0B",
+      training: "#8B5CF6",
+    };
 
     if (!event) return;
 
@@ -128,6 +135,7 @@ export function UpdateEventDialog({
       setLoading(true);
       await eventService.updateEvent(event._id, {
         ...formData,
+        color: colorMap[formData.type] || "#3B82F6",
         startTime: formData.isAllDay ? undefined : formData.startTime,
         endTime: formData.isAllDay ? undefined : formData.endTime,
       });
@@ -188,52 +196,28 @@ export function UpdateEventDialog({
             />
           </div>
 
-          {/* Type and Color */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="type">
-                Loại sự kiện <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value: any) =>
-                  setFormData({ ...formData, type: value })
-                }
-              >
-                <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="meeting">Họp</SelectItem>
-                  <SelectItem value="event">Sự kiện</SelectItem>
-                  <SelectItem value="holiday">Ngày lễ</SelectItem>
-                  <SelectItem value="deadline">Deadline</SelectItem>
-                  <SelectItem value="training">Đào tạo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="color">Màu sắc</Label>
-              <Select
-                value={formData.color}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, color: value })
-                }
-              >
-                <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="#3B82F6">🔵 Xanh dương</SelectItem>
-                  <SelectItem value="#EF4444">🔴 Đỏ</SelectItem>
-                  <SelectItem value="#F59E0B">🟠 Cam</SelectItem>
-                  <SelectItem value="#10B981">🟢 Xanh lá</SelectItem>
-                  <SelectItem value="#8B5CF6">🟣 Tím</SelectItem>
-                  <SelectItem value="#EC4899">🩷 Hồng</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Type */}
+          <div className="space-y-2">
+            <Label htmlFor="type">
+              Loại sự kiện <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={formData.type}
+              onValueChange={(value: any) =>
+                setFormData({ ...formData, type: value })
+              }
+            >
+              <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="meeting">Họp</SelectItem>
+                <SelectItem value="event">Sự kiện</SelectItem>
+                <SelectItem value="holiday">Ngày lễ</SelectItem>
+                <SelectItem value="deadline">Deadline</SelectItem>
+                <SelectItem value="training">Đào tạo</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Date */}

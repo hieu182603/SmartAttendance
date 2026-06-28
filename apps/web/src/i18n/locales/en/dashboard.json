@@ -33,35 +33,128 @@
   "scan": {
     "title": "Check-in",
     "checkInToday": "Check-in Today",
+    "description": "Take a photo and confirm location to check in",
+    "permissionStatus": "Permission Status",
     "checkIn": "Check In",
     "checkOut": "Check Out",
     "location": "Location",
     "status": "Status",
     "time": "Time",
+    "camera": {
+      "title": "Live Camera",
+      "notActivated": "Camera not activated",
+      "switch": "Switch camera",
+      "switchToFront": "Front camera",
+      "switchToBack": "Back camera"
+    },
+    "locationInfo": {
+      "title": "Location Information",
+      "loading": "Getting location...",
+      "refreshing": "Refreshing...",
+      "nearestOffice": "Nearest office:",
+      "distance": "Distance:",
+      "latitude": "Latitude:",
+      "longitude": "Longitude:",
+      "refresh": "Refresh location",
+      "retry": "Retry",
+      "retrying": "Retrying..."
+    },
+    "permissions": {
+      "camera": "Camera",
+      "location": "Location",
+      "granted": "Granted",
+      "denied": "Denied"
+    },
+    "buttons": {
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "checkedIn": "Checked in",
+      "checkedOut": "Checked out",
+      "processing": "Processing..."
+    },
+    "toasts": {
+      "canCheckOut": "✅ You can now check-out!",
+      "workHoursReminder": "⏰ You have worked {{hours}}h {{minutes}}m! Don't forget to check-out.",
+      "checkInSuccess": "Check-in successful!",
+      "checkOutSuccess": "Check-out successful!"
+    },
     "errors": {
+      "captureFailed": "Failed to capture photo",
+      "cameraAccess": "Unable to access camera. Please check permissions.",
+      "checkInError": "An error occurred during check-in",
+      "checkOutError": "An error occurred during check-out",
       "locationFailed": "Unable to get location. ",
       "locationPermissionDenied": "Please grant location access in your browser settings.",
       "locationUnavailable": "GPS signal unavailable. Try moving outdoors.",
       "locationTimeout": "Unable to get location within allowed time. Check GPS and try again.",
-      "locationGeneric": "Please check access permissions and GPS.",
-      "cameraAccess": "Unable to access camera. Please check permissions.",
-      "waitOneHour": "Please wait at least 1 hour after check-in",
-      "checkInError": "An error occurred during check-in",
-      "checkOutError": "An error occurred during check-out",
-      "captureFailed": "Failed to capture photo"
+      "locationGeneric": "Please check access permissions and GPS."
     },
-    "success": {
-      "checkInSuccess": "Check-in successful!",
-      "checkOutSuccess": "Check-out successful!"
+    "tooltips": {
+      "waitOneHour": "Please wait at least 1 hour after check-in"
     }
   },
   "history": {
     "title": "Attendance History",
     "date": "Date",
+    "day": "Day",
     "checkIn": "Check In",
     "checkOut": "Check Out",
+    "hours": "Hours",
+    "totalHours": "Total Hours",
+    "location": "Location",
     "status": "Status",
-    "location": "Location"
+    "notes": "Notes",
+    "viewPhoto": "View Photo",
+    "office": "Office",
+    "statusLabels": {
+      "ontime": "On Time",
+      "late": "Late",
+      "absent": "Absent",
+      "overtime": "Overtime",
+      "weekend": "Weekend"
+    },
+    "filters": {
+      "all": "All",
+      "allStatus": "All Status",
+      "search": "Search",
+      "searchPlaceholder": "Search by date, notes...",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "selectDate": "Select Date",
+      "status": "Filter by Status",
+      "statusPlaceholder": "Status",
+      "weekend": "Weekend"
+    },
+    "summary": {
+      "totalDays": "Total Working Days",
+      "late": "Late",
+      "absent": "Absent",
+      "overtime": "Overtime"
+    },
+    "details": {
+      "title": "Attendance Details",
+      "loading": "Loading data...",
+      "noData": "No matching data"
+    },
+    "tabs": {
+      "checkin": "Check-in Photo",
+      "checkout": "Check-out Photo",
+      "checkinLabel": "Check-in",
+      "checkoutLabel": "Check-out"
+    },
+    "photo": {
+      "viewTitle": "View Attendance Photo",
+      "time": "Time",
+      "location": "Location",
+      "alt": {
+        "checkin": "Check-in photo",
+        "checkout": "Check-out photo"
+      }
+    },
+    "noPhoto": {
+      "checkin": "No check-in photo",
+      "checkout": "Not checked out yet"
+    }
   },
   "profile": {
     "title": "Personal Profile",
@@ -205,132 +298,6 @@
     },
     "loading": "Loading dashboard information...",
     "error": "Unable to load dashboard data. Please try again later."
-  },
-  "scan": {
-    "title": "Check-in",
-    "checkInToday": "Check-in Today",
-    "description": "Take a photo and confirm location to check in",
-    "permissionStatus": "Permission Status",
-    "checkIn": "Check In",
-    "checkOut": "Check Out",
-    "location": "Location",
-    "status": "Status",
-    "time": "Time",
-    "camera": {
-      "title": "Live Camera",
-      "notActivated": "Camera not activated",
-      "switch": "Switch camera",
-      "switchToFront": "Front camera",
-      "switchToBack": "Back camera"
-    },
-    "locationInfo": {
-      "title": "Location Information",
-      "loading": "Getting location...",
-      "refreshing": "Refreshing...",
-      "nearestOffice": "Nearest office:",
-      "distance": "Distance:",
-      "latitude": "Latitude:",
-      "longitude": "Longitude:",
-      "refresh": "Refresh location",
-      "retry": "Retry",
-      "retrying": "Retrying..."
-    },
-    "permissions": {
-      "camera": "Camera",
-      "location": "Location",
-      "granted": "Granted",
-      "denied": "Denied"
-    },
-    "buttons": {
-      "checkIn": "Check-in",
-      "checkOut": "Check-out",
-      "checkedIn": "Checked in",
-      "checkedOut": "Checked out",
-      "processing": "Processing..."
-    },
-    "toasts": {
-      "canCheckOut": "✅ You can now check-out!",
-      "workHoursReminder": "⏰ You have worked {{hours}}h {{minutes}}m! Don't forget to check-out.",
-      "checkInSuccess": "Check-in successful!",
-      "checkOutSuccess": "Check-out successful!"
-    },
-    "errors": {
-      "captureFailed": "Failed to capture photo",
-      "cameraAccess": "Unable to access camera. Please check permissions.",
-      "checkInError": "An error occurred during check-in",
-      "checkOutError": "An error occurred during check-out",
-      "locationFailed": "Unable to get location. ",
-      "locationPermissionDenied": "Please grant location access in your browser settings.",
-      "locationUnavailable": "GPS signal unavailable. Try moving outdoors.",
-      "locationTimeout": "Unable to get location within allowed time. Check GPS and try again.",
-      "locationGeneric": "Please check access permissions and GPS."
-    },
-    "tooltips": {
-      "waitOneHour": "Please wait at least 1 hour after check-in"
-    }
-  },
-  "history": {
-    "title": "Attendance History",
-    "date": "Date",
-    "day": "Day",
-    "checkIn": "Check In",
-    "checkOut": "Check Out",
-    "hours": "Hours",
-    "totalHours": "Total Hours",
-    "location": "Location",
-    "status": "Status",
-    "notes": "Notes",
-    "viewPhoto": "View Photo",
-    "office": "Office",
-    "statusLabels": {
-      "ontime": "On Time",
-      "late": "Late",
-      "absent": "Absent",
-      "overtime": "Overtime",
-      "weekend": "Weekend"
-    },
-    "filters": {
-      "all": "All",
-      "allStatus": "All Status",
-      "search": "Search",
-      "searchPlaceholder": "Search by date, notes...",
-      "fromDate": "From Date",
-      "toDate": "To Date",
-      "selectDate": "Select Date",
-      "status": "Filter by Status",
-      "statusPlaceholder": "Status",
-      "weekend": "Weekend"
-    },
-    "summary": {
-      "totalDays": "Total Working Days",
-      "late": "Late",
-      "absent": "Absent",
-      "overtime": "Overtime"
-    },
-    "details": {
-      "title": "Attendance Details",
-      "loading": "Loading data...",
-      "noData": "No matching data"
-    },
-    "tabs": {
-      "checkin": "Check-in Photo",
-      "checkout": "Check-out Photo",
-      "checkinLabel": "Check-in",
-      "checkoutLabel": "Check-out"
-    },
-    "photo": {
-      "viewTitle": "View Attendance Photo",
-      "time": "Time",
-      "location": "Location",
-      "alt": {
-        "checkin": "Check-in photo",
-        "checkout": "Check-out photo"
-      }
-    },
-    "noPhoto": {
-      "checkin": "No check-in photo",
-      "checkout": "Not checked out yet"
-    }
   },
   "requests": {
     "title": "Requests & Applications",
@@ -487,7 +454,6 @@
     "events": "events",
     "noEvents": "No events",
     "upcomingEvents": "Upcoming Events (Next 7 Days)",
-    "loading": "Loading events...",
     "allDay": "All Day",
     "noUpcomingEvents": "No upcoming events in the next 7 days",
     "allEvents": "All Events",
@@ -511,33 +477,48 @@
       "cancel": "Cancel",
       "confirm": "Delete",
       "warning": "This action will permanently delete the event from the system."
+    },
+    "weekdays": {
+      "sun": "Su",
+      "mon": "Mo",
+      "tue": "Tu",
+      "wed": "We",
+      "thu": "Th",
+      "fri": "Fr",
+      "sat": "Sa"
     }
   },
   "leaveBalance": {
-    "title": "Leave Balance",
-    "description": "Track remaining leave days and leave history",
-    "createRequest": "Create Leave Request",
-    "createRequestShort": "Create Request",
-    "stats": {
-      "totalAnnual": "Total Annual Leave",
-      "used": "Used",
-      "remaining": "Remaining"
+    "types": {
+      "defaultName": "Leave",
+      "descriptions": {
+        "annual": "Annual leave according to policy",
+        "sick": "Paid sick leave",
+        "unpaid": "Unpaid leave",
+        "compensatory": "Compensatory leave for overtime",
+        "maternity": "Maternity leave per labor law"
+      }
     },
-    "tabs": {
-      "balance": "Balance",
-      "history": "History"
+    "status": {
+      "approved": "Approved",
+      "pending": "Pending",
+      "rejected": "Rejected"
     },
-    "overview": {
-      "title": "Overview",
-      "noData": "No leave data",
-      "noDataDescription": "Data will be displayed when information is available from the system",
-      "used": "Used",
-      "total": "Total",
-      "pending": "Pending Approval",
-      "days": "days",
-      "daysPerYear": "days/year",
-      "reason": "Reason:"
-    }
+    "history": {
+      "title": "History",
+      "noHistory": "No leave history",
+      "description": "History will be displayed when you have leave requests",
+      "remaining": "Remaining",
+      "approvedBy": "Approved by {{approver}}",
+      "approvedAt": "at {{time}}"
+    },
+    "loadingState": {
+      "loading": "Loading data...",
+      "errorTitle": "Failed to load data",
+      "retry": "Retry"
+    },
+    "loading": "Loading...",
+    "error": "Failed to load data"
   },
   "departmentAttendance": {
     "title": "Department Attendance",
@@ -715,26 +696,17 @@
     "loading": "Loading data...",
     "trend": "Trend",
     "comparedToLastWeek": "Compared to last week",
-    "perDayUnit": "days/day",
+    "perDayUnit": "employees/day",
     "departmentDetails": "Department Details",
-    "summary": {
-      "avgPresentLabel": "Average {{present}}/{{total}} employees"
-    },
-    "topPerformersSection": {
-      "avgCheckInLabel": "Average check-in time"
-    },
-    "attendanceRateLabel": "Attendance Rate",
-    "departmentComparison": "Department Comparison",
-    "departmentDetails": "Department Details",
-    "topPerformers": "Top 5 Dedicated Employees",
-    "loading": "Loading data...",
     "summary": {
       "avgPresentLabel": "Avg {{present}}/{{total}} employees"
     },
-    "perDayUnit": "employees/day",
     "topPerformersSection": {
       "avgCheckInLabel": "Avg check-in time"
-    }
+    },
+    "attendanceRateLabel": "Attendance Rate",
+    "departmentComparison": "Department Comparison",
+    "topPerformers": "Top 5 Dedicated Employees"
   },
   "payroll": {
     "title": "Payroll",
@@ -921,12 +893,8 @@
       "phone": "Phone",
       "email": "Email",
       "manager": "Manager",
-      "status": {
-        "active": "Active",
-        "inactive": "Inactive"
-      },
-      "selectManager": "Select Manager",
       "status": "Status",
+      "selectManager": "Select Manager",
       "active": "Active",
       "inactive": "Inactive",
       "cancel": "Cancel",
@@ -1219,38 +1187,6 @@
     "departmentDetailsTitle": "Department Details",
     "loadError": "Failed to load report data"
   },
-  "leaveBalance": {
-    "types": {
-      "defaultName": "Leave",
-      "descriptions": {
-        "annual": "Annual leave according to policy",
-        "sick": "Paid sick leave",
-        "unpaid": "Unpaid leave",
-        "compensatory": "Compensatory leave for overtime",
-        "maternity": "Maternity leave per labor law"
-      }
-    },
-    "status": {
-      "approved": "Approved",
-      "pending": "Pending",
-      "rejected": "Rejected"
-    },
-    "history": {
-      "title": "History",
-      "noHistory": "No leave history",
-      "description": "History will be displayed when you have leave requests",
-      "remaining": "Remaining",
-      "approvedBy": "Approved by {{approver}}",
-      "approvedAt": "at {{time}}"
-    },
-    "loadingState": {
-      "loading": "Loading data...",
-      "errorTitle": "Failed to load data",
-      "retry": "Retry"
-    },
-    "loading": "Loading...",
-    "error": "Failed to load data"
-  },
   "adminAttendance": {
     "title": "Attendance Management",
     "filters": {
@@ -1298,7 +1234,7 @@
     },
     "todayList": "Today's Attendance List",
     "currentRole": "Current role:",
-    "totalEmployees": "Total Employees",
+    "totalEmployees": "Total employees",
     "viewDialog": {
       "title": "Attendance Details",
       "description": "View detailed attendance record information"
@@ -1308,15 +1244,14 @@
       "checkIn": "Check In",
       "checkOut": "Check Out",
       "location": "Location",
-      "selectLocation": "Select Location",
+      "selectLocation": "Select location",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving...",
-      "success": "Attendance updated successfully!",
-      "error": "Failed to update attendance"
+      "success": "Attendance record updated successfully!"
     },
     "details": {
-      "employeeCode": "Employee Code",
+      "employeeCode": "Employee Code:",
       "attendanceInfo": "Attendance Information",
       "workDate": "Work Date",
       "totalHours": "Total Hours",
@@ -1373,29 +1308,7 @@
           "Must log special operations"
         ]
       }
-    },
-    "details": {
-      "employeeCode": "Employee Code:",
-      "attendanceInfo": "Attendance Information",
-      "workDate": "Work Date",
-      "totalHours": "Total Hours",
-      "workLocation": "Work Location",
-      "close": "Close"
-    },
-    "editDialog": {
-      "title": "Edit Attendance",
-      "checkIn": "Check In",
-      "checkOut": "Check Out",
-      "location": "Location",
-      "selectLocation": "Select location",
-      "cancel": "Cancel",
-      "save": "Save",
-      "saving": "Saving...",
-      "success": "Attendance record updated successfully!"
-    },
-    "totalEmployees": "Total employees",
-    "currentRole": "Current role:",
-    "todayList": "Today's Attendance List"
+    }
   },
   "common": {
     "loading": "Loading...",
@@ -1667,23 +1580,14 @@
       "sunday": "Sun"
     },
     "dialog": {
-      "create": {
-        "title": "Create New Shift",
-        "description": "Enter shift information"
-      },
+      "create": "Create Shift",
       "edit": {
         "title": "Edit Shift",
         "description": "Update shift information for {{name}}"
       },
-      "delete": {
-        "title": "Confirm Shift Deletion",
-        "description": "Are you sure you want to delete this shift?",
-        "warning": "This action will affect {{count}} employee(s) in this shift."
-      },
+      "delete": "Delete Shift",
       "cancel": "Cancel",
-      "create": "Create Shift",
-      "update": "Update",
-      "delete": "Delete Shift"
+      "update": "Update"
     }
   },
   "camera": {
@@ -1937,7 +1841,7 @@
       "autoCaptureFailed": "Auto capture failed. Please check conditions again.",
       "minImagesRequired": "Please capture at least {{min}} images.",
       "insufficientQualityImages": "Only {{current}} images meet quality requirements. Please capture at least {{needed}} more images.",
-      "registrationFailed": "Registration failed. Please try again.",
+      "registrationFailed": "Registration failed",
       "cameraPermissionDenied": "Camera permission denied. Please grant permission in browser settings",
       "cameraNotAvailable": "Camera not available. Please check your device",
       "cameraError": "Camera error. Please try again",
@@ -1958,7 +1862,6 @@
       "networkErrorDescription": "Cannot connect to server. Please check internet connection and try again",
       "aiServiceError": "AI service error",
       "aiServiceErrorDescription": "Cannot process image with AI service. Please try again later",
-      "registrationFailed": "Registration failed",
       "registrationFailedDescription": "An error occurred during face registration. Please try again",
       "unknownError": "Unknown error",
       "unknownErrorDescription": "An unexpected error occurred. Please try again later"
