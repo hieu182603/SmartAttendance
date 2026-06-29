@@ -16,6 +16,7 @@ import {
 } from "../../utils/userResponse.util.js";
 
 const ROLE_PERMISSION_CONFIG_KEY = "SECURITY_ROLE_PERMISSIONS";
+const CUSTOM_ROLES_CONFIG_KEY = "SECURITY_CUSTOM_ROLES";
 
 export class UserService {
   static async getRolePermissions() {
@@ -40,7 +41,12 @@ export class UserService {
   }
 
   static async updateRolePermissions(nextRolePerms, updatedBy) {
-    const allowedRoles = new Set(Object.keys(ROLE_PERMISSIONS));
+    // Allow both built-in roles and existing custom roles to be edited.
+    const customRoles = await UserService.getCustomRoles();
+    const allowedRoles = new Set([
+      ...Object.keys(ROLE_PERMISSIONS),
+      ...customRoles.map((r) => r.key),
+    ]);
     const allowedPermissions = new Set(Object.values(PERMISSIONS));
 
     const normalized = {};
@@ -53,10 +59,8 @@ export class UserService {
     }
 
     const merged = await UserService.getRolePermissions();
-    for (const role of Object.keys(merged)) {
-      if (normalized[role]) {
-        merged[role] = normalized[role];
-      }
+    for (const [role, perms] of Object.entries(normalized)) {
+      merged[role] = perms;
     }
 
     await SystemConfigModel.findOneAndUpdate(
@@ -76,6 +80,112 @@ export class UserService {
 
     invalidatePermissionCache();
     return merged;
+  }
+
+  static async getCustomRoles() {
+    const doc = await SystemConfigModel.findOne({ key: CUSTOM_ROLES_CONFIG_KEY }).lean();
+    if (!doc || !Array.isArray(doc.value)) {
+      return [];
+    }
+    return doc.value;
+  }
+
+  static async saveCustomRolesConfig(roles, updatedBy) {
+    await SystemConfigModel.findOneAndUpdate(
+      { key: CUSTOM_ROLES_CONFIG_KEY },
+      {
+        $set: {
+          key: CUSTOM_ROLES_CONFIG_KEY,
+          category: "security",
+          value: roles,
+          description: "Custom role definitions",
+          editableBy: ["SUPER_ADMIN", "ADMIN"],
+          updatedBy,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+
+  static async createCustomRole(role, updatedBy) {
+    const allowedPermissions = new Set(Object.values(PERMISSIONS));
+    const builtinRoles = new Set(Object.keys(ROLE_PERMISSIONS));
+
+    const name = String(role?.name || "").trim();
+    if (!name) {
+      const err = new Error("Tên role là bắt buộc");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    let key = String(role?.key || "").trim().toUpperCase().replace(/\s+/g, "_");
+    if (!key) key = `CUSTOM_${name.toUpperCase().replace(/\s+/g, "_")}`;
+    if (builtinRoles.has(key)) {
+      const err = new Error("Mã role trùng với role hệ thống");
+      err.statusCode = 409;
+      throw err;
+    }
+
+    const existing = await UserService.getCustomRoles();
+    if (existing.some((r) => r.key === key)) {
+      const err = new Error("Mã role đã tồn tại");
+      err.statusCode = 409;
+      throw err;
+    }
+
+    const permissions = Array.from(
+      new Set(
+        (Array.isArray(role?.permissions) ? role.permissions : []).filter(
+          (p) => typeof p === "string" && allowedPermissions.has(p)
+        )
+      )
+    );
+
+    const newRole = {
+      id: role?.id ? String(role.id) : new mongoose.Types.ObjectId().toString(),
+      name,
+      key,
+      colorBg: typeof role?.colorBg === "string" ? role.colorBg : "bg-gray-500/20",
+      colorText: typeof role?.colorText === "string" ? role.colorText : "text-gray-500",
+      level: typeof role?.level === "number" ? role.level : 1,
+      permissions,
+    };
+
+    await UserService.saveCustomRolesConfig([...existing, newRole], updatedBy);
+
+    // Seed permissions into the role-permission map so the permission
+    // middleware enforces them immediately for users holding this role.
+    await UserService.updateRolePermissions({ [key]: permissions }, updatedBy);
+
+    return newRole;
+  }
+
+  static async removeRolePermsKey(key, updatedBy) {
+    const doc = await SystemConfigModel.findOne({ key: ROLE_PERMISSION_CONFIG_KEY });
+    if (doc && doc.value && typeof doc.value === "object" && key in doc.value) {
+      const nextValue = { ...doc.value };
+      delete nextValue[key];
+      doc.value = nextValue;
+      doc.updatedBy = updatedBy;
+      doc.markModified("value");
+      await doc.save();
+      invalidatePermissionCache();
+    }
+  }
+
+  static async deleteCustomRole(key, updatedBy) {
+    const normalizedKey = String(key || "").trim();
+    const existing = await UserService.getCustomRoles();
+    const next = existing.filter((r) => r.key !== normalizedKey);
+    if (next.length === existing.length) {
+      const err = new Error("Không tìm thấy role tùy chỉnh");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    await UserService.saveCustomRolesConfig(next, updatedBy);
+    await UserService.removeRolePermsKey(normalizedKey, updatedBy);
+    return { key: normalizedKey };
   }
 
   /**

@@ -32,6 +32,8 @@ import { scheduleRouter } from "./modules/schedule/schedule.router.js";
 import { featureToggleRouter } from "./modules/feature-toggle/featureToggle.router.js";
 import { companyRouter } from "./modules/company/company.router.js";
 import { regulationRouter } from "./modules/company/regulation.router.js";
+import { taskRouter } from "./modules/tasks/task.router.js";
+import { projectRouter } from "./modules/projects/project.router.js";
 import { analyticsRouter } from "./modules/analytics/analytics.router.js";
 import {
   globalRateLimiter,
@@ -254,6 +256,13 @@ app.use("/api/analytics", analyticsRouter);
 // (which restricts to SUPER_ADMIN only and would 403 admins/HR managers).
 app.use("/api/companies/regulations", regulationRouter);
 app.use("/api/companies", companyRouter);
+app.use(
+  "/api/tasks",
+  express.json({ limit: "10mb" }),
+  express.urlencoded({ extended: true, limit: "10mb" }),
+  taskRouter
+);
+app.use("/api/projects", projectRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ message: "Route not found" });

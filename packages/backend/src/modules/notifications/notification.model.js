@@ -21,6 +21,10 @@ const notificationSchema = new mongoose.Schema(
         "shift_assigned",
         "shift_removed",
         "shift_updated",
+        "task_assigned",
+        "task_submitted",
+        "task_approved",
+        "task_rejected",
         "system",
         "other"
       ],
@@ -36,7 +40,7 @@ const notificationSchema = new mongoose.Schema(
     },
     relatedEntityType: {
       type: String,
-      enum: ["request", "attendance", "user", "performance_review", "shift", "payroll", "other"],
+      enum: ["request", "attendance", "user", "performance_review", "shift", "task", "payroll", "other"],
     },
     relatedEntityId: {
       type: mongoose.Schema.Types.ObjectId,
