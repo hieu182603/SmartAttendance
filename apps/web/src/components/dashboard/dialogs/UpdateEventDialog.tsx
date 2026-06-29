@@ -47,16 +47,10 @@ export function UpdateEventDialog({
     date: getLocalDateString(),
     startTime: "09:00",
     endTime: "17:00",
-    type: "meeting" as
-      | "holiday"
-      | "meeting"
-      | "event"
-      | "deadline"
-      | "training",
+    type: "meeting" as "holiday" | "meeting" | "event" | "deadline" | "training",
     location: "",
-    attendeeCount: 0,
+    attendeeCount: 0 as number | "",
     isAllDay: false,
-    color: "#3B82F6",
   });
   const { t } = useTranslation(["dashboard", "common"]);
 
@@ -135,6 +129,7 @@ export function UpdateEventDialog({
       setLoading(true);
       await eventService.updateEvent(event._id, {
         ...formData,
+        attendeeCount: formData.attendeeCount === "" ? undefined : formData.attendeeCount,
         color: colorMap[formData.type] || "#3B82F6",
         startTime: formData.isAllDay ? undefined : formData.startTime,
         endTime: formData.isAllDay ? undefined : formData.endTime,

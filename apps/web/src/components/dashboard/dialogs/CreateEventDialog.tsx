@@ -118,6 +118,7 @@ export function CreateEventDialog({
       setLoading(true);
       await eventService.createEvent({
         ...formData,
+        attendeeCount: formData.attendeeCount === "" ? undefined : formData.attendeeCount,
         color: colorMap[formData.type] || "#3B82F6",
         startTime: formData.isAllDay ? undefined : formData.startTime,
         endTime: formData.isAllDay ? undefined : formData.endTime,
