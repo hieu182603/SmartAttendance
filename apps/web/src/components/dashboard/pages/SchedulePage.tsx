@@ -7,7 +7,6 @@ import {
   MapPin,
   Users,
   TrendingUp,
-  Award,
   Zap,
   StickyNote,
   Target,
@@ -21,12 +20,17 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import shiftService from "@/services/shiftService";
 import { getAttendanceHistory } from "@/services/attendanceService";
+import taskService from "@/services/taskService";
 import { useAuth } from "@/context/AuthContext";
 import { resolveUserId } from "@/utils/userId";
+import { formatDateLocal } from "@/utils/date";
 import {
   getShiftStatusBadgeClass,
   type ShiftStatus,
 } from "@/utils/attendanceStatus";
+import type { ManagerTask } from "@/types/schedule";
+import EmployeeTaskBoard from "@/components/dashboard/schedule/EmployeeTaskBoard";
+import TaskDetailModal from "@/components/dashboard/schedule/TaskDetailModal";
 
 interface AttendanceRecord {
   id?: string;
@@ -89,12 +93,31 @@ const isValidShiftTime = (startTime?: string, endTime?: string): boolean =>
   /^(\d{1,2}):(\d{2})/.test(String(startTime ?? "").trim()) &&
   /^(\d{1,2}):(\d{2})/.test(String(endTime ?? "").trim());
 
+// Đồng hồ live (HH:MM:SS) tách riêng + memo để chỉ chính nó re-render mỗi giây,
+// không kéo theo cả trang Lịch (tránh re-render toàn bộ motion/calendar mỗi 1s).
+const LiveClock: React.FC = React.memo(() => {
+  const [time, setTime] = useState(() =>
+    new Date().toLocaleTimeString("vi-VN", { hour12: false })
+  );
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString("vi-VN", { hour12: false }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return <span>{time}</span>;
+});
+LiveClock.displayName = "LiveClock";
+
 const SchedulePage: React.FC = () => {
   const { t } = useTranslation(["dashboard", "common"]);
   const { user, loading: authLoading } = useAuth();
   const userId = resolveUserId(user);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [schedule, setSchedule] = useState<EmployeeSchedule[]>([]);
+  const [tasks, setTasks] = useState<ManagerTask[]>([]);
+  const [selectedItem, setSelectedItem] = useState<ManagerTask | EmployeeSchedule | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
@@ -154,11 +177,11 @@ const SchedulePage: React.FC = () => {
           weekReference < monthStart ? weekReference : monthStart;
 
         // Fetch schedule from assignments and attendance data in parallel
-        const startDateStr = rangeStart.toISOString().split("T")[0];
-        const endDateStr = rangeEnd.toISOString().split("T")[0];
+        const startDateStr = formatDateLocal(rangeStart);
+        const endDateStr = formatDateLocal(rangeEnd);
 
         // Fetch schedule and attendance in parallel
-        const [scheduleData, attendanceData] =
+        const [scheduleData, attendanceData, taskData] =
           await Promise.all([
             shiftService
               .getMySchedule(startDateStr, endDateStr)
@@ -168,7 +191,13 @@ const SchedulePage: React.FC = () => {
               toast.error("Không thể tải lịch sử điểm danh cho lịch làm việc");
               return { records: [], pagination: null };
             }),
+            taskService.getMyTasks(startDateStr, endDateStr).catch((error) => {
+              console.error("[Schedule] Failed to load tasks:", error);
+              return [];
+            }),
           ]);
+
+        setTasks(taskData);
 
         // Store attendance records
         const records = (attendanceData.records || []) as AttendanceRecord[];
@@ -186,7 +215,7 @@ const SchedulePage: React.FC = () => {
               if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
                 const d = new Date(dateValue);
                 if (!Number.isNaN(d.getTime())) {
-                  dateStr = d.toISOString().split("T")[0];
+                  dateStr = formatDateLocal(d);
                 }
               }
               // Try format like "24 tháng 11, 2024" or "24/11/2024" or "24-11-2024"
@@ -200,13 +229,13 @@ const SchedulePage: React.FC = () => {
                   const year = Number.parseInt(dateMatch[3], 10);
                   const d = new Date(year, month - 1, day);
                   if (!Number.isNaN(d.getTime())) {
-                    dateStr = d.toISOString().split("T")[0];
+                    dateStr = formatDateLocal(d);
                   }
                 } else {
                   // Try generic date parsing
                   const d = new Date(dateValue);
                   if (!Number.isNaN(d.getTime())) {
-                    dateStr = d.toISOString().split("T")[0];
+                    dateStr = formatDateLocal(d);
                   }
                 }
               }
@@ -233,7 +262,7 @@ const SchedulePage: React.FC = () => {
               const dateObj =
                 sched.date instanceof Date ? sched.date : new Date(sched.date);
               if (!Number.isNaN(dateObj.getTime())) {
-                const dateStr = dateObj.toISOString().split("T")[0];
+                const dateStr = formatDateLocal(dateObj);
                 scheduleMap.set(dateStr, sched);
               }
             } catch (err) {
@@ -252,7 +281,7 @@ const SchedulePage: React.FC = () => {
 
         while (cursor <= rangeEnd) {
           const currentDate = new Date(cursor);
-          const dateStr = currentDate.toISOString().split("T")[0];
+          const dateStr = formatDateLocal(currentDate);
           const isPast = currentDate < today;
           const attendance = attendanceMap.get(dateStr);
           const assignedSchedule = scheduleMap.get(dateStr);
@@ -338,7 +367,7 @@ const SchedulePage: React.FC = () => {
             !scheduleToUse &&
             attendance &&
             scheduleMap.size === 0 &&
-            dateStr === today.toISOString().split("T")[0]
+            dateStr === formatDateLocal(today)
           ) {
             // Trường hợp không có lịch nhưng user vẫn có chấm công (ví dụ: ngày đầu tiên làm việc,
             // chưa được admin set lịch). Tạo một "virtual shift" dựa trên attendance để:
@@ -401,15 +430,6 @@ const SchedulePage: React.FC = () => {
     fetchData();
   }, [userId, authLoading, defaultLocation, selectedMonth]);
 
-  const [liveTime, setLiveTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setLiveTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   if (loading && schedule.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
@@ -421,7 +441,7 @@ const SchedulePage: React.FC = () => {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = formatDateLocal(today);
   const selectedMonthStart = new Date(
     selectedMonth.getFullYear(),
     selectedMonth.getMonth(),
@@ -529,10 +549,12 @@ const SchedulePage: React.FC = () => {
       ? (stats.totalHours / stats.thisMonth).toFixed(1)
       : "0.0";
 
-  const currentMonthLabel = selectedMonthStart.toLocaleDateString("vi-VN", {
-    month: "long",
-    year: "numeric",
-  });
+  const currentMonthLabel = selectedMonthStart
+    .toLocaleDateString("vi-VN", {
+      month: "long",
+      year: "numeric",
+    })
+    .replace(/^tháng\s+/i, "");
 
   // Build month calendar grid (Mon-first) for compact month view
   const monthStartDisplay = selectedMonthStart;
@@ -557,19 +579,10 @@ const SchedulePage: React.FC = () => {
     })),
   ];
 
-  const currentDayOfWeek = today.getDay();
-  const mondayDiff = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() + mondayDiff);
-  weekStart.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
-
   const getWeekDayStatus = (
     date: Date
   ): "completed" | "today" | "scheduled" | "off" | "missed" | "none" | "late" | "early_leave" => {
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = formatDateLocal(date);
     const dayShifts = schedule.filter((s) => s.date === dateStr);
 
     if (dayShifts.length === 0) return "off";
@@ -795,7 +808,7 @@ const SchedulePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -889,9 +902,7 @@ const SchedulePage: React.FC = () => {
 
               <div className="flex items-center text-4xl text-[var(--text-sub)] justify-center mt-8 mb-8">
                 <Clock className="h-8 w-8 mr-2 text-[var(--accent-cyan)] animate-pulse" />
-                <span>
-                  {liveTime.toLocaleTimeString("vi-VN", { hour12: false })}
-                </span>
+                <LiveClock />
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1145,7 +1156,7 @@ const SchedulePage: React.FC = () => {
                     ? getWeekDayStatus(cell.date)
                     : "none";
                   const isToday =
-                    cell.date?.toISOString().split("T")[0] === todayStr;
+                    cell.date ? formatDateLocal(cell.date) === todayStr : false;
                   return (
                     <motion.div
                       key={index}
@@ -1345,136 +1356,40 @@ const SchedulePage: React.FC = () => {
         </Card>
       </motion.div>
 
-      {/* Achievements Section */}
+      {/* Weekly Task Board (Kanban 4 cột + filter) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.1 }}
       >
-        <Card className="bg-gradient-to-br from-[var(--primary)]/[0.15] to-[var(--success)]/[0.15] dark:from-[var(--primary)]/[0.08] dark:to-[var(--success)]/[0.08] border-[var(--border)]">
-          <CardHeader>
-            <CardTitle className="text-[var(--text-main)] flex items-center space-x-2">
-              <Award className="h-5 w-5 text-[var(--warning)]" />
-              <span>{t("dashboard:schedule.achievements")}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-              const onTimeRate = stats.onTimeRate;
-              let onTimeMessage = t(
-                "dashboard:schedule.stats.performanceMessages.excellent"
-              );
-              if (onTimeRate < 50)
-                onTimeMessage = t(
-                  "dashboard:schedule.stats.performanceMessages.needsImprovement"
-                );
-              else if (onTimeRate < 80)
-                onTimeMessage = t(
-                  "dashboard:schedule.stats.performanceMessages.good"
-                );
-              else if (onTimeRate < 95)
-                onTimeMessage = t(
-                  "dashboard:schedule.stats.performanceMessages.veryGood"
-                );
-
-              let currentStreak = 0;
-              const sortedAttended = [...monthAttended].sort((a, b) =>
-                b.date.localeCompare(a.date)
-              );
-
-              const checkDate = new Date(today);
-              for (let i = 0; i < 365; i++) {
-                const dateStr = checkDate.toISOString().split("T")[0];
-                const hasAttended = sortedAttended.some(
-                  (s) => s.date === dateStr
-                );
-
-                if (hasAttended) {
-                  currentStreak++;
-                  checkDate.setDate(checkDate.getDate() - 1);
-                } else {
-                  break;
-                }
-              }
-
-              const avgHoursPerDay =
-                stats.completed > 0
-                  ? (stats.totalHours / stats.completed).toFixed(1)
-                  : "0.0";
-
-              return (
-                <div className="grid md:grid-cols-3 gap-4">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 1.2 }}
-                    className="flex flex-col items-center text-center p-4 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-[var(--success)]/30 dark:bg-[var(--success)]/20 flex items-center justify-center text-3xl mb-3">
-                      🎯
-                    </div>
-                    <p className="text-2xl font-bold text-[var(--text-main)] mb-1">
-                      {onTimeRate}%
-                    </p>
-                    <p className="text-sm text-[var(--text-sub)] mb-1">
-                      {t("dashboard:schedule.stats.onTimeRateMessage", {
-                        rate: onTimeRate,
-                      })}
-                    </p>
-                    <p className="text-xs text-[var(--text-sub)]">
-                      {onTimeMessage}
-                    </p>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 1.3 }}
-                    className="flex flex-col items-center text-center p-4 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-[var(--warning)]/30 dark:bg-[var(--warning)]/20 flex items-center justify-center text-3xl mb-3">
-                      🔥
-                    </div>
-                    <p className="text-2xl font-bold text-[var(--text-main)] mb-1">
-                      {currentStreak}
-                    </p>
-                    <p className="text-sm text-[var(--text-sub)] mb-1">
-                      {t("dashboard:schedule.stats.streak")}
-                    </p>
-                    <p className="text-xs text-[var(--text-sub)]">
-                      {currentStreak > 0
-                        ? t("dashboard:schedule.stats.streakMessages.keepGoing")
-                        : t("dashboard:schedule.stats.streakMessages.startNew")}
-                    </p>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 1.4 }}
-                    className="flex flex-col items-center text-center p-4 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-[var(--accent-cyan)]/30 dark:bg-[var(--accent-cyan)]/20 flex items-center justify-center text-3xl mb-3">
-                      ⭐
-                    </div>
-                    <p className="text-2xl font-bold text-[var(--text-main)] mb-1">
-                      {avgHoursPerDay}h
-                    </p>
-                    <p className="text-sm text-[var(--text-sub)] mb-1">
-                      {t("dashboard:schedule.avgHoursPerDay")}
-                    </p>
-                    <p className="text-xs text-[var(--text-sub)]">
-                      {t("dashboard:schedule.monthLabel", {
-                        month: currentMonthLabel,
-                      })}
-                    </p>
-                  </motion.div>
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
+        <EmployeeTaskBoard
+          tasks={tasks}
+          onItemClick={(task) => {
+            setSelectedItem(task);
+            setIsModalOpen(true);
+          }}
+          onTaskUpdated={(updatedTask) =>
+            setTasks((prev) =>
+              prev.map((t) => (t._id === updatedTask._id ? updatedTask : t))
+            )
+          }
+        />
       </motion.div>
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedItem(null);
+        }}
+        task={selectedItem}
+        onUpdate={(updatedTask) => {
+          setTasks((prev) =>
+            prev.map((t) => (t._id === updatedTask._id ? updatedTask : t))
+          );
+        }}
+      />
     </div>
   );
 };
