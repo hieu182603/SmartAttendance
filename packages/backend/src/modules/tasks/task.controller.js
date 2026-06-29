@@ -8,7 +8,7 @@ const getUserId = (req) => req.user?.userId || req.user?.id || req.user?._id;
 // Create a new task (Manager+)
 export const createTask = async (req, res) => {
   try {
-    const { title, description, assignedTo, startDate, endDate, startTime, endTime, priority, projectId, attachments } = req.body;
+    const { title, description, assignedTo, startDate, endDate, startTime, endTime, priority, projectId, attachments, requiresReview } = req.body;
     const companyId = req.user?.companyId;
     const assignedBy = getUserId(req);
 
@@ -48,6 +48,7 @@ export const createTask = async (req, res) => {
       companyId,
       projectId,
       attachments: attachments || [],
+      requiresReview: requiresReview !== false,
       status: "assigned"
     });
 
@@ -192,8 +193,9 @@ export const getTaskById = async (req, res) => {
     const isAssignee = String(task.assignedTo?._id || task.assignedTo) === userId;
     const isAssigner = String(task.assignedBy?._id || task.assignedBy) === userId;
     const isSameCompany = String(task.companyId) === companyId;
+    const isPrivileged = ["MANAGER", "HR_MANAGER", "ADMIN", "SUPER_ADMIN"].includes(req.user?.role);
 
-    if (!isAssignee && !isAssigner && !isSameCompany) {
+    if (!isAssignee && !isAssigner && !(isSameCompany && isPrivileged)) {
       return res.status(403).json({ success: false, message: "You are not allowed to view this task" });
     }
 
@@ -251,6 +253,10 @@ export const submitTask = async (req, res) => {
     if (String(task.assignedTo) !== userId) {
       return res.status(403).json({ success: false, message: "Only the assignee can submit this task" });
     }
+    // Cho phép nộp lần đầu (in_progress) và nộp lại sau khi bị từ chối (rejected)
+    if (task.status !== "in_progress" && task.status !== "rejected") {
+      return res.status(400).json({ success: false, message: "Task phải ở trạng thái 'in_progress' hoặc 'rejected' mới có thể nộp" });
+    }
 
     task.status = "pending_review";
     task.employeeFeedback = {
@@ -305,6 +311,9 @@ export const reviewTask = async (req, res) => {
     // Only the assigner may review
     if (String(task.assignedBy) !== userId) {
       return res.status(403).json({ success: false, message: "Only the manager who assigned this task can review it" });
+    }
+    if (task.status !== "pending_review") {
+      return res.status(400).json({ success: false, message: "Chỉ có thể phê duyệt task đang ở trạng thái 'pending_review'" });
     }
 
     task.status = decision === "approved" ? "completed" : "rejected";
@@ -388,6 +397,53 @@ export const updateTask = async (req, res) => {
     res.json({ success: true, data: populated });
   } catch (error) {
     logger.error(`[task.updateTask] ${error.message}`);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Complete a task directly (Employee only, requiresReview must be false): in_progress -> completed
+export const completeTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const userId = String(getUserId(req));
+
+    const task = await TaskModel.findById(taskId);
+    if (!task) return res.status(404).json({ success: false, message: "Task not found" });
+
+    if (String(task.assignedTo) !== userId) {
+      return res.status(403).json({ success: false, message: "Only the assignee can complete this task" });
+    }
+    if (task.requiresReview !== false) {
+      return res.status(403).json({ success: false, message: "Task này yêu cầu kiểm duyệt của manager" });
+    }
+    if (task.status !== "in_progress") {
+      return res.status(400).json({ success: false, message: "Task phải ở trạng thái 'in_progress' mới có thể hoàn thành" });
+    }
+
+    task.status = "completed";
+    await task.save();
+
+    try {
+      await NotificationService.createNotification({
+        userId: task.assignedBy,
+        type: "task_completed",
+        title: "✅ Công việc đã hoàn thành",
+        message: `Công việc "${task.title}" đã được nhân viên hoàn thành.`,
+        relatedEntityType: "task",
+        relatedEntityId: task._id,
+        metadata: { assignedTo: task.assignedTo },
+      });
+    } catch (notifyError) {
+      logger.error(`[task.completeTask] Notification failed: ${notifyError.message}`);
+    }
+
+    const populated = await TaskModel.findById(taskId)
+      .populate("assignedTo", "name email avatarUrl")
+      .populate("assignedBy", "name email avatarUrl");
+
+    res.json({ success: true, data: populated });
+  } catch (error) {
+    logger.error(`[task.completeTask] ${error.message}`);
     res.status(500).json({ success: false, message: error.message });
   }
 };

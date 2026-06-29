@@ -831,7 +831,7 @@ export class UserController {
         details: {
           description: "Tạo tài khoản thất bại",
           error: error.message,
-          requestData: req.body,
+          requestData: (({ password: _pw, ...safe }) => safe)(req.body),
         },
         status: "failed",
         errorMessage: error.message,

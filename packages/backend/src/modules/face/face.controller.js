@@ -74,8 +74,28 @@ export class FaceController {
 
       if (faceImages && Array.isArray(faceImages) && faceImages.length > 0) {
         try {
+          // Validate URLs to prevent SSRF — only allow http/https to public hosts
+          // IPv4: loopback/private/link-local; IPv6: loopback (::1), unspecified (::),
+          // IPv4-mapped (::ffff:), link-local (fe80::/10), unique-local (fc00::/7)
+          const BLOCKED_IPV4 = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/i;
+          const BLOCKED_IPV6 = /^(::1?$|::ffff:|fe80:|f[cd][0-9a-f]{2}:)/i;
+          for (const url of faceImages) {
+            let parsed;
+            try { parsed = new URL(url); } catch {
+              throw new Error("URL ảnh không hợp lệ");
+            }
+            if (!["http:", "https:"].includes(parsed.protocol)) {
+              throw new Error("URL ảnh chỉ được dùng giao thức http hoặc https");
+            }
+            // new URL() giữ brackets cho IPv6 (vd "[::1]") — bỏ brackets trước khi kiểm tra
+            const host = parsed.hostname.replace(/^\[|\]$/g, "");
+            if (BLOCKED_IPV4.test(host) || BLOCKED_IPV6.test(host)) {
+              throw new Error("URL ảnh trỏ đến địa chỉ nội bộ không được phép");
+            }
+          }
+
           files = await Promise.all(faceImages.map(async (url, idx) => {
-            const response = await axios.get(url, { responseType: 'arraybuffer' });
+            const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000, maxContentLength: 10 * 1024 * 1024 });
             return {
               buffer: Buffer.from(response.data),
               originalname: `face_${idx}.jpg`,

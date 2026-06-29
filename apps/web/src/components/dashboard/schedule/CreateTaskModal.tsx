@@ -58,6 +58,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [requiresReview, setRequiresReview] = useState(true);
   const [isShaking, setIsShaking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -173,6 +174,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         endTime,
         priority,
         projectId,
+        requiresReview,
         attachments,
       });
 
@@ -194,6 +196,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       setStartTime("08:00");
       setEndTime("17:00");
       setPriority("medium");
+      setRequiresReview(true);
       setAttachments([]);
       
       onSuccess();
@@ -529,6 +532,35 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   </div>
                 </div>
               </motion.div>
+
+              {/* Requires Review Toggle */}
+              <label className="flex items-center gap-3 cursor-pointer select-none p-3 rounded-lg border border-[var(--border)] bg-[var(--input-bg)]/40 hover:bg-[var(--input-bg)] transition-colors duration-200">
+                <div className="relative flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={requiresReview}
+                    onChange={(e) => setRequiresReview(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`w-10 h-5 rounded-full transition-colors duration-300 ${requiresReview ? "bg-[var(--primary)]" : "bg-[var(--border)]"}`}
+                  >
+                    <div
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300 ${requiresReview ? "translate-x-5" : "translate-x-0"}`}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-[var(--text-main)]">
+                    Cần kiểm duyệt
+                  </span>
+                  <span className="text-xs text-[var(--text-sub)]">
+                    {requiresReview
+                      ? "Nhân viên phải nộp kết quả, manager phê duyệt mới hoàn thành"
+                      : "Nhân viên tự đánh dấu hoàn thành mà không cần manager duyệt"}
+                  </span>
+                </div>
+              </label>
 
               <button
                 type="submit"

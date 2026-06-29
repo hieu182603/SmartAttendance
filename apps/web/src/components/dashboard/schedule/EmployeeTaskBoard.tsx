@@ -29,9 +29,11 @@ export const EmployeeTaskBoard: React.FC<EmployeeTaskBoardProps> = ({ tasks, onI
   // Chuyển hợp lệ với vai trò nhân viên (assignee):
   //  - assigned       -> in_progress   (Bắt đầu — gọi API trực tiếp)
   //  - in_progress/rejected -> pending_review (Nộp kết quả — cần ghi chú, mở modal)
+  //  - in_progress    -> completed     (Chỉ khi requiresReview = false)
   const isValidDrop = (src: ManagerTask, target: TaskStatus) =>
     (target === "in_progress" && src.status === "assigned") ||
-    (target === "pending_review" && (src.status === "in_progress" || src.status === "rejected"));
+    (target === "pending_review" && (src.status === "in_progress" || src.status === "rejected")) ||
+    (target === "completed" && src.status === "in_progress" && src.requiresReview === false);
 
   const handleDragStart = (e: React.DragEvent, task: ManagerTask) => {
     setDraggedTask(task);
@@ -78,6 +80,18 @@ export const EmployeeTaskBoard: React.FC<EmployeeTaskBoardProps> = ({ tasks, onI
     if (target === "pending_review" && (src.status === "in_progress" || src.status === "rejected")) {
       onItemClick(src);
       toast.info("Nhập ghi chú rồi bấm 'Nộp kết quả' trong cửa sổ chi tiết.");
+      return;
+    }
+
+    // Hoàn thành trực tiếp: in_progress -> completed (chỉ khi requiresReview = false)
+    if (target === "completed" && src.status === "in_progress" && src.requiresReview === false) {
+      try {
+        const updated = await taskService.completeTask(src._id);
+        onTaskUpdated(updated);
+        toast.success("Đã hoàn thành công việc");
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || "Không thể hoàn thành công việc");
+      }
       return;
     }
 

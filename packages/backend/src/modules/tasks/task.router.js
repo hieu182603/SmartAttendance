@@ -11,6 +11,7 @@ taskRouter.use(authMiddleware);
 taskRouter.get("/my-tasks", requireMinimumRole(ROLES.EMPLOYEE), TaskController.getMyTasks);
 taskRouter.patch("/:taskId/start", requireMinimumRole(ROLES.EMPLOYEE), TaskController.startTask);
 taskRouter.patch("/:taskId/submit", requireMinimumRole(ROLES.EMPLOYEE), TaskController.submitTask);
+taskRouter.patch("/:taskId/complete", requireMinimumRole(ROLES.EMPLOYEE), TaskController.completeTask);
 
 // Manager+ routes
 taskRouter.post("/", requireMinimumRole(ROLES.MANAGER), TaskController.createTask);
