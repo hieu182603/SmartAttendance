@@ -80,6 +80,56 @@ export class UserController {
     }
   }
 
+  static async getCustomRoles(req, res) {
+    try {
+      const customRoles = await UserService.getCustomRoles();
+      return res.status(200).json({ customRoles });
+    } catch (error) {
+      console.error("[UserController] Get custom roles error:", error);
+      return res.status(500).json({
+        message: error.message || "Không thể tải role tùy chỉnh",
+      });
+    }
+  }
+
+  static async createCustomRole(req, res) {
+    try {
+      const role = await UserService.createCustomRole(req.body, req.user?.userId);
+
+      await logActivity(req, {
+        action: "create_custom_role",
+        entityType: "system_config",
+        details: { description: `Đã tạo role tùy chỉnh "${role.name}"`, key: role.key },
+        status: "success",
+      });
+
+      return res.status(201).json({ message: "Đã tạo role tùy chỉnh", role });
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({
+        message: error.message || "Không thể tạo role tùy chỉnh",
+      });
+    }
+  }
+
+  static async deleteCustomRole(req, res) {
+    try {
+      const result = await UserService.deleteCustomRole(req.params.key, req.user?.userId);
+
+      await logActivity(req, {
+        action: "delete_custom_role",
+        entityType: "system_config",
+        details: { description: `Đã xóa role tùy chỉnh "${req.params.key}"` },
+        status: "success",
+      });
+
+      return res.status(200).json({ message: "Đã xóa role tùy chỉnh", ...result });
+    } catch (error) {
+      return res.status(error.statusCode || 500).json({
+        message: error.message || "Không thể xóa role tùy chỉnh",
+      });
+    }
+  }
+
   /**
    * @swagger
    * /api/users/me:
@@ -872,7 +922,7 @@ export class UserController {
         _id: { $ne: managerId },
         isActive: true,
       })
-        .select("_id name email position role department branch")
+        .select("_id name email position role department branch avatarUrl")
         .populate("department", "name")
         .populate("branch", "name")
         .sort({ name: 1 });
@@ -886,6 +936,7 @@ export class UserController {
         role: user.role,
         department: user.department?.name || null,
         branch: user.branch?.name || null,
+        avatarUrl: user.avatarUrl || null,
       }));
 
       res.json({ users });

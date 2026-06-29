@@ -405,7 +405,7 @@ export default function AiUsageBillingPage() {
                     borderRadius: 12,
                   }}
                   labelStyle={{ color: "var(--text-main)" }}
-                  formatter={(v: number) => [v.toLocaleString("vi-VN"), "Tokens"]}
+                  formatter={(v: any) => [Number(v).toLocaleString("vi-VN"), "Tokens"]}
                 />
                 <Bar
                   dataKey="tokens"

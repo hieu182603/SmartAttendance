@@ -56,6 +56,7 @@ const AiPaymentReturnPage = lazy(() => import("@/components/AiPaymentReturnPage"
 const AiUsageBillingPage = lazy(() => import("@/components/dashboard/pages/AiUsageBillingPage"));
 const ChatbotPage = lazy(() => import("@/components/dashboard/pages/ChatbotPage"));
 const MyPayslipPage = lazy(() => import("@/components/dashboard/pages/MyPayslipPage"));
+const TaskManagementPage = lazy(() => import("@/components/dashboard/pages/TaskManagementPage"));
 // Trial analytics page removed
 
 // Named Exports - Lazy Load with proper handling
@@ -305,6 +306,16 @@ export default function App() {
                     }
                   >
                     <Route index element={<ShiftsPage />} />
+                  </Route>
+                  <Route
+                    path="task-management"
+                    element={
+                      <ProtectedRoute
+                        minimumRole={UserRole.MANAGER}
+                      />
+                    }
+                  >
+                    <Route index element={<TaskManagementPage />} />
                   </Route>
                   <Route
                     path="admin-reports"
@@ -762,7 +773,7 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
-        <Toaster position="top-right" richColors />
+        <Toaster position="top-right" richColors duration={3000} closeButton />
       </ChatbotProvider>
     </ThemeProvider>
   );

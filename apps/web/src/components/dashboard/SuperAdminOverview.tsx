@@ -122,7 +122,7 @@ export const SuperAdminOverview: React.FC = () => {
     .filter(([, v]) => v > 0)
     .map(([key, value]) => ({ name: PLAN_LABELS[key] ?? key, value, color: PLAN_COLORS[key] ?? "#94a3b8" }));
 
-  const { kpi, attendanceData, growthPercentage } = stats.attendance;
+  const { kpi, growthPercentage } = stats.attendance;
 
   // ── Skeleton ──────────────────────────────────────────────────────────────
 
@@ -375,7 +375,7 @@ export const SuperAdminOverview: React.FC = () => {
                     <YAxis stroke="#94A3B8" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
                     <Tooltip
                       contentStyle={{ backgroundColor: "#1E293B", border: "1px solid #334155", borderRadius: "12px", color: "#E2E8F0" }}
-                      formatter={(value: number) => [formatCurrency(value), "Doanh thu"]}
+                      formatter={(value: any) => [formatCurrency(Number(value)), "Doanh thu"]}
                     />
                     <Area type="monotone" dataKey="revenue" stroke="#a855f7" strokeWidth={3} fill="url(#colorRevenue)" />
                   </AreaChart>
@@ -419,7 +419,7 @@ export const SuperAdminOverview: React.FC = () => {
                     </Pie>
                     <Tooltip
                       contentStyle={{ backgroundColor: "#1E293B", border: "1px solid #334155", borderRadius: "12px", color: "#E2E8F0" }}
-                      formatter={(value: number, name: string) => [`${value} công ty`, name]}
+                      formatter={(value: any, name: any) => [`${value} công ty`, name]}
                     />
                     <Legend iconType="circle" />
                   </PieChart>

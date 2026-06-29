@@ -532,7 +532,38 @@
     },
     "upcomingShiftsTitle": "Ca làm sắp tới",
     "achievements": "Thành tích",
-    "monthLabel": "Tháng {{month}}"
+    "monthLabel": "Tháng {{month}}",
+    "weeklyGrid": {
+      "title": "Chi tiết bảng phân công việc tuần",
+      "hint": "Mẹo: Nhấp vào từng công việc để xem chi tiết, báo cáo hoàn thành hoặc báo lỗi kèm ghi chú cho quản lý.",
+      "lunchBreak": "Nghỉ trưa"
+    },
+    "taskModal": {
+      "statusAssigned": "Chờ Thực Hiện",
+      "statusInProgress": "Đang Thực Hiện",
+      "statusPendingReview": "Chờ Duyệt",
+      "statusCompleted": "Đã Hoàn Thành",
+      "statusRejected": "Bị Từ Chối",
+      "priorityHigh": "Cao",
+      "priorityMedium": "Trung bình",
+      "priorityLow": "Thấp",
+      "startedSuccess": "Đã bắt đầu thực hiện task",
+      "noteRequired": "Vui lòng nhập ghi chú trước khi nộp",
+      "submittedSuccess": "Đã nộp kết quả, chờ Manager xét duyệt",
+      "scheduledDate": "Ngày thực hiện",
+      "timeRange": "Khung giờ",
+      "priority": "Độ ưu tiên",
+      "assignedBy": "Người giao việc",
+      "btnStart": "Bắt đầu làm",
+      "yourNote": "Ghi chú của bạn",
+      "notePlaceholder": "Nhập ghi chú, tiến độ hoặc vấn đề gặp phải...",
+      "btnSubmit": "Nộp kết quả",
+      "awaitingReview": "Đang chờ Manager xét duyệt. Bạn sẽ nhận thông báo khi có kết quả.",
+      "completedSuccess": "Đã hoàn thành và được phê duyệt",
+      "managerNote": "Ghi chú từ Manager",
+      "rejectedReason": "Lý do từ chối",
+      "btnResubmit": "Nộp lại"
+    }
   },
   "companyCalendar": {
     "title": "Lịch công ty",
@@ -2408,6 +2439,41 @@
       "cancelBtn": "Huỷ",
       "confirmBtn": "Xác nhận xóa",
       "deletingBtn": "Đang xóa..."
+    }
+  },
+  "tasks": {
+    "title": "Quản lý Công Việc",
+    "subtitle": "Theo dõi và phân công công việc cho nhân viên phòng ban",
+    "allEmployees": "Tất cả nhân viên",
+    "allStatuses": "Tất cả trạng thái",
+    "assignNew": "Giao việc mới",
+    "pendingReviewBadge": "Chờ duyệt",
+    "createModal": {
+      "title": "Giao Việc Mới",
+      "selectEmployee": "Chọn nhân viên",
+      "selectEmployeeError": "Vui lòng chọn nhân viên!",
+      "titleRequired": "Vui lòng nhập tên công việc!",
+      "timeError": "Giờ kết thúc phải sau giờ bắt đầu!",
+      "successMsg": "Đã giao việc thành công",
+      "taskTitle": "Tên công việc",
+      "taskTitlePlaceholder": "VD: Kiểm tra báo cáo Q2, Cập nhật tài liệu...",
+      "taskDesc": "Mô tả chi tiết (không bắt buộc)",
+      "taskDate": "Ngày thực hiện",
+      "timeStart": "Giờ bắt đầu",
+      "timeEnd": "Giờ kết thúc",
+      "priorityLabel": "Độ ưu tiên",
+      "btnAssign": "Giao việc"
+    },
+    "reviewModal": {
+      "rejectNoteRequired": "Bắt buộc nhập lý do khi từ chối",
+      "approvedMsg": "Đã phê duyệt thành công",
+      "rejectedMsg": "Đã từ chối, nhân viên sẽ nhận thông báo",
+      "employeeNote": "Ghi chú của nhân viên",
+      "noNote": "(Nhân viên không để lại ghi chú)",
+      "rejectReason": "Ý kiến phản hồi / Lý do từ chối (bắt buộc khi Từ chối)",
+      "rejectPlaceholder": "Nhập ý kiến phản hồi hoặc lý do từ chối...",
+      "btnApprove": "Phê duyệt",
+      "btnReject": "Từ chối"
     }
   }
 }

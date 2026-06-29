@@ -23,7 +23,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  UserCheck,
   Sparkles,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

@@ -204,7 +204,7 @@ export function ShiftsPage() {
         workDays: formData.workDays,
       };
       
-      const newShift = await shiftService.createShift(payload);
+      await shiftService.createShift(payload);
       toast.success(`✅ Đã tạo ca làm việc ${formData.name}`);
       setIsDialogOpen(false);
       setFormData({ name: '', startTime: '', endTime: '', breakDuration: '', description: '', workDays: [1, 2, 3, 4, 5, 6] });
@@ -382,7 +382,6 @@ export function ShiftsPage() {
     }
 
     try {
-      const shiftId = selectedShift._id || selectedShift.id;
       const payload = {
         name: formData.name,
         startTime: formData.startTime,
@@ -392,7 +391,7 @@ export function ShiftsPage() {
         workDays: formData.workDays,
       };
 
-      const updatedShift = await shiftService.updateShift(selectedShift._id!, payload);
+      await shiftService.updateShift(selectedShift._id!, payload);
       toast.success(`✅ Đã cập nhật ca làm việc ${formData.name}`);
       setIsEditDialogOpen(false);
       setSelectedShift(null);
@@ -893,6 +892,7 @@ export function ShiftsPage() {
                         <TableHead className="text-[var(--text-sub)]">Nhân viên</TableHead>
                         <TableHead className="text-[var(--text-sub)]">Email / Tài khoản</TableHead>
                         <TableHead className="text-[var(--text-sub)]">Lịch làm việc & Thời gian</TableHead>
+                        <TableHead className="text-[var(--text-sub)] text-right w-[80px]">Thao tác</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -931,6 +931,16 @@ export function ShiftsPage() {
                           <TableCell className="font-medium text-[var(--text-main)]">{user.name}</TableCell>
                           <TableCell className="text-[var(--text-sub)]">{user.email || user.username || '---'}</TableCell>
                           <TableCell>{renderPatternBadge(user)}</TableCell>
+                          <TableCell className="text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAssignedUser(user._id)}
+                              title="Gỡ nhân viên khỏi ca"
+                              className="text-[var(--text-sub)] hover:text-[var(--error-text)] p-1.5 rounded transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

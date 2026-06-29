@@ -245,26 +245,32 @@ input[type="month"]::-moz-calendar-picker-indicator {
 }
 
 .dark input[type="date"],
-.dark input[type="month"] {
+.dark input[type="month"],
+.dark input[type="time"] {
   color-scheme: dark;
 }
 
 .dark input[type="date"]::-webkit-calendar-picker-indicator,
 .dark input[type="month"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
 .dark input[type="date"]::-moz-calendar-picker-indicator,
-.dark input[type="month"]::-moz-calendar-picker-indicator {
+.dark input[type="month"]::-moz-calendar-picker-indicator,
+.dark input[type="time"]::-moz-calendar-picker-indicator {
   filter: brightness(0) invert(1);
 }
 
 .light input[type="date"],
-.light input[type="month"] {
+.light input[type="month"],
+.light input[type="time"] {
   color-scheme: light;
 }
 
 .light input[type="date"]::-webkit-calendar-picker-indicator,
 .light input[type="month"]::-webkit-calendar-picker-indicator,
+.light input[type="time"]::-webkit-calendar-picker-indicator,
 .light input[type="date"]::-moz-calendar-picker-indicator,
-.light input[type="month"]::-moz-calendar-picker-indicator {
+.light input[type="month"]::-moz-calendar-picker-indicator,
+.light input[type="time"]::-moz-calendar-picker-indicator {
   filter: none;
 }
 

@@ -1,6 +1,7 @@
 import api from '@/services/api'
 import type { User, ValidationError } from '@/types'
 import type { PermissionType } from '@/utils/roles'
+import type { CustomRole } from '@/context/PermissionsContext'
 
 interface UpdateUserData {
   name?: string
@@ -81,6 +82,17 @@ export const getAllUsers = async (params: Record<string, unknown> = {}): Promise
     return data
   } catch (error) {
     console.error('[userService] getAllUsers error:', error)
+    throw error
+  }
+}
+
+// Manager functions
+export const getMyTeamMembers = async (): Promise<unknown> => {
+  try {
+    const { data } = await api.get('/users/my-team')
+    return data
+  } catch (error) {
+    console.error('[userService] getMyTeamMembers error:', error)
     throw error
   }
 }
@@ -192,6 +204,20 @@ export const updateRolePermissions = async (
 ): Promise<RolePermissionsResponse> => {
   const { data } = await api.put('/users/role-permissions', { rolePerms })
   return data
+}
+
+export const getCustomRoles = async (): Promise<CustomRole[]> => {
+  const { data } = await api.get('/users/custom-roles')
+  return data.customRoles || []
+}
+
+export const createCustomRole = async (role: CustomRole): Promise<CustomRole> => {
+  const { data } = await api.post('/users/custom-roles', role)
+  return data.role
+}
+
+export const deleteCustomRole = async (key: string): Promise<void> => {
+  await api.delete(`/users/custom-roles/${encodeURIComponent(key)}`)
 }
 
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { CreditCard, CheckCircle, XCircle, Eye, Plus, TrendingUp, Clock, DollarSign, Building2, Sparkles } from 'lucide-react'
 import { PLAN_CONFIG, type PlanId } from '@smartattendance/shared'
 import { Card, CardContent } from '@/components/ui/card'

@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   BarChart3,
-  TrendingUp,
   Users,
   Globe,
   Laptop,

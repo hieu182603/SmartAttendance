@@ -45,6 +45,24 @@ userRouter.put(
   requirePermission(PERMISSIONS.USERS_MANAGE_ROLE),
   UserController.updateRolePermissions
 );
+userRouter.get(
+  "/custom-roles",
+  requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.USERS_MANAGE_ROLE),
+  UserController.getCustomRoles
+);
+userRouter.post(
+  "/custom-roles",
+  requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.USERS_MANAGE_ROLE),
+  UserController.createCustomRole
+);
+userRouter.delete(
+  "/custom-roles/:key",
+  requireRole([ROLES.ADMIN, ROLES.SUPER_ADMIN]),
+  requirePermission(PERMISSIONS.USERS_MANAGE_ROLE),
+  UserController.deleteCustomRole
+);
 
 userRouter.post(
     "/",
