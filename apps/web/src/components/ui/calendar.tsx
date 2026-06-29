@@ -24,6 +24,7 @@ function Calendar({
           "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 justify-center",
         month: "space-y-4 flex flex-col items-center",
         caption: "hidden",
+        month_caption: "hidden",
         nav: "hidden",
         nav_button: cn("hidden"),
         nav_button_previous: "hidden",
@@ -31,9 +32,13 @@ function Calendar({
         caption_label: "hidden",
 
         table: "w-full border-collapse",
+        month_grid: "w-full border-collapse",
         head_row: "flex w-full justify-between mb-2",
+        weekdays: "flex w-full justify-between mb-2",
         head_cell: "text-[var(--text-sub)] rounded-md w-9 font-normal text-xs",
+        weekday: "text-[var(--text-sub)] rounded-md w-9 font-normal text-xs",
         row: "flex w-full justify-between mt-2",
+        week: "flex w-full justify-between mt-2",
         cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 flex items-center justify-center",
         day: cn(
           "h-9 w-9 p-0 font-normal aria-selected:opacity-100 rounded-full hover:bg-[var(--shell)] transition-colors text-[var(--text-main)] relative focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"

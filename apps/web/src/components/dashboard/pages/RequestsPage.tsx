@@ -365,6 +365,23 @@ const RequestsPage: React.FC = () => {
     return diffDays + 1; // +1 to include both start and end date
   };
 
+  const hasConflict = useMemo(() => {
+    if (!requestDateRange.start) return false;
+    const s = new Date(requestDateRange.start);
+    const eStr = (requestType !== "overtime" && requestDateRange.end) ? requestDateRange.end : requestDateRange.start;
+    const e = new Date(eStr);
+    
+    return allRequests.some(req => {
+      if (req.status === "rejected") return false;
+      const reqSStr = req.startDate || req.date || "";
+      const reqEStr = req.endDate || req.date || req.startDate || "";
+      if (!reqSStr || !reqEStr) return false;
+      const reqS = new Date(reqSStr);
+      const reqE = new Date(reqEStr);
+      return (s <= reqE && e >= reqS);
+    });
+  }, [requestDateRange, requestType, allRequests]);
+
   const handleCreateRequest = async (): Promise<void> => {
 
     const todayStr = new Date().toISOString().split("T")[0];
@@ -621,9 +638,9 @@ const RequestsPage: React.FC = () => {
               </div>
 
               <div>
-                <h4 className="text-[var(--text-main)]">{request.title || request.type}</h4>
-                <p className="text-sm text-[var(--text-sub)]">
-                  {request.description || request.reason}
+                <h4 className="text-[var(--text-main)] font-semibold">{label}</h4>
+                <p className="text-sm text-[var(--text-sub)] mt-1">
+                  {request.reason || request.description || "Không có lý do"}
                 </p>
               </div>
 
@@ -756,8 +773,8 @@ const RequestsPage: React.FC = () => {
                             {requestedDays > 0 && (
                               <div className="flex items-center justify-between">
                                 <span className="text-[var(--text-sub)]">Số ngày yêu cầu:</span>
-                                <span className={`font-semibold ${isValid ? 'text-[var(--text-main)]' : 'text-[var(--error)]'}`}>
-                                  {requestedDays} ngày
+                                <span className={`font-semibold ${isValid && !hasConflict ? 'text-[var(--text-main)]' : 'text-[var(--error)]'}`}>
+                                  {hasConflict ? 0 : requestedDays} ngày
                                 </span>
                               </div>
                             )}
@@ -793,22 +810,31 @@ const RequestsPage: React.FC = () => {
                     className="border-[var(--border)] bg-[var(--input-bg)]"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>{t('dashboard:requests.dialog.endDate')}</Label>
-                  <Input
-                    type="date"
-                    min={requestDateRange.start || today}
-                    value={requestDateRange.end}
-                    onChange={(e) =>
-                      setRequestDateRange((prev) => ({
-                        ...prev,
-                        end: e.target.value,
-                      }))
-                    }
-                    className="border-[var(--border)] bg-[var(--input-bg)]"
-                  />
-                </div>
+                {requestType !== "overtime" && (
+                  <div className="space-y-2">
+                    <Label>{t('dashboard:requests.dialog.endDate')}</Label>
+                    <Input
+                      type="date"
+                      min={requestDateRange.start || today}
+                      value={requestDateRange.end}
+                      onChange={(e) =>
+                        setRequestDateRange((prev) => ({
+                          ...prev,
+                          end: e.target.value,
+                        }))
+                      }
+                      className="border-[var(--border)] bg-[var(--input-bg)]"
+                    />
+                  </div>
+                )}
               </div>
+
+              {hasConflict && (
+                <div className="text-sm text-[var(--error)] bg-[var(--error)]/10 p-3 rounded-md flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  Đã có yêu cầu khác (Chờ duyệt hoặc Đã duyệt) trùng với khoảng thời gian này.
+                </div>
+              )}
               
               {requestType === "overtime" && (
                 <div className="space-y-2">
@@ -846,7 +872,7 @@ const RequestsPage: React.FC = () => {
               </Button>
               <Button
                 onClick={handleCreateRequest}
-                disabled={submitting}
+                disabled={submitting || hasConflict}
                 className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
               >
                 {submitting ? t('dashboard:requests.dialog.submitting') : t('dashboard:requests.dialog.submit')}
