@@ -39,6 +39,7 @@ export interface ManagerTask {
     reviewedAt: string;
     reviewedBy?: string;
   };
+  requiresReview?: boolean;
   projectId?: string;
   attachments?: Array<{
     name: string;

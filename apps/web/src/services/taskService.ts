@@ -27,6 +27,7 @@ const taskService = {
     endTime: string;
     priority?: TaskPriority;
     projectId?: string;
+    requiresReview?: boolean;
     attachments?: Array<{
       name: string;
       url: string;
@@ -68,6 +69,11 @@ const taskService = {
     }>
   ): Promise<ManagerTask> => {
     const response = await api.put(`/tasks/${taskId}`, payload);
+    return response.data.data;
+  },
+
+  completeTask: async (taskId: string): Promise<ManagerTask> => {
+    const response = await api.patch(`/tasks/${taskId}/complete`);
     return response.data.data;
   },
 

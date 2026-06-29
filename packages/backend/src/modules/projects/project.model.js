@@ -31,5 +31,6 @@ const projectSchema = new mongoose.Schema(
 );
 
 projectSchema.index({ companyId: 1, createdAt: -1 });
+projectSchema.index({ companyId: 1, code: 1 }, { unique: true });
 
 export const ProjectModel = mongoose.model("Project", projectSchema);

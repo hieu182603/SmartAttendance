@@ -69,8 +69,13 @@ const taskSchema = new mongoose.Schema(
       index: true,
     },
     projectId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
       default: null,
+    },
+    requiresReview: {
+      type: Boolean,
+      default: true,
     },
     attachments: [
       {
