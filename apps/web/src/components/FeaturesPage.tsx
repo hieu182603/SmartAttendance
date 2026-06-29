@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Camera, Clock, MapPin, Zap, BarChart3, CheckCircle2, XCircle, Sparkles, Shield, ShieldCheck, Cloud, Smartphone, Monitor, Globe } from 'lucide-react';
+import { Camera, MapPin, Zap, BarChart3, CheckCircle2, Shield, ShieldCheck, Cloud, Smartphone, Monitor, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PublicSiteLayout from '@/components/PublicSiteLayout';
 

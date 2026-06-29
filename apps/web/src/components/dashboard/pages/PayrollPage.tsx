@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import * as XLSX from "xlsx";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -242,6 +241,8 @@ export default function PayrollPage() {
   const exportToExcel = async () => {
     try {
       toast.loading("Đang xuất file Excel...", { id: "export-excel" });
+      // Tải xlsx động — tách ~250KB khỏi bundle trang, chỉ load khi bấm xuất file
+      const XLSX = await import("xlsx");
 
       let allExportData: PayrollRecord[] = [];
       

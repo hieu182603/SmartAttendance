@@ -462,7 +462,38 @@
     },
     "upcomingShiftsTitle": "Upcoming Shifts",
     "achievements": "Achievements",
-    "monthLabel": "Month {{month}}"
+    "monthLabel": "Month {{month}}",
+    "weeklyGrid": {
+      "title": "Weekly Task Allocation Details",
+      "hint": "Tip: Click on each task to view details, report completion, or report errors with comments for the manager.",
+      "lunchBreak": "Lunch break"
+    },
+    "taskModal": {
+      "statusAssigned": "Assigned",
+      "statusInProgress": "In Progress",
+      "statusPendingReview": "Pending Review",
+      "statusCompleted": "Completed",
+      "statusRejected": "Rejected",
+      "priorityHigh": "High",
+      "priorityMedium": "Medium",
+      "priorityLow": "Low",
+      "startedSuccess": "Task started successfully",
+      "noteRequired": "Please enter comments before submission",
+      "submittedSuccess": "Task submitted successfully, awaiting Manager approval",
+      "scheduledDate": "Scheduled Date",
+      "timeRange": "Time frame",
+      "priority": "Priority",
+      "assignedBy": "Assigned by",
+      "btnStart": "Start working",
+      "yourNote": "Your notes",
+      "notePlaceholder": "Enter notes, progress, or issues encountered...",
+      "btnSubmit": "Submit results",
+      "awaitingReview": "Awaiting Manager review. You will be notified of the decision.",
+      "completedSuccess": "Completed and approved",
+      "managerNote": "Comments from Manager",
+      "rejectedReason": "Rejection reason",
+      "btnResubmit": "Resubmit"
+    }
   },
   "companyCalendar": {
     "title": "Company Calendar",
@@ -2400,6 +2431,41 @@
       "cancelBtn": "Cancel",
       "confirmBtn": "Confirm delete",
       "deletingBtn": "Deleting..."
+    }
+  },
+  "tasks": {
+    "title": "Task Management",
+    "subtitle": "Monitor and allocate tasks for department employees",
+    "allEmployees": "All Employees",
+    "allStatuses": "All Statuses",
+    "assignNew": "Assign new task",
+    "pendingReviewBadge": "Pending",
+    "createModal": {
+      "title": "Assign New Task",
+      "selectEmployee": "Select employee",
+      "selectEmployeeError": "Please select an employee!",
+      "titleRequired": "Please enter the task title!",
+      "timeError": "End time must be after start time!",
+      "successMsg": "Task assigned successfully",
+      "taskTitle": "Task title",
+      "taskTitlePlaceholder": "e.g., Check Q2 reports, Update documentation...",
+      "taskDesc": "Detailed description (optional)",
+      "taskDate": "Date",
+      "timeStart": "Start time",
+      "timeEnd": "End time",
+      "priorityLabel": "Priority",
+      "btnAssign": "Assign"
+    },
+    "reviewModal": {
+      "rejectNoteRequired": "Rejection reason is required",
+      "approvedMsg": "Approved successfully",
+      "rejectedMsg": "Rejected successfully, employee will be notified",
+      "employeeNote": "Employee's comments",
+      "noNote": "(Employee left no notes)",
+      "rejectReason": "Feedback / Rejection reason (required when rejecting)",
+      "rejectPlaceholder": "Enter feedback or reason for rejection...",
+      "btnApprove": "Approve",
+      "btnReject": "Reject"
     }
   }
 }

@@ -3,11 +3,14 @@ import { toast } from "sonner";
 import UnauthorizedPage from "@/components/UnauthorizedPage";
 import {
   Shield, RefreshCw,
-  Plus, X, Trash2, Save, Check,
+  Plus, X, Save, Check, Trash2,
 } from "lucide-react";
 import {
   getRolePermissions,
   updateRolePermissions,
+  getCustomRoles,
+  createCustomRole,
+  deleteCustomRole,
 } from "@/services/userService";
 import { getMe } from "@/services/authService";
 import { useAuth } from "@/context/AuthContext";
@@ -428,12 +431,18 @@ function PermissionsTab({
     toast.info("Đã đặt lại về mặc định (chưa lưu)");
   };
 
-  const handleDeleteCustomRole = (roleKey: string) => {
-    const updated = customRoles.filter(r => r.key !== roleKey);
-    onCustomRolesChange(updated);
-    try { localStorage.setItem(LS_CUSTOM_ROLES_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
-    if (selectedKey === roleKey) setSelectedKey(UserRole.EMPLOYEE);
-    toast.success("Đã xóa role");
+  const handleDeleteCustomRole = async (roleKey: string) => {
+    try {
+      await deleteCustomRole(roleKey);
+      onCustomRolesChange(customRoles.filter(r => r.key !== roleKey));
+      const nextPerms = { ...rolePerms };
+      delete nextPerms[roleKey];
+      onRolePermsChange(nextPerms);
+      if (selectedKey === roleKey) setSelectedKey(UserRole.EMPLOYEE);
+      toast.success("Đã xóa role tùy chỉnh");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Không thể xóa role");
+    }
   };
 
   const color = getRoleColor(selectedKey);
@@ -460,7 +469,6 @@ function PermissionsTab({
             );
           })}
         </div>
-        {/* Temporarily hide custom roles and create new role flow until full-stack support is implemented
         {customRoles.length > 0 && (
           <>
             <p className="text-xs font-semibold text-[var(--text-sub)] uppercase tracking-wide">Roles tùy chỉnh</p>
@@ -498,7 +506,6 @@ function PermissionsTab({
           <Plus className="h-3.5 w-3.5" />
           Tạo role mới
         </button>
-        */}
       </div>
 
       {/* Permission editor */}
@@ -604,10 +611,14 @@ export default function RoleManagementPage() {
     try {
       setLoading(true);
       setUnauthorized(false);
-      const res = await getRolePermissions();
+      const [res, serverCustomRoles] = await Promise.all([
+        getRolePermissions(),
+        getCustomRoles().catch(() => [] as CustomRole[]),
+      ]);
       if (res?.rolePerms && typeof res.rolePerms === "object") {
         setRolePerms((prev) => ({ ...prev, ...res.rolePerms }));
       }
+      setCustomRoles(serverCustomRoles);
     } catch (err: any) {
       if (err?.response?.status === 403 || err?.status === 403) {
         setUnauthorized(true);
@@ -625,12 +636,15 @@ export default function RoleManagementPage() {
     await updateRolePermissions(perms);
   }, []);
 
-  const handleCreateRole = (role: CustomRole) => {
-    const updated = [...customRoles, role];
-    setCustomRoles(updated);
-    try { localStorage.setItem(LS_CUSTOM_ROLES_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
-    setRolePerms(prev => ({ ...prev, [role.key]: role.permissions }));
-    toast.success(`Đã tạo role "${role.name}"`);
+  const handleCreateRole = async (role: CustomRole) => {
+    try {
+      const created = await createCustomRole(role);
+      setCustomRoles(prev => [...prev, created]);
+      setRolePerms(prev => ({ ...prev, [created.key]: created.permissions }));
+      toast.success(`Đã tạo role "${created.name}"`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Không thể tạo role");
+    }
   };
 
   if (unauthorized) {
