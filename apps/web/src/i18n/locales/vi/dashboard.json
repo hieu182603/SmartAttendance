@@ -33,128 +33,34 @@
   "scan": {
     "title": "Chấm công",
     "checkInToday": "Chấm công hôm nay",
-    "description": "Chụp ảnh và xác nhận vị trí để chấm công",
-    "permissionStatus": "Trạng thái quyền truy cập",
     "checkIn": "Chấm công vào",
     "checkOut": "Chấm công ra",
     "location": "Vị trí",
     "status": "Trạng thái",
     "time": "Thời gian",
-    "camera": {
-      "title": "Camera trực tiếp",
-      "notActivated": "Camera chưa được kích hoạt",
-      "switch": "Chuyển đổi camera",
-      "switchToFront": "Camera trước",
-      "switchToBack": "Camera sau"
-    },
-    "locationInfo": {
-      "title": "Thông tin vị trí",
-      "loading": "Đang lấy vị trí...",
-      "refreshing": "Đang làm mới...",
-      "nearestOffice": "Văn phòng gần nhất:",
-      "distance": "Khoảng cách:",
-      "latitude": "Vĩ độ:",
-      "longitude": "Kinh độ:",
-      "refresh": "Làm mới vị trí",
-      "retry": "Thử lại",
-      "retrying": "Đang thử lại..."
-    },
-    "permissions": {
-      "camera": "Camera",
-      "location": "Vị trí",
-      "granted": "Đã cấp",
-      "denied": "Chưa cấp"
-    },
-    "buttons": {
-      "checkIn": "Check-in",
-      "checkOut": "Check-out",
-      "checkedIn": "Đã check-in",
-      "checkedOut": "Đã check-out",
-      "processing": "Đang xử lý..."
-    },
-    "toasts": {
-      "canCheckOut": "✅ Bạn đã có thể check-out!",
-      "workHoursReminder": "⏰ Bạn đã làm việc được {{hours}}h {{minutes}}m! Đừng quên check-out nhé.",
-      "checkInSuccess": "Check-in thành công!",
-      "checkOutSuccess": "Check-out thành công!"
-    },
     "errors": {
-      "captureFailed": "Không thể chụp ảnh",
-      "cameraAccess": "Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.",
-      "checkInError": "Có lỗi xảy ra khi chấm công",
-      "checkOutError": "Có lỗi xảy ra khi check-out",
       "locationFailed": "Không thể lấy vị trí. ",
       "locationPermissionDenied": "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.",
       "locationUnavailable": "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.",
       "locationTimeout": "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.",
-      "locationGeneric": "Vui lòng kiểm tra quyền truy cập và GPS."
+      "locationGeneric": "Vui lòng kiểm tra quyền truy cập và GPS.",
+      "cameraAccess": "Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.",
+      "waitOneHour": "Vui lòng chờ ít nhất 1 giờ sau khi check-in",
+      "checkInError": "Có lỗi xảy ra khi chấm công",
+      "checkOutError": "Có lỗi xảy ra khi check-out"
     },
-    "tooltips": {
-      "waitOneHour": "Vui lòng chờ ít nhất 1 giờ sau khi check-in"
+    "success": {
+      "checkInSuccess": "Check-in thành công!",
+      "checkOutSuccess": "Check-out thành công!"
     }
   },
   "history": {
     "title": "Lịch sử chấm công",
     "date": "Ngày",
-    "day": "Thứ",
     "checkIn": "Giờ vào",
     "checkOut": "Giờ ra",
-    "hours": "Giờ làm",
-    "totalHours": "Tổng giờ",
-    "location": "Địa điểm",
     "status": "Trạng thái",
-    "notes": "Ghi chú",
-    "viewPhoto": "Xem ảnh",
-    "office": "Văn phòng",
-    "statusLabels": {
-      "ontime": "Đúng giờ",
-      "late": "Đi muộn",
-      "absent": "Vắng",
-      "overtime": "Tăng ca",
-      "weekend": "Nghỉ"
-    },
-    "filters": {
-      "all": "Tất cả",
-      "allStatus": "Tất cả trạng thái",
-      "search": "Tìm kiếm",
-      "searchPlaceholder": "Tìm kiếm theo ngày, ghi chú...",
-      "fromDate": "Từ ngày",
-      "toDate": "Đến ngày",
-      "selectDate": "Chọn ngày",
-      "status": "Lọc theo trạng thái",
-      "statusPlaceholder": "Trạng thái",
-      "weekend": "Cuối tuần"
-    },
-    "summary": {
-      "totalDays": "Tổng ngày công",
-      "late": "Đi muộn",
-      "absent": "Vắng mặt",
-      "overtime": "Tăng ca"
-    },
-    "details": {
-      "title": "Chi tiết chấm công",
-      "loading": "Đang tải dữ liệu...",
-      "noData": "Không có dữ liệu phù hợp"
-    },
-    "tabs": {
-      "checkin": "Ảnh check-in",
-      "checkout": "Ảnh check-out",
-      "checkinLabel": "Check-in",
-      "checkoutLabel": "Check-out"
-    },
-    "photo": {
-      "viewTitle": "Xem ảnh chấm công",
-      "time": "Thời gian",
-      "location": "Vị trí",
-      "alt": {
-        "checkin": "Ảnh check-in",
-        "checkout": "Ảnh check-out"
-      }
-    },
-    "noPhoto": {
-      "checkin": "Không có ảnh check-in",
-      "checkout": "Chưa check-out"
-    }
+    "location": "Vị trí"
   },
   "requests": {
     "title": "Yêu cầu & Đơn từ",
@@ -418,6 +324,132 @@
     "loading": "Đang tải thông tin bảng điều khiển...",
     "error": "Không thể tải dữ liệu bảng điều khiển. Vui lòng thử lại sau."
   },
+  "scan": {
+    "title": "Chấm công",
+    "checkInToday": "Chấm công hôm nay",
+    "description": "Chụp ảnh và xác nhận vị trí để chấm công",
+    "permissionStatus": "Trạng thái quyền truy cập",
+    "checkIn": "Chấm công vào",
+    "checkOut": "Chấm công ra",
+    "location": "Vị trí",
+    "status": "Trạng thái",
+    "time": "Thời gian",
+    "camera": {
+      "title": "Camera trực tiếp",
+      "notActivated": "Camera chưa được kích hoạt",
+      "switch": "Chuyển đổi camera",
+      "switchToFront": "Camera trước",
+      "switchToBack": "Camera sau"
+    },
+    "locationInfo": {
+      "title": "Thông tin vị trí",
+      "loading": "Đang lấy vị trí...",
+      "refreshing": "Đang làm mới...",
+      "nearestOffice": "Văn phòng gần nhất:",
+      "distance": "Khoảng cách:",
+      "latitude": "Vĩ độ:",
+      "longitude": "Kinh độ:",
+      "refresh": "Làm mới vị trí",
+      "retry": "Thử lại",
+      "retrying": "Đang thử lại..."
+    },
+    "permissions": {
+      "camera": "Camera",
+      "location": "Vị trí",
+      "granted": "Đã cấp",
+      "denied": "Chưa cấp"
+    },
+    "buttons": {
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "checkedIn": "Đã check-in",
+      "checkedOut": "Đã check-out",
+      "processing": "Đang xử lý..."
+    },
+    "toasts": {
+      "canCheckOut": "✅ Bạn đã có thể check-out!",
+      "workHoursReminder": "⏰ Bạn đã làm việc được {{hours}}h {{minutes}}m! Đừng quên check-out nhé.",
+      "checkInSuccess": "Check-in thành công!",
+      "checkOutSuccess": "Check-out thành công!"
+    },
+    "errors": {
+      "captureFailed": "Không thể chụp ảnh",
+      "cameraAccess": "Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.",
+      "checkInError": "Có lỗi xảy ra khi chấm công",
+      "checkOutError": "Có lỗi xảy ra khi check-out",
+      "locationFailed": "Không thể lấy vị trí. ",
+      "locationPermissionDenied": "Vui lòng cấp quyền truy cập vị trí trong cài đặt trình duyệt.",
+      "locationUnavailable": "Tín hiệu GPS không khả dụng. Hãy thử di chuyển ra ngoài trời.",
+      "locationTimeout": "Không thể lấy vị trí trong thời gian cho phép. Hãy kiểm tra GPS và thử lại.",
+      "locationGeneric": "Vui lòng kiểm tra quyền truy cập và GPS."
+    },
+    "tooltips": {
+      "waitOneHour": "Vui lòng chờ ít nhất 1 giờ sau khi check-in"
+    }
+  },
+  "history": {
+    "title": "Lịch sử chấm công",
+    "date": "Ngày",
+    "day": "Thứ",
+    "checkIn": "Giờ vào",
+    "checkOut": "Giờ ra",
+    "hours": "Giờ làm",
+    "totalHours": "Tổng giờ",
+    "location": "Địa điểm",
+    "status": "Trạng thái",
+    "notes": "Ghi chú",
+    "viewPhoto": "Xem ảnh",
+    "office": "Văn phòng",
+    "statusLabels": {
+      "ontime": "Đúng giờ",
+      "late": "Đi muộn",
+      "absent": "Vắng",
+      "overtime": "Tăng ca",
+      "weekend": "Nghỉ"
+    },
+    "filters": {
+      "all": "Tất cả",
+      "allStatus": "Tất cả trạng thái",
+      "search": "Tìm kiếm",
+      "searchPlaceholder": "Tìm kiếm theo ngày, ghi chú...",
+      "fromDate": "Từ ngày",
+      "toDate": "Đến ngày",
+      "selectDate": "Chọn ngày",
+      "status": "Lọc theo trạng thái",
+      "statusPlaceholder": "Trạng thái",
+      "weekend": "Cuối tuần"
+    },
+    "summary": {
+      "totalDays": "Tổng ngày công",
+      "late": "Đi muộn",
+      "absent": "Vắng mặt",
+      "overtime": "Tăng ca"
+    },
+    "details": {
+      "title": "Chi tiết chấm công",
+      "loading": "Đang tải dữ liệu...",
+      "noData": "Không có dữ liệu phù hợp"
+    },
+    "tabs": {
+      "checkin": "Ảnh check-in",
+      "checkout": "Ảnh check-out",
+      "checkinLabel": "Check-in",
+      "checkoutLabel": "Check-out"
+    },
+    "photo": {
+      "viewTitle": "Xem ảnh chấm công",
+      "time": "Thời gian",
+      "location": "Vị trí",
+      "alt": {
+        "checkin": "Ảnh check-in",
+        "checkout": "Ảnh check-out"
+      }
+    },
+    "noPhoto": {
+      "checkin": "Không có ảnh check-in",
+      "checkout": "Chưa check-out"
+    }
+  },
   "schedule": {
     "title": "Lịch làm việc",
     "checkedIn": "Đã điểm danh",
@@ -548,15 +580,6 @@
       "cancel": "Hủy",
       "confirm": "Xóa",
       "warning": "Hành động này sẽ xóa vĩnh viễn sự kiện khỏi hệ thống."
-    },
-    "weekdays": {
-      "sun": "CN",
-      "mon": "Th 2",
-      "tue": "Th 3",
-      "wed": "Th 4",
-      "thu": "Th 5",
-      "fri": "Th 6",
-      "sat": "Th 7"
     }
   },
   "leaveBalance": {
@@ -753,10 +776,11 @@
       "cancel": "Hủy",
       "save": "Lưu",
       "saving": "Đang lưu...",
-      "success": "Cập nhật bản ghi thành công!"
+      "success": "Cập nhật chấm công thành công!",
+      "error": "Không thể cập nhật chấm công"
     },
     "details": {
-      "employeeCode": "Mã nhân viên:",
+      "employeeCode": "Mã nhân viên",
       "attendanceInfo": "Thông tin chấm công",
       "workDate": "Ngày làm việc",
       "totalHours": "Tổng giờ",
@@ -813,7 +837,28 @@
           "Cần ghi nhật ký hoạt động khi thao tác đặc biệt"
         ]
       }
-    }
+    },
+    "details": {
+      "employeeCode": "Mã nhân viên:",
+      "attendanceInfo": "Thông tin chấm công",
+      "workDate": "Ngày làm việc",
+      "totalHours": "Tổng giờ",
+      "workLocation": "Địa điểm làm việc",
+      "close": "Đóng"
+    },
+    "editDialog": {
+      "title": "Chỉnh sửa chấm công",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "location": "Địa điểm",
+      "selectLocation": "Chọn địa điểm",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "success": "Cập nhật bản ghi thành công!"
+    },
+    "totalEmployees": "Tổng nhân viên",
+    "currentRole": "Vai trò hiện tại:"
   },
   "upgrade": {
     "eyebrow": "Nâng cấp gói dịch vụ",
@@ -1295,8 +1340,9 @@
       "approve": "Phê duyệt"
     },
     "success": {
-      "updateReview": "Cập nhật đánh giá thành công",
-      "createReview": "Tạo đánh giá thành công"
+      "updateSuccess": "Cập nhật đánh giá thành công",
+      "createSuccess": "Tạo đánh giá thành công",
+      "rejectSuccess": "Đã reject đánh giá"
     },
     "errors": {
       "loadReviews": "Lỗi khi tải danh sách đánh giá",
@@ -1304,6 +1350,10 @@
       "rejectReason": "Vui lòng nhập lý do reject",
       "rejectError": "Lỗi khi reject đánh giá",
       "generic": "Có lỗi xảy ra"
+    },
+    "success": {
+      "updateReview": "Cập nhật đánh giá thành công",
+      "createReview": "Tạo đánh giá thành công"
     }
   },
   "branches": {
@@ -1329,8 +1379,12 @@
       "phone": "Số điện thoại",
       "email": "Email",
       "manager": "Quản lý chi nhánh",
-      "status": "Trạng thái",
+      "status": {
+        "active": "Đang hoạt động",
+        "inactive": "Ngừng hoạt động"
+      },
       "selectManager": "Chọn quản lý",
+      "status": "Trạng thái",
       "active": "Hoạt động",
       "inactive": "Không hoạt động",
       "cancel": "Hủy",
@@ -1621,14 +1675,23 @@
       "sunday": "CN"
     },
     "dialog": {
-      "create": "Tạo ca làm",
+      "create": {
+        "title": "Tạo ca làm việc mới",
+        "description": "Nhập thông tin ca làm việc"
+      },
       "edit": {
         "title": "Chỉnh sửa ca làm việc",
         "description": "Cập nhật thông tin ca làm việc {{name}}"
       },
-      "delete": "Xóa ca làm",
+      "delete": {
+        "title": "Xác nhận xóa ca làm việc",
+        "description": "Bạn có chắc chắn muốn xóa ca làm việc này?",
+        "warning": "Hành động này sẽ ảnh hưởng đến {{count}} nhân viên đang trong ca này."
+      },
       "cancel": "Hủy",
-      "update": "Cập nhật"
+      "create": "Tạo ca làm",
+      "update": "Cập nhật",
+      "delete": "Xóa ca làm"
     }
   },
   "camera": {
@@ -1882,7 +1945,7 @@
       "autoCaptureFailed": "Không thể tự động chụp. Vui lòng kiểm tra lại điều kiện.",
       "minImagesRequired": "Vui lòng chụp ít nhất {{min}} ảnh.",
       "insufficientQualityImages": "Chỉ có {{current}} ảnh đạt chất lượng. Vui lòng chụp thêm ít nhất {{needed}} ảnh.",
-      "registrationFailed": "Đăng ký thất bại",
+      "registrationFailed": "Đăng ký thất bại. Vui lòng thử lại.",
       "cameraPermissionDenied": "Quyền truy cập camera bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt",
       "cameraNotAvailable": "Camera không khả dụng. Vui lòng kiểm tra thiết bị của bạn",
       "cameraError": "Lỗi camera. Vui lòng thử lại",
@@ -1903,6 +1966,7 @@
       "networkErrorDescription": "Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet và thử lại",
       "aiServiceError": "Lỗi dịch vụ AI",
       "aiServiceErrorDescription": "Không thể xử lý ảnh bằng dịch vụ AI. Vui lòng thử lại sau",
+      "registrationFailed": "Đăng ký thất bại",
       "registrationFailedDescription": "Có lỗi xảy ra khi đăng ký khuôn mặt. Vui lòng thử lại",
       "unknownError": "Lỗi không xác định",
       "unknownErrorDescription": "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại sau"

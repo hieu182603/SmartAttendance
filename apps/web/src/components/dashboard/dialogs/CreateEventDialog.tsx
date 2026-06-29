@@ -55,43 +55,13 @@ export function CreateEventDialog({
       | "deadline"
       | "training",
     location: "",
-    attendeeCount: "" as number | "",
+    attendeeCount: 0,
     isAllDay: false,
+    color: "#3B82F6",
   });
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      if (formData.title.trim() || formData.description.trim()) {
-        if (!window.confirm(t("dashboard:eventDialogs.cancelConfirm", { defaultValue: "Bạn có chắc chắn muốn đóng? Các thay đổi chưa lưu sẽ bị mất." }))) {
-          return;
-        }
-      }
-      // Reset form
-      setFormData({
-        title: "",
-        description: "",
-        date: getLocalDateString(),
-        startTime: "09:00",
-        endTime: "17:00",
-        type: "meeting",
-        location: "",
-        attendeeCount: "",
-        isAllDay: false,
-      });
-    }
-    onOpenChange(newOpen);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const colorMap: Record<string, string> = {
-      holiday: "#EF4444",
-      meeting: "#3B82F6",
-      event: "#10B981",
-      deadline: "#F59E0B",
-      training: "#8B5CF6",
-    };
 
     // Validate date is not in the past
     const selectedDate = new Date(formData.date);
@@ -118,8 +88,6 @@ export function CreateEventDialog({
       setLoading(true);
       await eventService.createEvent({
         ...formData,
-        attendeeCount: formData.attendeeCount === "" ? undefined : formData.attendeeCount,
-        color: colorMap[formData.type] || "#3B82F6",
         startTime: formData.isAllDay ? undefined : formData.startTime,
         endTime: formData.isAllDay ? undefined : formData.endTime,
       });
@@ -137,8 +105,9 @@ export function CreateEventDialog({
         endTime: "17:00",
         type: "meeting",
         location: "",
-        attendeeCount: "",
+        attendeeCount: 0,
         isAllDay: false,
+        color: "#3B82F6",
       });
     } catch (error: any) {
       console.error("Error creating event:", error);
@@ -149,7 +118,7 @@ export function CreateEventDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Tạo sự kiện mới</DialogTitle>
@@ -188,32 +157,55 @@ export function CreateEventDialog({
                 setFormData({ ...formData, description: e.target.value })
               }
               className="bg-[var(--input-bg)] border-[var(--border)] min-h-[80px]"
-              maxLength={500}
             />
           </div>
 
-          {/* Type */}
-          <div className="space-y-2">
-            <Label htmlFor="type">
-              Loại sự kiện <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value: any) =>
-                setFormData({ ...formData, type: value })
-              }
-            >
-              <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="meeting">Họp</SelectItem>
-                <SelectItem value="event">Sự kiện</SelectItem>
-                <SelectItem value="holiday">Ngày lễ</SelectItem>
-                <SelectItem value="deadline">Deadline</SelectItem>
-                <SelectItem value="training">Đào tạo</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Type and Color */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="type">
+                Loại sự kiện <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={formData.type}
+                onValueChange={(value: any) =>
+                  setFormData({ ...formData, type: value })
+                }
+              >
+                <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="meeting">Họp</SelectItem>
+                  <SelectItem value="event">Sự kiện</SelectItem>
+                  <SelectItem value="holiday">Ngày lễ</SelectItem>
+                  <SelectItem value="deadline">Deadline</SelectItem>
+                  <SelectItem value="training">Đào tạo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="color">Màu sắc</Label>
+              <Select
+                value={formData.color}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, color: value })
+                }
+              >
+                <SelectTrigger className="bg-[var(--input-bg)] border-[var(--border)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="#3B82F6">🔵 Xanh dương</SelectItem>
+                  <SelectItem value="#EF4444">🔴 Đỏ</SelectItem>
+                  <SelectItem value="#F59E0B">🟠 Cam</SelectItem>
+                  <SelectItem value="#10B981">🟢 Xanh lá</SelectItem>
+                  <SelectItem value="#8B5CF6">🟣 Tím</SelectItem>
+                  <SelectItem value="#EC4899">🩷 Hồng</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Date */}
@@ -298,76 +290,43 @@ export function CreateEventDialog({
           {/* Attendee Count */}
           <div className="space-y-2">
             <Label htmlFor="attendeeCount">Số người tham gia (dự kiến)</Label>
-            <div className="flex items-center gap-2 max-w-[200px]">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 shrink-0 border-[var(--border)]"
-                onClick={() => {
-                  const current = Number(formData.attendeeCount) || 0;
-                  if (current > 0) {
-                    setFormData({ ...formData, attendeeCount: current - 1 });
-                  }
-                }}
-              >
-                -
-              </Button>
-              <Input
-                id="attendeeCount"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="Để trống hoặc nhập số"
-                value={formData.attendeeCount === 0 ? "" : formData.attendeeCount}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "") {
-                    setFormData({ ...formData, attendeeCount: "" });
-                    return;
-                  }
-                  const onlyNums = val.replace(/\D/g, "");
-                  setFormData({
-                    ...formData,
-                    attendeeCount: onlyNums ? Number(onlyNums) : "",
-                  });
-                }}
-                onKeyDown={(e) => {
-                  if (
-                    !/[0-9]/.test(e.key) &&
-                    ![
-                      "Backspace",
-                      "Delete",
-                      "ArrowLeft",
-                      "ArrowRight",
-                      "Tab",
-                    ].includes(e.key)
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                className="bg-[var(--input-bg)] border-[var(--border)] text-center"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 shrink-0 border-[var(--border)]"
-                onClick={() => {
-                  const current = Number(formData.attendeeCount) || 0;
-                  setFormData({ ...formData, attendeeCount: current + 1 });
-                }}
-              >
-                +
-              </Button>
-            </div>
+            <Input
+              id="attendeeCount"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="0"
+              value={formData.attendeeCount}
+              onChange={(e) => {
+                const onlyNums = e.target.value.replace(/\D/g, ""); // loại toàn bộ ký tự không phải số
+                setFormData({
+                  ...formData,
+                  attendeeCount: Number(onlyNums || 0),
+                });
+              }}
+              onKeyDown={(e) => {
+                if (
+                  !/[0-9]/.test(e.key) &&
+                  ![
+                    "Backspace",
+                    "Delete",
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "Tab",
+                  ].includes(e.key)
+                ) {
+                  e.preventDefault();
+                }
+              }}
+              className="bg-[var(--input-bg)] border-[var(--border)]"
+            />
           </div>
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleOpenChange(false)}
+              onClick={() => onOpenChange(false)}
               disabled={loading}
               className="border-[var(--border)] text-[var(--text-main)]"
             >

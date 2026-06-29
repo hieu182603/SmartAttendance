@@ -163,7 +163,7 @@ const SchedulePage: React.FC = () => {
             shiftService
               .getMySchedule(startDateStr, endDateStr)
               .catch(() => []),
-            getAttendanceHistory({ from: startDateStr, to: endDateStr, limit: 100 }).catch((error) => {
+            getAttendanceHistory({ startDate: startDateStr, endDate: endDateStr, limit: 100 }).catch((error) => {
               console.error("[Schedule] Failed to load attendance:", error);
               toast.error("Không thể tải lịch sử điểm danh cho lịch làm việc");
               return { records: [], pagination: null };
@@ -293,7 +293,6 @@ const SchedulePage: React.FC = () => {
               const hasCheckIn =
                 attendance.checkIn &&
                 String(attendance.checkIn).trim() !== "" &&
-                String(attendance.checkIn).trim() !== "-" &&
                 String(attendance.checkIn).trim() !== "—" &&
                 String(attendance.checkIn).trim() !== "null" &&
                 String(attendance.checkIn).trim() !== "undefined";
@@ -332,9 +331,19 @@ const SchedulePage: React.FC = () => {
                 attendanceRecord: attendance,
               });
             }
-          } else if (!scheduleToUse && attendance) {
-            // Trường hợp không có lịch (bị mất hoặc chưa gán) nhưng user vẫn có chấm công.
-            // Tạo một "virtual shift" dựa trên attendance để hiển thị lại lịch sử.
+          } else if (
+            // Chỉ tạo "virtual shift" từ attendance cho NGÀY HÔM NAY
+            // trong trường hợp user chưa có bất kỳ schedule nào (scheduleMap.size === 0).
+            // Tránh làm các ngày trước đó trong tuần cũng xanh.
+            !scheduleToUse &&
+            attendance &&
+            scheduleMap.size === 0 &&
+            dateStr === today.toISOString().split("T")[0]
+          ) {
+            // Trường hợp không có lịch nhưng user vẫn có chấm công (ví dụ: ngày đầu tiên làm việc,
+            // chưa được admin set lịch). Tạo một "virtual shift" dựa trên attendance để:
+            // - Hiển thị đúng trong lịch tuần (màu xanh đã hoàn thành).
+            // - Thống kê tháng/tuần vẫn tính ca đã làm.
 
             const extractTime = (value: unknown): string => {
               const raw = String(value ?? "").trim();
@@ -349,33 +358,31 @@ const SchedulePage: React.FC = () => {
             const hasCheckIn =
               attendance.checkIn &&
               String(attendance.checkIn).trim() !== "" &&
-              String(attendance.checkIn).trim() !== "-" &&
               String(attendance.checkIn).trim() !== "—" &&
               String(attendance.checkIn).trim() !== "null" &&
               String(attendance.checkIn).trim() !== "undefined";
-              
-            if (hasCheckIn) {
-              let virtualStatus: ShiftStatus = "completed";
+            const virtualStatus: ShiftStatus = hasCheckIn
+              ? "completed"
+              : "scheduled";
 
-              finalSchedule.push({
-                _id: `${dateStr}-${virtualShiftId}`,
-                date: dateStr,
-                shift: {
-                  _id: String(virtualShiftId),
-                  name: "Ca theo chấm công",
-                  startTime: virtualStartTime,
-                  endTime: virtualEndTime,
-                  breakDuration: 0,
-                },
-                status: virtualStatus,
-                location:
-                  attendance.location ||
-                  defaultLocation,
-                team: "",
-                notes: attendance.notes || "",
-                attendanceRecord: attendance,
-              });
-            }
+            finalSchedule.push({
+              _id: `${dateStr}-${virtualShiftId}`,
+              date: dateStr,
+              shift: {
+                _id: String(virtualShiftId),
+                name: "Ca theo chấm công",
+                startTime: virtualStartTime,
+                endTime: virtualEndTime,
+                breakDuration: 0,
+              },
+              status: virtualStatus,
+              location:
+                attendance.location ||
+                defaultLocation,
+              team: "",
+              notes: attendance.notes || "",
+              attendanceRecord: attendance,
+            });
           }
           // Nếu không có schedule được gán và không có fallback, không tạo entry
 
@@ -443,7 +450,6 @@ const SchedulePage: React.FC = () => {
     const checkInStr = String(checkIn).trim();
     return (
       checkInStr !== "" &&
-      checkInStr !== "-" &&
       checkInStr !== "—" &&
       checkInStr !== "null" &&
       checkInStr !== "undefined"
@@ -477,7 +483,6 @@ const SchedulePage: React.FC = () => {
       s.attendanceRecord &&
       s.attendanceRecord.checkIn &&
       String(s.attendanceRecord.checkIn).trim() !== "" &&
-      String(s.attendanceRecord.checkIn).trim() !== "-" &&
       String(s.attendanceRecord.checkIn).trim() !== "—" &&
       String(s.attendanceRecord.checkIn).trim() !== "null" &&
       String(s.attendanceRecord.checkIn).trim() !== "undefined";
@@ -524,7 +529,10 @@ const SchedulePage: React.FC = () => {
       ? (stats.totalHours / stats.thisMonth).toFixed(1)
       : "0.0";
 
-  const currentMonthLabel = `${selectedMonthStart.getMonth() + 1}/${selectedMonthStart.getFullYear()}`;
+  const currentMonthLabel = selectedMonthStart.toLocaleDateString("vi-VN", {
+    month: "long",
+    year: "numeric",
+  });
 
   // Build month calendar grid (Mon-first) for compact month view
   const monthStartDisplay = selectedMonthStart;
@@ -570,21 +578,14 @@ const SchedulePage: React.FC = () => {
     // Nếu schedule có status = "off" thì luôn hiển thị off, dù là hôm nay hay ngày khác
     if (dayShifts.some((s) => s.status === "off")) return "off";
 
-    // Check if có bản ghi nghỉ phép (on_leave)
-    const hasOnLeaveRecord = dayShifts.some(
-      (s) =>
-        s.attendanceRecord &&
-        s.attendanceRecord.status === "on_leave"
-    );
-    if (hasOnLeaveRecord) return "off";
-
-    // Check if có bản ghi vắng (absent)
+    // Check if có bản ghi nghỉ (absent / on_leave)
     const hasAbsentRecord = dayShifts.some(
       (s) =>
         s.attendanceRecord &&
-        s.attendanceRecord.status === "absent"
+        (s.attendanceRecord.status === "absent" ||
+          s.attendanceRecord.status === "on_leave")
     );
-    if (hasAbsentRecord) return "missed";
+    if (hasAbsentRecord) return "off";
 
     // Check if today
     if (dateStr === todayStr) {
@@ -594,7 +595,6 @@ const SchedulePage: React.FC = () => {
           s.attendanceRecord &&
           s.attendanceRecord.checkIn &&
           s.attendanceRecord.checkIn !== "—" &&
-          s.attendanceRecord.checkIn !== "-" &&
           s.attendanceRecord.checkIn !== ""
       );
       if (todayAttendedShift && todayAttendedShift.attendanceRecord) {
@@ -618,7 +618,6 @@ const SchedulePage: React.FC = () => {
       const checkInStr = String(checkIn).trim();
       return (
         checkInStr !== "" &&
-        checkInStr !== "-" &&
         checkInStr !== "—" &&
         checkInStr !== "null" &&
         checkInStr !== "undefined"
@@ -751,7 +750,7 @@ const SchedulePage: React.FC = () => {
       delay: 0.4,
     },
     {
-      label: t("dashboard:schedule.stats.attendanceRate", { defaultValue: "Tỷ lệ đi làm" }),
+      label: t("dashboard:schedule.stats.performance"),
       value: stats.performance + "%",
       color: "success",
       icon: "📊",
@@ -987,11 +986,6 @@ const SchedulePage: React.FC = () => {
                                     ? `🏖️ ${
                                         shift.notes.split(":")[0] || "Nghỉ phép"
                                       }`
-                                    : shift.status === "missed"
-                                    ? `❌ ${t(
-                                        "dashboard:schedule.legend.missed",
-                                        { defaultValue: "Vắng" }
-                                      )}`
                                     : `🔵 ${t(
                                         "dashboard:schedule.notCheckedIn"
                                       )}`}
@@ -1170,7 +1164,7 @@ const SchedulePage: React.FC = () => {
                           }
                           ${
                             isToday && cell.date
-                              ? `ring-2 ring-offset-1 ring-offset-[var(--background)] ${status === 'off' ? 'ring-[var(--text-sub)]' : 'ring-[var(--accent-cyan)]'}`
+                              ? "ring-2 ring-[var(--accent-cyan)] ring-offset-1 ring-offset-[var(--background)]"
                               : ""
                           }
                           transition-all
@@ -1336,7 +1330,7 @@ const SchedulePage: React.FC = () => {
                 <div className="flex items-center space-x-2 mb-2">
                   <Star className="h-4 w-4 text-[var(--warning)]" />
                   <span className="text-sm text-[var(--text-sub)]">
-                    {t("dashboard:schedule.stats.attendanceRate", { defaultValue: "Tỷ lệ đi làm" })}
+                    {t("dashboard:schedule.stats.performance")}
                   </span>
                 </div>
                 <p className="text-2xl text-[var(--success)]">
@@ -1384,75 +1378,29 @@ const SchedulePage: React.FC = () => {
                 );
 
               let currentStreak = 0;
+              const sortedAttended = [...monthAttended].sort((a, b) =>
+                b.date.localeCompare(a.date)
+              );
+
               const checkDate = new Date(today);
               for (let i = 0; i < 365; i++) {
                 const dateStr = checkDate.toISOString().split("T")[0];
-                const dayShifts = schedule.filter((s) => s.date === dateStr);
-                
-                if (dayShifts.length > 0) {
-                  const attended = dayShifts.some((s) => {
-                    const ci = s.attendanceRecord?.checkIn;
-                    if (!ci) return false;
-                    const ciStr = String(ci).trim();
-                    return ciStr !== "" && ciStr !== "-" && ciStr !== "—" && ciStr !== "null" && ciStr !== "undefined";
-                  });
-                  
-                  const isOff = dayShifts.some((s) => s.status === "off");
+                const hasAttended = sortedAttended.some(
+                  (s) => s.date === dateStr
+                );
 
-                  if (attended) {
-                    currentStreak++;
-                  } else if (isOff) {
-                    // Skip off days, don't break streak
-                  } else if (checkDate < today) {
-                    // Missed a past scheduled shift -> break streak
-                    break;
-                  }
+                if (hasAttended) {
+                  currentStreak++;
+                  checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                  break;
                 }
-                
-                checkDate.setDate(checkDate.getDate() - 1);
               }
 
               const avgHoursPerDay =
                 stats.completed > 0
                   ? (stats.totalHours / stats.completed).toFixed(1)
                   : "0.0";
-
-              let streakIcon = "🔥";
-              let streakColorClass = "bg-[var(--warning)]/30 dark:bg-[var(--warning)]/20 text-[var(--warning)]";
-              let streakAnimation = "";
-              let streakMessage = "";
-              let streakGlow = "";
-              let streakTextClass = "text-[var(--text-main)]";
-
-              if (currentStreak === 0) {
-                streakIcon = "🧊";
-                streakColorClass = "bg-[var(--text-sub)]/20 dark:bg-[var(--text-sub)]/10 text-[var(--text-sub)] opacity-50";
-                streakMessage = t("dashboard:schedule.stats.streakMessages.startNew", { defaultValue: "Bắt đầu streak mới ngay!" });
-              } else if (currentStreak >= 1 && currentStreak < 3) {
-                streakIcon = "🔥";
-                streakColorClass = "bg-orange-500/20 text-orange-500";
-                streakMessage = t("dashboard:schedule.stats.streakMessages.keepGoing", { defaultValue: "Tiếp tục duy trì nhé!" });
-              } else if (currentStreak >= 3 && currentStreak < 7) {
-                streakIcon = "💥";
-                streakColorClass = "bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]";
-                streakAnimation = "animate-pulse";
-                streakGlow = "bg-red-500";
-                streakMessage = t("dashboard:schedule.stats.streakMessages.fire", { defaultValue: "Đang vào guồng! Đừng dừng lại!" });
-              } else if (currentStreak >= 7 && currentStreak < 30) {
-                streakIcon = "❤️‍🔥";
-                streakColorClass = "bg-rose-500/30 text-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.6)]";
-                streakAnimation = "animate-bounce";
-                streakGlow = "bg-rose-500";
-                streakTextClass = "text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-500";
-                streakMessage = t("dashboard:schedule.stats.streakMessages.super", { defaultValue: "Tuyệt đỉnh! Bạn đang on fire!" });
-              } else if (currentStreak >= 30) {
-                streakIcon = "👑";
-                streakColorClass = "bg-yellow-400/30 text-yellow-400 shadow-[0_0_25px_rgba(250,204,21,0.8)]";
-                streakAnimation = "animate-[bounce_2s_infinite]";
-                streakGlow = "bg-yellow-400";
-                streakTextClass = "text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-500";
-                streakMessage = t("dashboard:schedule.stats.streakMessages.legend", { defaultValue: "Huyền thoại kỷ luật! 👑" });
-              }
 
               return (
                 <div className="grid md:grid-cols-3 gap-4">
@@ -1482,22 +1430,21 @@ const SchedulePage: React.FC = () => {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 1.3 }}
-                    className="flex flex-col items-center text-center p-4 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50 relative overflow-hidden"
+                    className="flex flex-col items-center text-center p-4 rounded-lg bg-[var(--surface)]/70 border border-[var(--border)]/70 dark:bg-[var(--surface)]/50 dark:border-[var(--border)]/50"
                   >
-                    {streakGlow && (
-                      <div className={`absolute inset-0 opacity-20 blur-xl ${streakGlow}`} />
-                    )}
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 relative z-10 transition-all duration-500 ${streakColorClass}`}>
-                      <div className={`${streakAnimation} transform-gpu`}>{streakIcon}</div>
+                    <div className="w-16 h-16 rounded-full bg-[var(--warning)]/30 dark:bg-[var(--warning)]/20 flex items-center justify-center text-3xl mb-3">
+                      🔥
                     </div>
-                    <p className={`text-2xl font-bold mb-1 relative z-10 ${streakTextClass}`}>
+                    <p className="text-2xl font-bold text-[var(--text-main)] mb-1">
                       {currentStreak}
                     </p>
-                    <p className="text-sm text-[var(--text-sub)] mb-1 relative z-10">
+                    <p className="text-sm text-[var(--text-sub)] mb-1">
                       {t("dashboard:schedule.stats.streak")}
                     </p>
-                    <p className="text-xs text-[var(--text-sub)] relative z-10 font-medium">
-                      {streakMessage}
+                    <p className="text-xs text-[var(--text-sub)]">
+                      {currentStreak > 0
+                        ? t("dashboard:schedule.stats.streakMessages.keepGoing")
+                        : t("dashboard:schedule.stats.streakMessages.startNew")}
                     </p>
                   </motion.div>
 
