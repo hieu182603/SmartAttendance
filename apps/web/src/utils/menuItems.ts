@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Home, Camera, History, FileText, Clock, CalendarDays, Calendar,
   User, BarChart3, CheckCircle2, Users, Shield, Briefcase, Building2,
-  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot, Wallet, Settings, ShieldCheck, ScanFace, Monitor, Activity,
+  DollarSign, TrendingUp, Award, FileBarChart, Table2, Bot, Wallet, Settings, ShieldCheck, ScanFace, Monitor, Activity, CheckSquare,
   ToggleRight, CreditCard, BookOpen
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
@@ -246,6 +246,15 @@ export const MENU_ITEMS: MenuItem[] = [
     featureKey: 'performance_review',
   },
   {
+    id: 'task-management',
+    label: 'Quản lý công việc',
+    icon: CheckSquare,
+    path: '/admin/task-management',
+    minimumRole: UserRole.MANAGER,
+    excludeRoles: EXCLUDE_COMPANY_OPERATIONS,
+    section: 'admin',
+  },
+  {
     id: 'attendance-analytics',
     label: 'Phân tích chấm công',
     icon: BarChart3,
@@ -395,6 +404,7 @@ export const DEPT_MANAGER_MENU_IDS = new Set([
   'attendance-analytics',
   'admin-reports',
   'performance-review',
+  'task-management',
 ]);
 
 /** Sidebar employee shortcuts when role uses a compact personal section. */
