@@ -44,11 +44,30 @@ import {
 import { getMyRequests, createRequest as createRequestApi } from "@/services/requestService";
 import type { ErrorWithMessage } from "@/types";
 import { getRequestTypes } from "@/services/requestService";
+import { CreateRequestModal } from "@/components/dashboard/requests/CreateRequestModal";
 import type {
   RequestType as RequestTypeOption,
 } from "@/services/requestService";
 import { getLeaveBalance } from "@/services/dashboardService";
 
+
+export const formatDateStr = (dateStr?: string) => {
+  if (!dateStr) return "";
+  if (dateStr.includes("/")) {
+    const parts = dateStr.split("/");
+    if (parts.length === 3) {
+      return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+    }
+  } else if (dateStr.includes("-")) {
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+       if (parts[0].length === 4) {
+         return `${parts[2]}/${parts[1]}/${parts[0]}`;
+       }
+    }
+  }
+  return dateStr;
+};
 
 type RequestStatus = "pending" | "approved" | "rejected";
 type RequestType = string;
@@ -365,6 +384,8 @@ const RequestsPage: React.FC = () => {
     return diffDays + 1; // +1 to include both start and end date
   };
 
+
+
   const handleCreateRequest = async (): Promise<void> => {
 
     const todayStr = new Date().toISOString().split("T")[0];
@@ -574,7 +595,7 @@ const RequestsPage: React.FC = () => {
           <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-start md:justify-between mt-4">
             <div className="flex flex-1 flex-col gap-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white flex items-center justify-center">
+                <div className="shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white flex items-center justify-center">
                   {request.employeeName?.charAt(0) || "U"}
                 </div>
                 <div>
@@ -604,9 +625,9 @@ const RequestsPage: React.FC = () => {
                   className="border-[var(--border)] text-[var(--text-sub)]"
                 >
                   <Calendar className="mr-1 h-3 w-3" />
-                  {request.startDate || request.date}
+                  {formatDateStr(request.startDate || request.date)}
                   {request.endDate && request.endDate !== request.startDate
-                    ? ` → ${request.endDate}`
+                    ? ` → ${formatDateStr(request.endDate)}`
                     : ""}
                 </Badge>
                 {request.duration && (
@@ -621,9 +642,9 @@ const RequestsPage: React.FC = () => {
               </div>
 
               <div>
-                <h4 className="text-[var(--text-main)]">{request.title || request.type}</h4>
-                <p className="text-sm text-[var(--text-sub)]">
-                  {request.description || request.reason}
+                <h4 className="text-[var(--text-main)] font-semibold">{label}</h4>
+                <p className="text-sm text-[var(--text-sub)] mt-1">
+                  {request.reason || request.description || "Không có lý do"}
                 </p>
               </div>
 
@@ -682,178 +703,16 @@ const RequestsPage: React.FC = () => {
           </p>
         </div>
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90">
-              <Plus className="mr-2 h-4 w-4" />
-              {t('dashboard:requests.create')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)]">
-            <DialogHeader>
-              <DialogTitle>{t('dashboard:requests.dialog.title')}</DialogTitle>
-              <DialogDescription className="text-[var(--text-sub)]">
-                {t('dashboard:requests.dialog.description')}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>{t('dashboard:requests.type')}</Label>
-                <Select value={requestType} onValueChange={setRequestType}>
-                  <SelectTrigger className="border-[var(--border)] bg-[var(--input-bg)]">
-                    <SelectValue placeholder={t('dashboard:requests.dialog.selectType')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(requestTypes.length
-                      ? requestTypes
-                      : FALLBACK_REQUEST_TYPES
-                    ).map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {(requestType === "leave" || requestType === "sick" || requestType === "maternity") && (
-                  <div className="rounded-lg border border-[var(--border)] bg-[var(--shell)] p-3">
-                    {leaveBalance.length > 0 ? (
-                      (() => {
-                        const leaveTypeMap: Record<string, string> = {
-                          "leave": "annual",
-                          "sick": "sick",
-                          "maternity": "maternity"
-                        };
-                        
-                        const leaveBalanceId = leaveTypeMap[requestType];
-                        const leaveType = leaveBalance.find((lb) => lb.id === leaveBalanceId);
-                        
-                        if (!leaveType) {
-                          return (
-                            <p className="text-sm text-[var(--text-sub)]">Không tìm thấy thông tin ngày phép</p>
-                          );
-                        }
-                        
-                        const remaining = leaveType.remaining ?? 0;
-                        const requestedDays = requestDateRange.start && (requestDateRange.end || requestDateRange.start)
-                          ? calculateDays(requestDateRange.start, requestDateRange.end || requestDateRange.start)
-                          : 0;
-                        const isValid = requestedDays === 0 || remaining === null || remaining === undefined || requestedDays <= remaining;
-                        
-                        const leaveTypeName = requestType === "leave" 
-                          ? t('dashboard:requests.types.leave')
-                          : requestType === "sick"
-                          ? "Nghỉ ốm"
-                          : "Nghỉ thai sản";
-                        
-                        return (
-                          <div className="space-y-1 text-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[var(--text-sub)]">Số ngày {leaveTypeName.toLowerCase()} còn lại:</span>
-                              <span className={`font-semibold ${remaining > 0 || remaining === null || remaining === undefined ? 'text-[var(--success)]' : 'text-[var(--error)]'}`}>
-                                {remaining === null || remaining === undefined ? '∞' : remaining} ngày
-                              </span>
-                            </div>
-                            {requestedDays > 0 && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-[var(--text-sub)]">Số ngày yêu cầu:</span>
-                                <span className={`font-semibold ${isValid ? 'text-[var(--text-main)]' : 'text-[var(--error)]'}`}>
-                                  {requestedDays} ngày
-                                </span>
-                              </div>
-                            )}
-                            {requestedDays > 0 && !isValid && remaining !== null && remaining !== undefined && (
-                              <p className="text-xs text-[var(--error)] mt-1">
-                                Số ngày yêu cầu vượt quá số ngày còn lại
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })()
-                    ) : (
-                      <p className="text-sm text-[var(--text-sub)]">Đang tải thông tin ngày phép...</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                
-                <div className="space-y-2">
-                  <Label>{t('dashboard:requests.dialog.startDate')}</Label>
-                  <Input
-                    type="date"
-                    min={today}
-                    value={requestDateRange.start}
-                    onChange={(e) =>
-                      setRequestDateRange((prev) => ({
-                        ...prev,
-                        start: e.target.value,
-                      }))
-                    }
-                    className="border-[var(--border)] bg-[var(--input-bg)]"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('dashboard:requests.dialog.endDate')}</Label>
-                  <Input
-                    type="date"
-                    min={requestDateRange.start || today}
-                    value={requestDateRange.end}
-                    onChange={(e) =>
-                      setRequestDateRange((prev) => ({
-                        ...prev,
-                        end: e.target.value,
-                      }))
-                    }
-                    className="border-[var(--border)] bg-[var(--input-bg)]"
-                  />
-                </div>
-              </div>
-              
-              {requestType === "overtime" && (
-                <div className="space-y-2">
-                  <Label>Số giờ tăng ca (tuỳ chọn)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={24}
-                    value={requestOvertimeHours}
-                    onChange={(e) => setRequestOvertimeHours(e.target.value === "" ? "" : Number(e.target.value))}
-                    placeholder="Ví dụ: 4"
-                    className="border-[var(--border)] bg-[var(--input-bg)]"
-                  />
-                  <p className="text-xs text-[var(--text-sub)]">Nếu để trống, hệ thống sẽ tự tính toán (mặc định 4 tiếng nếu sai lệch ngày).</p>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>{t('dashboard:requests.reason')}</Label>
-                <Textarea
-                  value={requestReason}
-                  onChange={(e) => setRequestReason(e.target.value)}
-                  placeholder={t('dashboard:requests.dialog.reasonPlaceholder')}
-                  className="min-h-[120px] border-[var(--border)] bg-[var(--input-bg)]"
-                />
-              </div>
-            </div>
-            <DialogFooter className="pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateDialogOpen(false)}
-                className="border-[var(--border)] text-[var(--text-main)]"
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={handleCreateRequest}
-                disabled={submitting}
-                className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)]"
-              >
-                {submitting ? t('dashboard:requests.dialog.submitting') : t('dashboard:requests.dialog.submit')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CreateRequestModal
+          isOpen={isCreateDialogOpen}
+          onOpenChange={setIsCreateDialogOpen}
+          onSuccess={fetchRequests}
+          defaultType={requestType}
+        />
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] hover:opacity-90">
+          <Plus className="mr-2 h-4 w-4" />
+          {t('dashboard:requests.create')}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">

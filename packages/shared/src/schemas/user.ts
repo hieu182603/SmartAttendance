@@ -3,7 +3,12 @@ import { USER_ROLES, PHONE_REGEX } from "../constants.js";
 
 export const updateUserSchema = z.object({
   name: z.string().min(1, "Tên không được để trống").optional(),
-  phone: z.string().optional(),
+  phone: z
+    .union([
+      z.string().regex(PHONE_REGEX, "Số điện thoại phải có 10-11 chữ số"),
+      z.literal(""),
+    ])
+    .optional(),
   address: z.string().optional(),
   birthday: z.string().optional(),
   avatar: z.string().url("URL không hợp lệ").optional(),
@@ -22,7 +27,7 @@ export const changePasswordSchema = z.object({
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 export const updateUserByAdminSchema = z.object({
-  name: z.string().min(2, "Tên phải có ít nhất 2 ký tự").optional(),
+  name: z.string().min(2, "Tên phải có ít nhất 2 ký tự").regex(/^[^0-9]+$/, "Họ và tên không được chứa ký tự số").optional(),
   email: z.string().email("Email không hợp lệ").optional(),
   phone: z
     .union([
@@ -52,7 +57,8 @@ export const createUserByAdminSchema = z.object({
   name: z
     .string()
     .min(2, "Tên phải có ít nhất 2 ký tự")
-    .max(100, "Tên không được vượt quá 100 ký tự"),
+    .max(100, "Tên không được vượt quá 100 ký tự")
+    .regex(/^[^0-9]+$/, "Họ và tên không được chứa ký tự số"),
   role: z.enum(USER_ROLES, {
     errorMap: () => ({ message: "Role không hợp lệ" }),
   }),

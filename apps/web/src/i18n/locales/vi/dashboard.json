@@ -619,9 +619,9 @@
     "createRequest": "Tạo yêu cầu nghỉ phép",
     "createRequestShort": "Tạo yêu cầu",
     "stats": {
-      "totalAnnual": "Tổng phép năm",
+      "totalAnnual": "Quỹ phép năm nay",
       "used": "Đã sử dụng",
-      "remaining": "Còn lại"
+      "remaining": "Số dư phép năm còn lại"
     },
     "tabs": {
       "balance": "Số dư",
@@ -635,7 +635,7 @@
       "total": "Tổng số",
       "pending": "Đang chờ duyệt",
       "days": "ngày",
-      "daysPerYear": "ngày/năm"
+      "daysPerYear": "ngày"
     },
     "types": {
       "defaultName": "Nghỉ phép",

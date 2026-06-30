@@ -18,6 +18,37 @@ import {
 const ROLE_PERMISSION_CONFIG_KEY = "SECURITY_ROLE_PERMISSIONS";
 const CUSTOM_ROLES_CONFIG_KEY = "SECURITY_CUSTOM_ROLES";
 
+/**
+ * Auto-fix leave balance for existing users who joined mid-year but have default 12 days
+ */
+export async function autoFixLeaveBalance(user) {
+  if (!user || !user.createdAt || !user.leaveBalance || !user.leaveBalance.annual || user.leaveBalance.annual.total !== 12) {
+    return;
+  }
+  const joinDate = new Date(user.createdAt);
+  const currentYear = new Date().getFullYear();
+  if (joinDate.getFullYear() === currentYear) {
+    const joinMonth = joinDate.getMonth();
+    const joinDay = joinDate.getDate();
+    const monthsWorked = 12 - joinMonth - (joinDay > 15 ? 1 : 0);
+    const annualTotal = Math.max(0, monthsWorked);
+    
+    if (annualTotal !== 12) {
+      user.leaveBalance.annual.total = annualTotal;
+      user.leaveBalance.annual.remaining = annualTotal - (user.leaveBalance.annual.used || 0);
+      await UserModel.updateOne(
+        { _id: user._id },
+        { 
+          $set: { 
+            "leaveBalance.annual.total": user.leaveBalance.annual.total,
+            "leaveBalance.annual.remaining": user.leaveBalance.annual.remaining
+          }
+        }
+      );
+    }
+  }
+}
+
 export class UserService {
   static async getRolePermissions() {
     const base = {};
@@ -235,6 +266,25 @@ export class UserService {
       throw new Error("Không có dữ liệu để cập nhật");
     }
 
+    if (updateFields.birthday) {
+      const currentUser = await UserModel.findById(userId).select("createdAt");
+      if (!currentUser) {
+        throw new Error("User not found");
+      }
+      const bDate = new Date(updateFields.birthday);
+      const now = new Date();
+      if (bDate > now) {
+        throw new Error("Ngày sinh không thể lớn hơn ngày hiện tại");
+      }
+      if (currentUser.createdAt && bDate >= new Date(currentUser.createdAt)) {
+        throw new Error("Ngày sinh phải nhỏ hơn ngày vào làm");
+      }
+      const minDate = new Date(now.getFullYear() - 15, now.getMonth(), now.getDate());
+      if (bDate > minDate) {
+        throw new Error("Tuổi của nhân viên phải lớn hơn hoặc bằng 15 tuổi.");
+      }
+    }
+
     const user = await UserModel.findByIdAndUpdate(
       userId,
       { $set: updateFields },
@@ -263,6 +313,9 @@ export class UserService {
     if (!user) {
       throw new Error("User not found");
     }
+
+    // Auto-fix leave balance for existing users
+    await autoFixLeaveBalance(user);
 
     return applyBankAccountToUser(user, BANK_ACCOUNT_MODES.REVEAL);
   }

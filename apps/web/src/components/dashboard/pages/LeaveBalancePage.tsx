@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { getLeaveBalance, getLeaveHistory } from '@/services/dashboardService'
 import type { ErrorWithMessage } from '@/types'
+import { CreateRequestModal } from '@/components/dashboard/requests/CreateRequestModal'
 
 type LeaveStatus = 'approved' | 'pending' | 'rejected'
 
@@ -117,51 +118,56 @@ const LeaveBalancePage: React.FC = () => {
   const { t } = useTranslation(['dashboard', 'common'])
   const navigate = useNavigate()
   const basePath = useRolePath()
-  const [selectedType, setSelectedType] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [leaveHistory, setLeaveHistory] = useState<LeaveHistory[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
+  const fetchLeaveData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const [balanceData, historyData] = await Promise.all([
+        getLeaveBalance(),
+        getLeaveHistory(),
+      ])
+
+      setLeaveTypes(balanceData as LeaveType[])
+      setLeaveHistory(historyData as LeaveHistory[])
+    } catch (err) {
+      console.error('Error fetching leave data:', err)
+      const error = err as ErrorWithMessage
+      setError(error.message || t('dashboard:leaveBalance.error'))
+      toast.error(t('dashboard:leaveBalance.error'))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Fetch leave balance data
   useEffect(() => {
-    const fetchLeaveData = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const [balanceData, historyData] = await Promise.all([
-          getLeaveBalance(),
-          getLeaveHistory(),
-        ])
-
-        setLeaveTypes(balanceData as LeaveType[])
-        setLeaveHistory(historyData as LeaveHistory[])
-      } catch (err) {
-        console.error('Error fetching leave data:', err)
-        const error = err as ErrorWithMessage
-        setError(error.message || t('dashboard:leaveBalance.error'))
-        toast.error(t('dashboard:leaveBalance.error'))
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchLeaveData()
   }, [])
 
   const totalUsed = leaveTypes.reduce((sum, type) => {
-    if (type.id !== 'unpaid' && type.id !== 'maternity') return sum + (type.used || 0)
+    if (type.id === 'annual' || type.id === 'compensatory') return sum + (type.used || 0)
     return sum
   }, 0)
 
   const totalRemaining = leaveTypes.reduce((sum, type) => {
-    if (type.id !== 'unpaid' && type.id !== 'maternity') return sum + (type.remaining || 0)
+    if (type.id === 'annual' || type.id === 'compensatory') return sum + (type.remaining || 0)
     return sum
   }, 0)
 
-  const annualLeaveTotal = leaveTypes.find((t) => t.id === 'annual')?.total || 0
+  const totalPending = leaveTypes.reduce((sum, type) => sum + (type.pending || 0), 0)
+
+  const annualLeaveTotal = leaveTypes.reduce((sum, type) => {
+    if (type.id === 'annual' || type.id === 'compensatory') return sum + (type.total || 0)
+    return sum
+  }, 0)
 
   const getStatusColor = (status?: LeaveStatus): string => {
     switch (status) {
@@ -241,9 +247,14 @@ const LeaveBalancePage: React.FC = () => {
             {t('dashboard:leaveBalance.description')}
           </p>
         </div>
+        <CreateRequestModal 
+          isOpen={isCreateModalOpen} 
+          onOpenChange={setIsCreateModalOpen} 
+          onSuccess={fetchLeaveData} 
+        />
         <Button
-          onClick={handleRequestLeave}
-          className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white w-full sm:w-auto"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white w-full sm:w-auto hover:opacity-90 transition-opacity"
         >
           <Plus className="h-4 w-4 mr-2" />
           <span className="hidden sm:inline">{t('dashboard:leaveBalance.createRequest')}</span>
@@ -349,6 +360,13 @@ const LeaveBalancePage: React.FC = () => {
                   </p>
                 </div>
               ) : (
+                <>
+                <div className="flex items-center space-x-3 mb-4 mt-8">
+                  <CalendarDays className="h-6 w-6 text-[var(--primary)]" />
+                  <h3 className="text-xl font-bold text-[var(--text-main)]">
+                    Chi tiết hạn mức các loại phép
+                  </h3>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {leaveTypes.map((type, index) => {
                     const config = getLeaveTypeConfig(type.id, t)
@@ -358,13 +376,9 @@ const LeaveBalancePage: React.FC = () => {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
+                        className={index === leaveTypes.length - 1 && leaveTypes.length % 2 !== 0 ? "md:col-span-2" : ""}
                       >
-                        <Card
-                          className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--primary)] transition-all cursor-pointer"
-                          onClick={() =>
-                            setSelectedType(selectedType === type.id ? null : type.id)
-                          }
-                        >
+                        <Card className="bg-[var(--shell)] border-[var(--border)] overflow-hidden relative">
                           <CardContent className="p-4 sm:p-6">
                             <div className="flex items-start justify-between mb-4">
                               <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
@@ -388,7 +402,7 @@ const LeaveBalancePage: React.FC = () => {
                               </div>
                               <Badge
                                 variant="outline"
-                                className="border-[var(--border)] text-[var(--text-sub)] ml-2 flex-shrink-0"
+                                className="border-[var(--primary)]/30 bg-[var(--primary)]/5 text-[var(--primary)] font-bold text-sm sm:text-base px-3 py-1 ml-2 flex-shrink-0 shadow-sm normal-case lowercase"
                               >
                                 {type.total === 999 || type.total === null
                                   ? '∞'
@@ -397,13 +411,13 @@ const LeaveBalancePage: React.FC = () => {
                               </Badge>
                             </div>
 
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                               <div>
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs sm:text-sm text-[var(--text-sub)]">
+                                  <span className="text-xs sm:text-sm font-medium text-[var(--text-main)]">
                                     {t('dashboard:leaveBalance.stats.used')}
                                   </span>
-                                  <span className="text-xs sm:text-sm text-[var(--warning)]">
+                                  <span className="text-xs sm:text-sm font-semibold text-[var(--text-main)]">
                                     {type.used || 0} {t('dashboard:leaveBalance.overview.days')}
                                   </span>
                                 </div>
@@ -413,84 +427,42 @@ const LeaveBalancePage: React.FC = () => {
                                       ? 0
                                       : ((type.used || 0) / (type.total ?? 0)) * 100
                                   }
-                                  className="h-2"
+                                  className="h-2.5 bg-[var(--border)]/50"
+                                  indicatorClassName="bg-[var(--primary)]"
                                 />
                               </div>
 
-                              <div>
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs sm:text-sm text-[var(--text-sub)]">
-                                    {t('dashboard:leaveBalance.history.remaining')}
-                                  </span>
-                                  <span className="text-xs sm:text-sm text-[var(--success)]">
-                                    {type.remaining === 999 || type.remaining === null
-                                      ? '∞'
-                                      : type.remaining || 0}{' '}
-                                    {t('dashboard:leaveBalance.overview.days')}
-                                  </span>
-                                </div>
-                                <Progress
-                                  value={
-                                    type.total === 999 || type.total === null || type.total === 0
-                                      ? 100
-                                      : ((type.remaining || 0) / (type.total ?? 0)) * 100
-                                  }
-                                  className="h-2"
-                                />
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs sm:text-sm text-[var(--text-sub)]">
+                                  {t('dashboard:leaveBalance.history.remaining')}
+                                </span>
+                                <span className="text-xs sm:text-sm font-medium text-[var(--success)]">
+                                  {type.remaining === 999 || type.remaining === null
+                                    ? '∞'
+                                    : Math.max(0, (type.remaining || 0) - (type.pending || 0))}{' '}
+                                  {t('dashboard:leaveBalance.overview.days')}
+                                </span>
                               </div>
 
 
-                              {type.pending && type.pending > 0 && (
-                                <div className="flex items-center justify-between p-2 rounded bg-[var(--warning)]/10">
-                                  <span className="text-xs sm:text-sm text-[var(--text-sub)]">
+                              {(type.pending ?? 0) > 0 && (
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-[var(--warning)]/10 border border-[var(--warning)]/20 mt-3 mb-3">
+                                  <span className="text-xs sm:text-sm font-medium text-[var(--warning)]">
                                     {t('dashboard:leaveBalance.overview.pending')}
                                   </span>
-                                  <Badge className="bg-[var(--warning)]/20 text-[var(--warning)]">
+                                  <Badge className="bg-[var(--warning)]/20 text-[var(--warning)] normal-case lowercase">
                                     {type.pending} {t('dashboard:leaveBalance.overview.days')}
                                   </Badge>
                                 </div>
                               )}
                             </div>
-
-                            {selectedType === type.id && (
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="mt-4 pt-4 border-t border-[var(--border)]"
-                              >
-                                <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-                                  <div>
-                                    <p className="text-xl sm:text-2xl text-[var(--primary)]">
-                                      {type.total === 999 || type.total === null
-                                        ? '∞'
-                                        : type.total || 0}
-                                    </p>
-                                    <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.stats.totalAnnual')}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xl sm:text-2xl text-[var(--warning)]">
-                                      {type.used || 0}
-                                    </p>
-                                    <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.stats.used')}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xl sm:text-2xl text-[var(--success)]">
-                                      {type.remaining === 999 || type.remaining === null
-                                        ? '∞'
-                                        : type.remaining || 0}
-                                    </p>
-                                    <p className="text-xs text-[var(--text-sub)] mt-1">{t('dashboard:leaveBalance.stats.remaining')}</p>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
                           </CardContent>
                         </Card>
                       </motion.div>
                     )
                   })}
                 </div>
+                </>
               )}
             </TabsContent>
 
@@ -537,7 +509,7 @@ const LeaveBalancePage: React.FC = () => {
                               <div className="flex flex-wrap items-center gap-2 text-sm">
                                 <Calendar className="h-4 w-4 text-[var(--accent-cyan)] flex-shrink-0" />
                                 <span className="text-[var(--text-main)]">
-                                  {history.startDate || ''} → {history.endDate || ''}
+                                  {history.startDate ? history.startDate.split('-').reverse().join('/') : ''} → {history.endDate ? history.endDate.split('-').reverse().join('/') : ''}
                                 </span>
                                 <Badge
                                   variant="outline"
@@ -549,7 +521,7 @@ const LeaveBalancePage: React.FC = () => {
 
                               {history.reason && (
                                 <p className="text-xs sm:text-sm text-[var(--text-sub)]">
-                                  <strong>{t('dashboard:leaveBalance.overview.reason')}</strong> {history.reason}
+                                  <strong>{t('dashboard:requests.reason')}:</strong> {history.reason}
                                 </p>
                               )}
 

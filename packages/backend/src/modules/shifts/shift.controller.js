@@ -543,7 +543,9 @@ export const getMySchedule = async (req, res) => {
     start.setHours(0, 0, 0, 0);
 
     const end = endDate ? new Date(endDate) : new Date();
-    end.setDate(end.getDate() + 30);
+    if (!endDate) {
+      end.setDate(end.getDate() + 30);
+    }
     end.setHours(23, 59, 59, 999);
 
     const { EmployeeScheduleModel } = await import('../schedule/schedule.model.js');
@@ -576,17 +578,15 @@ export const getMySchedule = async (req, res) => {
 
     const generatedSchedules = await scheduleGenerationService.generateScheduleFromAssignments(userId, start, end);
 
-    const finalSchedules = generatedSchedules.map((genSched) => {
+    const finalSchedulesMap = new Map();
+
+    // Thêm lịch đã generate on-the-fly vào map
+    generatedSchedules.forEach((genSched) => {
       const dateStr = genSched.date instanceof Date
         ? genSched.date.toISOString().split('T')[0]
         : new Date(genSched.date).toISOString().split('T')[0];
 
-      const existing = scheduleMap.get(dateStr);
-      if (existing) {
-        return existing;
-      }
-
-      return {
+      finalSchedulesMap.set(dateStr, {
         userId: genSched.userId?.toString() || userId.toString(),
         date: dateStr,
         shiftId: genSched.shiftId?.toString(),
@@ -597,8 +597,29 @@ export const getMySchedule = async (req, res) => {
         location: genSched.location,
         team: genSched.team,
         notes: genSched.notes,
-      };
+      });
     });
+
+    // Merge với lịch đã có trong DB (ghi đè lên generated nếu trùng ngày)
+    // Giữ lại các lịch cũ trong DB dù không còn assignment active
+    existingSchedules.forEach((sched) => {
+      const dateStr = sched.date.toISOString().split('T')[0];
+      finalSchedulesMap.set(dateStr, {
+        userId: sched.userId.toString(),
+        date: dateStr,
+        shiftId: sched.shiftId?._id?.toString() || sched.shiftId?.toString(),
+        shiftName: sched.shiftName || sched.shiftId?.name,
+        startTime: sched.startTime || sched.shiftId?.startTime,
+        endTime: sched.endTime || sched.shiftId?.endTime,
+        status: sched.status,
+        location: sched.location,
+        team: sched.team,
+        notes: sched.notes,
+        leaveRequestId: sched.leaveRequestId?.toString(),
+      });
+    });
+
+    const finalSchedules = Array.from(finalSchedulesMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
 
     res.json({ success: true, data: finalSchedules });
   } catch (error) {
