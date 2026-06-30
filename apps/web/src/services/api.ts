@@ -13,7 +13,7 @@ export const getSuperAdminCompanyFilter = () => _superAdminCompanyId
 // Paths that should receive the company filter when set
 const COMPANY_FILTERED_PREFIXES = ['/users', '/attendance', '/payroll', '/requests', '/leave', '/logs', '/performance', '/departments', '/branches', '/shifts']
 const shouldInjectCompany = (url = '') =>
-  COMPANY_FILTERED_PREFIXES.some(p => url === p || url.startsWith(p + '?') || url.startsWith(p + '/'))
+    COMPANY_FILTERED_PREFIXES.some(p => url === p || url.startsWith(p + '?') || url.startsWith(p + '/'))
 
 let _isRefreshing = false
 let _loggingOut = false
@@ -22,24 +22,24 @@ let _failQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown)
 export const setLoggingOut = (value: boolean) => { _loggingOut = value }
 
 const processQueue = (err: unknown, token: string | null) => {
-  _failQueue.forEach(({ resolve, reject }) => (err ? reject(err) : resolve(token!)))
-  _failQueue = []
+    _failQueue.forEach(({ resolve, reject }) => (err ? reject(err) : resolve(token!)))
+    _failQueue = []
 }
 
 const PROTECTED_ROUTE_PREFIXES = ['/employee', '/manager', '/hr', '/admin'] as const
 
 const isProtectedPath = (pathname = window.location.pathname) =>
-  PROTECTED_ROUTE_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  )
+    PROTECTED_ROUTE_PREFIXES.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    )
 
 const forceLogout = () => {
-  _memToken = ''
-  localStorage.removeItem('sa_user_role')
-  // Only redirect from dashboard routes — public/404 pages should stay put
-  if (isProtectedPath() && window.location.pathname !== '/login') {
-    setTimeout(() => { window.location.href = '/login' }, 0)
-  }
+    _memToken = ''
+    localStorage.removeItem('sa_user_role')
+    // Only redirect from dashboard routes — public/404 pages should stay put
+    if (isProtectedPath() && window.location.pathname !== '/login') {
+        setTimeout(() => { window.location.href = '/login' }, 0)
+    }
 }
 
 // Get base URLs from environment variables or use defaults
@@ -110,7 +110,7 @@ api.interceptors.response.use(
         // Handle 401 Unauthorized - Token expired or invalid
         if (status === 401) {
             const isRAGError = error.config?.url?.includes('/rag/') ||
-                              error.config?.url?.includes('rag/health');
+                error.config?.url?.includes('rag/health');
             if (isRAGError) {
                 const message = responseData?.message || 'RAG AI service authentication failed. Please contact support.'
                 const apiError = new Error(message) as ValidationError
@@ -205,10 +205,10 @@ api.interceptors.response.use(
             const errors = (responseData as { errors: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } }).errors
             const fieldErrors = errors.fieldErrors || {}
             const formErrors = errors.formErrors || []
-            
+
             // Lấy message từ field errors hoặc form errors
             let message = responseData?.message || 'Dữ liệu không hợp lệ'
-            
+
             // Nếu có field errors, hiển thị chi tiết
             if (Object.keys(fieldErrors).length > 0) {
                 const firstError = Object.values(fieldErrors)[0]
@@ -220,24 +220,24 @@ api.interceptors.response.use(
             } else if (formErrors.length > 0) {
                 message = formErrors[0]
             }
-            
+
             // Tạo error object với fieldErrors để component có thể sử dụng
             const validationError = new Error(message) as ValidationError
             validationError.fieldErrors = fieldErrors
             validationError.response = error.response
             return Promise.reject(validationError)
         }
-        
+
         // Handle network errors (connection refused, etc.)
         if (!error.response && error.code === 'ERR_NETWORK') {
             // For network errors, preserve the error code for better handling upstream
             const networkError = new Error('Network Error') as ValidationError
             networkError.response = error.response
-            // Add code property for easier detection
-            ;(networkError as any).code = 'ERR_NETWORK'
+                // Add code property for easier detection
+                ; (networkError as any).code = 'ERR_NETWORK'
             return Promise.reject(networkError)
         }
-        
+
         // Handle other errors (404, 500, etc.)
         const message = responseData?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.'
         const apiError = new Error(message) as ValidationError

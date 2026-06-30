@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import type { ErrorWithMessage } from '@/types'
 import { getRoleBasePath, type UserRoleType } from '@/utils/roles'
 import { resolveSafeRedirect } from '@/utils/safeRedirect'
+import { translateAuthError } from '@/utils/errorTranslation'
 
 export default function Login() {
   const { t } = useTranslation(['auth', 'common'])
@@ -117,7 +118,8 @@ export default function Login() {
       navigate(nextRoute, { replace: true })
     } catch (err) {
       const error = err as ErrorWithMessage
-      toast.error(error.message || t('auth:login.error'))
+      const translatedMsg = translateAuthError(error.message, t)
+      toast.error(translatedMsg || t('auth:login.error'))
     } finally {
       setIsLoading(false)
     }
