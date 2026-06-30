@@ -49,7 +49,31 @@ export default function MyPayslipPage() {
   useEffect(() => {
     setLoading(true);
     getMyPayslips()
-      .then(setPayslips)
+      .then((data) => {
+        const enriched = data.map((p) => {
+          const standardDays = p.totalDays || 22;
+          let actualBaseSalary = (p as any).actualBaseSalary;
+          if (actualBaseSalary == null) {
+            actualBaseSalary = p.workDays && p.workDays < standardDays 
+              ? Math.round((p.baseSalary * p.workDays) / standardDays) 
+              : p.baseSalary;
+          }
+          
+          const grossSalary = p.grossSalary || (actualBaseSalary + (p.overtimePay || 0) + (p.bonus || 0) - (p.deductions || 0));
+          const insuranceTotal = p.insurance?.total || 0;
+          const taxAmount = p.tax?.amount || 0;
+          const netSalary = p.netSalary || Math.max(0, grossSalary - insuranceTotal - taxAmount);
+          
+          return {
+            ...p,
+            actualBaseSalary,
+            grossSalary,
+            netSalary,
+            totalSalary: netSalary
+          };
+        });
+        setPayslips(enriched);
+      })
       .catch((err) => {
         toast.error(
           err?.response?.data?.message || t("dashboard:myPayslip.toasts.loadError")
@@ -174,6 +198,9 @@ export default function MyPayslipPage() {
                   <p className="text-2xl font-extrabold text-[var(--text-main)] group-hover:text-[var(--accent-cyan)] transition-colors">
                     {formatCurrency(totalEarned, hideSalary)}
                   </p>
+                  <p className="text-[10px] text-[var(--text-sub)]/80 mt-1 italic font-medium">
+                    * (Chỉ tính các kỳ đã duyệt) *
+                  </p>
                 </div>
                 <div className="p-3 bg-[var(--success)]/10 text-[var(--success)] border border-[var(--success)]/20 rounded-xl z-10">
                   <Wallet className="h-5 w-5" />
@@ -203,7 +230,7 @@ export default function MyPayslipPage() {
               <CardContent className="p-5 mt-4 flex items-center justify-between relative">
                 <div className="space-y-1 z-10">
                   <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-sub)]">
-                    {t("dashboard:myPayslip.summary.latest")} ({payslips[0]?.month})
+                    {t("dashboard:myPayslip.summary.latest")} ({payslips[0]?.month ? `Tháng ${payslips[0].month.split('-')[1]}/${payslips[0].month.split('-')[0]}` : ''})
                   </span>
                   <p className="text-2xl font-extrabold text-[var(--accent-cyan)]">
                     {formatCurrency(latestSalary, hideSalary)}
@@ -271,7 +298,7 @@ export default function MyPayslipPage() {
                           </td>
                           {/* Base Salary column */}
                           <td className="py-4 px-4 hidden md:table-cell font-medium">
-                            {formatCurrency(rec.baseSalary, hideSalary)}
+                            {formatCurrency((rec.userId as any)?.baseSalary ?? rec.baseSalary, hideSalary)}
                           </td>
                           {/* Gross Salary column */}
                           <td className="py-4 px-4 hidden sm:table-cell font-medium">
@@ -314,10 +341,11 @@ export default function MyPayslipPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleDownloadPdf(rec.month)}
-                              className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--border)] transition-all cursor-pointer rounded-lg p-2"
+                              disabled={rec.status === "pending"}
+                              className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--border)] transition-all cursor-pointer rounded-lg p-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Tải PDF"
                             >
-                              <Download className="h-4 w-4 text-red-400" />
+                              <Download className={`h-4 w-4 ${rec.status === 'pending' ? 'text-[var(--text-sub)]' : 'text-red-400'}`} />
                             </Button>
                           </td>
                         </motion.tr>
@@ -485,7 +513,7 @@ export default function MyPayslipPage() {
                     <div className="p-3.5 bg-[var(--surface)] flex justify-between">
                       <span className="text-[var(--text-sub)]">{t("dashboard:myPayslip.baseSalary")}</span>
                       <span className="font-semibold text-[var(--text-main)]">
-                        {formatCurrency(selectedPayslip.baseSalary, hideSalary)}
+                        {formatCurrency((selectedPayslip.userId as any)?.baseSalary ?? selectedPayslip.baseSalary, hideSalary)}
                       </span>
                     </div>
 

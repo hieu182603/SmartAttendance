@@ -10,6 +10,10 @@ import {
   Briefcase,
   Building2,
   CreditCard,
+  FileText,
+  Shield,
+  Landmark,
+  Upload,
   Camera,
   Lock,
   Eye,
@@ -301,6 +305,35 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
   };
 
   const handleSaveProfile = async (): Promise<void> => {
+    // Validation: Name check
+    if (/\d/.test(profile.fullName)) {
+      toast.error(t('dashboard:profile.update.nameNoNumbers', 'Họ và tên không được chứa ký tự số.'));
+      return;
+    }
+
+    // Validation: Date of birth check
+    if (profile.birthday) {
+      const bDate = new Date(profile.birthday);
+      const joinDate = profile.joinDate ? new Date(profile.joinDate) : new Date();
+      const now = new Date();
+      
+      if (bDate > now) {
+        toast.error(t('dashboard:profile.update.birthdayFuture', 'Ngày sinh không thể lớn hơn ngày hiện tại'));
+        return;
+      }
+      if (bDate >= joinDate) {
+        toast.error(t('dashboard:profile.update.birthdayAfterJoin', 'Ngày sinh phải nhỏ hơn ngày vào làm'));
+        return;
+      }
+
+      // Check minimum age (15 years)
+      const minDate = new Date(now.getFullYear() - 15, now.getMonth(), now.getDate());
+      if (bDate > minDate) {
+        toast.error(t('dashboard:profile.update.birthdayTooYoung', 'Tuổi của nhân viên phải lớn hơn hoặc bằng 15 tuổi.'));
+        return;
+      }
+    }
+
     try {
       const updateData = {
         name: profile.fullName,
@@ -438,7 +471,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
   };
 
   // Ensure avatar URL is https to avoid mixed-content blocking on https pages
-  const getAvatarSrc = (): string => {
+  const getAvatarSrc = (): string | undefined => {
     const raw = currentUser?.avatar || currentUser?.avatarUrl;
     if (raw) {
       const safeUrl = raw.startsWith("http://") ? raw.replace("http://", "https://") : raw;
@@ -490,7 +523,6 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                         src={getAvatarSrc()}
                         onError={(e) => {
                           console.error('Avatar load error:', e);
-                          // Fallback to default if avatar fails to load
                           const target = e.target as HTMLImageElement;
                           target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.name || "user"}`;
                         }}
@@ -528,7 +560,7 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                     {profile.fullName}
                   </h2>
                   <p className="text-sm text-[var(--text-sub)]">
-                    {profile.position}
+                    {t(`common:roles.${currentUser?.role || 'EMPLOYEE'}`)}
                   </p>
                   <Badge className="bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] mt-2">
                     {profile.employeeId}
@@ -556,7 +588,10 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                         <span>{t('dashboard:profile.stats.joinDate')}</span>
                       </span>
                       <span className="text-[var(--text-main)]">
-                        {new Date(profile.joinDate).toLocaleDateString("vi-VN")}
+                        {(() => {
+                          const d = new Date(profile.joinDate);
+                          return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+                        })()}
                       </span>
                     </div>
                   )}
@@ -642,186 +677,211 @@ export function Profile({ role, user }: ProfileProps): React.JSX.Element {
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        <User className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.fullName')}
-                      </Label>
-                      <Input
-                        value={profile.fullName}
-                        onChange={(e) =>
-                          setProfile({ ...profile, fullName: e.target.value })
-                        }
-                        disabled={!isEditing}
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                      />
-                    </div>
+                    {/* Helper function for input classes */}
+                    {(() => {
+                      const inputClass = isEditing 
+                        ? "bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
+                        : "border-none bg-transparent px-0 text-[var(--text-main)] font-medium shadow-none disabled:opacity-100 disabled:cursor-default placeholder:italic placeholder:opacity-50";
+                      const disabledClass = "border-none bg-transparent px-0 text-[var(--text-main)] font-medium shadow-none opacity-60 disabled:opacity-60 disabled:cursor-default placeholder:italic placeholder:opacity-50";
+                      const notUpdatedText = t('common:notUpdated', 'Chưa cập nhật');
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        <Mail className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.email')}
-                      </Label>
-                      <Input
-                        value={profile.email}
-                        disabled
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] opacity-60"
-                      />
-                    </div>
+                      return (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-[var(--text-main)]">
+                              <User className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.fullName')}
+                            </Label>
+                            <Input
+                              value={profile.fullName || ""}
+                              onChange={(e) =>
+                                setProfile({ ...profile, fullName: e.target.value })
+                              }
+                              disabled={!isEditing}
+                              placeholder={isEditing ? "" : notUpdatedText}
+                              className={inputClass}
+                            />
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        <Phone className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.phone')}
-                      </Label>
-                      <Input
-                        value={profile.phone}
-                        onChange={(e) =>
-                          setProfile({ ...profile, phone: e.target.value })
-                        }
-                        disabled={!isEditing}
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                      />
-                    </div>
+                          <div className="space-y-2">
+                            <Label className="text-[var(--text-main)]">
+                              <Mail className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.email')}
+                            </Label>
+                            <Input
+                              value={profile.email || ""}
+                              disabled
+                              placeholder={notUpdatedText}
+                              className={disabledClass}
+                            />
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        <Calendar className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.birthday')}
-                      </Label>
-                      <Input
-                        type="date"
-                        value={profile.birthday}
-                        onChange={(e) =>
-                          setProfile({ ...profile, birthday: e.target.value })
-                        }
-                        disabled={!isEditing}
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                      />
-                    </div>
+                          <div className="space-y-2">
+                            <Label className="text-[var(--text-main)]">
+                              <Phone className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.phone')}
+                            </Label>
+                            <Input
+                              value={profile.phone || ""}
+                              onChange={(e) =>
+                                setProfile({ ...profile, phone: e.target.value })
+                              }
+                              disabled={!isEditing}
+                              placeholder={isEditing ? t('dashboard:profile.personalInfo.placeholders.phone', 'Nhập số điện thoại...') : notUpdatedText}
+                              className={inputClass}
+                            />
+                          </div>
 
-                    <div className="space-y-2 md:col-span-2">
-                      <Label className="text-[var(--text-main)]">
-                        <MapPin className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.address')}
-                      </Label>
-                      <Input
-                        value={profile.address}
-                        onChange={(e) =>
-                          setProfile({ ...profile, address: e.target.value })
-                        }
-                        disabled={!isEditing}
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                      />
-                    </div>
+                          <div className="space-y-2">
+                            <Label className="text-[var(--text-main)]">
+                              <Calendar className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.birthday')}
+                            </Label>
+                            <Input
+                              type={isEditing ? "date" : "text"}
+                              value={isEditing ? profile.birthday : (profile.birthday ? new Date(profile.birthday).toLocaleDateString('vi-VN') : "")}
+                              onChange={(e) =>
+                                setProfile({ ...profile, birthday: e.target.value })
+                              }
+                              disabled={!isEditing}
+                              placeholder={isEditing ? "" : notUpdatedText}
+                              className={inputClass}
+                            />
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        <Building2 className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.department')}
-                      </Label>
-                      <Input
-                        value={profile.department}
-                        disabled
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] opacity-60"
-                      />
-                    </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label className="text-[var(--text-main)]">
+                              <MapPin className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.address')}
+                            </Label>
+                            <Input
+                              value={profile.address || ""}
+                              onChange={(e) =>
+                                setProfile({ ...profile, address: e.target.value })
+                              }
+                              disabled={!isEditing}
+                              placeholder={isEditing ? t('dashboard:profile.personalInfo.placeholders.address', 'Nhập địa chỉ...') : notUpdatedText}
+                              className={inputClass}
+                            />
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        <Briefcase className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.position')}
-                      </Label>
-                      <Input
-                        value={profile.position}
-                        disabled
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] opacity-60"
-                      />
-                    </div>
+                          <div className="space-y-2">
+                            <Label className="text-[var(--text-main)]">
+                              <Building2 className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.department')}
+                            </Label>
+                            <Input
+                              value={profile.department || ""}
+                              disabled
+                              placeholder={notUpdatedText}
+                              className={disabledClass}
+                            />
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        <CreditCard className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.bankAccount')}
-                      </Label>
-                      <Input
-                        value={
-                          isEditing
-                            ? profile.bankAccount
-                            : maskBankAccount(profile.bankAccount)
-                        }
-                        onChange={(e) =>
-                          setProfile({
-                            ...profile,
-                            bankAccount: e.target.value,
-                          })
-                        }
-                        disabled={!isEditing}
-                        autoComplete="off"
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                      />
-                    </div>
+                          <div className="space-y-2">
+                            <Label className="text-[var(--text-main)]">
+                              <Briefcase className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.position')}
+                            </Label>
+                            <Input
+                              value={t(`common:roles.${currentUser?.role || 'EMPLOYEE'}`)}
+                              disabled
+                              placeholder={notUpdatedText}
+                              className={disabledClass}
+                            />
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        <Building2 className="h-4 w-4 inline mr-2" />
-                        {t('dashboard:profile.personalInfo.fields.bankName')}
-                      </Label>
-                      <div className="flex items-center gap-2">
-                      {isEditing ? (
-                        <Select className="w-full" value={profile.bankName} onValueChange={(v) => setProfile({ ...profile, bankName: v })} disabled={!isEditing}>
-                          <SelectTrigger className="w-full bg-[var(--input-bg)] border-[var(--border)] h-9 text-[var(--text-main)]">
-                            <SelectValue placeholder={t('dashboard:profile.personalInfo.fields.bankNamePlaceholder', 'Chọn ngân hàng')} />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-44 overflow-auto bg-[var(--surface)] border-[var(--border)]">
-                            {banksOptions.length === 0 ? (
-                              <p className="px-3 py-2 text-sm text-[var(--text-sub)]">
-                                {t('dashboard:profile.personalInfo.fields.bankNameEmpty', 'Không tải được danh sách ngân hàng')}
-                              </p>
+                          <div className="space-y-2">
+                            <Label className="text-[var(--text-main)]">
+                              <CreditCard className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.bankAccount')}
+                            </Label>
+                            <Input
+                              value={
+                                isEditing
+                                  ? profile.bankAccount
+                                  : (maskBankAccount(profile.bankAccount) || "")
+                              }
+                              onChange={(e) =>
+                                setProfile({
+                                  ...profile,
+                                  bankAccount: e.target.value,
+                                })
+                              }
+                              disabled={!isEditing}
+                              placeholder={isEditing ? t('dashboard:profile.personalInfo.placeholders.bankAccount', 'Nhập số tài khoản...') : notUpdatedText}
+                              autoComplete="off"
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-[var(--text-main)]">
+                              <Landmark className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.bankName')}
+                            </Label>
+                            <div className="flex items-center gap-2">
+                            {isEditing ? (
+                              <Select className="w-full" value={profile.bankName} onValueChange={(v) => setProfile({ ...profile, bankName: v })} disabled={!isEditing}>
+                                <SelectTrigger className="w-full bg-[var(--input-bg)] border-[var(--border)] h-9 text-[var(--text-main)]">
+                                  <SelectValue placeholder={t('dashboard:profile.personalInfo.fields.bankNamePlaceholder', 'Chọn ngân hàng')} />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-44 overflow-auto bg-[var(--surface)] border-[var(--border)]">
+                                  {banksOptions.length === 0 ? (
+                                    <p className="px-3 py-2 text-sm text-[var(--text-sub)]">
+                                      {t('dashboard:profile.personalInfo.fields.bankNameEmpty', 'Không tải được danh sách ngân hàng')}
+                                    </p>
+                                  ) : (
+                                    banksOptions.map((b) => (
+                                      <SelectItem key={b.shortname || b.name} value={b.shortname || b.name}>
+                                        {b.shortname ? `${b.shortname} - ${b.name}` : b.name}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
                             ) : (
-                              banksOptions.map((b) => (
-                                <SelectItem key={b.shortname || b.name} value={b.shortname || b.name}>
-                                  {b.shortname ? `${b.shortname} - ${b.name}` : b.name}
-                                </SelectItem>
-                              ))
+                              <Input
+                                value={getBankFullName(profile.bankName) || ""}
+                                disabled
+                                placeholder={notUpdatedText}
+                                className={disabledClass}
+                              />
                             )}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input
-                          value={getBankFullName(profile.bankName)}
-                          disabled
-                          className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)] opacity-60"
-                        />
-                      )}
-                      </div>
-                      
-                    </div>
+                            </div>
+                            
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        🧾 {t('dashboard:profile.personalInfo.fields.taxId', 'Mã số thuế')}
-                      </Label>
-                      <Input
-                        value={profile.taxId}
-                        onChange={(e) => setProfile({ ...profile, taxId: e.target.value })}
-                        disabled={!isEditing}
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                      />
-                    </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label className="text-[var(--text-main)]">
+                              <FileText className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.taxId', 'Mã số thuế')}
+                            </Label>
+                            <Input
+                              value={profile.taxId || ""}
+                              onChange={(e) => setProfile({ ...profile, taxId: e.target.value })}
+                              disabled={!isEditing}
+                              placeholder={isEditing ? t('dashboard:profile.personalInfo.placeholders.taxId', 'VD: 0101234567') : notUpdatedText}
+                              className={inputClass}
+                            />
+                          </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-[var(--text-main)]">
-                        🏥 {t('dashboard:profile.personalInfo.fields.healthInsuranceId', 'Mã bảo hiểm y tế')}
-                      </Label>
-                      <Input
-                        value={profile.healthInsuranceId}
-                        onChange={(e) => setProfile({ ...profile, healthInsuranceId: e.target.value })}
-                        disabled={!isEditing}
-                        placeholder={t('dashboard:profile.personalInfo.fields.healthInsuranceIdPlaceholder', 'VD: DN1234567890123')}
-                        className="bg-[var(--input-bg)] border-[var(--border)] text-[var(--text-main)]"
-                      />
-                    </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label className="text-[var(--text-main)]">
+                              <Shield className="h-4 w-4 inline mr-2" />
+                              {t('dashboard:profile.personalInfo.fields.healthInsuranceId', 'Mã bảo hiểm y tế')}
+                            </Label>
+                            <Input
+                              value={profile.healthInsuranceId || ""}
+                              onChange={(e) => setProfile({ ...profile, healthInsuranceId: e.target.value })}
+                              disabled={!isEditing}
+                              placeholder={isEditing ? t('dashboard:profile.personalInfo.fields.healthInsuranceIdPlaceholder', 'VD: DN1234567890123') : notUpdatedText}
+                              className={inputClass}
+                            />
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </TabsContent>
 

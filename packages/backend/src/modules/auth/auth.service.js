@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { UserModel } from "../users/user.model.js";
 import { OtpModel } from "../otp/otp.model.js";
 import { CompanyModel } from "../company/company.model.js";
+import { autoFixLeaveBalance } from "../users/user.service.js";
 import { generateTokenFromUser, verifyRefreshToken, generateAccessToken, generateRefreshToken } from "../../utils/jwt.util.js";
 import { generateOTP, generateOTPExpiry } from "../../utils/otp.util.js";
 import { sendOTPEmail, sendResetPasswordEmail } from "../../utils/email.util.js";
@@ -287,6 +288,10 @@ export class AuthService {
             .populate("branch", "name address")
             .populate("companyId", "name");
         if (!user) throw new Error("User not found");
+        
+        // Auto-fix leave balance for existing users
+        await autoFixLeaveBalance(user);
+
         const plain = applyBankAccountToUser(user, BANK_ACCOUNT_MODES.REVEAL);
         if (plain.companyId && typeof plain.companyId === "object") {
             plain.companyName = plain.companyId.name;

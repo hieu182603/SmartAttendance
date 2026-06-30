@@ -195,7 +195,7 @@ const DashboardLayout: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 md:space-x-4">
+          <div className="flex items-center gap-4 md:gap-6 shrink-0 ml-4">
             {/* Language Switcher */}
             <LanguageSwitcher />
             
@@ -204,7 +204,7 @@ const DashboardLayout: React.FC = () => {
               onClick={toggleTheme}
               variant="ghost"
               size="icon"
-              className="text-[var(--text-main)] hover:bg-[var(--surface)]"
+              className="text-[var(--text-main)] hover:bg-[var(--surface)] shrink-0"
             >
               <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-[var(--warning)]" />
               <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-[var(--accent-cyan)]" />
@@ -212,21 +212,23 @@ const DashboardLayout: React.FC = () => {
             </Button>
 
             {/* Notification Bell */}
-            <NotificationBell onClick={() => setIsNotificationOpen(true)} />
+            <div className="shrink-0">
+              <NotificationBell onClick={() => setIsNotificationOpen(true)} />
+            </div>
 
-            <div className="hidden md:block text-right">
-              <p className="text-sm text-[var(--text-main)]">
+            <div className="hidden md:block text-right shrink-0">
+              <p className="text-sm text-[var(--text-main)] truncate max-w-[120px] lg:max-w-[200px]" title={user?.name || user?.email || t('common:dashboard.user')}>
                 {user?.name || user?.email || t('common:dashboard.user')}
               </p>
-              <p className="text-xs text-[var(--text-sub)]">{roleName}</p>
+              <p className="text-xs text-[var(--text-sub)]">{t(`common:roles.${userRole}`)}</p>
             </div>
             <Button
               onClick={logout}
               variant="outline"
               size="sm"
-              className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--surface)]"
+              className="border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--surface)] shrink-0 min-w-[100px]"
             >
-              <LogOut className="h-4 w-4 mr-2" />
+              <LogOut className="h-4 w-4 mr-2 shrink-0" />
               <span className="hidden md:inline">{t('common:dashboard.logout')}</span>
             </Button>
           </div>

@@ -164,6 +164,10 @@ userSchema.virtual('fullName').get(function() {
 
 // Normalize positionKey before saving
 userSchema.pre("save", async function (next) {
+  if (this.isNew) {
+    this.initializeLeaveBalance();
+  }
+
   // Normalize positionKey when position is set or modified
   if (this.isModified("position")) {
     this.positionKey = this.position ? this.position.trim().toLowerCase() : null;
@@ -202,8 +206,22 @@ userSchema.methods.recalculateLeaveBalance = function () {
 userSchema.methods.initializeLeaveBalance = function () {
   // Kiểm tra nếu leaveBalance chưa tồn tại hoặc chưa có các field cần thiết
   if (!this.leaveBalance || !this.leaveBalance.annual) {
+    let annualTotal = 12;
+    // Tính toán số ngày phép theo tỷ lệ (prorated) nếu vào làm trong năm nay
+    if (this.createdAt) {
+      const joinDate = new Date(this.createdAt);
+      const currentYear = new Date().getFullYear();
+      if (joinDate.getFullYear() === currentYear) {
+        const joinMonth = joinDate.getMonth(); // 0-11
+        const joinDay = joinDate.getDate();
+        // Nếu vào làm sau ngày 15, không tính phép tháng đó
+        const monthsWorked = 12 - joinMonth - (joinDay > 15 ? 1 : 0);
+        annualTotal = Math.max(0, monthsWorked);
+      }
+    }
+
     this.leaveBalance = {
-      annual: { total: 12, used: 0, remaining: 12, pending: 0 },
+      annual: { total: annualTotal, used: 0, remaining: annualTotal, pending: 0 },
       sick: { total: 30, used: 0, remaining: 30, pending: 0 },
       unpaid: { total: 30, used: 0, remaining: 30, pending: 0 },
       compensatory: { total: 0, used: 0, remaining: 0, pending: 0 },

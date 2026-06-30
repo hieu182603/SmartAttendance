@@ -520,7 +520,7 @@ export const getMyPayslip = async (req, res) => {
     let { month } = req.query;
     if (month === "all") {
       const records = await PayrollRecordModel.find({ userId })
-        .populate("userId", "name email employeeId department position")
+        .populate("userId", "name email employeeId department position baseSalary")
         .populate("approvedBy", "name email")
         .sort({ month: -1 })
         .lean();
@@ -538,7 +538,7 @@ export const getMyPayslip = async (req, res) => {
     }
 
     const record = await PayrollRecordModel.findOne({ userId, month })
-      .populate("userId", "name email employeeId department position")
+      .populate("userId", "name email employeeId department position baseSalary")
       .populate("approvedBy", "name email")
       .lean();
 

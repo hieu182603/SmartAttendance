@@ -3,10 +3,13 @@ import { cn } from "@/components/ui/utils";
 
 interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: number
+  indicatorClassName?: string
 }
 
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
-  ({ className, value = 0, ...props }, ref) => {
+  ({ className, value = 0, indicatorClassName, ...props }, ref) => {
+    // Ensure value is a safe number between 0 and 100
+    const safeValue = isNaN(Number(value)) ? 0 : Math.min(100, Math.max(0, Number(value)));
     return (
       <div
         ref={ref}
@@ -17,8 +20,8 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
         {...props}
       >
         <div
-          className="h-full w-full flex-1 bg-[var(--primary)] transition-all duration-300"
-          style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+          className={cn("h-full bg-[var(--primary)] transition-all duration-300", indicatorClassName)}
+          style={{ width: `${safeValue}%` }}
         />
       </div>
     );

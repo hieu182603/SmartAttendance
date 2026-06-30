@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
@@ -18,8 +18,6 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -37,42 +35,27 @@ import { hasMinimumLevel, UserRole, type UserRoleType } from "@/utils/roles";
 
 type EventType = "holiday" | "meeting" | "event" | "deadline" | "training";
 
-// Map backend color to Tailwind class
-const getColorClass = (color?: string): string => {
-  if (!color) return "bg-blue-500";
-  // If it's a hex color, convert to Tailwind class
+const getFixedColorClass = (type: string): string => {
   const colorMap: Record<string, string> = {
-    "#3B82F6": "bg-blue-500",
-    "#EF4444": "bg-red-500",
-    "#F59E0B": "bg-orange-500",
-    "#10B981": "bg-green-500",
-    "#8B5CF6": "bg-purple-500",
-    "#EC4899": "bg-pink-500",
+    holiday: "bg-red-500",
+    meeting: "bg-blue-500",
+    event: "bg-green-500",
+    deadline: "bg-orange-500",
+    training: "bg-purple-500",
   };
-  return colorMap[color] || "bg-blue-500";
+  return colorMap[type] || "bg-blue-500";
 };
 
-// Convert backend Event to frontend Event format
 const mapEvent = (event: Event) => {
   const pad = (n: number) => String(n).padStart(2, "0");
-
-  // Parse date correctly to avoid timezone issues
   let dateStr: string;
   if (typeof event.date === "string" && event.date.includes("T")) {
-    // If it's an ISO string, extract just the date part
     dateStr = event.date.split("T")[0];
-  } else if (
-    typeof event.date === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(event.date)
-  ) {
-    // Already in YYYY-MM-DD format
+  } else if (typeof event.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(event.date)) {
     dateStr = event.date;
   } else {
-    // Parse as date but use local timezone
     const eventDate = new Date(event.date);
-    dateStr = `${eventDate.getFullYear()}-${pad(
-      eventDate.getMonth() + 1
-    )}-${pad(eventDate.getDate())}`;
+    dateStr = `${eventDate.getFullYear()}-${pad(eventDate.getMonth() + 1)}-${pad(eventDate.getDate())}`;
   }
 
   return {
@@ -82,12 +65,12 @@ const mapEvent = (event: Event) => {
     date: dateStr,
     startTime: event.startTime || "",
     endTime: event.endTime || "",
-    type: event.type,
+    type: event.type as EventType,
     location: event.location,
     attendees: event.attendeeCount || event.attendees?.length || 0,
-    color: getColorClass(event.color),
+    color: getFixedColorClass(event.type),
     isAllDay: event.isAllDay || false,
-    originalEvent: event, // Keep original for reference
+    originalEvent: event,
   };
 };
 
@@ -104,9 +87,7 @@ const CompanyCalendarPage: React.FC = () => {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<ReturnType<typeof mapEvent>[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<
-    ReturnType<typeof mapEvent>[]
-  >([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<ReturnType<typeof mapEvent>[]>([]);
   const [stats, setStats] = useState({
     total: 0,
     upcoming: 0,
@@ -118,26 +99,81 @@ const CompanyCalendarPage: React.FC = () => {
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [eventToDelete, setEventToDelete] = useState<ReturnType<
-    typeof mapEvent
-  > | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<ReturnType<typeof mapEvent> | null>(null);
 
-  // Check if user can create events (HR_MANAGER and above)
-  const canCreateEvent = user
-    ? hasMinimumLevel(user.role as UserRoleType, UserRole.HR_MANAGER)
-    : false;
+  // Filters State
+  const [activeFilters, setActiveFilters] = useState({
+    holiday: true,
+    meeting: true,
+    event: true,
+    deadline: true,
+    training: true,
+  });
 
-  const refreshCalendarData = useCallback(async (month: number, year: number) => {
+  const canCreateEvent = user ? hasMinimumLevel(user.role as UserRoleType, UserRole.HR_MANAGER) : false;
+
+  const getCalendarDays = useCallback(() => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const daysInMonth = lastDayOfMonth.getDate();
+    const startDayIndex = firstDayOfMonth.getDay();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    const calendarDays = [];
+
+    // Padding previous month
+    for (let i = startDayIndex - 1; i >= 0; i--) {
+      calendarDays.push({
+        day: daysInPrevMonth - i,
+        month: month === 0 ? 11 : month - 1,
+        year: month === 0 ? year - 1 : year,
+        isCurrentMonth: false,
+      });
+    }
+
+    // Current month
+    for (let i = 1; i <= daysInMonth; i++) {
+      calendarDays.push({
+        day: i,
+        month: month,
+        year: year,
+        isCurrentMonth: true,
+      });
+    }
+
+    // Padding next month
+    const remainingDays = 42 - calendarDays.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      calendarDays.push({
+        day: i,
+        month: month === 11 ? 0 : month + 1,
+        year: month === 11 ? year + 1 : year,
+        isCurrentMonth: false,
+      });
+    }
+
+    return calendarDays;
+  }, [selectedDate]);
+
+  const refreshCalendarData = useCallback(async () => {
     try {
       setLoading(true);
-      const [upcoming, monthEvents, eventStats] = await Promise.all([
+      const calendarDays = getCalendarDays();
+      const firstCell = calendarDays[0];
+      const lastCell = calendarDays[calendarDays.length - 1];
+
+      const startStr = `${firstCell.year}-${String(firstCell.month + 1).padStart(2, "0")}-${String(firstCell.day).padStart(2, "0")}`;
+      const endStr = `${lastCell.year}-${String(lastCell.month + 1).padStart(2, "0")}-${String(lastCell.day).padStart(2, "0")}`;
+
+      const [upcoming, fetchedEvents, eventStats] = await Promise.all([
         eventService.getUpcomingEvents(),
-        eventService.getMonthEvents(month, year),
-        eventService.getEventStats(month, year),
+        eventService.getAllEvents({ startDate: startStr, endDate: endStr }),
+        eventService.getEventStats(selectedDate.getMonth() + 1, selectedDate.getFullYear()),
       ]);
 
       setUpcomingEvents(upcoming.map(mapEvent));
-      setEvents(monthEvents.map(mapEvent));
+      setEvents(fetchedEvents.map(mapEvent));
       setStats(eventStats);
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -145,132 +181,73 @@ const CompanyCalendarPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [selectedDate, getCalendarDays, t]);
 
-  // Fetch data on mount and when month/year changes
   useEffect(() => {
-    const currentMonth = selectedDate.getMonth() + 1;
-    const currentYear = selectedDate.getFullYear();
-    refreshCalendarData(currentMonth, currentYear);
-  }, [refreshCalendarData, selectedDate.getMonth(), selectedDate.getFullYear()]);
+    void refreshCalendarData();
+  }, [refreshCalendarData]);
 
+  const filteredEvents = useMemo(() => {
+    return events.filter(e => activeFilters[e.type as keyof typeof activeFilters]);
+  }, [events, activeFilters]);
 
-  // Get events for selected date
-  const selectedDateEvents = selectedDate
-    ? events.filter((event) => {
-        const pad = (n: number) => String(n).padStart(2, "0");
-        const localDateStr = `${selectedDate.getFullYear()}-${pad(
-          selectedDate.getMonth() + 1
-        )}-${pad(selectedDate.getDate())}`;
-        return event.date === localDateStr;
-      })
-    : [];
+  const selectedDateStr = useMemo(() => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${selectedDate.getFullYear()}-${pad(selectedDate.getMonth() + 1)}-${pad(selectedDate.getDate())}`;
+  }, [selectedDate]);
+
+  const selectedDateEvents = useMemo(() => {
+    return filteredEvents.filter(e => e.date === selectedDateStr);
+  }, [filteredEvents, selectedDateStr]);
 
   const getTypeLabel = (type: EventType): string => {
     const labels: Record<EventType, string> = {
-      holiday: t("dashboard:companyCalendar.eventTypes.holiday"),
-      meeting: t("dashboard:companyCalendar.eventTypes.meeting"),
-      event: t("dashboard:companyCalendar.eventTypes.event"),
-      deadline: t("dashboard:companyCalendar.eventTypes.deadline"),
-      training: t("dashboard:companyCalendar.eventTypes.training"),
+      holiday: "Ngày lễ toàn quốc",
+      meeting: "Lịch họp nội bộ",
+      event: "Sinh nhật/Sự kiện",
+      deadline: "Deadline dự án",
+      training: "Đào tạo",
     };
     return labels[type] || type;
   };
 
   const getTypeIcon = (type: EventType): ReactNode => {
     switch (type) {
-      case "holiday":
-        return <CalendarIcon className="h-4 w-4" />;
-      case "meeting":
-        return <Users className="h-4 w-4" />;
-      case "event":
-        return <Tag className="h-4 w-4" />;
-      case "deadline":
-        return <Clock className="h-4 w-4" />;
-      case "training":
-        return <FileText className="h-4 w-4" />;
-      default:
-        return <CalendarIcon className="h-4 w-4" />;
+      case "holiday": return <CalendarIcon className="h-4 w-4" />;
+      case "meeting": return <Users className="h-4 w-4" />;
+      case "event": return <Tag className="h-4 w-4" />;
+      case "deadline": return <Clock className="h-4 w-4" />;
+      case "training": return <FileText className="h-4 w-4" />;
+      default: return <CalendarIcon className="h-4 w-4" />;
     }
   };
 
-  const handleCreateEvent = (): void => {
-    setIsCreateDialogOpen(true);
-  };
-
-  const handleCreateSuccess = (): void => {
-    const currentMonth = selectedDate.getMonth() + 1;
-    const currentYear = selectedDate.getFullYear();
-    void refreshCalendarData(currentMonth, currentYear);
-  };
-
-  const handleViewEvent = (event: ReturnType<typeof mapEvent>): void => {
-    // Show event details in a toast or open a detail dialog
-    toast.info(`📋 ${event.title}`, {
-      description: event.description,
-    });
-  };
-
-  const handleUpdateEvent = (
-    event: ReturnType<typeof mapEvent>,
-    e: React.MouseEvent
-  ): void => {
-    e.stopPropagation(); // Prevent triggering handleViewEvent
-    setSelectedEvent(event.originalEvent);
-    setIsUpdateDialogOpen(true);
-  };
-
-  const handleDeleteEvent = (
-    event: ReturnType<typeof mapEvent>,
-    e: React.MouseEvent
-  ): void => {
-    e.stopPropagation(); // Prevent triggering handleViewEvent
-    setEventToDelete(event);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async (): Promise<void> => {
-    if (!eventToDelete) return;
-
-    try {
-      await eventService.deleteEvent(eventToDelete.id);
-      toast.success(t("dashboard:companyCalendar.deleteSuccess"));
-      handleCreateSuccess(); // Refresh data
-      setIsDeleteDialogOpen(false);
-      setEventToDelete(null);
-    } catch (error: any) {
-      console.error("Error deleting event:", error);
-      toast.error(
-        error.response?.data?.message ||
-          t("dashboard:companyCalendar.deleteError")
-      );
-    }
-  };
+  const currentMonthLabel = `Th ${selectedDate.getMonth() + 1}`;
 
   const statCards: StatCard[] = [
     {
-      label: t("dashboard:companyCalendar.stats.total"),
+      label: `Tổng sự kiện (${currentMonthLabel})`,
       value: stats.total,
       color: "primary",
       icon: "📋",
       delay: 0.1,
     },
     {
-      label: t("dashboard:companyCalendar.stats.upcoming"),
+      label: "Sắp diễn ra",
       value: stats.upcoming,
       color: "warning",
       icon: "⏰",
       delay: 0.2,
     },
     {
-      label: t("dashboard:companyCalendar.stats.holidays"),
+      label: `Ngày lễ (${currentMonthLabel})`,
       value: stats.holidays,
       color: "error",
       icon: "🎉",
       delay: 0.3,
     },
     {
-      label: t("dashboard:companyCalendar.stats.meetingsAndTraining"),
+      label: `Họp & Đào tạo (${currentMonthLabel})`,
       value: stats.meetingsAndTraining,
       color: "accent-cyan",
       icon: "👥",
@@ -278,29 +255,57 @@ const CompanyCalendarPage: React.FC = () => {
     },
   ];
 
+  const handleUpdateEvent = (event: ReturnType<typeof mapEvent>, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedEvent(event.originalEvent);
+    setIsUpdateDialogOpen(true);
+  };
+
+  const handleDeleteEvent = (event: ReturnType<typeof mapEvent>, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEventToDelete(event);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async (): Promise<void> => {
+    if (!eventToDelete) return;
+    try {
+      await eventService.deleteEvent(eventToDelete.id);
+      toast.success(t("dashboard:companyCalendar.deleteSuccess"));
+      void refreshCalendarData();
+      setIsDeleteDialogOpen(false);
+      setEventToDelete(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t("dashboard:companyCalendar.deleteError"));
+    }
+  };
+
+  const handleSetToday = () => {
+    setSelectedDate(new Date());
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
-            {t("dashboard:companyCalendar.title")}
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] bg-clip-text text-transparent">
+            Lịch Công ty
           </h1>
           <p className="text-[var(--text-sub)] mt-2">
-            {t("dashboard:companyCalendar.description")}
+            Quản lý và theo dõi các sự kiện, ngày lễ, cuộc họp
           </p>
         </div>
         {canCreateEvent && (
           <Button
-            onClick={handleCreateEvent}
-            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white"
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent-cyan)] text-white font-medium shadow-md"
           >
             <Plus className="h-4 w-4 mr-2" />
-            {t("dashboard:companyCalendar.createEvent")}
+            Thêm sự kiện
           </Button>
         )}
       </div>
-
 
       {/* Summary Stats - 4 KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -312,7 +317,7 @@ const CompanyCalendarPage: React.FC = () => {
             transition={{ delay: stat.delay }}
             whileHover={{ scale: 1.05, y: -5 }}
           >
-            <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all">
+            <Card className="bg-[var(--surface)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all h-full shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mt-3">
                   <div>
@@ -323,21 +328,12 @@ const CompanyCalendarPage: React.FC = () => {
                       className={`text-4xl font-bold mt-2 text-[var(--${stat.color})]`}
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      transition={{
-                        delay: stat.delay + 0.2,
-                        type: "spring",
-                      }}
+                      transition={{ delay: stat.delay + 0.2, type: "spring" }}
                     >
                       {stat.value}
                     </motion.p>
                   </div>
-                  <motion.div
-                    className="text-3xl"
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    {stat.icon}
-                  </motion.div>
+                  <div className="text-3xl">{stat.icon}</div>
                 </div>
               </CardContent>
             </Card>
@@ -345,504 +341,285 @@ const CompanyCalendarPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Main Content - Calendar (4) + Upcoming Events (8) */}
+      {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Calendar - 4 columns */}
+        {/* Left Col - Calendar Grid (65%) */}
         <motion.div
-          className="lg:col-span-4"
+          className="lg:col-span-8"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-[var(--text-sub)] hover:text-[var(--text-main)]"
-                  onClick={() => {
-                    const newDate = new Date(selectedDate);
-                    newDate.setMonth(newDate.getMonth() - 1);
-                    setSelectedDate(newDate);
-                  }}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <h3 className="text-base font-medium text-[var(--text-main)]">
-                  {selectedDate.toLocaleDateString("en-US", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-[var(--text-sub)] hover:text-[var(--text-main)]"
-                  onClick={() => {
-                    const newDate = new Date(selectedDate);
-                    newDate.setMonth(newDate.getMonth() + 1);
-                    setSelectedDate(newDate);
-                  }}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+          <Card className="bg-[var(--surface)] border-[var(--border)] shadow-sm">
+            <CardHeader className="pb-4 border-b border-[var(--border)]">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                {/* Month/Year Nav */}
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    className="h-9 border-[var(--border)] text-[var(--text-main)] hover:bg-[var(--shell)] font-medium"
+                    onClick={handleSetToday}
+                  >
+                    Hôm nay
+                  </Button>
+                  <div className="flex items-center bg-[var(--shell)] rounded-md border border-[var(--border)]">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-[var(--text-sub)] hover:text-[var(--text-main)] rounded-none rounded-l-md"
+                      onClick={() => {
+                        const newDate = new Date(selectedDate);
+                        newDate.setMonth(newDate.getMonth() - 1);
+                        setSelectedDate(newDate);
+                      }}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <h3 className="text-sm font-semibold text-[var(--text-main)] min-w-[140px] text-center px-2">
+                      Tháng {selectedDate.getMonth() + 1} Năm {selectedDate.getFullYear()}
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-[var(--text-sub)] hover:text-[var(--text-main)] rounded-none rounded-r-md"
+                      onClick={() => {
+                        const newDate = new Date(selectedDate);
+                        newDate.setMonth(newDate.getMonth() + 1);
+                        setSelectedDate(newDate);
+                      }}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Event Filters */}
+                <div className="flex flex-wrap gap-2">
+                  {(["holiday", "meeting", "event", "deadline", "training"] as EventType[]).map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setActiveFilters(prev => ({ ...prev, [type]: !prev[type as keyof typeof activeFilters] }))}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                        activeFilters[type as keyof typeof activeFilters] 
+                        ? `bg-[var(--shell)] border-transparent text-[var(--text-main)] shadow-sm` 
+                        : "bg-transparent border-[var(--border)] text-[var(--text-sub)] opacity-50 hover:opacity-100"
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${getFixedColorClass(type)}`} />
+                      {getTypeLabel(type).split(" ")[0]} 
+                    </button>
+                  ))}
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-0">
-              <Calendar
-                {...({
-                  mode: "single",
-                  selected: selectedDate,
-                  onSelect: (date: Date | undefined) =>
-                    date && setSelectedDate(date),
-                  month: selectedDate,
-                  onMonthChange: (date: Date) => setSelectedDate(date),
-                  modifiers: {
-                    hasEvent: events.map((e) => {
-                      const [year, month, day] = e.date.split("-");
-                      return new Date(Number(year), Number(month) - 1, Number(day));
-                    }),
-                  },
-                  modifiersClassNames: {
-                    hasEvent: "relative after:content-[''] after:absolute after:bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-[var(--accent-cyan)] after:rounded-full font-bold text-[var(--accent-cyan)]",
-                  },
-                } as any)}
-                className="rounded-md w-full p-0"
-              />
+            <CardContent className="pt-4">
+              {/* Custom CSS Grid Calendar */}
+              <div className="border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--border)]">
+                {/* Weekdays Row */}
+                <div className="grid grid-cols-7 bg-[var(--shell)] border-b border-[var(--border)]">
+                  {["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"].map(day => (
+                    <div key={day} className="py-3 text-center text-xs font-semibold text-[var(--text-sub)] uppercase">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Days Grid */}
+                <div className="grid grid-cols-7 gap-px">
+                  {getCalendarDays().map((cell, idx) => {
+                    const cellDateStr = `${cell.year}-${String(cell.month + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`;
+                    const isSelected = cellDateStr === selectedDateStr;
+                    const cellEvents = filteredEvents.filter(e => e.date === cellDateStr);
+                    const todayObj = new Date();
+                    const realTodayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+                    const isActualToday = cellDateStr === realTodayStr;
 
-              {/* Selected Date Info */}
-              {selectedDate && (
-                <div className="mt-4 p-4 sm:p-5 rounded-xl bg-[var(--shell)] border border-[var(--border)] dark:border-white/10 shadow-sm">
-                  <p className="text-xs text-[var(--text-sub)] mb-1">
-                    {t("dashboard:companyCalendar.selectedDate")}
-                  </p>
-                  <p className="text-sm text-[var(--text-main)] mb-2">
-                    {selectedDate.toLocaleDateString("vi-VN", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                  {selectedDateEvents.length > 0 ? (
-                    <div className="space-y-2">
-                      <Badge className="bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] border-[var(--accent-cyan)]/40">
-                        {selectedDateEvents.length}{" "}
-                        {t("dashboard:companyCalendar.events")}
-                      </Badge>
-                      <div className="space-y-1">
-                        {selectedDateEvents.map((event) => (
-                          <div
-                            key={event.id}
-                            className="text-xs p-3 sm:p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] dark:border-white/10 shadow-sm cursor-pointer hover:border-[var(--accent-cyan)] dark:hover:border-[var(--accent-cyan)] transition-all"
-                            onClick={() => handleViewEvent(event)}
-                          >
-                            <div className="flex items-center gap-2">
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedDate(new Date(cell.year, cell.month, cell.day))}
+                        className={`min-h-[100px] p-2 cursor-pointer transition-colors relative bg-[var(--surface)] hover:bg-[var(--shell)] flex flex-col items-center ${
+                          !cell.isCurrentMonth ? "opacity-40" : ""
+                        } ${isSelected ? "ring-2 ring-[var(--accent-cyan)] ring-inset z-10" : ""}`}
+                      >
+                        <div className={`w-7 h-7 mt-1 rounded-full flex items-center justify-center text-sm font-medium ${
+                          isSelected 
+                            ? "bg-[var(--accent-cyan)] text-white" 
+                            : isActualToday
+                              ? "bg-[var(--primary)] text-white"
+                              : "text-[var(--text-main)]"
+                        }`}>
+                          {cell.day}
+                        </div>
+                        
+                        {/* Dot Indicators */}
+                        {cellEvents.length > 0 && (
+                          <div className="mt-auto pt-2 pb-1 flex justify-center gap-1 px-1 flex-wrap w-full">
+                            {cellEvents.slice(0, 4).map((evt, eIdx) => (
                               <div
-                                className={`w-2 h-2 rounded-full ${event.color}`}
+                                key={eIdx}
+                                title={evt.title}
+                                className={`w-2 h-2 rounded-full ${evt.color}`}
                               />
-                              <span className="text-[var(--text-main)] font-medium truncate">
-                                {event.title}
-                              </span>
-                            </div>
-                            {!event.isAllDay && (
-                              <div className="text-[var(--text-sub)] ml-4 mt-1">
-                                {event.startTime} - {event.endTime}
+                            ))}
+                            {cellEvents.length > 4 && (
+                              <div className="w-2 h-2 rounded-full bg-[var(--text-sub)] flex items-center justify-center" title={`${cellEvents.length - 4} sự kiện khác`}>
+                                <span className="text-[10px] leading-none text-[var(--surface)] font-bold absolute transform scale-[0.6]">+</span>
                               </div>
                             )}
                           </div>
-                        ))}
+                        )}
                       </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-[var(--text-sub)]">
-                      {t("dashboard:companyCalendar.noEvents")}
-                    </p>
-                  )}
+                    );
+                  })}
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Upcoming Events - 8 columns */}
+        {/* Right Col - Details & Upcoming (35%) */}
         <motion.div
-          className="lg:col-span-8"
+          className="lg:col-span-4 space-y-6"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <Card className="bg-[var(--surface)] border-[var(--border)]">
-            <CardHeader>
+          {/* Selected Date Details */}
+          <Card className="bg-[var(--surface)] border-[var(--border)] shadow-sm">
+            <CardHeader className="pb-3 border-b border-[var(--border)]">
+              <CardTitle className="text-lg font-semibold text-[var(--text-main)] flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-[var(--primary)]" /> Chi tiết ngày
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="p-4 rounded-xl bg-[var(--shell)] border border-[var(--border)]">
+                <p className="text-sm text-[var(--text-main)] mb-4 font-semibold text-center border-b border-[var(--border)] pb-2">
+                  {selectedDate.toLocaleDateString("vi-VN", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+                {selectedDateEvents.length > 0 ? (
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                    {selectedDateEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="text-sm p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] shadow-sm group hover:border-[var(--accent-cyan)] transition-all relative"
+                      >
+                        <div className="flex items-center gap-2 mb-1.5 pr-14">
+                          <div className={`w-2.5 h-2.5 rounded-full ${event.color} shrink-0 shadow-sm`} />
+                          <span className="text-[var(--text-main)] font-semibold truncate flex-1" title={event.title}>
+                            {event.title}
+                          </span>
+                        </div>
+                        <div className="text-[var(--text-sub)] ml-5 text-xs space-y-1">
+                          {!event.isAllDay && (
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5" /> {event.startTime} - {event.endTime}
+                            </div>
+                          )}
+                          {event.location && (
+                            <div className="flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5" /> <span className="truncate" title={event.location}>{event.location}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* HR Actions */}
+                        {canCreateEvent && (
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity bg-[var(--shell)] p-0.5 rounded-md shadow-sm border border-[var(--border)]">
+                            <button className="p-1.5 text-[var(--text-sub)] hover:text-[var(--primary)] hover:bg-[var(--surface)] rounded" onClick={(e) => handleUpdateEvent(event, e)}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button className="p-1.5 text-[var(--text-sub)] hover:text-red-500 hover:bg-[var(--surface)] rounded" onClick={(e) => handleDeleteEvent(event, e)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center text-[var(--text-sub)] opacity-70">
+                    <div className="text-4xl mb-2 grayscale opacity-50">🏝️</div>
+                    <p className="text-sm italic">Không có sự kiện nào.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Upcoming Events */}
+          <Card className="bg-[var(--surface)] border-[var(--border)] shadow-sm">
+            <CardHeader className="pb-3 border-b border-[var(--border)]">
               <div className="flex items-center gap-2">
                 <Bell className="h-5 w-5 text-[var(--accent-cyan)]" />
-                <CardTitle className="text-[var(--text-main)]">
+                <CardTitle className="text-lg font-semibold text-[var(--text-main)]">
                   {t("dashboard:companyCalendar.upcomingEvents")}
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="pt-4 space-y-3">
               {loading ? (
-                <div className="text-center py-12">
-                  <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-[var(--text-sub)]">
-                    {t("dashboard:companyCalendar.loading")}
-                  </p>
+                <div className="text-center py-8">
+                  <div className="w-8 h-8 border-2 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-[var(--text-sub)]">Đang tải...</p>
                 </div>
               ) : upcomingEvents.length > 0 ? (
-                upcomingEvents.map((event, index) => (
+                upcomingEvents.slice(0, 5).map((event, index) => (
                   <motion.div
                     key={event.id}
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 + index * 0.05 }}
-                    whileHover={{ x: 5 }}
+                    transition={{ delay: 0.2 + index * 0.05 }}
+                    className="p-3 rounded-lg border border-[var(--border)] bg-[var(--shell)] hover:bg-[var(--surface)] transition-colors flex items-center gap-3 cursor-pointer"
+                    onClick={() => setSelectedDate(new Date(event.date))}
                   >
-                    <Card
-                      className="bg-[var(--shell)] border-[var(--border)] hover:border-[var(--accent-cyan)] transition-all cursor-pointer relative"
-                      onClick={() => handleViewEvent(event)}
-                    >
-                      <CardContent className="p-4 mt-4">
-                        <div className="flex items-start gap-4">
-                          {/* Icon */}
-                          <div
-                            className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
-                          >
-                            <span className="text-white">
-                              {getTypeIcon(event.type)}
-                            </span>
-                          </div>
-
-                          {/* Event Info */}
-                          <div className="flex-1 min-w-0 pr-16 pb-8 sm:pr-24 sm:pb-0">
-                            <div className="flex items-start justify-between mb-2 gap-4">
-                              <div className="min-w-0 flex-1">
-                                <h4 className="text-[var(--text-main)] truncate text-base font-semibold">
-                                  {event.title}
-                                </h4>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge
-                                    className={`${event.color} bg-opacity-20 text-black`}
-                                    style={{
-                                      color: event.color.replace("bg-", ""),
-                                    }}
-                                  >
-                                    {getTypeLabel(event.type)}
-                                  </Badge>
-                                  {event.isAllDay && (
-                                    <Badge
-                                      variant="outline"
-                                      className="border-[var(--border)] text-[var(--text-sub)] text-xs"
-                                    >
-                                      {t("dashboard:companyCalendar.allDay")}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <Badge className="bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] text-xs whitespace-nowrap">
-                                {new Date(event.date).toLocaleDateString(
-                                  "vi-VN",
-                                  { day: "numeric", month: "short" }
-                                )}
-                              </Badge>
-                            </div>
-
-                            <p className="text-sm text-[var(--text-sub)] mb-3">
-                              {event.description}
-                            </p>
-
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--text-sub)]">
-                              {!event.isAllDay && (
-                                <div className="flex items-center gap-2">
-                                  <Clock className="h-4 w-4 text-[var(--accent-cyan)]" />
-                                  <span>
-                                    {event.startTime} - {event.endTime}
-                                  </span>
-                                </div>
-                              )}
-                              {event.location && (
-                                <div className="flex items-center gap-2">
-                                  <MapPin className="h-4 w-4 text-[var(--success)]" />
-                                  <span>{event.location}</span>
-                                </div>
-                              )}
-                              {event.attendees > 0 && (
-                                <div className="flex items-center gap-2">
-                                  <Users className="h-4 w-4 text-[var(--primary)]" />
-                                  <span>{event.attendees} người</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Action Buttons for HR_MANAGER */}
-                            {canCreateEvent && (
-                              <div className="absolute bottom-3 right-3 flex gap-1.5">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUpdateEvent(event, e);
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-red-500 hover:bg-red-500/10"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteEvent(event, e);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div className={`w-10 h-10 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0 shadow-inner`}>
+                      <span className={`text-${event.color.replace('bg-', '')}`}>
+                        {getTypeIcon(event.type)}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-[var(--text-main)] truncate block" title={event.title}>
+                        {event.title}
+                      </p>
+                      <p className="text-xs text-[var(--text-sub)] mt-1 flex items-center gap-1.5">
+                        <CalendarIcon className="w-3.5 h-3.5" />
+                        {new Date(event.date).toLocaleDateString("vi-VN", { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </p>
+                    </div>
                   </motion.div>
                 ))
               ) : (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-center py-12"
-                >
-                  <div className="text-6xl mb-4">📅</div>
-                  <p className="text-[var(--text-sub)]">
-                    {t("dashboard:companyCalendar.noUpcomingEvents")}
-                  </p>
-                </motion.div>
+                <div className="text-center py-8 text-[var(--text-sub)] text-sm">
+                  Không có sự kiện sắp tới
+                </div>
               )}
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
-      {/* All Events List */}
-      <Card className="bg-[var(--surface)] border-[var(--border)]">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-[var(--text-main)]">
-              {t("dashboard:companyCalendar.allEvents")} ({events.length})
-              {" - "}
-              {(() => {
-                const dateStr = selectedDate.toLocaleDateString("vi-VN", {
-                  month: "long",
-                  year: "numeric",
-                });
-                return dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-              })()}
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="w-12 h-12 border-4 border-[var(--accent-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-[var(--text-sub)]">
-                  {t("dashboard:companyCalendar.loading")}
-                </p>
-              </div>
-            ) : events.length > 0 ? (
-              events
-                .sort(
-                  (a, b) =>
-                    new Date(a.date).getTime() - new Date(b.date).getTime()
-                )
-                .map((event, index) => (
-                  <motion.div
-                    key={`${event.id}-${index}`}
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                    transition={{ 
-                      delay: index * 0.03,
-                      duration: 0.3,
-                      ease: "easeOut"
-                    }}
-                    className="p-4 rounded-lg bg-[var(--shell)] border border-[var(--border)] cursor-pointer hover:border-[var(--primary)] transition-all relative"
-                    onClick={() => handleViewEvent(event)}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div
-                        className={`h-12 w-12 rounded-lg ${event.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
-                      >
-                        <span className="text-white">
-                          {getTypeIcon(event.type)}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0 pr-16 pb-8 sm:pr-24 sm:pb-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-[var(--text-main)] truncate text-base font-semibold min-w-0 max-w-[200px] sm:max-w-[400px]">
-                            {event.title}
-                          </h3>
-                          <Badge
-                            className={`${event.color} bg-opacity-20 text-black`}
-                            style={{ color: event.color.replace("bg-", "") }}
-                          >
-                            {getTypeLabel(event.type)}
-                          </Badge>
-                          {event.isAllDay && (
-                            <Badge
-                              variant="outline"
-                              className="border-[var(--border)] text-[var(--text-sub)]"
-                            >
-                              Cả ngày
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-[var(--text-sub)] mb-3">
-                          {event.description}
-                        </p>
-                        <div className="flex items-center gap-6 text-sm text-[var(--text-sub)]">
-                          <div className="flex items-center gap-2">
-                            <CalendarIcon className="h-4 w-4" />
-                            <span>
-                              {new Date(event.date).toLocaleDateString("vi-VN")}
-                            </span>
-                          </div>
-                          {!event.isAllDay && (
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
-                              <span>
-                                {event.startTime} - {event.endTime}
-                              </span>
-                            </div>
-                          )}
-                          {event.location && (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              <span>{event.location}</span>
-                            </div>
-                          )}
-                          {event.attendees > 0 && (
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              <span>{event.attendees} người tham gia</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action Buttons for HR_MANAGER */}
-                        {canCreateEvent && (
-                          <div className="absolute bottom-3 right-3 flex gap-1.5">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleUpdateEvent(event, e);
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-9 w-9 rounded-lg text-[var(--text-sub)] hover:text-red-500 hover:bg-red-500/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteEvent(event, e);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
-            ) : (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-12"
-              >
-                <div className="text-6xl mb-4">📅</div>
-                <p className="text-[var(--text-main)] font-medium mb-2">
-                  {t("dashboard:companyCalendar.noEventsThisMonth")}
-                </p>
-              </motion.div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Create Event Dialog */}
-      <CreateEventDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-        onSuccess={handleCreateSuccess}
-      />
-
-      {/* Update Event Dialog */}
-      {selectedEvent && (
-        <UpdateEventDialog
-          open={isUpdateDialogOpen}
-          onOpenChange={setIsUpdateDialogOpen}
-          event={selectedEvent}
-          onSuccess={handleCreateSuccess}
-        />
-      )}
-
-      {/* Delete Confirmation Dialog */}
+      <CreateEventDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} onSuccess={refreshCalendarData} />
+      {selectedEvent && <UpdateEventDialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen} event={selectedEvent} onSuccess={refreshCalendarData} />}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] w-[90vw] sm:max-w-[425px] overflow-hidden">
+        <DialogContent className="bg-[var(--surface)] border-[var(--border)] text-[var(--text-main)] w-[90vw] sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>
-              {t("dashboard:companyCalendar.deleteDialog.title")}
-            </DialogTitle>
+            <DialogTitle>Xóa sự kiện</DialogTitle>
             <DialogDescription className="text-[var(--text-sub)]">
-              {t("dashboard:companyCalendar.deleteDialog.description")}
+              Bạn có chắc chắn muốn xóa sự kiện này?
             </DialogDescription>
           </DialogHeader>
-          {eventToDelete && (
-            <div className="py-4 w-full overflow-hidden">
-              <div className="flex items-center space-x-3 p-4 bg-[var(--shell)] rounded-lg w-full overflow-hidden">
-                <div
-                  className={`h-12 w-12 rounded-lg ${eventToDelete.color} bg-opacity-20 flex items-center justify-center flex-shrink-0`}
-                >
-                  <span className="text-white">
-                    {getTypeIcon(eventToDelete.type)}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="text-[var(--text-main)] font-medium truncate block w-full">
-                    {eventToDelete.title}
-                  </p>
-                  <p className="text-sm text-[var(--text-sub)]">
-                    {new Date(eventToDelete.date).toLocaleDateString("vi-VN")}
-                  </p>
-                </div>
-              </div>
-              <p className="text-red-500 text-sm mt-4">
-                {t("dashboard:companyCalendar.deleteDialog.warning")}
-              </p>
-            </div>
-          )}
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              className="border-[var(--border)] text-[var(--text-main)]"
-            >
-              {t("dashboard:companyCalendar.deleteDialog.cancel")}
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="border-[var(--border)] text-[var(--text-main)]">
+              Hủy
             </Button>
-            <Button
-              onClick={confirmDelete}
-              className="bg-red-500 hover:bg-red-600 text-white"
-            >
-              {t("dashboard:companyCalendar.deleteDialog.confirm")}
+            <Button onClick={confirmDelete} className="bg-red-500 hover:bg-red-600 text-white">
+              Xóa
             </Button>
           </DialogFooter>
         </DialogContent>
